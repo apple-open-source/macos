@@ -137,6 +137,7 @@
 #import <WebCore/BackForwardCache.h>
 #import <WebCore/BackForwardController.h>
 #import <WebCore/BroadcastChannelRegistry.h>
+#import <WebCore/CGWindowUtilities.h>
 #import <WebCore/CacheStorageProvider.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/ColorMac.h>
@@ -259,6 +260,7 @@
 #import <pal/spi/mac/NSViewSPI.h>
 #import <pal/spi/mac/NSWindowSPI.h>
 #import <wtf/Assertions.h>
+#import <wtf/Atomics.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/FileSystem.h>
 #import <wtf/HashTraits.h>
@@ -289,7 +291,6 @@
 #import "WebNSPasteboardExtras.h"
 #import "WebNSPrintOperationExtras.h"
 #import "WebPDFView.h"
-#import "WebSwitchingGPUClient.h"
 #import "WebVideoFullscreenController.h"
 #import <WebCore/TextIndicator.h>
 #import <WebCore/TextIndicatorWindow.h>
@@ -330,7 +331,6 @@
 #import <WebCore/WebEvent.h>
 #import <WebCore/WebSQLiteDatabaseTrackerClient.h>
 #import <WebCore/WebVideoFullscreenControllerAVKit.h>
-#import <libkern/OSAtomic.h>
 #import <pal/spi/ios/ManagedConfigurationSPI.h>
 #import <pal/spi/ios/MobileGestaltSPI.h>
 #import <wtf/FastMalloc.h>
@@ -1484,9 +1484,7 @@ static WebCore::ApplicationCacheStorage& webApplicationCacheStorage()
 #if ENABLE(GAMEPAD)
         WebKitInitializeGamepadProviderIfNecessary();
 #endif
-#if PLATFORM(MAC)
-        WebCore::SwitchingGPUClient::setSingleton(WebKit::WebSwitchingGPUClient::singleton());
-#endif
+
 
 #if PLATFORM(IOS_FAMILY)
         if (WebCore::IOSApplication::isMobileSafari())
@@ -1518,7 +1516,7 @@ static WebCore::ApplicationCacheStorage& webApplicationCacheStorage()
             return makeUniqueRef<WebFrameLoaderClient>();
         } },
         WebCore::FrameIdentifier::generate(),
-        nullptr,
+        nullptr, // Opener may be set by setOpenerForWebKitLegacy.
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<WebCore::MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled]),
@@ -1781,7 +1779,7 @@ static WebCore::ApplicationCacheStorage& webApplicationCacheStorage()
             return makeUniqueRef<WebFrameLoaderClient>();
         } },
         WebCore::FrameIdentifier::generate(),
-        nullptr,
+        nullptr, // Opener may be set by setOpenerForWebKitLegacy.
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<WebCore::MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled]),
@@ -2306,10 +2304,8 @@ static NSMutableSet *knownPluginMIMETypes()
         return;
     }
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    if (!OSAtomicCompareAndSwap32(0, 1, &_private->didDrawTiles))
+    if (!WTF::atomicCompareExchangeStrong(&_private->didDrawTiles, NO, YES))
         return;
-ALLOW_DEPRECATED_DECLARATIONS_END
 
     WebThreadLock();
 
@@ -2764,17 +2760,17 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     // type.  (See behavior matrix at the top of WebFramePrivate.)  So we copy all the items
     // in the back forward list, and go to the current one.
 
-    auto& backForward = _private->page->backForward();
-    ASSERT(!backForward.currentItem()); // destination list should be empty
+    CheckedRef backForward = _private->page->backForward();
+    ASSERT(!backForward->currentItem()); // destination list should be empty
 
-    auto& otherBackForward = otherView->_private->page->backForward();
-    if (!otherBackForward.currentItem())
+    CheckedRef otherBackForward = otherView->_private->page->backForward();
+    if (!otherBackForward->currentItem())
         return; // empty back forward list, bail
 
     WebCore::HistoryItem* newItemToGoTo = nullptr;
 
-    int lastItemIndex = otherBackForward.forwardCount();
-    for (int i = -otherBackForward.backCount(); i <= lastItemIndex; ++i) {
+    int lastItemIndex = otherBackForward->forwardCount();
+    for (int i = -otherBackForward->backCount(); i <= lastItemIndex; ++i) {
         if (i == 0) {
             // If this item is showing , save away its current scroll and form state,
             // since that might have changed since loading and it is normally not saved
@@ -2782,10 +2778,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             if (auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(otherView->_private->page->mainFrame()))
                 localMainFrame->history().saveDocumentAndScrollState();
         }
-        Ref<WebCore::HistoryItem> newItem = otherBackForward.itemAtIndex(i)->copy();
+        Ref newItem = otherBackForward->itemAtIndex(i)->copy();
         if (i == 0)
             newItemToGoTo = newItem.ptr();
-        backForward.client().addItem(_private->page->mainFrame().frameID(), WTFMove(newItem));
+        backForward->client().addItem(_private->page->mainFrame().frameID(), WTFMove(newItem));
     }
 
     ASSERT(newItemToGoTo);
@@ -3470,7 +3466,7 @@ IGNORE_WARNINGS_END
 - (void)_didCommitLoadForFrame:(WebFrame *)frame
 {
     if (frame == [self mainFrame])
-        _private->didDrawTiles = 0;
+        WTF::atomicStore(&_private->didDrawTiles, NO);
 }
 
 #endif // PLATFORM(IOS_FAMILY)
@@ -4164,6 +4160,12 @@ IGNORE_WARNINGS_END
     return nil;
 }
 
+- (void)_setTopContentInsetForTesting:(float)contentInset
+{
+    if (_private && _private->page)
+        _private->page->setTopContentInset(contentInset);
+}
+
 - (BOOL)_isSoftwareRenderable
 {
     auto* coreFrame = [self _mainCoreFrame];
@@ -4696,6 +4698,10 @@ IGNORE_WARNINGS_END
 
 + (void)_setLoadResourcesSerially:(BOOL)serialize
 {
+#if PLATFORM(IOS_FAMILY)
+    WebThreadLock();
+#endif
+
     WebPlatformStrategies::initializeIfNecessary();
 
     webResourceLoadScheduler().setSerialLoadingEnabled(serialize);
@@ -9837,3 +9843,16 @@ void WebInstallMemoryPressureHandler(void)
         });
     }
 }
+
+#if !TARGET_OS_IPHONE
+@implementation WebView (WKWindowSnapshot)
+- (NSImage *)_windowSnapshotInRect:(CGRect)rect withOptions:(CGWindowImageOption)options
+{
+    RetainPtr snapshot = WebCore::cgWindowListCreateImage(rect, kCGWindowListOptionIncludingWindow, (CGSWindowID)[[self window] windowNumber], options);
+    if (!snapshot)
+        return nil;
+
+    return [[NSImage alloc] initWithCGImage:snapshot.get() size:NSZeroSize];
+}
+@end
+#endif

@@ -50,7 +50,7 @@ private:
     void processBidiContent(const LineLayoutResult&, InlineDisplay::Boxes&);
     void collectInkOverflowForInlineBoxes(InlineDisplay::Boxes&);
     void collectInkOverflowForTextDecorations(InlineDisplay::Boxes&);
-    void truncateForEllipsisPolicy(LineEndingEllipsisPolicy, const LineLayoutResult&, InlineDisplay::Boxes&);
+    void truncateForEllipsisPolicy(LineEndingTruncationPolicy, const LineLayoutResult&, InlineDisplay::Boxes&);
 
     void appendTextDisplayBox(const Line::Run&, const InlineRect&, InlineDisplay::Boxes&);
     void appendSoftLineBreakDisplayBox(const Line::Run&, const InlineRect&, InlineDisplay::Boxes&);
@@ -63,7 +63,6 @@ private:
 
     size_t processRubyBase(size_t rubyBaseStart, InlineDisplay::Boxes&, Vector<WTF::Range<size_t>>& interlinearRubyColumnRangeList, Vector<size_t>& rubyBaseStartIndexListWithAnnotation);
     void processRubyContent(InlineDisplay::Boxes&, const LineLayoutResult&);
-    void applyRubyOverhang(InlineDisplay::Boxes&, const Vector<WTF::Range<size_t>>& interlinearRubyColumnRangeList);
 
     void setInlineBoxGeometry(Layout::BoxGeometry&, const InlineRect&, bool isFirstInlineBoxFragment);
     void adjustVisualGeometryForDisplayBox(size_t displayBoxNodeIndex, InlineLayoutUnit& accumulatedOffset, InlineLayoutUnit lineBoxLogicalTop, const DisplayBoxTree&, InlineDisplay::Boxes&, const HashMap<const Box*, IsFirstLastIndex>&);
@@ -94,7 +93,7 @@ private:
     const LineBox& m_lineBox;
     const InlineDisplay::Line& m_displayLine;
     IntSize m_initialContaingBlockSize;
-    // FIXME: This should take DisplayLine::isTruncatedInBlockDirection() for non-prefixed line-clamp.
+    // FIXME: This should take DisplayLine::isFullyTruncatedInBlockDirection() for non-prefixed line-clamp.
     bool m_lineIsFullyTruncatedInBlockDirection { false };
     bool m_contentHasInkOverflow { false };
     bool m_hasSeenRubyBase { false };

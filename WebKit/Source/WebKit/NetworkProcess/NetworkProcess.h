@@ -33,6 +33,7 @@
 #include "DownloadManager.h"
 #include "NetworkContentRuleListManager.h"
 #include "QuotaIncreaseRequestIdentifier.h"
+#include "UseDownloadPlaceholder.h"
 #include "WebPageProxyIdentifier.h"
 #include "WebResourceLoadStatisticsStore.h"
 #include "WebsiteData.h"
@@ -59,6 +60,7 @@
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/ASCIILiteral.h>
 
@@ -134,7 +136,7 @@ enum class CacheOption : uint8_t;
 class NetworkProcess final : public AuxiliaryProcess, private DownloadManager::Client, public ThreadSafeRefCounted<NetworkProcess>, public CanMakeCheckedPtr<NetworkProcess>
 {
     WTF_MAKE_NONCOPYABLE(NetworkProcess);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(NetworkProcess);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NetworkProcess);
 public:
     using RegistrableDomain = WebCore::RegistrableDomain;
@@ -214,7 +216,7 @@ public:
     void registrableDomainsExemptFromWebsiteDataDeletion(PAL::SessionID, CompletionHandler<void(HashSet<RegistrableDomain>)>&&);
     void clearPrevalentResource(PAL::SessionID, RegistrableDomain&&, CompletionHandler<void()>&&);
     void clearUserInteraction(PAL::SessionID, RegistrableDomain&&, CompletionHandler<void()>&&);
-    void deleteAndRestrictWebsiteDataForRegistrableDomains(PAL::SessionID, OptionSet<WebsiteDataType>, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&&, bool shouldNotifyPage, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&&);
+    void deleteAndRestrictWebsiteDataForRegistrableDomains(PAL::SessionID, OptionSet<WebsiteDataType>, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&&, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&&);
     void deleteCookiesForTesting(PAL::SessionID, RegistrableDomain, bool includeHttpOnlyCookies, CompletionHandler<void()>&&);
     void dumpResourceLoadStatistics(PAL::SessionID, CompletionHandler<void(String)>&&);
     void updatePrevalentDomainsToBlockCookiesFor(PAL::SessionID, const Vector<RegistrableDomain>& domainsToBlock, CompletionHandler<void()>&&);
@@ -250,7 +252,6 @@ public:
     void mergeStatisticForTesting(PAL::SessionID, RegistrableDomain&&, TopFrameDomain&& topFrameDomain1, TopFrameDomain&& topFrameDomain2, Seconds lastSeen, bool hadUserInteraction, Seconds mostRecentUserInteraction, bool isGrandfathered, bool isPrevalent, bool isVeryPrevalent, uint64_t dataRecordsRemoved, CompletionHandler<void()>&&);
     void insertExpiredStatisticForTesting(PAL::SessionID, RegistrableDomain&&, uint64_t numberOfOperatingDaysPassed, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&&);
     void setMinimumTimeBetweenDataRecordsRemoval(PAL::SessionID, Seconds, CompletionHandler<void()>&&);
-    void setNotifyPagesWhenDataRecordsWereScanned(PAL::SessionID, bool value, CompletionHandler<void()>&&);
     void setResourceLoadStatisticsTimeAdvanceForTesting(PAL::SessionID, Seconds, CompletionHandler<void()>&&);
     void setIsRunningResourceLoadStatisticsTest(PAL::SessionID, bool value, CompletionHandler<void()>&&);
     void setTrackingPreventionEnabled(PAL::SessionID, bool);
@@ -266,7 +267,7 @@ public:
     void setTimeToLiveUserInteraction(PAL::SessionID, Seconds, CompletionHandler<void()>&&);
     void setTopFrameUniqueRedirectTo(PAL::SessionID, TopFrameDomain&&, RedirectedToDomain&&, CompletionHandler<void()>&&);
     void setTopFrameUniqueRedirectFrom(PAL::SessionID, TopFrameDomain&&, RedirectedFromDomain&&, CompletionHandler<void()>&&);
-    void registrableDomainsWithWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, bool shouldNotifyPage, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&&);
+    void registrableDomainsWithWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&&);
     void didCommitCrossSiteLoadWithDataTransfer(PAL::SessionID, RegistrableDomain&& fromDomain, RegistrableDomain&& toDomain, OptionSet<WebCore::CrossSiteNavigationDataTransfer::Flag>, WebPageProxyIdentifier, WebCore::PageIdentifier, DidFilterKnownLinkDecoration);
     void setCrossSiteLoadWithLinkDecorationForTesting(PAL::SessionID, RegistrableDomain&& fromDomain, RegistrableDomain&& toDomain, DidFilterKnownLinkDecoration, CompletionHandler<void()>&&);
     void resetCrossSiteLoadsWithLinkDecorationForTesting(PAL::SessionID, CompletionHandler<void()>&&);
@@ -393,6 +394,7 @@ public:
     bool ftpEnabled() const { return m_ftpEnabled; }
     bool builtInNotificationsEnabled() const { return m_builtInNotificationsEnabled; }
 
+    void getPendingPushMessage(PAL::SessionID, CompletionHandler<void(const std::optional<WebPushMessage>&)>&&);
     void getPendingPushMessages(PAL::SessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&&);
     void processPushMessage(PAL::SessionID, WebPushMessage&&, WebCore::PushPermissionState, CompletionHandler<void(bool, std::optional<WebCore::NotificationPayload>&&)>&&);
     void processNotificationEvent(WebCore::NotificationData&&, WebCore::NotificationEventType, CompletionHandler<void(bool)>&&);
@@ -415,14 +417,23 @@ public:
     void deleteWebsiteDataForOrigin(PAL::SessionID, OptionSet<WebsiteDataType>, const WebCore::ClientOrigin&, CompletionHandler<void()>&&);
     void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins, const Vector<String>& cookieHostNames, const Vector<String>& HSTSCacheHostnames, const Vector<RegistrableDomain>&, CompletionHandler<void()>&&);
 
-    bool allowsFirstPartyForCookies(WebCore::ProcessIdentifier, const URL&);
-    bool allowsFirstPartyForCookies(WebCore::ProcessIdentifier, const RegistrableDomain&);
+    enum class AllowCookieAccess : uint8_t { Disallow, Allow, Terminate };
+    AllowCookieAccess allowsFirstPartyForCookies(WebCore::ProcessIdentifier, const URL&);
+    AllowCookieAccess allowsFirstPartyForCookies(WebCore::ProcessIdentifier, const RegistrableDomain&);
     void addAllowedFirstPartyForCookies(WebCore::ProcessIdentifier, WebCore::RegistrableDomain&&, LoadedWebArchive, CompletionHandler<void()>&&);
     void webProcessWillLoadWebArchive(WebCore::ProcessIdentifier);
 
     void requestBackgroundFetchPermission(PAL::SessionID, const WebCore::ClientOrigin&, CompletionHandler<void(bool)>&&);
     void setInspectionForServiceWorkersAllowed(PAL::SessionID, bool);
     void setStorageSiteValidationEnabled(PAL::SessionID, bool);
+    void setPersistedDomains(PAL::SessionID, HashSet<RegistrableDomain>&&);
+
+    void getAppBadgeForTesting(PAL::SessionID, CompletionHandler<void(std::optional<uint64_t>)>&&);
+
+    void allowFilesAccessFromWebProcess(WebCore::ProcessIdentifier, const Vector<String>&, CompletionHandler<void()>&&);
+    void allowFileAccessFromWebProcess(WebCore::ProcessIdentifier, const String&, CompletionHandler<void()>&&);
+
+    bool enableModernDownloadProgress() const { return m_enableModernDownloadProgress; }
 
 private:
     // CheckedPtr interface
@@ -463,6 +474,7 @@ private:
     bool didReceiveSyncNetworkProcessMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
     void initializeNetworkProcess(NetworkProcessCreationParameters&&, CompletionHandler<void()>&&);
     void createNetworkConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, NetworkProcessConnectionParameters&&,  CompletionHandler<void(std::optional<IPC::Connection::Handle>&&, WebCore::HTTPCookieAcceptPolicy)>&&);
+    void sharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier, SharedPreferencesForWebProcess&&, CompletionHandler<void()>&&);
 
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, CompletionHandler<void(WebsiteData&&)>&&);
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
@@ -471,10 +483,14 @@ private:
     void clearDiskCache(WallTime modifiedSince, CompletionHandler<void()>&&);
 
     void downloadRequest(PAL::SessionID, DownloadID, const WebCore::ResourceRequest&, const std::optional<WebCore::SecurityOriginData>& topOrigin, std::optional<NavigatingToAppBoundDomain>, const String& suggestedFilename);
-    void resumeDownload(PAL::SessionID, DownloadID, std::span<const uint8_t> resumeData, const String& path, SandboxExtensionHandle&&, CallDownloadDidStart);
+    void resumeDownload(PAL::SessionID, DownloadID, std::span<const uint8_t> resumeData, const String& path, SandboxExtensionHandle&&, CallDownloadDidStart, std::span<const uint8_t> activityAccessToken);
     void cancelDownload(DownloadID, CompletionHandler<void(std::span<const uint8_t>)>&&);
 #if PLATFORM(COCOA)
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+    void publishDownloadProgress(DownloadID, const URL&, std::span<const uint8_t> bookmarkData, WebKit::UseDownloadPlaceholder, std::span<const uint8_t> activityAccessToken);
+#else
     void publishDownloadProgress(DownloadID, const URL&, SandboxExtensionHandle&&);
+#endif
 #endif
     void dataTaskWithRequest(WebPageProxyIdentifier, PAL::SessionID, WebCore::ResourceRequest&&, const std::optional<WebCore::SecurityOriginData>& topOrigin, IPC::FormDataReference&&, CompletionHandler<void(DataTaskIdentifier)>&&);
     void cancelDataTask(DataTaskIdentifier, PAL::SessionID, CompletionHandler<void()>&&);
@@ -586,6 +602,7 @@ private:
     int m_mediaStreamingActivitityToken { NOTIFY_TOKEN_INVALID };
     bool m_isParentProcessFullWebBrowserOrRunningTest { false };
 #endif
+    bool m_enableModernDownloadProgress { false };
 };
 
 #if !PLATFORM(COCOA)

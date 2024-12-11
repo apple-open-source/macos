@@ -33,9 +33,9 @@
 #include "CSSCalcValue.h"
 #include "CSSPropertyParserConsumer+CSSPrimitiveValueResolver.h"
 #include "CSSPropertyParserConsumer+MetaConsumer.h"
-#include "CSSPropertyParserConsumer+PercentDefinitions.h"
-#include "CSSPropertyParserConsumer+RawResolver.h"
+#include "CSSPropertyParserConsumer+PercentageDefinitions.h"
 #include "CSSPropertyParserHelpers.h"
+#include "CalculationCategory.h"
 
 namespace WebCore {
 namespace CSSPropertyParserHelpers {
@@ -54,7 +54,7 @@ std::optional<UnevaluatedCalc<LengthRaw>> LengthKnownTokenTypeFunctionConsumer::
     ASSERT(range.peek().type() == FunctionToken);
 
     auto rangeCopy = range;
-    if (RefPtr value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Length, WTFMove(symbolsAllowed), options)) {
+    if (RefPtr value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, Calculation::Category::Length, WTFMove(symbolsAllowed), options)) {
         range = rangeCopy;
         return {{ value.releaseNonNull() }};
     }
@@ -162,66 +162,6 @@ RefPtr<CSSPrimitiveValue> consumeLength(CSSParserTokenRange& range, CSSParserMod
         .unitlessZero = UnitlessZeroQuirk::Allow
     };
     return CSSPrimitiveValueResolver<LengthRaw>::consumeAndResolve(range, { }, { }, options);
-}
-
-std::optional<LengthOrPercentRaw> consumeLengthOrPercentRaw(CSSParserTokenRange& range, CSSParserMode parserMode)
-{
-    const auto options = CSSPropertyParserOptions {
-        .parserMode = parserMode,
-        .valueRange = ValueRange::NonNegative
-    };
-    return RawResolver<LengthRaw, PercentRaw>::consumeAndResolve(range, { }, { }, options);
-}
-
-// FIXME: This doesn't work with the current scheme due to the NegativePercentagePolicy parameter
-RefPtr<CSSPrimitiveValue> consumeLengthOrPercent(CSSParserTokenRange& range, CSSParserMode parserMode, ValueRange valueRange, UnitlessQuirk unitless, UnitlessZeroQuirk unitlessZero, NegativePercentagePolicy negativePercentage, AnchorPolicy anchorPolicy)
-{
-    auto& token = range.peek();
-
-    const auto options = CSSPropertyParserOptions {
-        .parserMode = parserMode,
-        .valueRange = valueRange,
-        .anchorPolicy = anchorPolicy,
-        .negativePercentage = negativePercentage,
-        .unitless = unitless,
-        .unitlessZero = unitlessZero
-    };
-
-    switch (token.type()) {
-    case FunctionToken: {
-        if (range.peek().functionId() == CSSValueAnchor) {
-            if (anchorPolicy == AnchorPolicy::Allow)
-                return consumeAnchor(range, parserMode);
-            return nullptr;
-        }
-
-        // FIXME: Should this be using trying to generate the calc with both Length and Percent destination category types?
-        CalcParser parser(range, CalculationCategory::Length, { }, options);
-        if (auto calculation = parser.value(); calculation && canConsumeCalcValue(calculation->category(), options))
-            return parser.consumeValue();
-        break;
-    }
-
-    case DimensionToken:
-        if (auto value = LengthKnownTokenTypeDimensionConsumer::consume(range, { }, options))
-            return CSSPrimitiveValueResolver<LengthRaw>::resolve(*value, { }, options);
-        break;
-
-    case NumberToken:
-        if (auto value = LengthKnownTokenTypeNumberConsumer::consume(range, { }, options))
-            return CSSPrimitiveValueResolver<LengthRaw>::resolve(*value, { }, options);
-        break;
-
-    case PercentageToken:
-        if (auto value = PercentKnownTokenTypePercentConsumer::consume(range, { }, options))
-            return CSSPrimitiveValueResolver<PercentRaw>::resolve(*value, { }, options);
-        break;
-
-    default:
-        break;
-    }
-
-    return nullptr;
 }
 
 } // namespace CSSPropertyParserHelpers

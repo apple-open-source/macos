@@ -321,6 +321,15 @@ __bsd_iconvctl(iconv_t cd, int request, void *argument)
 		return (0);
 	case ICONV_SET_FALLBACKS:
 #ifdef __APPLE__
+		if (argument == NULL) {
+			if (cv->cv_fallbacks != NULL) {
+				memset(cv->cv_fallbacks, 0,
+				    sizeof(*cv->cv_fallbacks));
+			}
+
+			return (0);
+		}
+
 		if (cv->cv_fallbacks == NULL) {
 			/* Not often used; just allocate on first use */
 			cv->cv_fallbacks =

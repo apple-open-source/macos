@@ -87,6 +87,7 @@ set(WTF_PUBLIC_HEADERS
     FixedVector.h
     FixedWidthDouble.h
     FlipBytes.h
+    Float16.h
     ForbidHeapAllocation.h
     Forward.h
     Function.h
@@ -249,6 +250,7 @@ set(WTF_PUBLIC_HEADERS
     RunLoop.h
     SHA1.h
     SIMDHelpers.h
+    SIMDUTF.h
     SafeStrerror.h
     SaturatedArithmetic.h
     SchedulePair.h
@@ -284,6 +286,7 @@ set(WTF_PUBLIC_HEADERS
     StdLibExtras.h
     StdList.h
     StdMap.h
+    StdMultimap.h
     StdSet.h
     StdUnorderedMap.h
     StdUnorderedSet.h
@@ -298,7 +301,6 @@ set(WTF_PUBLIC_HEADERS
     SystemMalloc.h
     SystemTracing.h
     TZoneMalloc.h
-    TZoneMallocInitialization.h
     TZoneMallocInlines.h
     TaggedArrayStoragePtr.h
     ThreadAssertions.h
@@ -402,6 +404,8 @@ set(WTF_PUBLIC_HEADERS
     simde/arm/neon.h
     simde/arm/sve.h
 
+    simdutf/simdutf_impl.h
+
     text/ASCIIFastPath.h
     text/ASCIILiteral.h
     text/AdaptiveStringSearcher.h
@@ -426,6 +430,7 @@ set(WTF_PUBLIC_HEADERS
     text/StringBuffer.h
     text/StringBuilder.h
     text/StringBuilderInternals.h
+    text/StringBuilderJSON.h
     text/StringCommon.h
     text/StringConcatenate.h
     text/StringConcatenateNumbers.h
@@ -531,6 +536,7 @@ set(WTF_SOURCES
     RefCountedLeakCounter.cpp
     RunLoop.cpp
     SHA1.cpp
+    SIMDUTF.cpp
     SafeStrerror.cpp
     Seconds.cpp
     SegmentedVector.cpp
@@ -687,6 +693,7 @@ set(WTF_PRIVATE_INCLUDE_DIRECTORIES
     "${WTF_DIR}/wtf/dtoa"
     "${WTF_DIR}/wtf/fast_float"
     "${WTF_DIR}/wtf/persistence"
+    "${WTF_DIR}/wtf/simdutf"
     "${WTF_DIR}/wtf/text"
     "${WTF_DIR}/wtf/text/icu"
     "${WTF_DIR}/wtf/threads"
@@ -731,6 +738,14 @@ WEBKIT_FRAMEWORK(WTF)
 if (MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
+else ()
+    # Prior to GCC 13, GCC has a bug that warning suppression pragma cannot be effective on preprocessor itself.
+    # We need to disable preprocessor related warnings manually here.
+    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=53431
+    set_source_files_properties(
+        SIMDUTF.cpp
+        text/Base64.cpp
+        PROPERTIES COMPILE_FLAGS "-Wno-error=undef -Wno-undef")
 endif ()
 
 file(MAKE_DIRECTORY ${WTF_SCRIPTS_DIR})

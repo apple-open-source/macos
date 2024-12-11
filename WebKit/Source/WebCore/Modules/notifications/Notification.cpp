@@ -52,12 +52,12 @@
 #include "WindowEventLoop.h"
 #include "WindowFocusAllowedIndicator.h"
 #include <wtf/CompletionHandler.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Scope.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(Notification);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Notification);
 
 static Lock nonPersistentNotificationMapLock;
 static HashMap<WTF::UUID, Notification*>& nonPersistentNotificationMap() WTF_REQUIRES_LOCK(nonPersistentNotificationMapLock)
@@ -425,7 +425,8 @@ void Notification::requestPermission(Document& document, RefPtr<NotificationPerm
 
 void Notification::eventListenersDidChange()
 {
-    m_hasRelevantEventListener = hasEventListeners(eventNames().clickEvent)
+    m_hasRelevantEventListener = hasEventListeners(eventNames().auxclickEvent)
+        || hasEventListeners(eventNames().clickEvent)
         || hasEventListeners(eventNames().closeEvent)
         || hasEventListeners(eventNames().errorEvent)
         || hasEventListeners(eventNames().showEvent);
@@ -482,7 +483,8 @@ void Notification::ensureOnNotificationThread(ScriptExecutionContextIdentifier c
 
 void Notification::ensureOnNotificationThread(const NotificationData& notification, Function<void(Notification*)>&& task)
 {
-    ensureOnNotificationThread(notification.contextIdentifier, notification.notificationID, WTFMove(task));
+    RELEASE_ASSERT(notification.contextIdentifier);
+    ensureOnNotificationThread(*notification.contextIdentifier, notification.notificationID, WTFMove(task));
 }
 
 } // namespace WebCore

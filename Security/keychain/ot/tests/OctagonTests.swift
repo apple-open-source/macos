@@ -344,7 +344,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
         if self.mockDeviceInfo == nil {
             let actualDeviceAdapter = OTDeviceInformationActualAdapter()
             self.mockDeviceInfo = OTMockDeviceInfoAdapter(modelID: actualDeviceAdapter.modelID(),
-                                                          deviceName: actualDeviceAdapter.deviceName(),
+                                                          deviceName: (actualDeviceAdapter.deviceName() != nil) ? actualDeviceAdapter.deviceName() : "deviceName",
                                                           serialNumber: NSUUID().uuidString,
                                                           osVersion: actualDeviceAdapter.osVersion())
         }
@@ -1445,10 +1445,17 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
             let initiatorIdentityPacket = self.sendPairingExpectingReply(channel: initiatorPairingChannel, packet: sponsorEpochPacket, reason: "initiator identity")
             self.wait(for: [ucvStatusChangeNotificationExpectation], timeout: 10)
 
-            let sponsorVoucherPacket = self.sendPairingExpectingCompletionAndReply(channel: sponsorPairingChannel, packet: initiatorIdentityPacket, reason: "sponsor voucher")
+            let sponsorVoucherPacket = self.sendPairingExpectingReply(channel: sponsorPairingChannel, packet: initiatorIdentityPacket, reason: "sponsor voucher")
 
             let cliqueChangedNotificationExpectation = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: OTCliqueChanged))
-            self.sendPairingExpectingCompletion(channel: initiatorPairingChannel, packet: sponsorVoucherPacket, reason: "initiator completion")
+            let initiatorThirdPacket = self.sendPairingExpectingReply(channel: initiatorPairingChannel, packet: sponsorVoucherPacket, reason: "initiator third packet")
+
+            sponsorPairingChannel.setDSIDForTest("123456")
+            let sponsorThirdPacket = self.sendPairingExpectingReply(channel: sponsorPairingChannel, packet: initiatorThirdPacket, reason: "sponsor third packet")
+
+            let initiatorFourthPacket = self.sendPairingExpectingCompletionAndReply(channel: initiatorPairingChannel, packet: sponsorThirdPacket, reason: "initiator fourth packet and completes")
+
+            self.sendPairingExpectingCompletion(channel: sponsorPairingChannel, packet: initiatorFourthPacket, reason: "sponsor completes")
 
             self.assertEnters(context: joiningContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC, file: file, line: line)
             self.assertConsidersSelfTrusted(context: joiningContext, file: file, line: line)
@@ -2400,6 +2407,8 @@ class OctagonTests: OctagonTestsBase {
     }
 
     func testCliqueFriendAPI() throws {
+        self.mockDeviceInfo.mockDeviceName = "test-device-name"
+
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
@@ -2426,7 +2435,12 @@ class OctagonTests: OctagonTestsBase {
         do {
             let peersByID = try clique.peerDeviceNamesByPeerID()
             XCTAssertNotNil(peersByID, "Should have received information on peers")
-            XCTAssertTrue(peersByID.isEmpty, "peer1 should report no trusted peers")
+            XCTAssertEqual(peersByID.count, 1, "peer1 should report knowledge of one peer (itself)")
+            if let deviceName = peersByID[peer1ID] {
+                XCTAssertEqual(deviceName, self.cuttlefishContext.deviceAdapter.deviceName(), "reported device name should match the local device")
+            } else {
+                XCTFail("peer1 ID should be in peers dictionary")
+            }
         } catch {
             XCTFail("Error thrown: \(error)")
         }
@@ -2567,7 +2581,12 @@ class OctagonTests: OctagonTestsBase {
         do {
             let peersByID = try clique.peerDeviceNamesByPeerID()
             XCTAssertNotNil(peersByID, "Should have received information on peers")
-            XCTAssertTrue(peersByID.isEmpty, "peer1 should report no trusted peers")
+            XCTAssertEqual(peersByID.count, 1, "peer1 should report knowledge of one peer (itself)")
+            if let deviceName = peersByID[peer1ID] {
+                XCTAssertEqual(deviceName, self.cuttlefishContext.deviceAdapter.deviceName(), "reported device name should match the local device")
+            } else {
+                XCTFail("peer1 ID should be in peers dictionary")
+            }
         } catch {
             XCTFail("Error thrown: \(error)")
         }

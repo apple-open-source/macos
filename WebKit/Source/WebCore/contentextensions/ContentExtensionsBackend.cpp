@@ -49,10 +49,13 @@
 #include <wtf/URL.h>
 #include "UserContentController.h"
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore::ContentExtensions {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ContentExtensionsBackend);
 
 #if USE(APPLE_INTERNAL_SDK)
 #import <WebKitAdditions/ContentRuleListAdditions.mm>
@@ -378,7 +381,7 @@ void applyResultsToRequest(ContentRuleListResults&& results, Page* page, Resourc
 
     if (results.summary.madeHTTPS) {
         ASSERT(!request.url().port() || WTF::isDefaultPortForProtocol(request.url().port().value(), request.url().protocol()));
-        request.upgradeToHTTPS();
+        request.upgradeInsecureRequest();
     }
 
     std::sort(results.summary.modifyHeadersActions.begin(), results.summary.modifyHeadersActions.end(),

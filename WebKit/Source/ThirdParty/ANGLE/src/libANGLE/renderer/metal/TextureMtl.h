@@ -165,7 +165,7 @@ class TextureMtl : public TextureImpl
     // of images through glTexImage*/glCopyTex* calls. During draw calls, the caller must make sure
     // the actual texture is created by calling this method to transfer the stored images data
     // to the actual texture.
-    angle::Result ensureTextureCreated(const gl::Context *context);
+    angle::Result ensureNativeStorageCreated(const gl::Context *context);
 
     angle::Result bindToShader(const gl::Context *context,
                                mtl::RenderCommandEncoder *cmdEncoder,
@@ -185,9 +185,8 @@ class TextureMtl : public TextureImpl
     const mtl::Format &getFormat() const { return mFormat; }
 
   private:
-    void releaseTexture(bool releaseImages);
-    void releaseTexture(bool releaseImages, bool releaseTextureObjectsOnly);
-    angle::Result createNativeTexture(const gl::Context *context,
+    void deallocateNativeStorage(bool keepImages, bool keepSamplerStateAndFormat = false);
+    angle::Result createNativeStorage(const gl::Context *context,
                                       gl::TextureType type,
                                       GLuint mips,
                                       const gl::Extents &size);
@@ -205,7 +204,10 @@ class TextureMtl : public TextureImpl
                                            const mtl::TextureRef &texture);
     mtl::TextureRef &getImage(const gl::ImageIndex &imageIndex);
     ImageDefinitionMtl &getImageDefinition(const gl::ImageIndex &imageIndex);
-    RenderTargetMtl &getRenderTarget(const gl::ImageIndex &imageIndex);
+    angle::Result getRenderTarget(ContextMtl *context,
+                                  const gl::ImageIndex &imageIndex,
+                                  GLsizei implicitSamples,
+                                  RenderTargetMtl **renderTargetOut);
     mtl::TextureRef &getImplicitMSTexture(const gl::ImageIndex &imageIndex);
 
     // If levels = 0, this function will create full mipmaps texture.
@@ -347,15 +349,15 @@ class TextureMtl : public TextureImpl
     // Stored images array defined by glTexImage/glCopy*.
     // Once the images array is complete, they will be transferred to real texture object.
     // NOTE:
-    //  - The second dimension is indexed by configured base level + actual native level
     //  - For Cube map, there will be at most 6 entries in the map table, one for each face. This is
     //  because the Cube map's image is defined per face & per level.
     //  - For other texture types, there will be only one entry in the map table. All other textures
     //  except Cube map has texture image defined per level (all slices included).
-    //  - These three variables' second dimension are indexed by image index (base level included).
+    //  - The second dimension is indexed by GL level.
     std::map<int, gl::TexLevelArray<ImageDefinitionMtl>> mTexImageDefs;
-    std::map<int, gl::TexLevelArray<RenderTargetMtl>> mPerLayerRenderTargets;
-    std::map<int, gl::TexLevelArray<mtl::TextureRef>> mImplicitMSTextures;
+    // 1st index = image index, 2nd index = samples count.
+    std::map<gl::ImageIndex, gl::RenderToTextureImageMap<RenderTargetMtl>> mRenderTargets;
+    std::map<gl::ImageIndex, gl::RenderToTextureImageMap<mtl::TextureRef>> mImplicitMSTextures;
 
     // Lazily populated 2D views for shader storage images.
     // May have different formats than the original texture.

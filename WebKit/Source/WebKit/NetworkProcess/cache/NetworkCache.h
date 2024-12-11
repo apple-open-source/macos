@@ -39,6 +39,7 @@
 #include <wtf/Hasher.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Seconds.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/WTFString.h>
 
@@ -82,7 +83,7 @@ struct GlobalFrameIDHash {
 };
 
 template<> struct HashTraits<WebKit::NetworkCache::GlobalFrameID> : GenericHashTraits<WebKit::NetworkCache::GlobalFrameID> {
-    static WebKit::NetworkCache::GlobalFrameID emptyValue() { return { }; }
+    static WebKit::NetworkCache::GlobalFrameID emptyValue() { return { { }, HashTraits<WebCore::PageIdentifier>::emptyValue(), { } }; }
 
     static void constructDeletedValue(WebKit::NetworkCache::GlobalFrameID& slot) { new (NotNull, &slot.webPageID) WebCore::PageIdentifier(WTF::HashTableDeletedValue); }
 
@@ -150,7 +151,7 @@ enum class CacheOption : uint8_t {
 #endif
 };
 
-class Cache : public RefCounted<Cache> {
+class Cache : public RefCounted<Cache>, public CanMakeWeakPtr<Cache> {
 public:
     ~Cache();
     static RefPtr<Cache> open(NetworkProcess&, const String& cachePath, OptionSet<CacheOption>, PAL::SessionID);
@@ -166,10 +167,10 @@ public:
         Storage::Timings storageTimings;
         bool wasSpeculativeLoad { false };
 
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED(RetrieveInfo);
     };
     using RetrieveCompletionHandler = Function<void(std::unique_ptr<Entry>, const RetrieveInfo&)>;
-    void retrieve(const WebCore::ResourceRequest&, const GlobalFrameID&, std::optional<NavigatingToAppBoundDomain>, bool allowPrivacyProxy, OptionSet<WebCore::AdvancedPrivacyProtections>, RetrieveCompletionHandler&&);
+    void retrieve(const WebCore::ResourceRequest&, std::optional<GlobalFrameID>, std::optional<NavigatingToAppBoundDomain>, bool allowPrivacyProxy, OptionSet<WebCore::AdvancedPrivacyProtections>, RetrieveCompletionHandler&&);
     std::unique_ptr<Entry> store(const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, PrivateRelayed, RefPtr<WebCore::FragmentedSharedBuffer>&&, Function<void(MappedBody&&)>&& = nullptr);
     std::unique_ptr<Entry> storeRedirect(const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, const WebCore::ResourceRequest& redirectRequest, std::optional<Seconds> maxAgeCap);
     std::unique_ptr<Entry> update(const WebCore::ResourceRequest&, const Entry&, const WebCore::ResourceResponse& validatingResponse, PrivateRelayed);
@@ -205,6 +206,7 @@ public:
     void browsingContextRemoved(WebPageProxyIdentifier, WebCore::PageIdentifier, WebCore::FrameIdentifier);
 
     NetworkProcess& networkProcess() { return m_networkProcess.get(); }
+    Ref<NetworkProcess> protectedNetworkProcess();
     PAL::SessionID sessionID() const { return m_sessionID; }
     const String& storageDirectory() const { return m_storageDirectory; }
     void fetchData(bool shouldComputeSize, CompletionHandler<void(Vector<WebsiteData::Entry>&&)>&&);
@@ -222,6 +224,8 @@ private:
     void deleteDumpFile();
 
     std::optional<Seconds> maxAgeCap(Entry&, const WebCore::ResourceRequest&, PAL::SessionID);
+
+    Ref<Storage> protectedStorage() const { return m_storage; }
 
     Ref<Storage> m_storage;
     Ref<NetworkProcess> m_networkProcess;

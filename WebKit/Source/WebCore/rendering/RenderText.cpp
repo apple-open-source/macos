@@ -36,7 +36,7 @@
 #include "InlineIteratorBoxInlines.h"
 #include "InlineIteratorLineBoxInlines.h"
 #include "InlineIteratorLogicalOrderTraversal.h"
-#include "InlineIteratorTextBox.h"
+#include "InlineIteratorSVGTextBox.h"
 #include "InlineIteratorTextBoxInlines.h"
 #include "InlineRunAndOffset.h"
 #include "LayoutInlineTextBox.h"
@@ -62,9 +62,9 @@
 #include "VisiblePosition.h"
 #include "WidthIterator.h"
 #include <wtf/BitSet.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SortedArrayMap.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CharacterProperties.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/TextBreakIterator.h>
@@ -82,7 +82,7 @@ namespace WebCore {
 
 using namespace WTF::Unicode;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderText);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderText);
 
 struct SameSizeAsRenderText : public RenderObject {
 #if ENABLE(TEXT_AUTOSIZING)
@@ -100,7 +100,7 @@ struct SameSizeAsRenderText : public RenderObject {
 static_assert(sizeof(RenderText) == sizeof(SameSizeAsRenderText), "RenderText should stay small");
 
 class SecureTextTimer final : private TimerBase {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(SecureTextTimer);
 public:
     explicit SecureTextTimer(RenderText&);
     void restart(unsigned offsetAfterLastTypedCharacter);
@@ -216,8 +216,7 @@ static LayoutRect selectionRectForTextBox(const InlineIterator::TextBox& textBox
             // For last text box in a InlineTextBox chain, we allow the caret to move to a position 'after' the end of the last text box.
             bool isCaretWithinLastTextBox = rangeStart >= textBox.start() && rangeStart <= textBox.end();
 
-            auto itEnd = InlineIterator::TextBoxRange { InlineIterator::TextBoxIterator(textBox) }.end();
-            auto isLastTextBox = textBox.nextTextBox() == itEnd;
+            auto isLastTextBox = !textBox.nextTextBox();
 
             if ((isLastTextBox && !isCaretWithinLastTextBox) || (!isLastTextBox && !isCaretWithinTextBox))
                 return { };
@@ -389,15 +388,15 @@ void RenderText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyl
         LayoutIntegration::LineLayout::updateStyle(*this);
 }
 
-void RenderText::removeAndDestroyTextBoxes()
+void RenderText::removeAndDestroyLegacyTextBoxes()
 {
     if (!renderTreeBeingDestroyed())
-        m_lineBoxes.removeAllFromParent(*this);
+        m_legacyLineBoxes.removeAllFromParent(*this);
 #if !ASSERT_WITH_SECURITY_IMPLICATION_DISABLED
     else
-        m_lineBoxes.invalidateParentChildLists();
+        m_legacyLineBoxes.invalidateParentChildLists();
 #endif
-    deleteLineBoxes();
+    deleteLegacyLineBoxes();
 }
 
 void RenderText::willBeDestroyed()
@@ -405,7 +404,7 @@ void RenderText::willBeDestroyed()
     if (m_hasSecureTextTimer)
         secureTextTimers().remove(*this);
 
-    removeAndDestroyTextBoxes();
+    removeAndDestroyLegacyTextBoxes();
 
     if (m_originalTextDiffersFromRendered)
         originalTextMap().remove(this);
@@ -494,14 +493,6 @@ void RenderText::collectSelectionGeometries(Vector<SelectionGeometry>& rects, un
 }
 #endif
 
-static FloatRect boundariesForTextBox(const InlineIterator::TextBox& textBox)
-{
-    if (auto* svgInlineTextBox = dynamicDowncast<SVGInlineTextBox>(textBox.legacyInlineBox()))
-        return svgInlineTextBox->calculateBoundaries();
-
-    return textBox.visualRectIgnoringBlockDirection();
-}
-
 static std::optional<IntRect> ellipsisRectForTextBox(const InlineIterator::TextBox& textBox, unsigned start, unsigned end)
 {
     auto lineBox = textBox.lineBox();
@@ -530,7 +521,8 @@ static Vector<FloatQuad> collectAbsoluteQuads(const RenderText& textRenderer, bo
 {
     Vector<FloatQuad> quads;
     for (auto& textBox : InlineIterator::textBoxesFor(textRenderer)) {
-        auto boundaries = boundariesForTextBox(textBox);
+        auto* svgTextBox = dynamicDowncast<InlineIterator::SVGTextBox>(textBox);
+        auto boundaries = svgTextBox ? svgTextBox->calculateBoundariesIncludingSVGTransform() : textBox.visualRectIgnoringBlockDirection();
 
         // Shorten the width of this text box if it ends in an ellipsis.
         if (clipping == ClippingOption::ClipToEllipsis) {
@@ -651,7 +643,8 @@ Vector<FloatQuad> RenderText::absoluteQuadsForRange(unsigned start, unsigned end
         }
 
         if (start <= textBox.start() && textBox.end() <= end) {
-            auto boundaries = boundariesForTextBox(textBox);
+            auto* svgTextBox = dynamicDowncast<InlineIterator::SVGTextBox>(textBox);
+            auto boundaries = svgTextBox ? svgTextBox->calculateBoundariesIncludingSVGTransform() : textBox.visualRectIgnoringBlockDirection();
 
             if (useSelectionHeight) {
                 LayoutRect selectionRect = selectionRectForTextBox(textBox, start, end);
@@ -1702,15 +1695,15 @@ static void invalidateLineLayoutPathOnContentChangeIfNeeded(RenderText& renderer
     if (!container)
         return;
 
-    auto* modernLineLayout = container->modernLineLayout();
-    if (!modernLineLayout)
+    auto* inlineLayout = container->inlineLayout();
+    if (!inlineLayout)
         return;
 
-    if (LayoutIntegration::LineLayout::shouldInvalidateLineLayoutPathAfterContentChange(*container, renderer, *modernLineLayout)) {
+    if (LayoutIntegration::LineLayout::shouldInvalidateLineLayoutPathAfterContentChange(*container, renderer, *inlineLayout)) {
         container->invalidateLineLayoutPath(RenderBlockFlow::InvalidationReason::ContentChange);
         return;
     }
-    if (!modernLineLayout->updateTextContent(renderer, offset, delta))
+    if (!inlineLayout->updateTextContent(renderer, offset, delta))
         container->invalidateLineLayoutPath(RenderBlockFlow::InvalidationReason::ContentChange);
 }
 
@@ -1751,7 +1744,7 @@ void RenderText::setTextWithOffset(const String& newText, unsigned offset, unsig
 
     int delta = newText.length() - text().length();
 
-    m_linesDirty = m_lineBoxes.dirtyForTextChange(*this);
+    m_linesDirty = m_legacyLineBoxes.dirtyForTextChange(*this);
 
     setTextInternal(newText, force || m_linesDirty);
     invalidateLineLayoutPathOnContentChangeIfNeeded(*this, offset, delta);
@@ -1768,18 +1761,18 @@ String RenderText::textWithoutConvertingBackslashToYenSymbol() const
     return applyTextTransform(style(), originalText(), previousCharacter());
 }
 
-void RenderText::dirtyLineBoxes(bool fullLayout)
+void RenderText::dirtyLegacyLineBoxes(bool fullLayout)
 {
     if (fullLayout)
-        deleteLineBoxes();
+        deleteLegacyLineBoxes();
     else if (!m_linesDirty)
-        m_lineBoxes.dirtyAll();
+        m_legacyLineBoxes.dirtyAll();
     m_linesDirty = false;
 }
 
-void RenderText::deleteLineBoxes()
+void RenderText::deleteLegacyLineBoxes()
 {
-    m_lineBoxes.deleteAll();
+    m_legacyLineBoxes.deleteAll();
 }
 
 std::unique_ptr<LegacyInlineTextBox> RenderText::createTextBox()
@@ -2104,24 +2097,10 @@ std::optional<bool> RenderText::emphasisMarkExistsAndIsAbove(const RenderText& r
     if (style.textEmphasisMark() == TextEmphasisMark::None)
         return std::nullopt;
 
-    const OptionSet<TextEmphasisPosition> horizontalMask { TextEmphasisPosition::Left, TextEmphasisPosition::Right };
-
     auto emphasisPosition = style.textEmphasisPosition();
-    auto emphasisPositionHorizontalValue = emphasisPosition & horizontalMask;
-    ASSERT(!((emphasisPosition & TextEmphasisPosition::Over) && (emphasisPosition & TextEmphasisPosition::Under)));
-    ASSERT(emphasisPositionHorizontalValue != horizontalMask);
-
-    bool isAbove = false;
-    if (!emphasisPositionHorizontalValue)
-        isAbove = emphasisPosition.contains(TextEmphasisPosition::Over);
-    else if (style.isHorizontalWritingMode())
-        isAbove = emphasisPosition.contains(TextEmphasisPosition::Over);
-    else
-        isAbove = emphasisPositionHorizontalValue == TextEmphasisPosition::Right;
-
-    if ((style.isHorizontalWritingMode() && (emphasisPosition & TextEmphasisPosition::Under))
-        || (!style.isHorizontalWritingMode() && (emphasisPosition & TextEmphasisPosition::Left)))
-        return isAbove; // Ruby text is always over, so it cannot suppress emphasis marks under.
+    bool isAbove = !emphasisPosition.contains(TextEmphasisPosition::Under);
+    if (style.isVerticalWritingMode())
+        isAbove = !emphasisPosition.contains(TextEmphasisPosition::Left);
 
     auto findRubyAnnotation = [&]() -> RenderBlockFlow* {
         for (auto* baseCandidate = renderer.parent(); baseCandidate; baseCandidate = baseCandidate->parent()) {
@@ -2138,10 +2117,9 @@ std::optional<bool> RenderText::emphasisMarkExistsAndIsAbove(const RenderText& r
     };
 
     if (auto* annotation = findRubyAnnotation()) {
-        // The emphasis marks over are suppressed only if there is a ruby annotation box and it is not empty.
-        if (annotation->hasLines())
+        // The emphasis marks are suppressed only if there is a ruby annotation box on the same side and it is not empty.
+        if (annotation->hasLines() && isAbove == (annotation->style().rubyPosition() == RubyPosition::Over))
             return { };
-        return isAbove;
     }
 
     return isAbove;

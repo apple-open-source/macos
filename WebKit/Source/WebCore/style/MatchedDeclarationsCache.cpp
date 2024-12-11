@@ -30,7 +30,6 @@
 #include "config.h"
 #include "MatchedDeclarationsCache.h"
 
-#include "AnchorPositionEvaluator.h"
 #include "CSSFontSelector.h"
 #include "Document.h"
 #include "DocumentInlines.h"
@@ -38,10 +37,13 @@
 #include "RenderStyleInlines.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
 namespace Style {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MatchedDeclarationsCache);
 
 MatchedDeclarationsCache::MatchedDeclarationsCache(const Resolver& owner)
     : m_owner(owner)
@@ -61,7 +63,7 @@ void MatchedDeclarationsCache::deref() const
     m_owner->deref();
 }
 
-bool MatchedDeclarationsCache::isCacheable(const Element& element, const RenderStyle& style, const RenderStyle& parentStyle, const AnchorPositionedStateMap* anchorPositionedStateMap)
+bool MatchedDeclarationsCache::isCacheable(const Element& element, const RenderStyle& style, const RenderStyle& parentStyle)
 {
     // FIXME: Writing mode and direction properties modify state when applying to document element by calling
     // Document::setWritingMode/DirectionSetOnDocumentElement. We can't skip the applying by caching.
@@ -87,7 +89,7 @@ bool MatchedDeclarationsCache::isCacheable(const Element& element, const RenderS
     // the relevant anchors that this element will be positioned relative to. Then, the
     // anchor-positioned element will be resolved once again, this time with the anchor
     // information needed to fully resolve the element.
-    if (anchorPositionedStateMap && anchorPositionedStateMap->contains(element))
+    if (element.document().styleScope().anchorPositionedStates().contains(element))
         return false;
 
     // Getting computed style after a font environment change but before full style resolution may involve styles with non-current fonts.

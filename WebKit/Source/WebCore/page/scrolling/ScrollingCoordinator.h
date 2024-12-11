@@ -37,6 +37,7 @@
 #include "WheelEventTestMonitor.h"
 #include <variant>
 #include <wtf/Forward.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Threading.h>
 #include <wtf/TypeCasts.h>
@@ -66,7 +67,7 @@ using FramesPerSecond = unsigned;
 using PlatformDisplayID = uint32_t;
 
 class ScrollingCoordinator : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ScrollingCoordinator> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(ScrollingCoordinator, WEBCORE_EXPORT);
 public:
     static Ref<ScrollingCoordinator> create(Page*);
     virtual ~ScrollingCoordinator();
@@ -194,6 +195,8 @@ public:
     virtual void willDestroyScrollableArea(ScrollableArea&) { }
     virtual void scrollableAreaScrollbarLayerDidChange(ScrollableArea&, ScrollbarOrientation) { }
 
+    virtual void scrollableAreaWillBeDetached(ScrollableArea&) { }
+
     virtual void windowScreenDidChange(PlatformDisplayID, std::optional<FramesPerSecond> /* nominalFramesPerSecond */) { }
 
     static String synchronousScrollingReasonsAsText(OptionSet<SynchronousScrollingReason>);
@@ -215,6 +218,7 @@ public:
     WEBCORE_EXPORT virtual void setScrollbarEnabled(Scrollbar&) { }
     WEBCORE_EXPORT virtual void setLayerHostingContextIdentifierForFrameHostingNode(ScrollingNodeID, std::optional<LayerHostingContextIdentifier>) { }
     WEBCORE_EXPORT virtual void setScrollbarLayoutDirection(ScrollableArea&, UserInterfaceLayoutDirection) { }
+    WEBCORE_EXPORT virtual void setScrollbarWidth(ScrollableArea&, ScrollbarWidth) { }
 
     FrameIdentifier mainFrameIdentifier() const;
 

@@ -127,7 +127,13 @@ enum {
     kWKMediaAudioMuted = 1 << 0,
     kWKMediaCaptureDevicesMuted = 1 << 1,
     kWKMediaScreenCaptureMuted = 1 << 2,
+    kWKMediaCameraCaptureMuted = 1 << 3,
+    kWKMediaMicrophoneCaptureMuted = 1 << 4,
+    kWKMediaScreenCaptureUnmuted = 1 << 5,
+    kWKMediaCameraCaptureUnmuted = 1 << 6,
+    kWKMediaMicrophoneCaptureUnmuted = 1 << 7,
 };
+
 typedef uint32_t WKMediaMutedState;
 WK_EXPORT void WKPageSetMuted(WKPageRef page, WKMediaMutedState muted);
 
@@ -216,6 +222,10 @@ WK_EXPORT void WKPageExecuteCommandForTesting(WKPageRef pageRef, WKStringRef com
 WK_EXPORT bool WKPageIsEditingCommandEnabledForTesting(WKPageRef page, WKStringRef command);
 WK_EXPORT void WKPageSetPermissionLevelForTesting(WKPageRef page, WKStringRef origin, bool allowed);
 
+typedef void (*WKPageSetTopContentInsetForTestingFunction)(void* functionContext);
+WK_EXPORT void WKPageSetTopContentInsetForTesting(WKPageRef page, float contentInset, void* context, WKPageSetTopContentInsetForTestingFunction callback);
+typedef void (*WKPageSetPageScaleFactorForTestingFunction)(void* functionContext);
+WK_EXPORT void WKPageSetPageScaleFactorForTesting(WKPageRef page, float scaleFactor, WKPoint point, void* context, WKPageSetPageScaleFactorForTestingFunction completionHandler);
 #ifdef __cplusplus
 }
 #endif

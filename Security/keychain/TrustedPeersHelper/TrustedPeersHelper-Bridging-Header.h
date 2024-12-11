@@ -74,9 +74,9 @@
 #import <Security/SecABC.h>
 #import "OSX/utilities/SecInternalReleasePriv.h"
 
-#import "keychain/analytics/SecurityAnalyticsConstants.h"
-#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
-#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import <SoftLinking/SoftLinking.h>
 #import "KeychainCircle/MetricsOverrideForTests.h"

@@ -89,6 +89,7 @@
 #include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SameSiteInfo.h>
+#include <WebCore/SecurityOriginData.h>
 #include <WebCore/SecurityPolicy.h>
 #include <optional>
 #include <wtf/HashSet.h>
@@ -121,9 +122,9 @@
 #define CONNECTION_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [webProcessIdentifier=%" PRIu64 "] NetworkConnectionToWebProcess::" fmt, this, webProcessIdentifier().toUInt64(), ##__VA_ARGS__)
 #define CONNECTION_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [webProcessIdentifier=%" PRIu64 "] NetworkConnectionToWebProcess::" fmt, this, webProcessIdentifier().toUInt64(), ##__VA_ARGS__)
 
-#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, &this->connection())
-#define MESSAGE_CHECK_COMPLETION(assertion, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, &this->connection(), completion)
-#define MESSAGE_CHECK_WITH_RETURN_VALUE(assertion, returnValue) MESSAGE_CHECK_WITH_RETURN_VALUE_BASE(assertion, &this->connection(), returnValue)
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, this->connection())
+#define MESSAGE_CHECK_COMPLETION(assertion, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, this->connection(), completion)
+#define MESSAGE_CHECK_WITH_RETURN_VALUE(assertion, returnValue) MESSAGE_CHECK_WITH_RETURN_VALUE_BASE(assertion, this->connection(), returnValue)
 
 namespace WebKit {
 using namespace WebCore;
@@ -144,8 +145,7 @@ NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& net
     , m_webProcessIdentifier(webProcessIdentifier)
     , m_schemeRegistry(NetworkSchemeRegistry::create())
     , m_originAccessPatterns(makeUniqueRef<NetworkOriginAccessPatterns>())
-    , m_preferencesForWebProcess(parameters.preferencesForWebProcess)
-    , m_allowTestOnlyIPC(parameters.allowTestOnlyIPC)
+    , m_sharedPreferencesForWebProcess(parameters.sharedPreferencesForWebProcess)
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
@@ -264,14 +264,14 @@ void NetworkConnectionToWebProcess::didReceiveMessage(IPC::Connection& connectio
     if (decoder.messageReceiverName() == Messages::NetworkResourceLoader::messageReceiverName()) {
         RELEASE_ASSERT(RunLoop::isMain());
         MESSAGE_CHECK(decoder.destinationID());
-        if (auto* loader = m_networkResourceLoaders.get(AtomicObjectIdentifier<WebCore::ResourceLoader>(decoder.destinationID())))
+        if (auto* loader = m_networkResourceLoaders.get(LegacyNullableAtomicObjectIdentifier<WebCore::ResourceLoader>(decoder.destinationID())))
             loader->didReceiveNetworkResourceLoaderMessage(connection, decoder);
         return;
     }
 
     if (decoder.messageReceiverName() == Messages::NetworkSocketChannel::messageReceiverName()) {
-        MESSAGE_CHECK(decoder.destinationID());
-        if (auto* channel = m_networkSocketChannels.get(AtomicObjectIdentifier<WebSocketIdentifierType>(decoder.destinationID())))
+        MESSAGE_CHECK(LegacyNullableAtomicObjectIdentifier<WebSocketIdentifierType>::isValidIdentifier(decoder.destinationID()));
+        if (auto* channel = m_networkSocketChannels.get(LegacyNullableAtomicObjectIdentifier<WebSocketIdentifierType>(decoder.destinationID())))
             channel->didReceiveMessage(connection, decoder);
         return;
     }
@@ -298,7 +298,7 @@ void NetworkConnectionToWebProcess::didReceiveMessage(IPC::Connection& connectio
 #endif
 
     if (decoder.messageReceiverName() == Messages::NetworkTransportSession::messageReceiverName()) {
-        MESSAGE_CHECK(decoder.destinationID());
+        MESSAGE_CHECK(WebTransportSessionIdentifier::isValidIdentifier(decoder.destinationID()));
         if (auto* networkTransportSession = m_networkTransportSessions.get(WebTransportSessionIdentifier(decoder.destinationID())))
             networkTransportSession->didReceiveMessage(connection, decoder);
         return;
@@ -413,6 +413,15 @@ bool NetworkConnectionToWebProcess::didReceiveSyncMessage(IPC::Connection& conne
         return false;
     }
 
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
+    if (decoder.messageReceiverName() == Messages::NotificationManagerMessageHandler::messageReceiverName()) {
+        MESSAGE_CHECK_WITH_RETURN_VALUE(m_networkProcess->builtInNotificationsEnabled(), false);
+        if (auto* networkSession = this->networkSession())
+            return networkSession->notificationManager().didReceiveSyncMessage(connection, decoder, reply);
+        return false;
+    }
+#endif
+
 #if ENABLE(APPLE_PAY_REMOTE_UI)
     if (decoder.messageReceiverName() == Messages::WebPaymentCoordinatorProxy::messageReceiverName())
         return paymentCoordinator().didReceiveSyncMessage(connection, decoder, reply);
@@ -494,7 +503,7 @@ void NetworkConnectionToWebProcess::didReceiveInvalidMessage(IPC::Connection&, I
 
 void NetworkConnectionToWebProcess::createSocketChannel(const ResourceRequest& request, const String& protocol, WebSocketIdentifier identifier, WebPageProxyIdentifier webPageProxyID, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, const ClientOrigin& clientOrigin, bool hadMainFrameMainResourcePrivateRelayed, bool allowPrivacyProxy, OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, WebCore::StoredCredentialsPolicy storedCredentialsPolicy)
 {
-    MESSAGE_CHECK(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, request.firstPartyForCookies()));
+    MESSAGE_CHECK(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, request.firstPartyForCookies()) != NetworkProcess::AllowCookieAccess::Terminate);
 
     ASSERT(!m_networkSocketChannels.contains(identifier));
     if (auto channel = NetworkSocketChannel::create(*this, m_sessionID, request, protocol, identifier, webPageProxyID, frameID, pageID, clientOrigin, hadMainFrameMainResourcePrivateRelayed, allowPrivacyProxy, advancedPrivacyProtections, shouldRelaxThirdPartyCookieBlocking, storedCredentialsPolicy))
@@ -507,14 +516,6 @@ void NetworkConnectionToWebProcess::removeSocketChannel(WebSocketIdentifier iden
     m_networkSocketChannels.remove(identifier);
 }
 
-void NetworkConnectionToWebProcess::endSuspension()
-{
-#if USE(LIBWEBRTC)
-    if (m_rtcProvider)
-        m_rtcProvider->authorizeListeningSockets();
-#endif
-}
-
 NetworkSession* NetworkConnectionToWebProcess::networkSession()
 {
     return networkProcess().networkSession(m_sessionID);
@@ -522,7 +523,7 @@ NetworkSession* NetworkConnectionToWebProcess::networkSession()
 
 Vector<RefPtr<WebCore::BlobDataFileReference>> NetworkConnectionToWebProcess::resolveBlobReferences(const NetworkResourceLoadParameters& loadParameters)
 {
-    CONNECTION_RELEASE_LOG(Loading, "resolveBlobReferences: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID.toUInt64(), loadParameters.webFrameID.object().toUInt64(), loadParameters.identifier.toUInt64());
+    CONNECTION_RELEASE_LOG(Loading, "resolveBlobReferences: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID ? loadParameters.webPageID->toUInt64() : 0, loadParameters.webFrameID.object().toUInt64(), loadParameters.identifier.toUInt64());
 
     auto* session = networkSession();
     if (!session)
@@ -552,13 +553,13 @@ RefPtr<ServiceWorkerFetchTask> NetworkConnectionToWebProcess::createFetchTask(Ne
 
 void NetworkConnectionToWebProcess::scheduleResourceLoad(NetworkResourceLoadParameters&& loadParameters, std::optional<NetworkResourceLoadIdentifier> existingLoaderToResume)
 {
-    bool hasCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, loadParameters.request.firstPartyForCookies());
-    if (UNLIKELY(!hasCookieAccess))
+    auto allowCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, loadParameters.request.firstPartyForCookies());
+    if (UNLIKELY(allowCookieAccess != NetworkProcess::AllowCookieAccess::Allow))
         RELEASE_LOG_ERROR(Loading, "scheduleResourceLoad: Web process does not have cookie access to url %" SENSITIVE_LOG_STRING " for request %" SENSITIVE_LOG_STRING, loadParameters.request.firstPartyForCookies().string().utf8().data(), loadParameters.request.url().string().utf8().data());
 
-    MESSAGE_CHECK(hasCookieAccess);
+    MESSAGE_CHECK(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate);
 
-    CONNECTION_RELEASE_LOG(Loading, "scheduleResourceLoad: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ", existingLoaderToResume=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID.toUInt64(), loadParameters.webFrameID.object().toUInt64(), loadParameters.identifier.toUInt64(), valueOrDefault(existingLoaderToResume).toUInt64());
+    CONNECTION_RELEASE_LOG(Loading, "scheduleResourceLoad: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ", existingLoaderToResume=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID ? loadParameters.webPageID->toUInt64() : 0, loadParameters.webFrameID.object().toUInt64(), loadParameters.identifier.toUInt64(), valueOrDefault(existingLoaderToResume).toUInt64());
 
     if (auto* session = networkSession()) {
         if (auto& server = session->ensureSWServer(); !server.isImportCompleted()) {
@@ -607,7 +608,7 @@ void NetworkConnectionToWebProcess::scheduleResourceLoad(NetworkResourceLoadPara
 
 void NetworkConnectionToWebProcess::performSynchronousLoad(NetworkResourceLoadParameters&& loadParameters, CompletionHandler<void(const ResourceError&, const ResourceResponse, Vector<uint8_t>&&)>&& reply)
 {
-    CONNECTION_RELEASE_LOG(Loading, "performSynchronousLoad: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID.toUInt64(), loadParameters.webFrameID.object().toUInt64(), loadParameters.identifier.toUInt64());
+    CONNECTION_RELEASE_LOG(Loading, "performSynchronousLoad: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID ? loadParameters.webPageID->toUInt64() : 0, loadParameters.webFrameID.object().toUInt64(), loadParameters.identifier.toUInt64());
 
     auto identifier = loadParameters.identifier;
     RELEASE_ASSERT(identifier);
@@ -628,7 +629,7 @@ void NetworkConnectionToWebProcess::testProcessIncomingSyncMessagesWhenWaitingFo
 
 void NetworkConnectionToWebProcess::loadPing(NetworkResourceLoadParameters&& loadParameters)
 {
-    CONNECTION_RELEASE_LOG(Loading, "loadPing: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID.toUInt64(), loadParameters.webFrameID.object().toUInt64(), loadParameters.identifier.toUInt64());
+    CONNECTION_RELEASE_LOG(Loading, "loadPing: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID ? loadParameters.webPageID->toUInt64() : 0, loadParameters.webFrameID.object().toUInt64(), loadParameters.identifier.toUInt64());
 
     auto completionHandler = [connection = m_connection, identifier = loadParameters.identifier] (const ResourceError& error, const ResourceResponse& response) {
         connection->send(Messages::NetworkProcessConnection::DidFinishPingLoad(identifier, error, response), 0);
@@ -703,7 +704,7 @@ void NetworkConnectionToWebProcess::sendH2Ping(NetworkResourceLoadParameters&& p
 
 void NetworkConnectionToWebProcess::preconnectTo(std::optional<WebCore::ResourceLoaderIdentifier> preconnectionIdentifier, NetworkResourceLoadParameters&& loadParameters)
 {
-    CONNECTION_RELEASE_LOG(Loading, "preconnectTo: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID.toUInt64(), loadParameters.webFrameID.object().toUInt64(), loadParameters.identifier.toUInt64());
+    CONNECTION_RELEASE_LOG(Loading, "preconnectTo: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID ? loadParameters.webPageID->toUInt64() : 0, loadParameters.webFrameID.object().toUInt64(), loadParameters.identifier.toUInt64());
 
     ASSERT(!loadParameters.request.httpBody());
 
@@ -751,7 +752,7 @@ NetworkStorageSession* NetworkConnectionToWebProcess::storageSession()
 
 void NetworkConnectionToWebProcess::startDownload(DownloadID downloadID, const ResourceRequest& request, const std::optional<WebCore::SecurityOriginData>& topOrigin, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, const String& suggestedName, FromDownloadAttribute fromDownloadAttribute, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID)
 {
-    m_networkProcess->downloadManager().startDownload(m_sessionID, downloadID, request, topOrigin, isNavigatingToAppBoundDomain, suggestedName, fromDownloadAttribute, frameID, pageID, webProcessIdentifier());
+    protectedNetworkProcess()->downloadManager().startDownload(m_sessionID, downloadID, request, topOrigin, isNavigatingToAppBoundDomain, suggestedName, fromDownloadAttribute, frameID, pageID, webProcessIdentifier());
 }
 
 void NetworkConnectionToWebProcess::loadCancelledDownloadRedirectRequestInFrame(const WebCore::ResourceRequest& request, const WebCore::FrameIdentifier& frameID, const WebCore::PageIdentifier& pageID)
@@ -783,9 +784,24 @@ void NetworkConnectionToWebProcess::registerURLSchemesAsCORSEnabled(Vector<Strin
         m_schemeRegistry->registerURLSchemeAsCORSEnabled(WTFMove(scheme));
 }
 
+static bool shouldTreatAsSameSite(const URL& firstParty, const URL& url)
+{
+    if (SecurityPolicy::shouldInheritSecurityOriginFromOwner(url))
+        return true;
+
+    return RegistrableDomain(firstParty) == RegistrableDomain(url);
+}
+
 void NetworkConnectionToWebProcess::cookiesForDOM(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, FrameIdentifier frameID, PageIdentifier pageID, IncludeSecureCookies includeSecureCookies, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, CompletionHandler<void(String cookieString, bool secureCookiesAccessed)>&& completionHandler)
 {
-    MESSAGE_CHECK_COMPLETION(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty), completionHandler({ }, false));
+    auto allowCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty);
+    MESSAGE_CHECK_COMPLETION(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate, completionHandler({ }, false));
+    if (allowCookieAccess != NetworkProcess::AllowCookieAccess::Allow)
+        return completionHandler({ }, false);
+    if (sameSiteInfo.isSameSite && !shouldTreatAsSameSite(firstParty, url)) {
+        CONNECTION_RELEASE_LOG_ERROR(IPC, "cookiesForDOM: Rejecting cookie access due to invalid sameSiteInfo");
+        return completionHandler({ }, false);
+    }
 
     auto* networkStorageSession = storageSession();
     if (!networkStorageSession)
@@ -802,7 +818,14 @@ void NetworkConnectionToWebProcess::cookiesForDOM(const URL& firstParty, const S
 
 void NetworkConnectionToWebProcess::setCookiesFromDOM(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, WebCore::FrameIdentifier frameID, PageIdentifier pageID, ApplyTrackingPrevention applyTrackingPrevention, const String& cookieString, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking)
 {
-    MESSAGE_CHECK(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty));
+    auto allowCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty);
+    MESSAGE_CHECK(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate);
+    if (allowCookieAccess != NetworkProcess::AllowCookieAccess::Allow)
+        return;
+    if (sameSiteInfo.isSameSite && !shouldTreatAsSameSite(firstParty, url)) {
+        CONNECTION_RELEASE_LOG_ERROR(IPC, "setCookiesFromDOM: Rejecting cookie access due to invalid sameSiteInfo");
+        return;
+    }
 
     auto* networkStorageSession = storageSession();
     if (!networkStorageSession)
@@ -823,7 +846,10 @@ void NetworkConnectionToWebProcess::cookiesEnabledSync(const URL& firstParty, co
 
 void NetworkConnectionToWebProcess::cookiesEnabled(const URL& firstParty, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, CompletionHandler<void(bool)>&& completionHandler)
 {
-    MESSAGE_CHECK_COMPLETION(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty), completionHandler(false));
+    auto allowCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty);
+    MESSAGE_CHECK_COMPLETION(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate, completionHandler(false));
+    if (allowCookieAccess != NetworkProcess::AllowCookieAccess::Allow)
+        return completionHandler(false);
 
     auto* networkStorageSession = storageSession();
     if (!networkStorageSession) {
@@ -837,7 +863,14 @@ void NetworkConnectionToWebProcess::cookiesEnabled(const URL& firstParty, const 
 
 void NetworkConnectionToWebProcess::cookieRequestHeaderFieldValue(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, IncludeSecureCookies includeSecureCookies, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, CompletionHandler<void(String, bool)>&& completionHandler)
 {
-    MESSAGE_CHECK_COMPLETION(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty), completionHandler({ }, false));
+    auto allowCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty);
+    MESSAGE_CHECK_COMPLETION(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate, completionHandler({ }, false));
+    if (allowCookieAccess != NetworkProcess::AllowCookieAccess::Allow)
+        return completionHandler({ }, false);
+    if (sameSiteInfo.isSameSite && !shouldTreatAsSameSite(firstParty, url)) {
+        CONNECTION_RELEASE_LOG_ERROR(IPC, "cookieRequestHeaderFieldValue: Rejecting cookie access due to invalid sameSiteInfo");
+        return completionHandler({ }, false);
+    }
 
     auto* networkStorageSession = storageSession();
     if (!networkStorageSession)
@@ -848,7 +881,14 @@ void NetworkConnectionToWebProcess::cookieRequestHeaderFieldValue(const URL& fir
 
 void NetworkConnectionToWebProcess::getRawCookies(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, CompletionHandler<void(Vector<WebCore::Cookie>&&)>&& completionHandler)
 {
-    MESSAGE_CHECK_COMPLETION(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty), completionHandler({ }));
+    auto allowCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty);
+    MESSAGE_CHECK_COMPLETION(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate, completionHandler({ }));
+    if (allowCookieAccess != NetworkProcess::AllowCookieAccess::Allow)
+        return completionHandler({ });
+    if (sameSiteInfo.isSameSite && !shouldTreatAsSameSite(firstParty, url)) {
+        CONNECTION_RELEASE_LOG_ERROR(IPC, "getRawCookies: Rejecting cookie access due to invalid sameSiteInfo");
+        return completionHandler({ });
+    }
 
     auto* networkStorageSession = storageSession();
     if (!networkStorageSession)
@@ -877,7 +917,14 @@ void NetworkConnectionToWebProcess::deleteCookie(const URL& url, const String& c
 
 void NetworkConnectionToWebProcess::cookiesForDOMAsync(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID, IncludeSecureCookies includeSecureCookies, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, WebCore::CookieStoreGetOptions&& options, CompletionHandler<void(std::optional<Vector<WebCore::Cookie>>&&)>&& completionHandler)
 {
-    MESSAGE_CHECK_COMPLETION(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty), completionHandler(std::nullopt));
+    auto allowCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty);
+    MESSAGE_CHECK_COMPLETION(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate, completionHandler(std::nullopt));
+    if (allowCookieAccess != NetworkProcess::AllowCookieAccess::Allow)
+        return completionHandler(std::nullopt);
+    if (sameSiteInfo.isSameSite && !shouldTreatAsSameSite(firstParty, url)) {
+        CONNECTION_RELEASE_LOG_ERROR(IPC, "cookiesForDOMAsync: Rejecting cookie access due to invalid sameSiteInfo");
+        return completionHandler(std::nullopt);
+    }
 
     auto* networkStorageSession = storageSession();
     if (!networkStorageSession)
@@ -894,7 +941,14 @@ void NetworkConnectionToWebProcess::cookiesForDOMAsync(const URL& firstParty, co
 
 void NetworkConnectionToWebProcess::setCookieFromDOMAsync(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, WebCore::Cookie&& cookie, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, CompletionHandler<void(bool)>&& completionHandler)
 {
-    MESSAGE_CHECK(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty));
+    auto allowCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty);
+    MESSAGE_CHECK_COMPLETION(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate, completionHandler(false));
+    if (allowCookieAccess != NetworkProcess::AllowCookieAccess::Allow)
+        return completionHandler(false);
+    if (sameSiteInfo.isSameSite && !shouldTreatAsSameSite(firstParty, url)) {
+        CONNECTION_RELEASE_LOG_ERROR(IPC, "setCookieFromDOMAsync: Rejecting cookie access due to invalid sameSiteInfo");
+        return completionHandler(false);
+    }
 
     auto* networkStorageSession = storageSession();
     if (!networkStorageSession)
@@ -914,7 +968,10 @@ void NetworkConnectionToWebProcess::domCookiesForHost(const URL& url, Completion
 {
     auto host = url.host().toString();
     MESSAGE_CHECK_COMPLETION(HashSet<String>::isValidValue(host), completionHandler({ }));
-    MESSAGE_CHECK_COMPLETION(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, url), completionHandler({ }));
+    auto allowCookieAccess = m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, url);
+    MESSAGE_CHECK_COMPLETION(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate, completionHandler({ }));
+    if (allowCookieAccess != NetworkProcess::AllowCookieAccess::Allow)
+        return completionHandler({ });
 
     auto* networkStorageSession = storageSession();
     if (!networkStorageSession)
@@ -965,6 +1022,28 @@ void NetworkConnectionToWebProcess::cookieEnabledStateMayHaveChanged()
     protectedConnection()->send(Messages::NetworkProcessConnection::UpdateCachedCookiesEnabled(), 0);
 }
 
+bool NetworkConnectionToWebProcess::isFilePathAllowed(NetworkSession& session, String path)
+{
+    path = FileSystem::lexicallyNormal(path);
+    auto parentPath = FileSystem::parentPath(path);
+    while (parentPath != path) {
+        if (m_allowedFilePaths.contains(path) || parentPath == session.storageManager().path() || parentPath == session.storageManager().customIDBStoragePath())
+            return true;
+        path = parentPath;
+        parentPath = FileSystem::parentPath(path);
+    }
+    return false;
+}
+
+static bool shouldCheckBlobFileAccess()
+{
+#if PLATFORM(COCOA)
+    return WTF::linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::BlobFileAccessEnforcement);
+#else
+    return true;
+#endif
+}
+
 void NetworkConnectionToWebProcess::registerInternalFileBlobURL(const URL& url, const String& path, const String& replacementPath, SandboxExtension::Handle&& extensionHandle, const String& contentType)
 {
     MESSAGE_CHECK(!url.isEmpty());
@@ -972,6 +1051,8 @@ void NetworkConnectionToWebProcess::registerInternalFileBlobURL(const URL& url, 
     auto* session = networkSession();
     if (!session)
         return;
+    if (blobFileAccessEnforcementEnabled() && shouldCheckBlobFileAccess())
+        MESSAGE_CHECK(isFilePathAllowed(*session, path));
 
     m_blobURLs.add({ url, std::nullopt });
     session->blobRegistry().registerInternalFileBlobURL(url, BlobDataFileReferenceWithSandboxExtension::create(path, replacementPath, SandboxExtension::create(WTFMove(extensionHandle))), contentType);
@@ -997,13 +1078,14 @@ void NetworkConnectionToWebProcess::registerBlobURL(const URL& url, const URL& s
     session->blobRegistry().registerBlobURL(url, srcURL, WTFMove(policyContainer), topOrigin);
 }
 
-void NetworkConnectionToWebProcess::registerInternalBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, const String& fileBackedPath, const String& contentType)
+void NetworkConnectionToWebProcess::registerInternalBlobURLOptionallyFileBacked(URL&& url, URL&& srcURL, const String& fileBackedPath, String&& contentType)
 {
     MESSAGE_CHECK(!url.isEmpty() && !srcURL.isEmpty() && !fileBackedPath.isEmpty());
-
     auto* session = networkSession();
     if (!session)
         return;
+    if (blobFileAccessEnforcementEnabled() && shouldCheckBlobFileAccess())
+        MESSAGE_CHECK(isFilePathAllowed(*session, fileBackedPath));
 
     m_blobURLs.add({ url, std::nullopt });
     session->blobRegistry().registerInternalBlobURLOptionallyFileBacked(url, srcURL, BlobDataFileReferenceWithSandboxExtension::create(fileBackedPath), contentType, { });
@@ -1085,6 +1167,26 @@ void NetworkConnectionToWebProcess::writeBlobsToTemporaryFilesForIndexedDB(const
     });
 }
 
+void NetworkConnectionToWebProcess::registerBlobPathForTesting(const String& path, CompletionHandler<void()>&& completion)
+{
+    if (!allowTestOnlyIPC())
+        return completion();
+    allowAccessToFile(path);
+    completion();
+}
+
+void NetworkConnectionToWebProcess::allowAccessToFile(const String& path)
+{
+    m_allowedFilePaths.add(FileSystem::lexicallyNormal(path));
+}
+
+
+void NetworkConnectionToWebProcess::allowAccessToFiles(const Vector<String>& filePaths)
+{
+    for (auto& filePath : filePaths)
+        m_allowedFilePaths.add(FileSystem::lexicallyNormal(filePath));
+}
+
 void NetworkConnectionToWebProcess::setCaptureExtraNetworkLoadMetricsEnabled(bool enabled)
 {
     m_captureExtraNetworkLoadMetricsEnabled = enabled;
@@ -1159,6 +1261,35 @@ void NetworkConnectionToWebProcess::requestStorageAccess(RegistrableDomain&& sub
     }
 
     completionHandler({ WebCore::StorageAccessWasGranted::Yes, WebCore::StorageAccessPromptWasShown::No, scope, topFrameDomain, subFrameDomain });
+}
+
+void NetworkConnectionToWebProcess::setLoginStatus(RegistrableDomain&& domain, IsLoggedIn loggedInStatus, std::optional<WebCore::LoginStatus>&& lastAuthentication, CompletionHandler<void()>&& completionHandler)
+{
+    if (isLoginStatusAPIRequiresWebAuthnEnabled() && !lastAuthentication) {
+        auto umanagedAuthentication = LoginStatus::create(domain, emptyString(), WebCore::LoginStatus::CredentialTokenType::HTTPStateToken, WebCore::LoginStatus::AuthenticationType::Unmanaged, WebCore::LoginStatus::TimeToLiveAuthentication);
+        if (umanagedAuthentication.hasException())
+            return completionHandler();
+        lastAuthentication = umanagedAuthentication.releaseReturnValue();
+    }
+
+    if (auto* networkSession = this->networkSession()) {
+        if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
+            resourceLoadStatistics->setLoginStatus(WTFMove(domain), loggedInStatus, WTFMove(lastAuthentication), WTFMove(completionHandler));
+            return;
+        }
+    }
+    completionHandler();
+}
+
+void NetworkConnectionToWebProcess::isLoggedIn(RegistrableDomain&& domain, CompletionHandler<void(bool)>&& completionHandler)
+{
+    if (auto* networkSession = this->networkSession()) {
+        if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
+            resourceLoadStatistics->isLoggedIn(WTFMove(domain), WTFMove(completionHandler));
+            return;
+        }
+    }
+    completionHandler(false);
 }
 
 void NetworkConnectionToWebProcess::storageAccessQuirkForTopFrameDomain(URL&& topFrameURL, CompletionHandler<void(Vector<RegistrableDomain>)>&& completionHandler)
@@ -1365,7 +1496,8 @@ void NetworkConnectionToWebProcess::establishSWContextConnection(WebPageProxyIde
 {
     auto* session = networkSession();
     if (auto* swServer = session ? session->swServer() : nullptr) {
-        MESSAGE_CHECK(session->networkProcess().allowsFirstPartyForCookies(webProcessIdentifier(), registrableDomain));
+        auto allowCookieAccess = session->networkProcess().allowsFirstPartyForCookies(webProcessIdentifier(), registrableDomain);
+        MESSAGE_CHECK_COMPLETION(allowCookieAccess != NetworkProcess::AllowCookieAccess::Terminate, completionHandler());
         m_swContextConnection = makeUnique<WebSWServerToContextConnection>(*this, webPageProxyID, WTFMove(registrableDomain), serviceWorkerPageIdentifier, *swServer);
     }
     completionHandler();
@@ -1596,18 +1728,20 @@ void NetworkConnectionToWebProcess::navigatorGetPushPermissionState(URL&& scopeU
         return;
     }
 
-    session->notificationManager().getPushPermissionState(WTFMove(scopeURL), WTFMove(completionHandler));
+    session->notificationManager().getPermissionState(SecurityOriginData::fromURL(scopeURL), [completionHandler = WTFMove(completionHandler)](WebCore::PushPermissionState state) mutable {
+        completionHandler(static_cast<uint8_t>(state));
+    });
 }
 #endif // ENABLE(DECLARATIVE_WEB_PUSH)
 
 void NetworkConnectionToWebProcess::initializeWebTransportSession(URL&& url, CompletionHandler<void(std::optional<WebTransportSessionIdentifier>)>&& completionHandler)
 {
-    NetworkTransportSession::initialize(*this, WTFMove(url), [this, weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] (std::unique_ptr<NetworkTransportSession>&& session) mutable {
+    NetworkTransportSession::initialize(*this, WTFMove(url), [this, weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] (RefPtr<NetworkTransportSession>&& session) mutable {
         if (!session || !weakThis)
             return completionHandler(std::nullopt);
         auto identifier = session->identifier();
         ASSERT(!m_networkTransportSessions.contains(identifier));
-        m_networkTransportSessions.set(identifier, makeUniqueRefFromNonNullUniquePtr(WTFMove(session)));
+        m_networkTransportSessions.set(identifier, session.releaseNonNull());
         completionHandler(identifier);
     });
 }
@@ -1624,6 +1758,11 @@ void NetworkConnectionToWebProcess::clearFrameLoadRecordsForStorageAccess(WebCor
         if (auto* resourceLoadStatistics = session->resourceLoadStatistics())
             resourceLoadStatistics->clearFrameLoadRecordsForStorageAccess(frameID);
     }
+}
+
+bool NetworkConnectionToWebProcess::isAlwaysOnLoggingAllowed() const
+{
+    return m_sessionID.isAlwaysOnLoggingAllowed() || m_sharedPreferencesForWebProcess.allowPrivacySensitiveOperationsInNonPersistentDataStores;
 }
 
 } // namespace WebKit

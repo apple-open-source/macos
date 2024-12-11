@@ -31,8 +31,11 @@
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/Page.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebsitePoliciesData);
 
 void WebsitePoliciesData::applyToDocumentLoader(WebsitePoliciesData&& websitePolicies, WebCore::DocumentLoader& documentLoader)
 {
@@ -163,6 +166,19 @@ void WebsitePoliciesData::applyToDocumentLoader(WebsitePoliciesData&& websitePol
     if (!documentLoader.originatorAdvancedPrivacyProtections())
         documentLoader.setOriginatorAdvancedPrivacyProtections(websitePolicies.advancedPrivacyProtections);
     documentLoader.setIdempotentModeAutosizingOnlyHonorsPercentages(websitePolicies.idempotentModeAutosizingOnlyHonorsPercentages);
+    documentLoader.setHTTPSByDefaultMode(websitePolicies.httpsByDefaultMode);
+
+    switch (websitePolicies.pushAndNotificationsEnabledPolicy) {
+    case WebsitePushAndNotificationsEnabledPolicy::UseGlobalPolicy:
+        documentLoader.setPushAndNotificationsEnabledPolicy(WebCore::PushAndNotificationsEnabledPolicy::UseGlobalPolicy);
+        break;
+    case WebsitePushAndNotificationsEnabledPolicy::No:
+        documentLoader.setPushAndNotificationsEnabledPolicy(WebCore::PushAndNotificationsEnabledPolicy::No);
+        break;
+    case WebsitePushAndNotificationsEnabledPolicy::Yes:
+        documentLoader.setPushAndNotificationsEnabledPolicy(WebCore::PushAndNotificationsEnabledPolicy::Yes);
+        break;
+    }
 
     if (!documentLoader.frame())
         return;

@@ -51,6 +51,7 @@
 #include "ScriptDisallowedScope.h"
 #include "ShadowRoot.h"
 #include "UserAgentParts.h"
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(IOS_TOUCH_EVENTS)
 #include "TouchEvent.h"
@@ -58,7 +59,7 @@
 
 namespace WebCore {
 
-static constexpr Seconds switchHeldDelay = 200_ms;
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CheckboxInputType);
 
 const AtomString& CheckboxInputType::formControlType() const
 {
@@ -186,6 +187,7 @@ void CheckboxInputType::handleTouchEvent(TouchEvent& event)
                 protectedThis->setIsSwitchHeld(true);
             });
         }
+        constexpr Seconds switchHeldDelay = 200_ms;
         m_switchHeldTimer->startOneShot(switchHeldDelay);
         event.setDefaultHandled();
     } else if (eventType == eventNames.touchmoveEvent) {

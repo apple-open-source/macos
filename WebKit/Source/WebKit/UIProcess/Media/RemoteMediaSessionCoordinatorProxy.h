@@ -31,6 +31,7 @@
 #include "MessageReceiver.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 struct ExceptionData;
@@ -39,15 +40,18 @@ struct ExceptionData;
 namespace WebKit {
 
 class WebPageProxy;
+struct SharedPreferencesForWebProcess;
 
 class RemoteMediaSessionCoordinatorProxy
     : private IPC::MessageReceiver
     , public RefCounted<RemoteMediaSessionCoordinatorProxy>
     , public WebCore::MediaSessionCoordinatorClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteMediaSessionCoordinatorProxy);
 public:
     static Ref<RemoteMediaSessionCoordinatorProxy> create(WebPageProxy&, Ref<MediaSessionCoordinatorProxyPrivate>&&);
     ~RemoteMediaSessionCoordinatorProxy();
+
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const;
 
     void seekTo(double, CompletionHandler<void(bool)>&&);
     void play(CompletionHandler<void(bool)>&&);
@@ -90,7 +94,7 @@ private:
     WTFLogChannel& logChannel() const;
 #endif
 
-    WebPageProxy& m_webPageProxy;
+    WeakRef<WebPageProxy> m_webPageProxy;
     Ref<MediaSessionCoordinatorProxyPrivate> m_privateCoordinator;
 #if !RELEASE_LOG_DISABLED
     Ref<const WTF::Logger> m_logger;

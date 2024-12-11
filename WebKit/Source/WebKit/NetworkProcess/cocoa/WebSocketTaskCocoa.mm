@@ -34,11 +34,14 @@
 #import <WebCore/ResourceResponse.h>
 #import <WebCore/ThreadableWebSocketChannel.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/SpanCocoa.h>
 
 namespace WebKit {
 
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebSocketTask);
 
 WebSocketTask::WebSocketTask(NetworkSocketChannel& channel, WebPageProxyIdentifier webProxyPageID, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, WeakPtr<SessionSet>&& sessionSet, const WebCore::ResourceRequest& request, const WebCore::ClientOrigin& clientOrigin, RetainPtr<NSURLSessionWebSocketTask>&& task, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, WebCore::StoredCredentialsPolicy storedCredentialsPolicy)
     : NetworkTaskCocoa(*channel.session(), shouldRelaxThirdPartyCookieBlocking)
@@ -65,8 +68,10 @@ WebSocketTask::WebSocketTask(NetworkSocketChannel& channel, WebPageProxyIdentifi
         blockCookies();
 
     readNextMessage();
-    m_channel.didSendHandshakeRequest(ResourceRequest { [m_task currentRequest] });
+    m_channel->didSendHandshakeRequest(ResourceRequest { [m_task currentRequest] });
 }
+
+WebSocketTask::~WebSocketTask() = default;
 
 void WebSocketTask::readNextMessage()
 {
@@ -82,17 +87,17 @@ void WebSocketTask::readNextMessage()
             if (!m_receivedDidConnect) {
                 ResourceResponse response { [m_task response] };
                 if (!response.isNull())
-                    m_channel.didReceiveHandshakeResponse(WTFMove(response));
+                    m_channel->didReceiveHandshakeResponse(WTFMove(response));
             }
 
-            m_channel.didReceiveMessageError([error localizedDescription]);
+            m_channel->didReceiveMessageError([error localizedDescription]);
             didClose(WebCore::ThreadableWebSocketChannel::CloseEventCodeAbnormalClosure, emptyString());
             return;
         }
         if (message.type == NSURLSessionWebSocketMessageTypeString)
-            m_channel.didReceiveText(message.string);
+            m_channel->didReceiveText(message.string);
         else
-            m_channel.didReceiveBinaryData(span(message.data));
+            m_channel->didReceiveBinaryData(span(message.data));
 
         readNextMessage();
     }).get()];
@@ -116,8 +121,8 @@ void WebSocketTask::didConnect(const String& protocol)
         extensionsValue = [(NSHTTPURLResponse *)response valueForHTTPHeaderField:@"Sec-WebSocket-Extensions"];
 
     m_receivedDidConnect = true;
-    m_channel.didConnect(protocol, extensionsValue);
-    m_channel.didReceiveHandshakeResponse(ResourceResponse { [m_task response] });
+    m_channel->didConnect(protocol, extensionsValue);
+    m_channel->didReceiveHandshakeResponse(ResourceResponse { [m_task response] });
 }
 
 void WebSocketTask::didClose(unsigned short code, const String& reason)
@@ -126,7 +131,7 @@ void WebSocketTask::didClose(unsigned short code, const String& reason)
         return;
 
     m_receivedDidClose = true;
-    m_channel.didClose(code, reason);
+    m_channel->didClose(code, reason);
 }
 
 void WebSocketTask::sendString(std::span<const uint8_t> utf8String, CompletionHandler<void()>&& callback)
@@ -171,7 +176,7 @@ WebSocketTask::TaskIdentifier WebSocketTask::identifier() const
 
 NetworkSessionCocoa* WebSocketTask::networkSession()
 {
-    return static_cast<NetworkSessionCocoa*>(m_channel.session());
+    return static_cast<NetworkSessionCocoa*>(m_channel->session());
 }
 
 NSURLSessionTask* WebSocketTask::task() const

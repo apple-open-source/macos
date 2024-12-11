@@ -340,6 +340,8 @@ void PageClientImplCocoa::hasActiveNowPlayingSessionChanged(bool hasActiveNowPla
     if ([m_webView _hasActiveNowPlayingSession] == hasActiveNowPlayingSession)
         return;
 
+    RELEASE_LOG(ViewState, "%p PageClientImplCocoa::hasActiveNowPlayingSessionChanged %d", m_webView.get().get(), hasActiveNowPlayingSession);
+
     [m_webView willChangeValueForKey:@"_hasActiveNowPlayingSession"];
     [m_webView _setHasActiveNowPlayingSession:hasActiveNowPlayingSession];
     [m_webView didChangeValueForKey:@"_hasActiveNowPlayingSession"];
@@ -347,8 +349,14 @@ void PageClientImplCocoa::hasActiveNowPlayingSessionChanged(bool hasActiveNowPla
 
 void PageClientImplCocoa::videoControlsManagerDidChange()
 {
+    RELEASE_LOG(ViewState, "%p PageClientImplCocoa::videoControlsManagerDidChange %d", m_webView.get().get(), [m_webView _canEnterFullscreen]);
     [m_webView willChangeValueForKey:@"_canEnterFullscreen"];
     [m_webView didChangeValueForKey:@"_canEnterFullscreen"];
+}
+
+CocoaWindow *PageClientImplCocoa::platformWindow() const
+{
+    return [m_webView window];
 }
 
 } // namespace WebKit

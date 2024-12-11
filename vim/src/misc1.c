@@ -497,12 +497,17 @@ plines_win_col(win_T *wp, linenr_T lnum, long column)
     return lines;
 }
 
+/*
+ * Return number of window lines the physical line range from "first" until
+ * "last" will occupy in window "wp". Takes into account folding, 'wrap',
+ * topfill and filler lines beyond the end of the buffer. Limit to "max" lines.
+ */
     int
-plines_m_win(win_T *wp, linenr_T first, linenr_T last, int limit_winheight)
+plines_m_win(win_T *wp, linenr_T first, linenr_T last, int max)
 {
     int		count = 0;
 
-    while (first <= last)
+    while (first <= last && count < max)
     {
 #ifdef FEAT_FOLDING
 	int	x;
@@ -520,15 +525,18 @@ plines_m_win(win_T *wp, linenr_T first, linenr_T last, int limit_winheight)
 	{
 #ifdef FEAT_DIFF
 	    if (first == wp->w_topline)
-		count += plines_win_nofill(wp, first, limit_winheight)
-							       + wp->w_topfill;
+		count += plines_win_nofill(wp, first, FALSE) + wp->w_topfill;
 	    else
 #endif
-		count += plines_win(wp, first, limit_winheight);
+		count += plines_win(wp, first, FALSE);
 	    ++first;
 	}
     }
-    return (count);
+#ifdef FEAT_DIFF
+    if (first == wp->w_buffer->b_ml.ml_line_count + 1)
+	count += diff_check_fill(wp, first);
+#endif
+    return MIN(max, count);
 }
 
     int
@@ -670,17 +678,6 @@ get_mode(char_u *buf)
 	buf[i++] = 't';
     }
 #endif
-    else if (VIsual_active)
-    {
-	if (VIsual_select)
-	    buf[i++] = VIsual_mode + 's' - 'v';
-	else
-	{
-	    buf[i++] = VIsual_mode;
-	    if (restart_VIsual_select)
-		buf[i++] = 's';
-	}
-    }
     else if (State == MODE_HITRETURN || State == MODE_ASKMORE
 						      || State == MODE_SETWSIZE
 		|| State == MODE_CONFIRM)
@@ -722,6 +719,17 @@ get_mode(char_u *buf)
 	    buf[i++] = 'e';
 	if ((State & MODE_CMDLINE) && cmdline_overstrike())
 	    buf[i++] = 'r';
+    }
+    else if (VIsual_active)
+    {
+	if (VIsual_select)
+	    buf[i++] = VIsual_mode + 's' - 'v';
+	else
+	{
+	    buf[i++] = VIsual_mode;
+	    if (restart_VIsual_select)
+		buf[i++] = 's';
+	}
     }
     else
     {
@@ -1404,9 +1412,6 @@ expand_env_esc(
     int		mustfree;	// var was allocated, need to free it later
     int		at_start = TRUE; // at start of a name
     int		startstr_len = 0;
-#if defined(BACKSLASH_IN_FILENAME) || defined(AMIGA)
-    char_u	*save_dst = dst;
-#endif
 
     if (startstr != NULL)
 	startstr_len = (int)STRLEN(startstr);
@@ -1631,7 +1636,7 @@ expand_env_esc(
 		// with it, skip a character
 		if (after_pathsep(dst, dst + c)
 #if defined(BACKSLASH_IN_FILENAME) || defined(AMIGA)
-			&& (dst == save_dst || dst[-1] != ':')
+			&& dst[c - 1] != ':'
 #endif
 			&& vim_ispathsep(*tail))
 		    ++tail;
@@ -2095,7 +2100,7 @@ add_user(char_u *user, int need_copy)
     if (user_copy == NULL || *user_copy == NUL || ga_grow(&ga_users, 1) == FAIL)
     {
 	if (need_copy)
-	    vim_free(user);
+	    vim_free(user_copy);
 	return;
     }
     ((char_u **)(ga_users.ga_data))[ga_users.ga_len++] = user_copy;
@@ -2175,7 +2180,7 @@ init_users(void)
 }
 
 /*
- * Function given to ExpandGeneric() to obtain an user names.
+ * Function given to ExpandGeneric() to obtain user names.
  */
     char_u*
 get_users(expand_T *xp UNUSED, int idx)
@@ -2843,7 +2848,7 @@ vim_append_digit_long(long *value, int digit)
 
 // Return something that fits into an int.
     int
-trim_to_int(long long x)
+trim_to_int(vimlong_T x)
 {
     return x > INT_MAX ? INT_MAX : x < INT_MIN ? INT_MIN : x;
 }

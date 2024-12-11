@@ -236,15 +236,9 @@ systmpr(uint32_t proto,
 					printf("%16.16s ", "pcb");
 				printf("%-5.5s %-6.6s %-6.6s",
 				        "Proto", "Recv-Q", "Send-Q");
-				if (bflag > 0 || vflag > 0)
-					printf(" %10.10s %10.10s",
-					      "rxbytes", "txbytes");
-				if (vflag > 0) {
-					printf(" %7.7s %7.7s %6.6s %6.6s %5.5s %8.8s",
-					       "rhiwat", "shiwat", "pid", "epid", "state", "options");
-					printf(" %16.16s %8.8s %8.8s %6s %6s %5s",
-					       "gencnt", "flags", "flags1", "usecnt", "rtncnt", "fltrs");
-				}
+
+				print_socket_stats_format();
+
 				printf(" %6.6s", "unit");
 				printf(" %6.6s", "id");
 				printf(" %s", "name");
@@ -256,33 +250,9 @@ systmpr(uint32_t proto,
 			printf("%-5.5s %6u %6u", name,
 			       so_rcv->sb_cc,
 			       so_snd->sb_cc);
-			if (bflag > 0 || vflag > 0) {
-				int i;
-				u_int64_t rxbytes = 0;
-				u_int64_t txbytes = 0;
-				
-				for (i = 0; i < SO_TC_STATS_MAX; i++) {
-					rxbytes += so_stat->xst_tc_stats[i].rxbytes;
-					txbytes += so_stat->xst_tc_stats[i].txbytes;
-				}
-				printf(" %10llu %10llu", rxbytes, txbytes);
-			}
-			if (vflag > 0) {
-				printf(" %7u %7u %6u %6u %05x %08x",
-				       so_rcv->sb_hiwat,
-				       so_snd->sb_hiwat,
-				       so->so_last_pid,
-				       so->so_e_pid,
-				       so->so_state,
-				       so->so_options);
-				printf(" %016llx %08x %08x %6d %6d %06x",
-				       so->so_gencnt,
-				       so->so_flags,
-				       so->so_flags1,
-				       so->so_usecount,
-				       so->so_retaincnt,
-				       so->xso_filter_flags);
-			}
+
+			print_socket_stats_data(so, so_rcv, so_snd, so_stat);
+
 			printf(" %6d", kcb->xkp_unit);
 			printf(" %6d", kcb->xkp_kctlid);
 			printf(" %s", kcb->xkp_kctlname);
@@ -299,15 +269,9 @@ systmpr(uint32_t proto,
 				printf("%6.6s ", "vendor");
 				printf("%6.6s ", "class");
 				printf("%6.6s", "subcl");
-				if (bflag > 0 || vflag > 0)
-					printf(" %10.10s %10.10s",
-					      "rxbytes", "txbytes");
-				if (vflag > 0) {
-					printf(" %7.7s %7.7s %6.6s %6.6s %5.5s %8.8s",
-					       "rhiwat", "shiwat", "pid", "epid", "state", "options");
-					printf(" %16.16s %8.8s %8.8s %6s %6s %5s",
-					       "gencnt", "flags", "flags1", "usecnt", "rtncnt", "fltrs");
-				}
+
+				print_socket_stats_format();
+
 				printf("\n");
 				first = 0;
 			}
@@ -319,33 +283,9 @@ systmpr(uint32_t proto,
 			printf("%6d ", kevb->kep_vendor_code_filter);
 			printf("%6d ", kevb->kep_class_filter);
 			printf("%6d", kevb->kep_subclass_filter);
-			if (bflag > 0 || vflag > 0) {
-				int i;
-				u_int64_t rxbytes = 0;
-				u_int64_t txbytes = 0;
-				
-				for (i = 0; i < SO_TC_STATS_MAX; i++) {
-					rxbytes += so_stat->xst_tc_stats[i].rxbytes;
-					txbytes += so_stat->xst_tc_stats[i].txbytes;
-				}
-				printf(" %10llu %10llu", rxbytes, txbytes);
-			}
-			if (vflag > 0) {
-				printf(" %7u %7u %6u %6u %05x %08x",
-				       so_rcv->sb_hiwat,
-				       so_snd->sb_hiwat,
-				       so->so_last_pid,
-				       so->so_e_pid,
-				       so->so_state,
-				       so->so_options);
-				printf(" %016llx %08x %08x %6d %6d %06x",
-				       so->so_gencnt,
-				       so->so_flags,
-				       so->so_flags1,
-				       so->so_usecount,
-				       so->so_retaincnt,
-				       so->xso_filter_flags);
-			}
+
+			print_socket_stats_data(so, so_rcv, so_snd, so_stat);
+
 			printf("\n");
 		}
 			

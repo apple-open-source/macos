@@ -249,7 +249,10 @@ inline WKProcessTerminationReason toAPI(ProcessTerminationReason reason)
     case ProcessTerminationReason::Unresponsive:
     case ProcessTerminationReason::RequestedByNetworkProcess:
     case ProcessTerminationReason::RequestedByGPUProcess:
+    case ProcessTerminationReason::RequestedByModelProcess:
     case ProcessTerminationReason::Crash:
+    case ProcessTerminationReason::GPUProcessCrashedTooManyTimes:
+    case ProcessTerminationReason::ModelProcessCrashedTooManyTimes:
         return kWKProcessTerminationReasonCrash;
     }
 

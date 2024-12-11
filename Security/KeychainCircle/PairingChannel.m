@@ -26,9 +26,9 @@
 #import "keychain/ot/proto/generated_source/OTSupportOctagonMessage.h"
 #import "keychain/ot/proto/generated_source/OTPairingMessage.h"
 #import "keychain/SigninMetrics/OctagonSignPosts.h"
-#import "keychain/analytics/SecurityAnalyticsConstants.h"
-#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
-#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import <CloudServices/SecureBackup.h>
 #import <Accounts/Accounts.h>
@@ -37,6 +37,9 @@
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
 #include <utilities/SecAKSWrappers.h>
 #include "keychain/securityd/SecKeybagSupport.h"
+
+#import "utilities/SecTapToRadar.h"
+#import <os/feature_private.h>
 
 #import <SoftLinking/SoftLinking.h>
 
@@ -300,7 +303,11 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
 + (NSData *)pairingChannelCompressData:(NSData *)data
 {
-    NSMutableData *scratch = [NSMutableData dataWithLength:compression_encode_scratch_buffer_size(pairingCompression)];
+    static NSMutableData *scratch = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^ {
+        scratch = [NSMutableData dataWithLength:compression_encode_scratch_buffer_size(pairingCompression)];
+    });
 
     NSUInteger outLength = [data length];
     if (outLength > NSUIntegerMax - EXTRA_SIZE)
@@ -319,7 +326,11 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
 + (NSData *)pairingChannelDecompressData:(NSData *)data
 {
-    NSMutableData *scratch = [NSMutableData dataWithLength:compression_decode_scratch_buffer_size(pairingCompression)];
+    static NSMutableData *scratch = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^ {
+        scratch = [NSMutableData dataWithLength:compression_decode_scratch_buffer_size(pairingCompression)];
+    });
 
     size_t outLength = [data length];
     size_t result;

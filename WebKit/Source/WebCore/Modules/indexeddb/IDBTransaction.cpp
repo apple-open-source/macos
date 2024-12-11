@@ -53,12 +53,12 @@
 #include "TransactionOperation.h"
 #include "WebCoreOpaqueRootInlines.h"
 #include <wtf/CompletionHandler.h>
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 using namespace JSC;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(IDBTransaction);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(IDBTransaction);
 
 std::atomic<unsigned> IDBTransaction::numberOfIDBTransactions { 0 };
 
@@ -484,8 +484,11 @@ void IDBTransaction::commitInternal()
 
     LOG(IndexedDBOperations, "IDB commit operation: Transaction %s", info().identifier().loggingString().utf8().data());
 
-    scheduleOperation(IDBClient::TransactionOperationImpl::create(*this, nullptr, [protectedThis = Ref { *this }] (auto& operation) {
-        protectedThis->commitOnServer(operation, protectedThis->m_handledRequestResultsCount);
+    uint64_t handledRequestResultsCount = m_handledRequestResultsCount;
+    if (m_currentlyCompletingRequest && m_currentlyCompletingRequest->isEventBeingDispatched())
+        ++handledRequestResultsCount;
+    scheduleOperation(IDBClient::TransactionOperationImpl::create(*this, nullptr, [protectedThis = Ref { *this }, handledRequestResultsCount] (auto& operation) {
+        protectedThis->commitOnServer(operation, handledRequestResultsCount);
     }));
 }
 

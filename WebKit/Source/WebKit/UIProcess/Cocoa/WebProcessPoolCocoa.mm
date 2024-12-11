@@ -103,7 +103,6 @@
 
 #if PLATFORM(MAC)
 #import "WebInspectorPreferenceObserver.h"
-#import <QuartzCore/CARemoteLayerServer.h>
 #import <notify_keys.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
@@ -372,10 +371,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     parameters.shouldEnableFTLJIT = [defaults boolForKey:WebKitJSCFTLJITEnabledDefaultsKey];
     parameters.shouldEnableMemoryPressureReliefLogging = [defaults boolForKey:@"LogMemoryJetsamDetails"];
     parameters.shouldSuppressMemoryPressureHandler = [defaults boolForKey:WebKitSuppressMemoryPressureHandlerDefaultsKey];
-
-#if HAVE(HOSTED_CORE_ANIMATION)
-    parameters.acceleratedCompositingPort = MachSendRight::create([CARemoteLayerServer sharedServer].serverPort);
-#endif
 
     // FIXME: This should really be configurable; we shouldn't just blindly allow read access to the UI process bundle.
     parameters.uiProcessBundleResourcePath = m_resolvedPaths.uiProcessBundleResourcePath;
@@ -1214,16 +1209,13 @@ void WebProcessPool::screenPropertiesChanged()
 void WebProcessPool::displayPropertiesChanged(const WebCore::ScreenProperties& screenProperties, WebCore::PlatformDisplayID displayID, CGDisplayChangeSummaryFlags flags)
 {
     sendToAllProcesses(Messages::WebProcess::SetScreenProperties(screenProperties));
-    sendToAllProcesses(Messages::WebProcess::DisplayConfigurationChanged(displayID, flags));
 
     if (auto* displayLink = displayLinks().existingDisplayLinkForDisplay(displayID))
         displayLink->displayPropertiesChanged();
 
 #if ENABLE(GPU_PROCESS)
-    if (auto gpuProcess = this->gpuProcess()) {
+    if (auto gpuProcess = this->gpuProcess())
         gpuProcess->setScreenProperties(screenProperties);
-        gpuProcess->displayConfigurationChanged(displayID, flags);
-    }
 #endif
 }
 

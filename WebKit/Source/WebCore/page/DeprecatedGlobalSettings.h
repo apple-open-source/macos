@@ -97,14 +97,6 @@ public:
     static bool attachmentElementEnabled() { return shared().m_isAttachmentElementEnabled; }
 #endif
 
-#if ENABLE(WEB_RTC)
-    static bool webRTCH264LowLatencyEncoderEnabled() { return shared().m_isWebRTCH264LowLatencyEncoderEnabled; }
-    static void setWebRTCH264LowLatencyEncoderEnabled(bool isEnabled) { shared().m_isWebRTCH264LowLatencyEncoderEnabled = isEnabled; }
-    static bool webRTCPlatformTCPSocketsEnabled() { return shared().m_isWebRTCPlatformTCPSocketsEnabled; }
-    static void setWebRTCPlatformTCPSocketsEnabled(bool isEnabled) { shared().m_isWebRTCPlatformTCPSocketsEnabled = isEnabled; }
-    static bool webRTCPlatformUDPSocketsEnabled() { return shared().m_isWebRTCPlatformUDPSocketsEnabled; }
-    static void setWebRTCPlatformUDPSocketsEnabled(bool isEnabled) { shared().m_isWebRTCPlatformUDPSocketsEnabled = isEnabled; }
-#endif
     static bool webRTCAudioLatencyAdaptationEnabled() { return shared().m_isWebRTCAudioLatencyAdaptationEnabled; }
     static void setWebRTCAudioLatencyAdaptationEnabled(bool isEnabled) { shared().m_isWebRTCAudioLatencyAdaptationEnabled = isEnabled; }
 
@@ -118,11 +110,6 @@ public:
 
     static void setArePDFImagesEnabled(bool isEnabled) { shared().m_arePDFImagesEnabled = isEnabled; }
     static bool arePDFImagesEnabled() { return shared().m_arePDFImagesEnabled; }
-
-#if ENABLE(WEBM_FORMAT_READER)
-    static void setWebMFormatReaderEnabled(bool isEnabled) { shared().m_webMFormatReaderEnabled = isEnabled; }
-    static bool webMFormatReaderEnabled() { return shared().m_webMFormatReaderEnabled; }
-#endif
 
 #if ENABLE(MEDIA_SOURCE)
     static void setWebMParserEnabled(bool isEnabled) { shared().m_webMParserEnabled = isEnabled; }
@@ -146,7 +133,7 @@ public:
 
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
     static void setBuiltInNotificationsEnabled(bool isEnabled) { shared().m_builtInNotificationsEnabled = isEnabled; }
-    static bool builtInNotificationsEnabled() { return shared().m_builtInNotificationsEnabled; }
+    WEBCORE_EXPORT static bool builtInNotificationsEnabled();
 #endif
 
 #if ENABLE(MODEL_ELEMENT)
@@ -191,11 +178,6 @@ private:
     bool m_isAttachmentElementEnabled { false };
 #endif
 
-#if ENABLE(WEB_RTC)
-    bool m_isWebRTCH264LowLatencyEncoderEnabled { false };
-    bool m_isWebRTCPlatformTCPSocketsEnabled { false };
-    bool m_isWebRTCPlatformUDPSocketsEnabled { false };
-#endif
     bool m_isWebRTCAudioLatencyAdaptationEnabled { true };
 
     bool m_isReadableByteStreamAPIEnabled { false };
@@ -205,10 +187,6 @@ private:
 #endif
 
     bool m_arePDFImagesEnabled { true };
-
-#if ENABLE(WEBM_FORMAT_READER)
-    bool m_webMFormatReaderEnabled { false };
-#endif
 
 #if ENABLE(MEDIA_SOURCE)
     bool m_webMParserEnabled { false };

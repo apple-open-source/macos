@@ -55,7 +55,7 @@ class WebXRViewerSpace;
 struct XRRenderStateInit;
 
 class WebXRSession final : public RefCounted<WebXRSession>, public EventTarget, public ActiveDOMObject, public PlatformXR::TrackingAndRenderingClient {
-    WTF_MAKE_ISO_ALLOCATED(WebXRSession);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebXRSession);
 public:
     using RequestReferenceSpacePromise = DOMPromiseDeferred<IDLInterface<WebXRReferenceSpace>>;
     using EndPromise = DOMPromiseDeferred<void>;
@@ -78,6 +78,8 @@ public:
     const WebXRRenderState& renderState() const;
     const WebXRInputSourceArray& inputSources() const;
     RefPtr<PlatformXR::Device> device() const { return m_device.get(); }
+
+    const Vector<String> enabledFeatures() const;
 
     ExceptionOr<void> updateRenderState(const XRRenderStateInit&);
     void requestReferenceSpace(XRReferenceSpaceType, RequestReferenceSpacePromise&&);
@@ -164,6 +166,7 @@ private:
 
     Vector<PlatformXR::Device::ViewData> m_views;
     PlatformXR::FrameData m_frameData;
+    std::optional<PlatformXR::RequestData> m_requestData;
 
     double m_minimumInlineFOV { 0.0 };
     double m_maximumInlineFOV { piFloat };

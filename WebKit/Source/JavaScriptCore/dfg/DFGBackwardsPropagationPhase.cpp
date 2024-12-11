@@ -526,7 +526,9 @@ private:
             
         case ToString:
         case CallStringConstructor: {
-            node->child1()->mergeFlags(NodeBytecodeUsesAsNumber | NodeBytecodeUsesAsOther | NodeBytecodeNeedsNaNOrInfinity);
+            if (typeFilterFor(node->child1().useKind()) & SpecOther)
+                node->child1()->mergeFlags(NodeBytecodeUsesAsOther);
+            node->child1()->mergeFlags(NodeBytecodeUsesAsNumber | NodeBytecodeNeedsNaNOrInfinity);
             break;
         }
             

@@ -27,6 +27,7 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteGPU.h"
 #include "StreamMessageReceiver.h"
 #include "WebGPUExtent3D.h"
 #include "WebGPUIdentifier.h"
@@ -34,6 +35,7 @@
 #include <cstdint>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakRef.h>
 #include <wtf/text/WTFString.h>
@@ -61,21 +63,23 @@ class ObjectHeap;
 }
 
 class RemoteQueue final : public IPC::StreamMessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteQueue);
 public:
-    static Ref<RemoteQueue> create(WebCore::WebGPU::Queue& queue, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
+    static Ref<RemoteQueue> create(WebCore::WebGPU::Queue& queue, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteQueue(queue, objectHeap, WTFMove(streamConnection), identifier));
+        return adoptRef(*new RemoteQueue(queue, objectHeap, WTFMove(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteQueue();
+
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
 
     void stopListeningForIPC();
 
 private:
     friend class WebGPU::ObjectHeap;
 
-    RemoteQueue(WebCore::WebGPU::Queue&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
+    RemoteQueue(WebCore::WebGPU::Queue&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, RemoteGPU&, WebGPUIdentifier);
 
     RemoteQueue(const RemoteQueue&) = delete;
     RemoteQueue(RemoteQueue&&) = delete;
@@ -83,6 +87,9 @@ private:
     RemoteQueue& operator=(RemoteQueue&&) = delete;
 
     WebCore::WebGPU::Queue& backing() { return m_backing; }
+    Ref<WebCore::WebGPU::Queue> protectedBacking();
+
+    Ref<WebGPU::ObjectHeap> protectedObjectHeap() const;
 
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 
@@ -114,6 +121,7 @@ private:
     Ref<WebCore::WebGPU::Queue> m_backing;
     WeakRef<WebGPU::ObjectHeap> m_objectHeap;
     Ref<IPC::StreamServerConnection> m_streamConnection;
+    WeakRef<RemoteGPU> m_gpu;
     WebGPUIdentifier m_identifier;
 };
 

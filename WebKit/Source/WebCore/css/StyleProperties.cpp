@@ -28,6 +28,7 @@
 #include "CSSPendingSubstitutionValue.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPropertyNames.h"
+#include "CSSPropertyParserConsumer+Font.h"
 #include "CSSPropertyParserHelpers.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
@@ -69,7 +70,7 @@ String serializeLonghandValue(CSSPropertyID property, const CSSValue& value)
         // FIXME: Handle this when creating the CSSValue for opacity, to be consistent with other CSS value serialization quirks.
         // Opacity percentage values serialize as a fraction in the range 0-1, not "%".
         if (auto* primitive = dynamicDowncast<CSSPrimitiveValue>(value); primitive && primitive->isPercentage())
-            return makeString(primitive->doubleValue() / 100);
+            return makeString(primitive->resolveAsPercentageDeprecated() / 100);
         break;
     default:
         break;
@@ -256,9 +257,6 @@ static constexpr bool canUseShorthandForLonghand(CSSPropertyID shorthandID, CSSP
     case CSSPropertyGridRow:
     case CSSPropertyMaskPosition:
     case CSSPropertyOffset:
-    case CSSPropertyPlaceContent:
-    case CSSPropertyPlaceItems:
-    case CSSPropertyPlaceSelf:
     case CSSPropertyTextEmphasis:
     case CSSPropertyWebkitTextStroke:
         return false;
@@ -396,7 +394,7 @@ Ref<MutableStyleProperties> StyleProperties::copyProperties(std::span<const CSSP
 {
     auto vector = WTF::compactMap(properties, [&](auto& property) -> std::optional<CSSProperty> {
         if (auto value = getPropertyCSSValue(property))
-            return CSSProperty(property, WTFMove(value), false);
+            return CSSProperty(property, WTFMove(value));
         return std::nullopt;
     });
     return MutableStyleProperties::create(WTFMove(vector));

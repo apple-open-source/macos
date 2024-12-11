@@ -402,6 +402,10 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 				}
 #endif
 				entry->deviceState |= kPCIDeviceStatePaused;
+				if (fStates & kIOPCIConfiguratorMPSOverride)
+				{
+					fStates |= kIOPCIConfiguratorMPSOverridePause;
+				}
 			}
 			ret = kIOReturnSuccess;
             break;
@@ -412,6 +416,10 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 				DLOG("kConfigOpUnpaused at " D() "\n", DEVICE_IDENT(entry));
 //				configWrite16(entry, kIOPCIConfigCommand, entry->pausedCommand);
 				entry->deviceState &= ~kPCIDeviceStatePaused;
+				if (fStates & kIOPCIConfiguratorMPSOverridePause)
+				{
+					fStates &= ~kIOPCIConfiguratorMPSOverridePause;
+				}
 			}
 			ret = kIOReturnSuccess;
             break;
@@ -1265,6 +1273,18 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 }
 
 //---------------------------------------------------------------------------
+void CLASS::topologyMPSOverride(IOPCIConfigEntry * node)
+{
+	// preorderTraversal
+	if (node != NULL)
+	{
+		node->expressMaxPayload = MIN_MPS;
+		topologyMPSOverride(node->peer);
+		topologyMPSOverride(node->child);
+	}
+}
+
+//---------------------------------------------------------------------------
 
 void CLASS::bridgeMPSOverride(IOPCIConfigEntry * bridge)
 {
@@ -1880,7 +1900,7 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 				space.s.functionNum = scanFunction;
 	
 				child = bridgeProbeChild(bridge, space);
-	
+
 				// look in function 0 for multi function flag
 				if (child && 0 == scanFunction)
 				{
@@ -2274,6 +2294,32 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
            }
            vendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space);
        }
+    }
+
+    // check if root MPS > 128B -> This means we have a CIO80 SoC connected to a USB4v2 capable switch
+    if (!bridge->isHostBridge && (bridge->supportsHotPlug & kPCIHotPlugTunnel) && (bridge->rootPortEntry->expressMaxPayload > MIN_MPS)
+		    && !(fStates & kIOPCIConfiguratorMPSOverride) && !(bridge->deviceState & (kPCIDeviceStateRequestPause | kPCIDeviceStatePaused)))
+    {
+	    // Check for ASM SATA controller devices. WA for rdar://134837798
+	    switch (vendorProduct) {
+		    case 0x06111b21:
+		    case 0x06121b21:
+		    case 0x06221b21:
+		    case 0x06231b21:
+		    case 0x06241b21:
+		    case 0x06251b21:
+			    IOLog("Work around to support ASM SATA controller 0x%08x\n", vendorProduct);
+			    fStates |= kIOPCIConfiguratorMPSOverride;
+			    FOREACH_CHILD(bridge->rootPortEntry, child)
+			    {
+				    child->deviceState |= kPCIDeviceStateRequestPause;
+				    markChanged(child);
+				    fWaitingPause++;
+			    }
+			    break;
+		    default:
+			    break;
+	    }
     }
 
     child = IOMallocType(IOPCIConfigEntry);
@@ -3071,6 +3117,11 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 			else        bridge->parent->deviceState &= ~kPCIDeviceStateAllocatedBus;
 		}
 	}
+    // return -1 if we need MPSOverride, ignore if we're in paused state
+    if ((fStates & kIOPCIConfiguratorMPSOverride) && !(fStates & kIOPCIConfiguratorMPSOverridePause))
+    {
+	    ok = -1;
+    }
     return (ok);
 }
 
@@ -4490,8 +4541,23 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 			if (!child->expressCapBlock) 							continue;
 			if (!(child->rootPortEntry->deviceState & kPCIDeviceStateDomainChanged)) continue;
 			deviceControl = configRead16(child, child->expressCapBlock + 0x08);
+			if ((fStates & kIOPCIConfiguratorMPSOverride) && (child->deviceState & kPCIDeviceStatePaused))
+			{
+				fStates &= ~kIOPCIConfiguratorMPSOverride;
+				topologyMPSOverride(child->rootPortEntry);
+				// since the root port is not paused, this is the USP connected to the root port. We need to manually update root port's MPS.
+				uint32_t rootPortDeviceControl = configRead16(child->rootPortEntry, child->rootPortEntry->expressCapBlock + 0x08);
+				uint32_t rootPortNewControl = rootPortDeviceControl & ~(7 << 5);
+				rootPortNewControl |= ((child->rootPortEntry->expressMaxPayload & 7) << 5);
+				configWrite16(child->rootPortEntry, child->rootPortEntry->expressCapBlock + 0x08, rootPortNewControl);
+			}
 			newControl    = deviceControl & ~(7 << 5);
-			newControl    |= (child->expressMaxPayload << 5);
+			newControl    |= ((child->expressMaxPayload & 7) << 5);
+			if (child->isBridge && child != child->rootPortEntry && (child->expressMaxPayload == child->rootPortEntry->expressMaxPayload))
+			{
+				newControl = newControl & ~(7 << 12);
+				newControl |= (DEFAULT_MRRS << 12);
+			}
 			if (!child->isBridge)
 			{
 				bool epMRRSOverride = (child->hostBridgeEntry->expressEndpointMaxReadRequestSize != -1);
@@ -4507,10 +4573,18 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 					// if EP MPS < RP MPS and there's no EP MRRS override, EP MRRS = EP MPS
 					tmpEPMRRS = child->expressMaxPayload;
 				}
-				else if (!epMPSLowerThanRPMPS && epMRRSOverride)
+				else if (!epMPSLowerThanRPMPS)
 				{
-					// if EP MPS == RP MPS and we have EP MRRS override, EP MRRS = EP MRRS override
-					tmpEPMRRS = child->hostBridgeEntry->expressEndpointMaxReadRequestSize;
+					if (epMRRSOverride)
+					{
+						// if EP MPS == RP MPS and we have EP MRRS override, EP MRRS = EP MRRS override
+						tmpEPMRRS = child->hostBridgeEntry->expressEndpointMaxReadRequestSize;
+					}
+					else
+					{
+						// if EP MPS == RP MPS and there's no EP MRRS override, EP MRRS = 512
+						tmpEPMRRS = DEFAULT_MRRS;
+					}
 				}
 
 				if (tmpEPMRRS != -1)

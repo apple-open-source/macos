@@ -72,12 +72,12 @@ ThreadableWebSocketChannel::ThreadableWebSocketChannel() = default;
 std::optional<ThreadableWebSocketChannel::ValidatedURL> ThreadableWebSocketChannel::validateURL(Document& document, const URL& requestedURL)
 {
     ValidatedURL validatedURL { requestedURL, true };
-    if (auto* page = document.page()) {
+    if (RefPtr page = document.page()) {
         if (!page->allowsLoadFromURL(requestedURL, MainFrameMainResource::No))
             return { };
 #if ENABLE(CONTENT_EXTENSIONS)
         if (RefPtr documentLoader = document.loader()) {
-            auto results = page->userContentProvider().processContentRuleListsForLoad(*page, validatedURL.url, ContentExtensions::ResourceType::WebSocket, *documentLoader);
+            auto results = page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, validatedURL.url, ContentExtensions::ResourceType::WebSocket, *documentLoader);
             if (results.summary.blockedLoad)
                 return { };
             if (results.summary.madeHTTPS) {

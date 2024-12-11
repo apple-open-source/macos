@@ -34,6 +34,7 @@
 #include <WebCore/ResourceError.h>
 #include <wtf/MachSendRight.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/URL.h>
 #include <wtf/WeakPtr.h>
 
@@ -57,11 +58,11 @@ namespace WebKit {
 class WebPageProxy;
 
 class ModelElementController : public CanMakeWeakPtr<ModelElementController> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(ModelElementController);
 public:
     explicit ModelElementController(WebPageProxy&);
 
-    WebPageProxy& page() { return m_webPageProxy; }
+    WebPageProxy& page();
 
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     void getCameraForModelElement(ModelIdentifier, CompletionHandler<void(Expected<WebCore::HTMLModelElementCamera, WebCore::ResourceError>)>&&);
@@ -101,7 +102,7 @@ private:
     WKModelView * modelViewForModelIdentifier(ModelIdentifier);
 #endif
 
-    WebPageProxy& m_webPageProxy;
+    WeakRef<WebPageProxy> m_webPageProxy;
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     RetainPtr<ASVInlinePreview> previewForUUID(const String&);
     HashMap<String, RetainPtr<ASVInlinePreview>> m_inlinePreviews;

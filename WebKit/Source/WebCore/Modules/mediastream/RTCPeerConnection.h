@@ -89,7 +89,7 @@ class RTCPeerConnection final
     , private LoggerHelper
 #endif
 {
-    WTF_MAKE_ISO_ALLOCATED_EXPORT(RTCPeerConnection, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(RTCPeerConnection, WEBCORE_EXPORT);
 public:
     static ExceptionOr<Ref<RTCPeerConnection>> create(Document&, RTCConfiguration&&);
     WEBCORE_EXPORT virtual ~RTCPeerConnection();
@@ -216,6 +216,8 @@ private:
     RTCPeerConnection(Document&);
 
     ExceptionOr<void> initializeConfiguration(RTCConfiguration&&);
+
+    ExceptionOr<Ref<RTCRtpTransceiver>> addReceiveOnlyTransceiver(String&&);
 
     void registerToController(RTCController&);
     void unregisterFromController();

@@ -30,6 +30,7 @@
 #include "NullPlaybackSessionInterface.h"
 #include "VideoFullscreenCaptions.h"
 #include "VideoPresentationModel.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
@@ -39,7 +40,7 @@ class NullVideoPresentationInterface final
     , public VideoFullscreenCaptions
     , public RefCounted<NullVideoPresentationInterface>
     , public CanMakeCheckedPtr<NullVideoPresentationInterface> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(NullVideoPresentationInterface);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NullVideoPresentationInterface);
 public:
     static Ref<NullVideoPresentationInterface> create(NullPlaybackSessionInterface& playbackSessionInterface)
@@ -51,6 +52,7 @@ public:
     NullPlaybackSessionInterface& playbackSessionInterface() const { return m_playbackSessionInterface.get(); }
     PlaybackSessionModel* playbackSessionModel() const { return m_playbackSessionInterface->playbackSessionModel(); }
 
+    void setSpatialVideoMetadata(const std::optional<SpatialVideoMetadata>&) { }
     void setVideoPresentationModel(VideoPresentationModel* model) { m_videoPresentationModel = model; }
     void setupFullscreen(UIView&, const FloatRect&, const FloatSize&, UIView*, HTMLMediaElementEnums::VideoFullscreenMode, bool, bool, bool) { }
     void enterFullscreen() { }

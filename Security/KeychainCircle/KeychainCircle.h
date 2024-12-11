@@ -9,3 +9,5 @@
 #import <KeychainCircle/KCAESGCMDuplexSession.h>
 #import <KeychainCircle/PairingChannel.h>
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>

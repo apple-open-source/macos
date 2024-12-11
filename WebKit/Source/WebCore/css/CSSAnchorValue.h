@@ -43,9 +43,12 @@ public:
     String customCSSText() const;
     bool equals(const CSSAnchorValue&) const;
 
+    String anchorElementString() const;
+    Ref<CSSValue> anchorSide() const;
+
 private:
     CSSAnchorValue(RefPtr<CSSPrimitiveValue>&& anchorElement, Ref<CSSValue>&& anchorSide, RefPtr<CSSPrimitiveValue>&& fallback)
-        : CSSValue(AnchorClass)
+        : CSSValue(ClassType::Anchor)
         , m_anchorElement(WTFMove(anchorElement))
         , m_anchorSide(WTFMove(anchorSide))
         , m_fallback(WTFMove(fallback))

@@ -582,6 +582,13 @@ pgm_malloc(pgm_zone_t *zone, size_t size)
 }
 
 static void *
+pgm_malloc_type_malloc(pgm_zone_t *zone, size_t size, malloc_type_id_t type_id)
+{
+	SAMPLED_ALLOCATE(size, k_min_alignment, malloc_type_malloc, size, type_id);
+	return ptr;
+}
+
+static void *
 pgm_calloc(pgm_zone_t *zone, size_t num_items, size_t size)
 {
 	size_t total_size;
@@ -589,7 +596,21 @@ pgm_calloc(pgm_zone_t *zone, size_t num_items, size_t size)
 		return DELEGATE(calloc, num_items, size);
 	}
 	SAMPLED_ALLOCATE(total_size, k_min_alignment, calloc, num_items, size);
-	memset(ptr, 0, total_size);
+	bzero(ptr, total_size);
+	return ptr;
+}
+
+static void *
+pgm_malloc_type_calloc(pgm_zone_t *zone, size_t num_items, size_t size,
+		malloc_type_id_t type_id)
+{
+	size_t total_size;
+	if (os_unlikely(os_mul_overflow(num_items, size, &total_size))) {
+		return DELEGATE(malloc_type_calloc, num_items, size, type_id);
+	}
+	SAMPLED_ALLOCATE(total_size, k_min_alignment, malloc_type_calloc, num_items,
+			size, type_id);
+	bzero(ptr, total_size);
 	return ptr;
 }
 
@@ -622,6 +643,23 @@ pgm_realloc(pgm_zone_t *zone, void *ptr, size_t new_size)
 	return new_ptr;
 }
 
+static void *
+pgm_malloc_type_realloc(pgm_zone_t *zone, void *ptr, size_t new_size,
+		malloc_type_id_t type_id)
+{
+	if (os_unlikely(!ptr)) {
+		return pgm_malloc_type_malloc(zone, new_size, type_id);
+	}
+	boolean_t sample = should_sample(zone, new_size);
+	if (os_likely(!sample)) {
+		DELEGATE_UNGUARDED(ptr, malloc_type_realloc, ptr, new_size, type_id);
+	}
+	lock(zone);
+	void *new_ptr = (void *)reallocate(zone, (vm_address_t)ptr, new_size, sample);
+	unlock(zone);
+	return new_ptr;
+}
+
 static void my_vm_deallocate(vm_address_t addr, size_t size);
 static void
 pgm_destroy(pgm_zone_t *zone)
@@ -634,12 +672,24 @@ pgm_destroy(pgm_zone_t *zone)
 static void *
 pgm_memalign(pgm_zone_t *zone, size_t alignment, size_t size)
 {
-	// Delegate for (alignment > page size) and invalid alignment sizes.
-	if (alignment > PAGE_SIZE || !is_power_of_2(alignment) || alignment < sizeof(void *)) {
+	if (os_unlikely(alignment > PAGE_SIZE)) {
 		return DELEGATE(memalign, alignment, size);
 	}
 	size_t adj_alignment = MAX(alignment, k_min_alignment);
 	SAMPLED_ALLOCATE(size, adj_alignment, memalign, alignment, size);
+	return ptr;
+}
+
+static void *
+pgm_malloc_type_memalign(pgm_zone_t *zone, size_t alignment, size_t size,
+		malloc_type_id_t type_id)
+{
+	if (os_unlikely(alignment > PAGE_SIZE)) {
+		return DELEGATE(malloc_type_memalign, alignment, size, type_id);
+	}
+	size_t adj_alignment = MAX(alignment, k_min_alignment);
+	SAMPLED_ALLOCATE(size, adj_alignment, malloc_type_memalign, alignment, size,
+			type_id);
 	return ptr;
 }
 
@@ -660,35 +710,32 @@ static void *
 pgm_malloc_with_options(pgm_zone_t *zone, size_t align, size_t size,
 		uint64_t options)
 {
-	if (os_unlikely(should_sample(zone, size))) {
-		size_t adj_alignment = MAX(align, k_min_alignment);
-		lock(zone);
-		void *ptr = (void *)allocate(zone, size, adj_alignment);
-		unlock(zone);
-		if (ptr) {
-			if (options & MALLOC_NP_OPTION_CLEAR) {
-				bzero(ptr, size);
-			}
-			return ptr;
-		}
-		// If the allocation fails, fall back to the wrapped zone
-	}
-
-	// FIXME: calls wrapped_zone->malloc_with_options/memalign without NULL check
-	if (zone->wrapped_zone->version >= 15 &&
-			zone->wrapped_zone->malloc_with_options) {
+	if (os_unlikely(align > PAGE_SIZE)) {
 		return DELEGATE(malloc_with_options, align, size, options);
-	} else if (align) {
-		void *ptr = DELEGATE(memalign, align, size);
-		if (ptr && (options & MALLOC_NP_OPTION_CLEAR)) {
-			bzero(ptr, size);
-		}
-		return ptr;
-	} else if (options & MALLOC_NP_OPTION_CLEAR) {
-		return DELEGATE(calloc, 1, size);
-	} else {
-		return DELEGATE(malloc, size);
 	}
+	size_t adj_alignment = MAX(align, k_min_alignment);
+	SAMPLED_ALLOCATE(size, adj_alignment, malloc_with_options, align, size, options);
+	if (options & MALLOC_NP_OPTION_CLEAR) {
+		bzero(ptr, size);
+	}
+	return ptr;
+}
+
+static void *
+pgm_malloc_type_malloc_with_options(pgm_zone_t *zone, size_t align, size_t size,
+		uint64_t options, malloc_type_id_t type_id)
+{
+	if (os_unlikely(align > PAGE_SIZE)) {
+		return DELEGATE(malloc_type_malloc_with_options, align, size, options,
+				type_id);
+	}
+	size_t adj_alignment = MAX(align, k_min_alignment);
+	SAMPLED_ALLOCATE(size, adj_alignment, malloc_type_malloc_with_options,
+			align, size, options, type_id);
+	if (options & MALLOC_NP_OPTION_CLEAR) {
+		bzero(ptr, size);
+	}
+	return ptr;
 }
 
 #pragma mark -
@@ -983,7 +1030,8 @@ pgm_zone_locked(pgm_zone_t *zone)
 #pragma mark -
 #pragma mark Zone Templates
 
-#define PGM_ZONE_VERSION 15
+#define PGM_ZONE_VERSION 16
+#define MIN_WRAPPED_ZONE_VERSION 16
 
 // Suppress warning: incompatible function pointer types
 #define FN_PTR(fn) (void *)(&fn)
@@ -1055,6 +1103,14 @@ static const malloc_zone_t malloc_zone_template = {
 	.claimed_address = FN_PTR(pgm_claimed_address),
 	.try_free_default = NULL,
 	.malloc_with_options = FN_PTR(pgm_malloc_with_options),
+
+	// Typed entrypoints
+	.malloc_type_malloc = FN_PTR(pgm_malloc_type_malloc),
+	.malloc_type_calloc = FN_PTR(pgm_malloc_type_calloc),
+	.malloc_type_realloc = FN_PTR(pgm_malloc_type_realloc),
+	.malloc_type_memalign = FN_PTR(pgm_malloc_type_memalign),
+	.malloc_type_malloc_with_options =
+			FN_PTR(pgm_malloc_type_malloc_with_options),
 };
 
 
@@ -1250,9 +1306,18 @@ static void
 disable_unsupported_apis(malloc_zone_t *pgm_zone, const malloc_zone_t *wrapped_zone)
 {
 	#define DISABLE_UNSUPPORTED(api) if (!wrapped_zone->api) pgm_zone->api = NULL;
+
+	// In practice, there are no zones we support wrapping right now that don't
+	// have these entrypoints
 	DISABLE_UNSUPPORTED(memalign)
+	DISABLE_UNSUPPORTED(malloc_type_memalign)
 	DISABLE_UNSUPPORTED(free_definite_size)
 	DISABLE_UNSUPPORTED(claimed_address)
+
+	// These ones are actually load-bearing: the nano and scalable zones do not
+	// implement these entrypoints
+	DISABLE_UNSUPPORTED(malloc_with_options)
+	DISABLE_UNSUPPORTED(malloc_type_malloc_with_options)
 }
 
 static void
@@ -1286,12 +1351,7 @@ setup_zone(pgm_zone_t *zone, malloc_zone_t *wrapped_zone)
 malloc_zone_t *
 pgm_create_zone(malloc_zone_t *wrapped_zone)
 {
-	// The PGM zone includes the `malloc_introspection_t::zone_type` field
-	// (version 14) so we need to support the "malloc()/calloc() set errno to
-	// ENOMEM on failure" behavior (version 13).  Require wrapped zone to be at
-	// least version 13.
-	MALLOC_STATIC_ASSERT(PGM_ZONE_VERSION == 15, "PGM zone version");
-	MALLOC_ASSERT(wrapped_zone->version >= 13);
+	MALLOC_ASSERT(wrapped_zone->version >= MIN_WRAPPED_ZONE_VERSION);
 
 	pgm_zone_t *zone = (pgm_zone_t *)my_vm_map(sizeof(pgm_zone_t), VM_PROT_READ_WRITE, VM_MEMORY_MALLOC);
 	setup_zone(zone, wrapped_zone);

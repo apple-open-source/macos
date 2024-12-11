@@ -321,9 +321,7 @@ Bypass the normal routing tables and send directly to a host on an attached
 network.
 If the host is not on a directly-attached network, an error is returned.
 This option can be used to ping a local host through an interface
-that has no route through it
-(e.g., after the interface was dropped by
-.Xr routed 8 ) .
+that has no route through it.
 .It Fl S Ar src_addr
 Use the following IP address as the source address in outgoing packets.
 On hosts with more than one IP address, this option can be used to
@@ -572,7 +570,6 @@ These values are defined in
 .Sh SEE ALSO
 .Xr netstat 1 ,
 .Xr ifconfig 8 ,
-.Xr routed 8 ,
 .Xr traceroute 8 ,
 .Xr ping6 8
 .Sh HISTORY

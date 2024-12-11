@@ -23,13 +23,14 @@
 #if ENABLE(MEDIA_STREAM)
 
 #include <WebCore/UserMediaClient.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebKit {
 
 class WebPage;
 
 class WebUserMediaClient : public WebCore::UserMediaClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WebUserMediaClient);
 public:
     WebUserMediaClient(WebPage&);
     ~WebUserMediaClient() { }
@@ -44,6 +45,8 @@ private:
 
     DeviceChangeObserverToken addDeviceChangeObserver(WTF::Function<void()>&&) final;
     void removeDeviceChangeObserver(DeviceChangeObserverToken) final;
+    void updateCaptureState(const WebCore::Document&, bool isActive, WebCore::MediaProducerMediaCaptureKind, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&&) final;
+    void setShouldListenToVoiceActivity(bool) final;
 
     void initializeFactories();
 

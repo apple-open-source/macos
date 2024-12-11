@@ -31,9 +31,9 @@
 #include "AcceleratedSurfaceDMABufMessages.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
-#include <WebCore/Region.h>
 #include <WebCore/ShareableBitmap.h>
 #include <wpe/wpe-platform.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/GUniquePtr.h>
 
 #if USE(LIBDRM)
@@ -41,6 +41,8 @@
 #endif
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(AcceleratedBackingStoreDMABuf);
 
 std::unique_ptr<AcceleratedBackingStoreDMABuf> AcceleratedBackingStoreDMABuf::create(WebPageProxy& webPage, WPEView* view)
 {
@@ -50,6 +52,7 @@ std::unique_ptr<AcceleratedBackingStoreDMABuf> AcceleratedBackingStoreDMABuf::cr
 AcceleratedBackingStoreDMABuf::AcceleratedBackingStoreDMABuf(WebPageProxy& webPage, WPEView* view)
     : m_webPage(webPage)
     , m_wpeView(view)
+    , m_fenceMonitor([this] { renderPendingBuffer(); })
 {
     g_signal_connect(m_wpeView.get(), "buffer-rendered", G_CALLBACK(+[](WPEView*, WPEBuffer*, gpointer userData) {
         auto& backingStore = *static_cast<AcceleratedBackingStoreDMABuf*>(userData);
@@ -75,6 +78,7 @@ void AcceleratedBackingStoreDMABuf::updateSurfaceID(uint64_t surfaceID)
         if (m_pendingBuffer) {
             frameDone();
             m_pendingBuffer = nullptr;
+            m_pendingDamageRegion = { };
         }
         m_buffers.clear();
         m_bufferIDs.clear();
@@ -84,7 +88,6 @@ void AcceleratedBackingStoreDMABuf::updateSurfaceID(uint64_t surfaceID)
     m_surfaceID = surfaceID;
     if (m_surfaceID)
         m_webPage.legacyMainFrameProcess().addMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID, *this);
-
 }
 
 void AcceleratedBackingStoreDMABuf::didCreateBuffer(uint64_t id, const WebCore::IntSize& size, uint32_t format, Vector<WTF::UnixFileDescriptor>&& fds, Vector<uint32_t>&& offsets, Vector<uint32_t>&& strides, uint64_t modifier, DMABufRendererBufferFormat::Usage usage)
@@ -123,7 +126,7 @@ void AcceleratedBackingStoreDMABuf::didDestroyBuffer(uint64_t id)
         m_bufferIDs.remove(buffer.get());
 }
 
-void AcceleratedBackingStoreDMABuf::frame(uint64_t bufferID, const std::optional<WebCore::Region>& damage)
+void AcceleratedBackingStoreDMABuf::frame(uint64_t bufferID, WebCore::Region&& damageRegion, WTF::UnixFileDescriptor&& renderingFenceFD)
 {
     ASSERT(!m_pendingBuffer);
     auto* buffer = m_buffers.get(bufferID);
@@ -132,27 +135,33 @@ void AcceleratedBackingStoreDMABuf::frame(uint64_t bufferID, const std::optional
         return;
     }
 
+    m_pendingBuffer = buffer;
+    m_pendingDamageRegion = WTFMove(damageRegion);
+    if (wpe_display_use_explicit_sync(wpe_view_get_display(m_wpeView.get()))) {
+        if (WPE_IS_BUFFER_DMA_BUF(m_pendingBuffer.get()))
+            wpe_buffer_dma_buf_set_rendering_fence(WPE_BUFFER_DMA_BUF(m_pendingBuffer.get()), renderingFenceFD.release());
+        renderPendingBuffer();
+    } else
+        m_fenceMonitor.addFileDescriptor(WTFMove(renderingFenceFD));
+}
+
+void AcceleratedBackingStoreDMABuf::renderPendingBuffer()
+{
     // Rely on the layout of IntRect matching that of WPERectangle
     // to pass directly a pointer below instead of using copies.
     static_assert(sizeof(WebCore::IntRect) == sizeof(WPERectangle));
 
-    Vector<WebCore::IntRect, 1> damageRects;
-    if (damage) {
-        if (damage->isEmpty())
-            damageRects.append({ 0, 0, 0, 0 });
-        else
-            damageRects = damage->rects();
-    }
-
+    auto damageRects = m_pendingDamageRegion.rects();
     ASSERT(damageRects.size() <= std::numeric_limits<guint>::max());
-    const auto* rects = damageRects.size() ? reinterpret_cast<const WPERectangle*>(damageRects.data()) : nullptr;
+    const auto* rects = !damageRects.isEmpty() ? reinterpret_cast<const WPERectangle*>(damageRects.data()) : nullptr;
 
-    m_pendingBuffer = buffer;
     GUniqueOutPtr<GError> error;
     if (!wpe_view_render_buffer(m_wpeView.get(), m_pendingBuffer.get(), rects, damageRects.size(), &error.outPtr())) {
         g_warning("Failed to render frame: %s", error->message);
         frameDone();
+        m_pendingBuffer = nullptr;
     }
+    m_pendingDamageRegion = { };
 }
 
 void AcceleratedBackingStoreDMABuf::frameDone()
@@ -168,8 +177,13 @@ void AcceleratedBackingStoreDMABuf::bufferRendered()
 
 void AcceleratedBackingStoreDMABuf::bufferReleased(WPEBuffer* buffer)
 {
-    if (auto id = m_bufferIDs.get(buffer))
-        m_webPage.legacyMainFrameProcess().send(Messages::AcceleratedSurfaceDMABuf::ReleaseBuffer(id), m_surfaceID);
+    if (auto id = m_bufferIDs.get(buffer)) {
+        UnixFileDescriptor releaseFence;
+        if (WPE_IS_BUFFER_DMA_BUF(buffer))
+            releaseFence = UnixFileDescriptor { wpe_buffer_dma_buf_take_release_fence(WPE_BUFFER_DMA_BUF(buffer)), UnixFileDescriptor::Adopt };
+
+        m_webPage.legacyMainFrameProcess().send(Messages::AcceleratedSurfaceDMABuf::ReleaseBuffer(id, WTFMove(releaseFence)), m_surfaceID);
+    }
 }
 
 RendererBufferFormat AcceleratedBackingStoreDMABuf::bufferFormat() const

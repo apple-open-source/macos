@@ -47,6 +47,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -58,6 +59,8 @@ namespace WebKit {
 namespace NetworkCache {
 
 using namespace FileSystem;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(CacheRetrieveInfo, Cache::RetrieveInfo);
 
 static const AtomString& resourceType()
 {
@@ -108,17 +111,21 @@ Cache::Cache(NetworkProcess& networkProcess, const String& storageDirectory, Ref
 {
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
     if (options.contains(CacheOption::SpeculativeRevalidation)) {
-        m_lowPowerModeNotifier = makeUnique<WebCore::LowPowerModeNotifier>([this](bool isLowPowerModeEnabled) {
+        m_lowPowerModeNotifier = makeUnique<WebCore::LowPowerModeNotifier>([weakThis = WeakPtr { *this }](bool isLowPowerModeEnabled) {
             ASSERT(WTF::RunLoop::isMain());
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
+                return;
+
             if (isLowPowerModeEnabled)
-                m_speculativeLoadManager = nullptr;
+                protectedThis->m_speculativeLoadManager = nullptr;
             else {
-                ASSERT(!m_speculativeLoadManager);
-                m_speculativeLoadManager = makeUnique<SpeculativeLoadManager>(*this, m_storage.get());
+                ASSERT(!protectedThis->m_speculativeLoadManager);
+                protectedThis->m_speculativeLoadManager = makeUnique<SpeculativeLoadManager>(*protectedThis, protectedThis->protectedStorage());
             }
         });
         if (!m_lowPowerModeNotifier->isLowPowerModeEnabled())
-            m_speculativeLoadManager = makeUnique<SpeculativeLoadManager>(*this, m_storage.get());
+            m_speculativeLoadManager = makeUnique<SpeculativeLoadManager>(*this, protectedStorage());
     }
 #endif
 
@@ -377,7 +384,12 @@ void Cache::browsingContextRemoved(WebPageProxyIdentifier webPageProxyID, WebCor
 #endif
 }
 
-void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameID& frameID, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, bool allowPrivacyProxy, OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections, RetrieveCompletionHandler&& completionHandler)
+Ref<NetworkProcess> Cache::protectedNetworkProcess()
+{
+    return m_networkProcess;
+}
+
+void Cache::retrieve(const WebCore::ResourceRequest& request, std::optional<GlobalFrameID> frameID, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, bool allowPrivacyProxy, OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections, RetrieveCompletionHandler&& completionHandler)
 {
     ASSERT(request.url().protocolIsInHTTPFamily());
 
@@ -391,9 +403,9 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameI
     info.priority = priority;
 
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-    bool canUseSpeculativeRevalidation = m_speculativeLoadManager && canRequestUseSpeculativeRevalidation(request);
+    bool canUseSpeculativeRevalidation = frameID && m_speculativeLoadManager && canRequestUseSpeculativeRevalidation(request);
     if (canUseSpeculativeRevalidation)
-        m_speculativeLoadManager->registerLoad(frameID, request, storageKey, isNavigatingToAppBoundDomain, allowPrivacyProxy, advancedPrivacyProtections);
+        m_speculativeLoadManager->registerLoad(*frameID, request, storageKey, isNavigatingToAppBoundDomain, allowPrivacyProxy, advancedPrivacyProtections);
 #endif
 
     auto retrieveDecision = makeRetrieveDecision(request);
@@ -403,7 +415,7 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameI
     }
 
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-    if (canUseSpeculativeRevalidation && m_speculativeLoadManager->canRetrieve(storageKey, request, frameID)) {
+    if (canUseSpeculativeRevalidation && m_speculativeLoadManager->canRetrieve(storageKey, request, *frameID)) {
         m_speculativeLoadManager->retrieve(storageKey, [networkProcess = Ref { networkProcess() }, request, completionHandler = WTFMove(completionHandler), info = WTFMove(info), sessionID = m_sessionID](std::unique_ptr<Entry> entry) mutable {
             info.wasSpeculativeLoad = true;
             if (entry && WebCore::verifyVaryingRequestHeaders(networkProcess->storageSession(sessionID), entry->varyingRequestHeaders(), request))
@@ -434,7 +446,7 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameI
 #if ENABLE(NETWORK_CACHE_STALE_WHILE_REVALIDATE)
             auto entryCopy = makeUnique<Entry>(*entry);
             entryCopy->setNeedsValidation(true);
-            startAsyncRevalidationIfNeeded(request, storageKey, WTFMove(entryCopy), frameID, isNavigatingToAppBoundDomain, allowPrivacyProxy, advancedPrivacyProtections);
+            startAsyncRevalidationIfNeeded(request, storageKey, WTFMove(entryCopy), *frameID, isNavigatingToAppBoundDomain, allowPrivacyProxy, advancedPrivacyProtections);
 #else
             UNUSED_PARAM(frameID);
             UNUSED_PARAM(this);

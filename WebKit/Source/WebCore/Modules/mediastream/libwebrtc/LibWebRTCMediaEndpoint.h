@@ -38,12 +38,15 @@ ALLOW_COMMA_BEGIN
 
 #include <webrtc/api/jsep.h>
 #include <webrtc/api/peer_connection_interface.h>
+// See Bug 274508: Disable thread-safety-reference-return warnings in libwebrtc
+IGNORE_CLANG_WARNINGS_BEGIN("thread-safety-reference-return")
 #include <webrtc/pc/peer_connection_factory.h>
 #include <webrtc/pc/rtc_stats_collector.h>
+IGNORE_CLANG_WARNINGS_END
 
+ALLOW_COMMA_END
 ALLOW_DEPRECATED_DECLARATIONS_END
 ALLOW_UNUSED_PARAMETERS_END
-ALLOW_COMMA_END
 
 #include <wtf/LoggerHelper.h>
 #include <wtf/RobinHoodHashMap.h>
@@ -107,8 +110,8 @@ public:
         std::unique_ptr<LibWebRTCRtpReceiverBackend> receiverBackend;
         std::unique_ptr<LibWebRTCRtpTransceiverBackend> transceiverBackend;
     };
-    ExceptionOr<Backends> addTransceiver(const String& trackKind, const RTCRtpTransceiverInit&);
-    ExceptionOr<Backends> addTransceiver(MediaStreamTrack&, const RTCRtpTransceiverInit&);
+    ExceptionOr<Backends> addTransceiver(const String& trackKind, const RTCRtpTransceiverInit&, PeerConnectionBackend::IgnoreNegotiationNeededFlag);
+    ExceptionOr<Backends> addTransceiver(MediaStreamTrack&, const RTCRtpTransceiverInit&, PeerConnectionBackend::IgnoreNegotiationNeededFlag);
     std::unique_ptr<LibWebRTCRtpTransceiverBackend> transceiverBackendFromSender(LibWebRTCRtpSenderBackend&);
 
     void setSenderSourceFromTrack(LibWebRTCRtpSenderBackend&, MediaStreamTrack&);
@@ -146,7 +149,7 @@ private:
     void setRemoteSessionDescriptionFailed(ExceptionCode, const char*);
 
     template<typename T>
-    ExceptionOr<Backends> createTransceiverBackends(T&&, webrtc::RtpTransceiverInit&&, LibWebRTCRtpSenderBackend::Source&&);
+    ExceptionOr<Backends> createTransceiverBackends(T&&, webrtc::RtpTransceiverInit&&, LibWebRTCRtpSenderBackend::Source&&, PeerConnectionBackend::IgnoreNegotiationNeededFlag);
 
     void OnStatsDelivered(const rtc::scoped_refptr<const webrtc::RTCStatsReport>&) final;
     void gatherStatsForLogging();
@@ -158,12 +161,11 @@ private:
     MediaStream& mediaStreamFromRTCStreamId(const String&);
 
     void AddRef() const { ref(); }
-    rtc::RefCountReleaseStatus Release() const
+    webrtc::RefCountReleaseStatus Release() const
     {
         auto result = refCount() - 1;
         deref();
-        return result ? rtc::RefCountReleaseStatus::kOtherRefsRemained
-        : rtc::RefCountReleaseStatus::kDroppedLastRef;
+        return result ? webrtc::RefCountReleaseStatus::kOtherRefsRemained : webrtc::RefCountReleaseStatus::kDroppedLastRef;
     }
 
     std::pair<LibWebRTCRtpSenderBackend::Source, rtc::scoped_refptr<webrtc::MediaStreamTrackInterface>> createSourceAndRTCTrack(MediaStreamTrack&);
@@ -205,6 +207,7 @@ private:
     const void* m_logIdentifier;
 #endif
     bool m_isGatheringRTCLogs { false };
+    bool m_shouldIgnoreNegotiationNeededSignal { false };
 };
 
 } // namespace WebCore

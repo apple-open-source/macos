@@ -40,7 +40,10 @@ enum class ProcessTerminationReason : uint8_t {
     ExceededProcessCountLimit,
     NavigationSwap,
     RequestedByNetworkProcess,
-    RequestedByGPUProcess
+    RequestedByGPUProcess,
+    RequestedByModelProcess,
+    GPUProcessCrashedTooManyTimes,
+    ModelProcessCrashedTooManyTimes,
 };
 
 ASCIILiteral processTerminationReasonToString(ProcessTerminationReason);

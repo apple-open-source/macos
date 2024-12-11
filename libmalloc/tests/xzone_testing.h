@@ -18,31 +18,82 @@
 extern malloc_zone_t **malloc_zones;
 extern int32_t malloc_num_zones;
 
-static inline void
-assert_zone_is_xzone_malloc(malloc_zone_t *zone)
-{
-	T_ASSERT_GE(zone->version, 14, "zone version");
-	T_ASSERT_EQ(zone->introspect->zone_type, MALLOC_ZONE_TYPE_XZONE,
-			"zone is xzone malloc");
-}
-
 static inline xzm_malloc_zone_t
 get_default_xzone_zone(void)
 {
-	malloc_zone_t *dz = malloc_zones[0];
-	assert_zone_is_xzone_malloc(dz);
+	bool found_pgm = false;
+	bool found_nano = false;
 
-	return (xzm_malloc_zone_t)dz;
-}
+	unsigned i = 0;
 
-static inline xzm_malloc_zone_t
-get_default_xzone_helper_zone(void)
-{
-	T_ASSERT_GE(malloc_num_zones, 2, "malloc_num_zones sufficient");
-	malloc_zone_t *dz = malloc_zones[1];
-	assert_zone_is_xzone_malloc(dz);
+	malloc_zone_t *zone = malloc_zones[i];
+	if (!strcmp(malloc_get_zone_name(zone), "ProbGuardMallocZone")) {
+		found_pgm = true;
 
-	return (xzm_malloc_zone_t)dz;
+		i++;
+		if (i == malloc_num_zones) {
+			T_ASSERT_FAIL("didn't find xzone zone");
+		}
+		zone = malloc_zones[i];
+	}
+
+	T_ASSERT_GE(zone->version, 14, "zone version");
+	if (zone->introspect->zone_type != MALLOC_ZONE_TYPE_XZONE) {
+		// Maybe it's nano?
+		i++;
+		if (i == malloc_num_zones) {
+			T_ASSERT_FAIL("didn't find xzone xzone");
+		}
+		malloc_zone_t *helper_zone = malloc_zones[i];
+		const char *name = malloc_get_zone_name(helper_zone);
+		if (strcmp(name, "MallocHelperZone") != 0) {
+			T_ASSERT_FAIL("unexpected zone %s", name);
+		}
+
+		found_nano = true;
+
+		zone = helper_zone;
+		T_ASSERT_GE(zone->version, 14, "helper zone version");
+		T_ASSERT_EQ(zone->introspect->zone_type, MALLOC_ZONE_TYPE_XZONE,
+				"helper zone is xzone malloc");
+	}
+
+	bool nano_on_xzone = false;
+	enum {
+		PGM_NO_EXPECTATION,
+		PGM_EXPECTED_ENABLED,
+		PGM_EXPECTED_DISABLED,
+	} pgm_expectation = PGM_NO_EXPECTATION;
+
+#if !MALLOC_TARGET_EXCLAVES
+	nano_on_xzone = getenv("MallocNanoOnXzone");
+
+	const char *pgm_env = getenv("MallocProbGuard");
+	if (pgm_env) {
+		pgm_expectation = (*pgm_env == '1' ? PGM_EXPECTED_ENABLED :
+				PGM_EXPECTED_DISABLED);
+	}
+#endif
+
+	T_ASSERT_EQ(nano_on_xzone, found_nano,
+			"Nano state matched expectation (%d)", (int)nano_on_xzone);
+
+	switch (pgm_expectation) {
+	case PGM_NO_EXPECTATION:
+		T_LOG("PGM enablement: %d (no expectation)", (int)found_pgm);
+		break;
+	case PGM_EXPECTED_ENABLED:
+		T_ASSERT_TRUE(found_pgm, "PGM enabled");
+		break;
+	case PGM_EXPECTED_DISABLED:
+		T_ASSERT_FALSE(found_pgm, "PGM disabled");
+		break;
+	default:
+		T_ASSERT_FAIL("pgm_expectation");
+		break;
+	}
+
+	return (xzm_malloc_zone_t)zone;
 }
 
 #define _TEST_STRINGIFY(x) #x

@@ -48,13 +48,13 @@
 #include "StyleResolver.h"
 #include "TextControlInnerElements.h"
 #include "UnicodeBidi.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSearchField);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSearchField);
 
 RenderSearchField::RenderSearchField(HTMLInputElement& element, RenderStyle&& style)
     : RenderTextControlSingleLine(Type::SearchField, element, WTFMove(style))
@@ -65,10 +65,8 @@ RenderSearchField::RenderSearchField(HTMLInputElement& element, RenderStyle&& st
     ASSERT(isRenderSearchField());
 }
 
-RenderSearchField::~RenderSearchField()
-{
-    // Do not add any code here. Add it to willBeDestroyed() instead.
-}
+// Do not add any code in below destructor. Add it to willBeDestroyed() instead.
+RenderSearchField::~RenderSearchField() = default;
 
 void RenderSearchField::willBeDestroyed()
 {
@@ -237,9 +235,6 @@ void RenderSearchField::valueChanged(unsigned listIndex, bool fireEvents)
     } else {
         Ref input = inputElement();
         input->setValue(itemText(listIndex));
-        if (input->document().settings().searchInputIncrementalAttributeAndSearchEventEnabled()
-            && fireEvents)
-            input->onSearch();
         input->select();
     }
 }

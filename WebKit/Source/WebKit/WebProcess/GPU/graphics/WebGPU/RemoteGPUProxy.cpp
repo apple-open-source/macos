@@ -43,22 +43,30 @@
 #include <WebCore/WebGPUPresentationContextDescriptor.h>
 #include <WebCore/WebGPUSupportedFeatures.h>
 #include <WebCore/WebGPUSupportedLimits.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteGPUProxy);
+
 RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& convertToBackingContext, WebPage& page)
 {
-    return RemoteGPUProxy::create(convertToBackingContext, page.ensureRemoteRenderingBackendProxy(), RunLoop::main());
+    return RemoteGPUProxy::create(convertToBackingContext, page.ensureRemoteRenderingBackendProxy(), Dispatcher { Ref { RunLoop::main() } });
 }
 
-RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& convertToBackingContext, RemoteRenderingBackendProxy& renderingBackend, SerialFunctionDispatcher& dispatcher)
+RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& convertToBackingContext, RemoteRenderingBackendProxy& renderingBackend, WebCore::WorkerOrWorkletThread& thread)
+{
+    return RemoteGPUProxy::create(convertToBackingContext, renderingBackend, Dispatcher { thread });
+}
+
+RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& convertToBackingContext, RemoteRenderingBackendProxy& renderingBackend, Dispatcher&& dispatcher)
 {
     constexpr size_t connectionBufferSizeLog2 = 21;
-    auto connectionPair = IPC::StreamClientConnection::create(connectionBufferSizeLog2);
+    auto connectionPair = IPC::StreamClientConnection::create(connectionBufferSizeLog2, WebProcess::singleton().gpuProcessTimeoutDuration());
     if (!connectionPair)
         return nullptr;
     auto [clientConnection, serverConnectionHandle] = WTFMove(*connectionPair);
-    Ref instance = adoptRef(*new RemoteGPUProxy(convertToBackingContext, dispatcher));
+    Ref instance = adoptRef(*new RemoteGPUProxy(convertToBackingContext, WTFMove(dispatcher)));
     instance->initializeIPC(WTFMove(clientConnection), renderingBackend.ensureBackendCreated(), WTFMove(serverConnectionHandle));
     // TODO: We must wait until initialized, because at the moment we cannot receive IPC messages
     // during wait while in synchronous stream send. Should be fixed as part of https://bugs.webkit.org/show_bug.cgi?id=217211.
@@ -66,10 +74,9 @@ RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& c
     return instance;
 }
 
-
-RemoteGPUProxy::RemoteGPUProxy(WebGPU::ConvertToBackingContext& convertToBackingContext, SerialFunctionDispatcher& dispatcher)
+RemoteGPUProxy::RemoteGPUProxy(WebGPU::ConvertToBackingContext& convertToBackingContext, Dispatcher&& dispatcher)
     : m_convertToBackingContext(convertToBackingContext)
-    , m_dispatcher(dispatcher)
+    , m_dispatcher(WTFMove(dispatcher))
 {
 }
 
@@ -81,7 +88,7 @@ RemoteGPUProxy::~RemoteGPUProxy()
 void RemoteGPUProxy::initializeIPC(Ref<IPC::StreamClientConnection>&& streamConnection, RenderingBackendIdentifier renderingBackend, IPC::StreamServerConnection::Handle&& serverHandle)
 {
     m_streamConnection = WTFMove(streamConnection);
-    m_streamConnection->open(*this, *this);
+    protectedStreamConnection()->open(*this, *this);
     callOnMainRunLoopAndWait([&]() {
         auto& gpuProcessConnection = WebProcess::singleton().ensureGPUProcessConnection();
         gpuProcessConnection.createGPU(m_backing, renderingBackend, WTFMove(serverHandle));
@@ -93,7 +100,7 @@ void RemoteGPUProxy::disconnectGpuProcessIfNeeded()
 {
     if (m_lost)
         return;
-    m_streamConnection->invalidate();
+    protectedStreamConnection()->invalidate();
     // FIXME: deallocate m_streamConnection once the children work without the connection.
     ensureOnMainRunLoop([identifier = m_backing, weakGPUProcessConnection = WTFMove(m_gpuProcessConnection)]() {
         RefPtr gpuProcessConnection = weakGPUProcessConnection.get();
@@ -111,7 +118,7 @@ void RemoteGPUProxy::didClose(IPC::Connection&)
 
 void RemoteGPUProxy::abandonGPUProcess()
 {
-    m_streamConnection->invalidate();
+    protectedStreamConnection()->invalidate();
     m_lost = true;
 }
 
@@ -120,7 +127,7 @@ void RemoteGPUProxy::wasCreated(bool didSucceed, IPC::Semaphore&& wakeUpSemaphor
     ASSERT(!m_didInitialize);
     m_didInitialize = true;
     if (didSucceed)
-        m_streamConnection->setSemaphores(WTFMove(wakeUpSemaphore), WTFMove(clientWaitSemaphore));
+        protectedStreamConnection()->setSemaphores(WTFMove(wakeUpSemaphore), WTFMove(clientWaitSemaphore));
     else
         abandonGPUProcess();
 }
@@ -129,7 +136,7 @@ void RemoteGPUProxy::waitUntilInitialized()
 {
     if (m_didInitialize)
         return;
-    if (m_streamConnection->waitForAndDispatchImmediately<Messages::RemoteGPUProxy::WasCreated>(m_backing, defaultSendTimeout) == IPC::Error::NoError)
+    if (protectedStreamConnection()->waitForAndDispatchImmediately<Messages::RemoteGPUProxy::WasCreated>(m_backing) == IPC::Error::NoError)
         return;
     abandonGPUProcess();
 }
@@ -141,7 +148,8 @@ void RemoteGPUProxy::requestAdapter(const WebCore::WebGPU::RequestAdapterOptions
         return;
     }
 
-    auto convertedOptions = m_convertToBackingContext->convertToBacking(options);
+    Ref convertToBackingContext = m_convertToBackingContext;
+    auto convertedOptions = convertToBackingContext->convertToBacking(options);
     ASSERT(convertedOptions);
     if (!convertedOptions) {
         callback(nullptr);
@@ -161,8 +169,8 @@ void RemoteGPUProxy::requestAdapter(const WebCore::WebGPU::RequestAdapterOptions
         return;
     }
 
-    auto resultSupportedFeatures = WebCore::WebGPU::SupportedFeatures::create(WTFMove(response->features.features));
-    auto resultSupportedLimits = WebCore::WebGPU::SupportedLimits::create(
+    Ref resultSupportedFeatures = WebCore::WebGPU::SupportedFeatures::create(WTFMove(response->features.features));
+    Ref resultSupportedLimits = WebCore::WebGPU::SupportedLimits::create(
         response->limits.maxTextureDimension1D,
         response->limits.maxTextureDimension2D,
         response->limits.maxTextureDimension3D,
@@ -196,7 +204,7 @@ void RemoteGPUProxy::requestAdapter(const WebCore::WebGPU::RequestAdapterOptions
         response->limits.maxComputeWorkgroupSizeZ,
         response->limits.maxComputeWorkgroupsPerDimension
     );
-    callback(WebGPU::RemoteAdapterProxy::create(WTFMove(response->name), WTFMove(resultSupportedFeatures), WTFMove(resultSupportedLimits), response->isFallbackAdapter, *this, m_convertToBackingContext, identifier));
+    callback(WebGPU::RemoteAdapterProxy::create(WTFMove(response->name), WTFMove(resultSupportedFeatures), WTFMove(resultSupportedLimits), response->isFallbackAdapter, options.xrCompatible, *this, convertToBackingContext, identifier));
 }
 
 RefPtr<WebCore::WebGPU::PresentationContext> RemoteGPUProxy::createPresentationContext(const WebCore::WebGPU::PresentationContextDescriptor& descriptor)
@@ -205,9 +213,10 @@ RefPtr<WebCore::WebGPU::PresentationContext> RemoteGPUProxy::createPresentationC
 
     // FIXME: This is super yucky. We should solve this a better way. (For both WK1 and WK2.)
     // Maybe PresentationContext needs a present() function?
-    auto& compositorIntegration = const_cast<WebGPU::RemoteCompositorIntegrationProxy&>(m_convertToBackingContext->convertToRawBacking(descriptor.compositorIntegration));
+    Ref convertToBackingContext = m_convertToBackingContext;
+    Ref compositorIntegration = const_cast<WebGPU::RemoteCompositorIntegrationProxy&>(convertToBackingContext->convertToRawBacking(Ref { descriptor.compositorIntegration }.get()));
 
-    auto convertedDescriptor = m_convertToBackingContext->convertToBacking(descriptor);
+    auto convertedDescriptor = convertToBackingContext->convertToBacking(descriptor);
     if (!convertedDescriptor)
         return nullptr;
 
@@ -216,8 +225,8 @@ RefPtr<WebCore::WebGPU::PresentationContext> RemoteGPUProxy::createPresentationC
     if (sendResult != IPC::Error::NoError)
         return nullptr;
 
-    auto result = WebGPU::RemotePresentationContextProxy::create(*this, m_convertToBackingContext, identifier);
-    compositorIntegration.setPresentationContext(result);
+    Ref result = WebGPU::RemotePresentationContextProxy::create(*this, convertToBackingContext, identifier);
+    compositorIntegration->setPresentationContext(result);
     return result;
 }
 
@@ -230,12 +239,17 @@ RefPtr<WebCore::WebGPU::CompositorIntegration> RemoteGPUProxy::createCompositorI
     if (sendResult != IPC::Error::NoError)
         return nullptr;
 
-    return WebGPU::RemoteCompositorIntegrationProxy::create(*this, m_convertToBackingContext, identifier);
+    return WebGPU::RemoteCompositorIntegrationProxy::create(*this, protectedConvertToBackingContext(), identifier);
 }
 
 void RemoteGPUProxy::paintToCanvas(WebCore::NativeImage&, const WebCore::IntSize&, WebCore::GraphicsContext&)
 {
     ASSERT_NOT_REACHED();
+}
+
+Ref<WebGPU::ConvertToBackingContext> RemoteGPUProxy::protectedConvertToBackingContext() const
+{
+    return m_convertToBackingContext;
 }
 
 bool RemoteGPUProxy::isValid(const WebCore::WebGPU::CompositorIntegration&) const
@@ -329,6 +343,47 @@ bool RemoteGPUProxy::isValid(const WebCore::WebGPU::Texture&) const
 bool RemoteGPUProxy::isValid(const WebCore::WebGPU::TextureView&) const
 {
     RELEASE_ASSERT_NOT_REACHED();
+}
+bool RemoteGPUProxy::isValid(const WebCore::WebGPU::XRBinding&) const
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+bool RemoteGPUProxy::isValid(const WebCore::WebGPU::XRSubImage&) const
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+bool RemoteGPUProxy::isValid(const WebCore::WebGPU::XRProjectionLayer&) const
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+bool RemoteGPUProxy::isValid(const WebCore::WebGPU::XRView&) const
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+RemoteGPUProxy::Dispatcher::Dispatcher(InternalDispatcher&& dispatcher)
+    : m_internalDispatcher(WTFMove(dispatcher))
+{
+}
+
+void RemoteGPUProxy::Dispatcher::dispatch(Function<void()>&& function)
+{
+    switchOn(m_internalDispatcher, [&] (Ref<RunLoop>& loop) {
+        loop->dispatch(WTFMove(function));
+    }, [&] (auto& weakDispatcher) {
+        if (RefPtr dispatcher = weakDispatcher.get())
+            dispatcher->dispatch(WTFMove(function));
+    });
+}
+
+bool RemoteGPUProxy::Dispatcher::isCurrent() const
+{
+    return switchOn(m_internalDispatcher, [] (const Ref<RunLoop>& loop) -> bool {
+        return loop->isCurrent();
+    }, [] (const auto& weakDispatcher) -> bool {
+        RefPtr dispatcher = weakDispatcher.get();
+        return dispatcher && dispatcher->isCurrent();
+    });
 }
 
 } // namespace WebKit

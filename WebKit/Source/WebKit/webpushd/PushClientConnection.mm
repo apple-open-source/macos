@@ -31,101 +31,67 @@
 #import "CodeSigning.h"
 #import "DaemonEncoder.h"
 #import "DaemonUtilities.h"
+#import "Logging.h"
+#import "PushClientConnectionMessages.h"
 #import "WebPushDaemon.h"
 #import "WebPushDaemonConnectionConfiguration.h"
 #import "WebPushDaemonConstants.h"
 #import <JavaScriptCore/ConsoleTypes.h>
+#import <WebCore/NotificationData.h>
 #import <WebCore/PushPermissionState.h>
+#import <wtf/ASCIICType.h>
 #import <wtf/HexNumber.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/Vector.h>
 #import <wtf/cocoa/Entitlements.h>
-#import <wtf/text/MakeString.h>
+#import <wtf/text/TextStream.h>
 
 #if PLATFORM(MAC)
 #import <bsm/libbsm.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #endif
 
+#if USE(EXTENSIONKIT)
+#import "RunningBoardServicesSPI.h"
+#endif
+
+#if PLATFORM(IOS)
+#import "UIKitSPI.h"
+#endif
+
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/PushClientConnectionAdditions.mm>)
+#import <WebKitAdditions/PushClientConnectionAdditions.mm>
+#endif
+
+#if !defined(PUSH_CLIENT_CONNECTION_CREATE_ADDITIONS)
+#define PUSH_CLIENT_CONNECTION_CREATE_ADDITIONS
+#endif
+
 using WebKit::Daemon::Encoder;
+
+static const ASCIILiteral hostAppWebPushEntitlement = "com.apple.private.webkit.webpush"_s;
 
 namespace WebPushD {
 
-Ref<PushClientConnection> PushClientConnection::create(xpc_connection_t connection)
+static bool hostAppHasEntitlement(audit_token_t hostAppAuditToken, ASCIILiteral entitlement)
 {
-    return adoptRef(*new PushClientConnection(connection));
-}
-
-PushClientConnection::PushClientConnection(xpc_connection_t connection)
-    : m_xpcConnection(connection)
-{
-}
-
-void PushClientConnection::updateConnectionConfiguration(WebPushDaemonConnectionConfiguration&& configuration)
-{
-    if (configuration.hostAppAuditTokenData)
-        setHostAppAuditTokenData(*configuration.hostAppAuditTokenData);
-
-    m_pushPartitionString = configuration.pushPartitionString;
-    m_dataStoreIdentifier = configuration.dataStoreIdentifier;
-    m_useMockBundlesForTesting = configuration.useMockBundlesForTesting;
-}
-
-void PushClientConnection::setHostAppAuditTokenData(const Vector<uint8_t>& tokenData)
-{
-    audit_token_t token;
-    if (tokenData.size() != sizeof(token)) {
-        ASSERT_WITH_MESSAGE(false, "Attempt to set an audit token from incorrect number of bytes");
-        return;
-    }
-
-    memcpy(&token, tokenData.data(), tokenData.size());
-
-    if (hasHostAppAuditToken()) {
-        // Verify the token being set is equivalent to the last one set
-        audit_token_t& existingAuditToken = *m_hostAppAuditToken;
-        RELEASE_ASSERT(!memcmp(&existingAuditToken, &token, sizeof(token)));
-        return;
-    }
-
-    m_hostAppAuditToken = WTFMove(token);
-}
-
-void PushClientConnection::getPushTopicsForTesting(CompletionHandler<void(Vector<String>, Vector<String>)>&& completionHandler)
-{
-    WebPushDaemon::singleton().getPushTopicsForTesting(*this, WTFMove(completionHandler));
-}
-
-WebCore::PushSubscriptionSetIdentifier PushClientConnection::subscriptionSetIdentifier()
-{
-    return {
-        hostAppCodeSigningIdentifier(),
-        pushPartitionString(),
-        dataStoreIdentifier()
-    };
-}
-
-const String& PushClientConnection::hostAppCodeSigningIdentifier()
-{
-    if (!m_hostAppCodeSigningIdentifier) {
 #if PLATFORM(MAC) && !USE(APPLE_INTERNAL_SDK)
-        // This isn't great, but currently the only user of webpushd in open source builds is TestWebKitAPI and codeSigningIdentifier returns the null String on x86_64 Macs.
-        m_hostAppCodeSigningIdentifier = "com.apple.WebKit.TestWebKitAPI"_s;
+    // Skip entitlement check on Mac open source builds.
+    return true;
 #else
-        if (!m_hostAppAuditToken)
-            m_hostAppCodeSigningIdentifier = String();
-        else
-            m_hostAppCodeSigningIdentifier = bundleIdentifierFromAuditToken(*m_hostAppAuditToken);
+    return WTF::hasEntitlement(hostAppAuditToken, entitlement);
 #endif
-    }
-
-    return *m_hostAppCodeSigningIdentifier;
 }
 
-String PushClientConnection::bundleIdentifierFromAuditToken(audit_token_t audit_token)
+static String bundleIdentifierFromAuditToken(audit_token_t token)
 {
-#if PLATFORM(MAC)
-    LSSessionID sessionID = (LSSessionID)audit_token_to_asid(audit_token);
-    auto auditTokenDataRef = adoptCF(CFDataCreate(kCFAllocatorDefault, (const UInt8 *)(&audit_token), sizeof(audit_token)));
+#if PLATFORM(MAC) && !USE(APPLE_INTERNAL_SDK)
+    // This isn't great, but currently the only user of webpushd in open source builds is TestWebKitAPI and codeSigningIdentifier returns the null String on x86_64 Macs.
+    UNUSED_PARAM(token);
+    return "com.apple.WebKit.TestWebKitAPI"_s;
+#elif PLATFORM(MAC)
+    LSSessionID sessionID = (LSSessionID)audit_token_to_asid(token);
+    auto auditTokenDataRef = adoptCF(CFDataCreate(kCFAllocatorDefault, (const UInt8 *)(&token), sizeof(token)));
     CFTypeRef keys[] = { _kLSAuditTokenKey };
     CFTypeRef values[] = { auditTokenDataRef.get() };
     auto matchingAppsRef = adoptCF(_LSCopyMatchingApplicationsWithItems(sessionID, 1, keys, values));
@@ -137,36 +103,155 @@ String PushClientConnection::bundleIdentifierFromAuditToken(audit_token_t audit_
     }
 #endif // PLATFORM(MAC)
 
-    return WebKit::codeSigningIdentifier(audit_token);
+    return WebKit::codeSigningIdentifier(token);
 }
 
-bool PushClientConnection::hostAppHasPushEntitlement()
+static bool isValidPushPartition(String partition)
 {
-    if (!m_hostAppHasPushEntitlement)
-        m_hostAppHasPushEntitlement = hostHasEntitlement("com.apple.private.webkit.webpush"_s);
+#if PLATFORM(IOS)
+    // We allow the client to not specify a partition at all at connection setup time. In this case,
+    // we select the partition dynamically (see subscriptionSetIdentifierForOrigin).
+    if (partition.isEmpty())
+        return true;
 
-    return *m_hostAppHasPushEntitlement;
-}
-
-bool PushClientConnection::hostAppHasPushInjectEntitlement()
-{
-    return hostHasEntitlement("com.apple.private.webkit.webpush.inject"_s);
-}
-
-bool PushClientConnection::hostHasEntitlement(ASCIILiteral entitlement)
-{
-    if (!m_hostAppAuditToken)
-        return false;
-#if !PLATFORM(MAC) || USE(APPLE_INTERNAL_SDK)
-    return WTF::hasEntitlement(*m_hostAppAuditToken, entitlement);
+    // On iOS, the push partition is expected to match the format of a web clip identifier.
+    auto isASCIIDigitOrUpper = [](UChar character) {
+        return isASCIIDigit(character) || isASCIIUpper(character);
+    };
+    return partition.length() == 32 && partition.containsOnly<isASCIIDigitOrUpper>();
 #else
+    UNUSED_PARAM(partition);
     return true;
 #endif
 }
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PushClientConnection);
+
+RefPtr<PushClientConnection> PushClientConnection::create(xpc_connection_t connection, IPC::Decoder& initialMessageDecoder)
+{
+    if (initialMessageDecoder.messageName() != Messages::PushClientConnection::InitializeConnection::name()) {
+        RELEASE_LOG_ERROR(Push, "PushClientConnection::create failed: first message must be InitializeConnection");
+        return nullptr;
+    }
+
+    auto maybeConfiguration = initialMessageDecoder.decode<WebPushDaemonConnectionConfiguration>();
+    if (!maybeConfiguration) {
+        RELEASE_LOG_ERROR(Push, "PushClientConnection::create failed: could not decode InitializeConnection arguments");
+        return nullptr;
+    }
+    auto& configuration = *maybeConfiguration;
+
+    // This is to handle webpushtool, which is a direct peer that has the injection entitlement but no host app.
+    audit_token_t peerAuditToken;
+    xpc_connection_get_audit_token(connection, &peerAuditToken);
+    if (bool peerHasPushInjectEntitlement = WTF::hasEntitlement(peerAuditToken, "com.apple.private.webkit.webpush.inject"_s))
+        return adoptRef(new PushClientConnection(connection, WTFMove(configuration.bundleIdentifierOverride), peerHasPushInjectEntitlement, WTFMove(configuration.pushPartitionString), WTFMove(configuration.dataStoreIdentifier)));
+
+#if USE(EXTENSIONKIT)
+    pid_t pid = xpc_connection_get_pid(connection);
+    NSError *error = nil;
+    RBSProcessHandle *handle = [RBSProcessHandle handleForIdentifier:[RBSProcessIdentifier identifierWithPid:pid] error:&error];
+    if (error) {
+        RELEASE_LOG_ERROR(Push, "PushClientConnection::create failed: couldn't look up remote pid %d: %{public}@", pid, error);
+        return nullptr;
+    }
+
+    if (!handle.hostProcess) {
+        RELEASE_LOG_ERROR(Push, "PushClientConnection::create failed: remote pid %d has no host process", pid);
+        return nullptr;
+    }
+
+    audit_token_t hostAppAuditToken = handle.hostProcess.auditToken;
+#else
+    audit_token_t hostAppAuditToken { };
+    if (configuration.hostAppAuditTokenData.size() != sizeof(audit_token_t)) {
+        RELEASE_LOG_ERROR(Push, "PushClientConnection::create failed: client attempted to set audit token with incorrect size");
+        return nullptr;
+    }
+
+    memcpy(&hostAppAuditToken, configuration.hostAppAuditTokenData.data(), sizeof(hostAppAuditToken));
+#endif
+
+    bool hostAppHasWebPushEntitlement = hostAppHasEntitlement(hostAppAuditToken, hostAppWebPushEntitlement);
+    String hostAppCodeSigningIdentifier = bundleIdentifierFromAuditToken(hostAppAuditToken);
+    bool hostAppHasPushInjectEntitlement = hostAppHasEntitlement(hostAppAuditToken, "com.apple.private.webkit.webpush.inject"_s);
+    auto pushPartition = WTFMove(configuration.pushPartitionString);
+    bool hasValidPushPartition = isValidPushPartition(pushPartition);
+
+    if (hostAppHasPushInjectEntitlement && !configuration.bundleIdentifierOverride.isEmpty())
+        hostAppCodeSigningIdentifier = configuration.bundleIdentifierOverride;
+
+    PUSH_CLIENT_CONNECTION_CREATE_ADDITIONS;
+
+    if (!hostAppHasWebPushEntitlement) {
+        RELEASE_LOG_ERROR(Push, "PushClientConnection::create failed: client is missing Web Push entitlement");
+        return nullptr;
+    }
+
+    if (hostAppCodeSigningIdentifier.isEmpty()) {
+        RELEASE_LOG_ERROR(Push, "PushClientConnection::create failed: cannot determine code signing identifier of client");
+        return nullptr;
+    }
+
+    if (!hasValidPushPartition) {
+        RELEASE_LOG_ERROR(Push, "PushClientConnection::create failed: invalid push partition %{public}s", pushPartition.utf8().data());
+        return nullptr;
+    }
+
+    return adoptRef(new PushClientConnection(connection, WTFMove(hostAppCodeSigningIdentifier), hostAppHasPushInjectEntitlement, WTFMove(pushPartition), WTFMove(configuration.dataStoreIdentifier)));
+}
+
+PushClientConnection::PushClientConnection(xpc_connection_t connection, String&& hostAppCodeSigningIdentifier, bool hostAppHasPushInjectEntitlement, String&& pushPartitionString, std::optional<WTF::UUID>&& dataStoreIdentifier)
+    : m_xpcConnection(connection)
+    , m_hostAppCodeSigningIdentifier(WTFMove(hostAppCodeSigningIdentifier))
+    , m_hostAppHasPushInjectEntitlement(hostAppHasPushInjectEntitlement)
+    , m_pushPartitionString(pushPartitionString)
+    , m_dataStoreIdentifier(WTFMove(dataStoreIdentifier))
+{
+}
+
+void PushClientConnection::initializeConnection(WebPushDaemonConnectionConfiguration&&)
+{
+    RELEASE_LOG_ERROR(Push, "PushClientConnection::initializeConnection(%p): ignoring duplicate message", this);
+}
+
+void PushClientConnection::getPushTopicsForTesting(CompletionHandler<void(Vector<String>, Vector<String>)>&& completionHandler)
+{
+    WebPushDaemon::singleton().getPushTopicsForTesting(*this, WTFMove(completionHandler));
+}
+
+std::optional<WebCore::PushSubscriptionSetIdentifier> PushClientConnection::subscriptionSetIdentifierForOrigin(const WebCore::SecurityOriginData& origin) const
+{
+    String pushPartitionString = m_pushPartitionString;
+
+#if PLATFORM(IOS)
+    if (pushPartitionString.isEmpty()) {
+        // On iOS, when the client doesn't explicitly specify a push partition (web clip id), we
+        // implicitly choose the oldest web clip associated with that origin.
+        auto& webClipCache = WebPushDaemon::singleton().ensureWebClipCache();
+        pushPartitionString = webClipCache.preferredWebClipIdentifier(m_hostAppCodeSigningIdentifier, origin);
+
+        if (pushPartitionString.isEmpty())
+            return std::nullopt;
+    }
+#endif
+
+    return WebCore::PushSubscriptionSetIdentifier { hostAppCodeSigningIdentifier(), pushPartitionString, dataStoreIdentifier() };
+}
+
+String PushClientConnection::debugDescription() const
+{
+    TextStream textStream;
+    textStream << m_hostAppCodeSigningIdentifier;
+    if (!m_pushPartitionString.isEmpty())
+        textStream << " | part: " << m_pushPartitionString;
+    if (m_dataStoreIdentifier)
+        textStream << " | ds: " << m_dataStoreIdentifier->toString();
+    return textStream.release();
+}
+
 void PushClientConnection::connectionClosed()
 {
-
     RELEASE_ASSERT(m_xpcConnection);
     m_xpcConnection = nullptr;
 }
@@ -231,17 +316,69 @@ void PushClientConnection::setPublicTokenForTesting(const String& publicToken, C
     WebPushDaemon::singleton().setPublicTokenForTesting(*this, publicToken, WTFMove(replySender));
 }
 
-void PushClientConnection::didShowNotificationForTesting(URL&& scopeURL, CompletionHandler<void()>&& replySender)
+void PushClientConnection::getPushPermissionState(WebCore::SecurityOriginData&& origin, CompletionHandler<void(WebCore::PushPermissionState)>&& replySender)
 {
-    WebPushDaemon::singleton().didShowNotificationForTesting(*this, WTFMove(scopeURL), WTFMove(replySender));
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+    WebPushDaemon::singleton().getPushPermissionState(*this, WTFMove(origin), WTFMove(replySender));
+#else
+    UNUSED_PARAM(origin);
+    replySender({ });
+#endif
 }
 
-void PushClientConnection::getPushPermissionState(URL&&, CompletionHandler<void(const Expected<uint8_t, WebCore::ExceptionData>&)>&& replySender)
+void PushClientConnection::requestPushPermission(WebCore::SecurityOriginData&& origin, CompletionHandler<void(bool)>&& replySender)
 {
-    // FIXME: This doesn't actually get called right now, since the permission is currently checked
-    // in WebProcess. However, we've left this stub in for now because there is a chance that we
-    // will move the permission check into webpushd when supporting other platforms.
-    replySender(static_cast<uint8_t>(WebCore::PushPermissionState::Denied));
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+    WebPushDaemon::singleton().requestPushPermission(*this, WTFMove(origin), WTFMove(replySender));
+#else
+    UNUSED_PARAM(origin);
+    replySender(false);
+#endif
+}
+
+void PushClientConnection::showNotification(const WebCore::NotificationData& notificationData, RefPtr<WebCore::NotificationResources> notificationResources, CompletionHandler<void()>&& completionHandler)
+{
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+    WebPushDaemon::singleton().showNotification(*this, notificationData, notificationResources, WTFMove(completionHandler));
+#else
+    UNUSED_PARAM(notificationData);
+    UNUSED_PARAM(notificationResources);
+    completionHandler();
+#endif
+}
+
+void PushClientConnection::getNotifications(const URL& registrationURL, const String& tag, CompletionHandler<void(Expected<Vector<WebCore::NotificationData>, WebCore::ExceptionData>&&)>&& completionHandler)
+{
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+    WebPushDaemon::singleton().getNotifications(*this, registrationURL, tag, WTFMove(completionHandler));
+#else
+    UNUSED_PARAM(registrationURL);
+    UNUSED_PARAM(tag);
+    completionHandler({ });
+#endif
+}
+
+void PushClientConnection::cancelNotification(WebCore::SecurityOriginData&& origin, const WTF::UUID& notificationID)
+{
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+    WebPushDaemon::singleton().cancelNotification(*this, WTFMove(origin), notificationID);
+#endif
+}
+
+void PushClientConnection::setAppBadge(WebCore::SecurityOriginData&& origin, std::optional<uint64_t> badge)
+{
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+    WebPushDaemon::singleton().setAppBadge(*this, WTFMove(origin), badge);
+#endif
+}
+
+void PushClientConnection::getAppBadgeForTesting(CompletionHandler<void(std::optional<uint64_t>)>&& completionHandler)
+{
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+    WebPushDaemon::singleton().getAppBadgeForTesting(*this, WTFMove(completionHandler));
+#else
+    completionHandler(std::nullopt);
+#endif
 }
 
 } // namespace WebPushD

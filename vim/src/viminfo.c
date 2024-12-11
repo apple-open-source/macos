@@ -251,7 +251,7 @@ barline_writestring(FILE *fd, char_u *s, int remaining_start)
 viminfo_readstring(
     vir_T	*virp,
     int		off,		    // offset for virp->vir_line
-    int		convert UNUSED)	    // convert the string
+    int		convert)	    // convert the string
 {
     char_u	*retval = NULL;
     char_u	*s, *d;
@@ -1068,7 +1068,7 @@ barline_parse(vir_T *virp, char_u *text, garray_T *values)
 	    }
 	}
 
-	if (isdigit(*p))
+	if (SAFE_isdigit(*p))
 	{
 	    value->bv_type = BVAL_NR;
 	    value->bv_nr = getdigits(&p);
@@ -2485,7 +2485,7 @@ read_viminfo_filemark(vir_T *virp, int force)
     str = virp->vir_line + 1;
     if (*str <= 127
 	    && ((*virp->vir_line == '\''
-				       && (VIM_ISDIGIT(*str) || isupper(*str)))
+				       && (VIM_ISDIGIT(*str) || SAFE_isupper(*str)))
 	     || (*virp->vir_line == '-' && *str == '\'')))
     {
 	if (*str == '\'')

@@ -33,8 +33,12 @@
 #include "SWServerWorker.h"
 #include "ServiceWorkerTypes.h"
 #include "ServiceWorkerUpdateViaCache.h"
+#include <wtf/TZoneMallocInlines.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SWServerRegistration);
 
 Ref<SWServerRegistration> SWServerRegistration::create(SWServer& server, const ServiceWorkerRegistrationKey& key, ServiceWorkerUpdateViaCache updateViaCache, const URL& scopeURL, const URL& scriptURL, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, NavigationPreloadState&& navigationPreloadState)
 {
@@ -421,6 +425,21 @@ std::optional<ExceptionData> SWServerRegistration::setNavigationPreloadHeaderVal
     m_preloadState.headerValue = WTFMove(headerValue);
     protectedServer()->storeRegistrationForWorker(*activeWorker);
     return { };
+}
+
+void SWServerRegistration::addCookieChangeSubscriptions(Vector<CookieChangeSubscription>&& subscriptions)
+{
+    m_cookieChangeSubscriptions.add(subscriptions.begin(), subscriptions.end());
+}
+
+void SWServerRegistration::removeCookieChangeSubscriptions(Vector<CookieChangeSubscription>&& subscriptions)
+{
+    m_cookieChangeSubscriptions.remove(subscriptions.begin(), subscriptions.end());
+}
+
+Vector<CookieChangeSubscription> SWServerRegistration::cookieChangeSubscriptions() const
+{
+    return copyToVector(m_cookieChangeSubscriptions);
 }
 
 } // namespace WebCore

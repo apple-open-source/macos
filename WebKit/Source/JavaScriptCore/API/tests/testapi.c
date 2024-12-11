@@ -152,11 +152,7 @@ static void assertEqualsAsCharactersPtr(JSValueRef value, const char* expectedVa
     }
     
     if (jsLength != (size_t)cfLength) {
-#if OS(WINDOWS)
-        fprintf(stderr, "assertEqualsAsCharactersPtr failed: jsLength(%Iu) != cfLength(%Iu)\n", jsLength, (size_t)cfLength);
-#else
-        fprintf(stderr, "assertEqualsAsCharactersPtr failed: jsLength(%zu) != cfLength(%zu)\n", jsLength, (size_t)cfLength);
-#endif
+        fprintf(stderr, "assertEqualsAsCharactersPtr failed: jsLength(%llu) != cfLength(%llu)\n", (unsigned long long)jsLength, (unsigned long long)cfLength);
         failed = 1;
     }
 
@@ -1307,6 +1303,31 @@ static void checkJSStringOOB(void)
     printf("PASS: checkJSStringOOB\n");
 }
 
+static void checkJSStringInvalid(void)
+{
+    printf("Test: checkJSStringInvalid\n");
+    JSChar* source = (JSChar*)malloc(sizeof(JSChar) * 4);
+    source[0] = 'a';
+    source[1] = 'b';
+    source[2] = 'c';
+    source[3] = 0xD800;
+    JSStringRef string = JSStringCreateWithCharacters(source, 4);
+
+    char* out = (char*)malloc(sizeof(char) * 32);
+    memset(out, 1, sizeof(char) * 32);
+    size_t bytesWritten = JSStringGetUTF8CString(string, out, sizeof(char) * 32);
+
+    assertTrue(bytesWritten == 4, "we report 4 bytes written precisely");
+    assertTrue(out[0] == 'a', "a");
+    assertTrue(out[1] == 'b', "b");
+    assertTrue(out[2] == 'c', "c");
+    assertTrue(out[3] == '\0', "string terminated");
+
+    JSStringRelease(string);
+    free(out);
+    free(source);
+}
+
 static const unsigned numWeakRefs = 10000;
 
 static void markingConstraint(JSMarkerRef marker, void *userData)
@@ -1892,6 +1913,7 @@ int main(int argc, char* argv[])
     assertEqualsAsUTF8String(jsOneString, "1");
 
     checkJSStringOOB();
+    checkJSStringInvalid();
 
     checkConstnessInJSObjectNames();
 

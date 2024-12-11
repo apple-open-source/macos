@@ -238,6 +238,20 @@
 #define FALLTHROUGH
 #endif
 
+/* LIFETIME_BOUND */
+
+#if !defined(LIFETIME_BOUND) && defined(__cplusplus)
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(clang::lifetimebound)
+#define LIFETIME_BOUND [[clang::lifetimebound]]
+#elif COMPILER_HAS_ATTRIBUTE(lifetimebound)
+#define LIFETIME_BOUND __attribute__((lifetimebound))
+#endif
+#endif
+
+#if !defined(LIFETIME_BOUND)
+#define LIFETIME_BOUND
+#endif
+
 /* LIKELY */
 
 #if !defined(LIKELY)
@@ -270,9 +284,15 @@
 
 /* MUST_TAIL_CALL */
 
+// 32-bit platforms use different calling conventions, so a MUST_TAIL_CALL function
+// written for 64-bit may fail to tail call on 32-bit.
+#if COMPILER(CLANG)
+#if __SIZEOF_POINTER__ == 8
 #if !defined(MUST_TAIL_CALL) && defined(__cplusplus) && defined(__has_cpp_attribute)
 #if __has_cpp_attribute(clang::musttail)
 #define MUST_TAIL_CALL [[clang::musttail]]
+#endif
+#endif
 #endif
 #endif
 
@@ -329,6 +349,12 @@
 
 #if !defined(UNUSED_FUNCTION)
 #define UNUSED_FUNCTION __attribute__((unused))
+#endif
+
+/* UNUSED_MEMBER_VARIABLE */
+
+#if !defined(UNUSED_MEMBER_VARIABLE)
+#define UNUSED_MEMBER_VARIABLE __attribute__((unused))
 #endif
 
 /* UNUSED_TYPE_ALIAS */
@@ -547,4 +573,12 @@
 
 #if !defined(TLS_MODEL_INITIAL_EXEC)
 #define TLS_MODEL_INITIAL_EXEC
+#endif
+
+/* UNREACHABLE */
+
+#if COMPILER(MSVC)
+#define WTF_UNREACHABLE(...) __assume(0)
+#else
+#define WTF_UNREACHABLE(...) __builtin_unreachable();
 #endif

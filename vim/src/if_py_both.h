@@ -358,7 +358,9 @@ static PyObject *py_find_spec;
 #else
 static PyObject *py_load_module;
 #endif
+#if PY_VERSION_HEX < 0x30c00a7
 static PyObject *py_find_module;
+#endif
 
 static PyObject *VimError;
 
@@ -3081,7 +3083,7 @@ ListConcatInPlace(ListObject *self, PyObject *obj)
     }
     Py_DECREF(lookup_dict);
 
-    Py_INCREF(self);
+    Py_INCREF((PyObject *)self);
     return (PyObject *)(self);
 }
 
@@ -3240,7 +3242,7 @@ FunctionNew(PyTypeObject *subtype, char_u *name, int argc, typval_T *argv,
     if (self == NULL)
 	return NULL;
 
-    if (isdigit(*name))
+    if (isdigit((unsigned char)*name))
     {
 	if (!translated_function_exists(name, FALSE))
 	{
@@ -4010,7 +4012,7 @@ TabPageNew(tabpage_T *tab)
     if (TAB_PYTHON_REF(tab))
     {
 	self = TAB_PYTHON_REF(tab);
-	Py_INCREF(self);
+	Py_INCREF((PyObject *)self);
     }
     else
     {
@@ -4204,7 +4206,7 @@ WindowNew(win_T *win, tabpage_T *tab)
     if (WIN_PYTHON_REF(win))
     {
 	self = WIN_PYTHON_REF(win);
-	Py_INCREF(self);
+	Py_INCREF((PyObject *)self);
     }
     else
     {
@@ -4332,7 +4334,7 @@ WindowAttr(WindowObject *self, char *name)
     }
     else if (strcmp(name, "tabpage") == 0)
     {
-	Py_INCREF(self->tabObject);
+	Py_INCREF((PyObject *)self->tabObject);
 	return (PyObject *)(self->tabObject);
     }
     else if (strcmp(name, "__members__") == 0)
@@ -4486,7 +4488,7 @@ WinListNew(TabPageObject *tabObject)
 
     self = PyObject_NEW(WinListObject, WinListTypePtr);
     self->tabObject = tabObject;
-    Py_INCREF(tabObject);
+    Py_INCREF((PyObject *)tabObject);
 
     return (PyObject *)(self);
 }
@@ -5381,7 +5383,7 @@ RangeNew(buf_T *buf, PyInt start, PyInt end)
 	Py_DECREF(self);
 	return NULL;
     }
-    Py_INCREF(bufr);
+    Py_INCREF((PyObject *)bufr);
 
     self->buf = bufr;
     self->start = start;
@@ -5510,7 +5512,7 @@ BufferNew(buf_T *buf)
     if (BUF_PYTHON_REF(buf) != NULL)
     {
 	self = BUF_PYTHON_REF(buf);
-	Py_INCREF(self);
+	Py_INCREF((PyObject *)self);
     }
     else
     {
@@ -6136,7 +6138,8 @@ run_do(const char *cmd, void *arg UNUSED
 	    goto err;
 
 	// Check that the command didn't switch to another buffer.
-	if (curbuf != was_curbuf)
+	// Check the line number, the command my have deleted lines.
+	if (curbuf != was_curbuf || lnum > curbuf->b_ml.ml_line_count)
 	{
 	    Py_XDECREF(ret);
 	    goto err;
@@ -7324,12 +7327,11 @@ populate_module(PyObject *m)
 	return -1;
     }
 
+# if PY_VERSION_HEX < 0x30c00a7
+    // find_module has been removed as of Python 3.12.0a7
     if ((py_find_module = PyObject_GetAttrString(cls, "find_module")))
-    {
-	// find_module() is deprecated, this may stop working in some later
-	// version.
 	ADD_OBJECT(m, "_find_module", py_find_module);
-    }
+# endif
 
     Py_DECREF(imp);
 

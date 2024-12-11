@@ -27,17 +27,19 @@
 #include "AnimationEffect.h"
 
 #include "CSSAnimation.h"
+#include "CSSPropertyParserConsumer+TimingFunction.h"
+#include "CSSTimingFunctionValue.h"
 #include "CommonAtomStrings.h"
 #include "FillMode.h"
 #include "JSComputedEffectTiming.h"
 #include "ScriptExecutionContext.h"
 #include "WebAnimation.h"
 #include "WebAnimationUtilities.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(AnimationEffect);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(AnimationEffect);
 
 AnimationEffect::AnimationEffect() = default;
 
@@ -125,12 +127,13 @@ ComputedEffectTiming AnimationEffect::getComputedTiming(std::optional<Seconds> s
     computedTiming.progress = resolvedTiming.transformedProgress;
     computedTiming.currentIteration = resolvedTiming.currentIteration;
     computedTiming.phase = resolvedTiming.phase;
+    computedTiming.before = resolvedTiming.before;
     return computedTiming;
 }
 
-ExceptionOr<void> AnimationEffect::bindingsUpdateTiming(std::optional<OptionalEffectTiming> timing)
+ExceptionOr<void> AnimationEffect::bindingsUpdateTiming(Document& document, std::optional<OptionalEffectTiming> timing)
 {
-    auto retVal = updateTiming(timing);
+    auto retVal = updateTiming(document, timing);
     if (!retVal.hasException() && timing) {
         if (auto* cssAnimation = dynamicDowncast<CSSAnimation>(animation()))
             cssAnimation->effectTimingWasUpdatedUsingBindings(*timing);
@@ -138,7 +141,7 @@ ExceptionOr<void> AnimationEffect::bindingsUpdateTiming(std::optional<OptionalEf
     return retVal;
 }
 
-ExceptionOr<void> AnimationEffect::updateTiming(std::optional<OptionalEffectTiming> timing)
+ExceptionOr<void> AnimationEffect::updateTiming(Document& document, std::optional<OptionalEffectTiming> timing)
 {
     // 6.5.4. Updating the timing of an AnimationEffect
     // https://drafts.csswg.org/web-animations/#updating-animationeffect-timing
@@ -174,10 +177,11 @@ ExceptionOr<void> AnimationEffect::updateTiming(std::optional<OptionalEffectTimi
 
     // 4. If the easing member of input is present but cannot be parsed using the <timing-function> production [CSS-EASING-1], throw a TypeError and abort this procedure.
     if (!timing->easing.isNull()) {
-        auto timingFunctionResult = TimingFunction::createFromCSSText(timing->easing);
-        if (timingFunctionResult.hasException())
-            return timingFunctionResult.releaseException();
-        m_timing.timingFunction = timingFunctionResult.returnValue();
+        CSSParserContext parsingContext(document);
+        auto timingFunctionResult = CSSPropertyParserHelpers::parseTimingFunction(timing->easing, parsingContext);
+        if (!timingFunctionResult)
+            return Exception { ExceptionCode::TypeError };
+        m_timing.timingFunction = WTFMove(timingFunctionResult);
     }
 
     // 5. Assign each member present in input to the corresponding timing property of effect as follows:

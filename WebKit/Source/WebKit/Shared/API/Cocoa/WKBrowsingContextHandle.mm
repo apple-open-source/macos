@@ -74,7 +74,7 @@
 
 - (id)initWithCoder:(NSCoder *)coder
 {
-    return [self _initWithPageProxyID:ObjectIdentifier<WebKit::WebPageProxyIdentifierType>([coder decodeInt64ForKey:@"pageProxyID"]) andWebPageID:ObjectIdentifier<WebCore::PageIdentifierType>([coder decodeInt64ForKey:@"webPageID"])];
+    return [self _initWithPageProxyID:LegacyNullableObjectIdentifier<WebKit::WebPageProxyIdentifierType>([coder decodeInt64ForKey:@"pageProxyID"]) andWebPageID:ObjectIdentifier<WebCore::PageIdentifierType>([coder decodeInt64ForKey:@"webPageID"])];
 }
 
 + (BOOL)supportsSecureCoding

@@ -848,7 +848,8 @@ DateTimePatternGenerator::addICUPatterns(const Locale& locale, UErrorCode& statu
     char correctedLocaleID[ULOC_FULLNAME_CAPACITY];
     int32_t correctedIdLen = ulocimp_setRegionToSupplementalRegion(locale.getName(), correctedLocaleID, ULOC_FULLNAME_CAPACITY, &localStatus);
     if (U_FAILURE(localStatus) || correctedIdLen == 0) {
-        uprv_strcpy(correctedLocaleID, locale.getName());
+        uprv_strncpy(correctedLocaleID, locale.getName(), ULOC_FULLNAME_CAPACITY);
+        correctedLocaleID[ULOC_FULLNAME_CAPACITY - 1] = '\0';
     }
 
     if (U_FAILURE(status)) {

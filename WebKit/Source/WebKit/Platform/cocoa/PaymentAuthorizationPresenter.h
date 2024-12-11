@@ -27,10 +27,11 @@
 
 #if USE(PASSKIT) && ENABLE(APPLE_PAY)
 
+#include "CocoaWindow.h"
 #include <WebCore/ApplePaySessionPaymentRequest.h>
-#include <wtf/FastMalloc.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
 OBJC_CLASS UIViewController;
@@ -62,7 +63,7 @@ struct ApplePayShippingMethodUpdate;
 namespace WebKit {
 
 class PaymentAuthorizationPresenter : public CanMakeWeakPtr<PaymentAuthorizationPresenter> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(PaymentAuthorizationPresenter);
     WTF_MAKE_NONCOPYABLE(PaymentAuthorizationPresenter);
 public:
     struct Client {
@@ -77,6 +78,7 @@ public:
         virtual void presenterDidChangeCouponCode(PaymentAuthorizationPresenter&, const String& couponCode) = 0;
 #endif
         virtual void presenterWillValidateMerchant(PaymentAuthorizationPresenter&, const URL&) = 0;
+        virtual CocoaWindow *presentingWindowForPaymentAuthorization(PaymentAuthorizationPresenter&) const = 0;
     };
 
     virtual ~PaymentAuthorizationPresenter() = default;

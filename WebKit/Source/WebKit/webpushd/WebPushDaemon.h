@@ -34,6 +34,7 @@
 #include "WebPushDaemonConstants.h"
 #include "WebPushMessage.h"
 #include <WebCore/ExceptionData.h>
+#include <WebCore/PushPermissionState.h>
 #include <WebCore/PushSubscriptionData.h>
 #include <WebCore/Timer.h>
 #include <span>
@@ -46,6 +47,11 @@
 #include <wtf/StdList.h>
 #include <wtf/spi/darwin/XPCSPI.h>
 
+#if PLATFORM(IOS)
+#include "WebClipCache.h"
+
+@class FBSOpenApplicationService;
+#endif
 
 namespace JSC {
 enum class MessageLevel : uint8_t;
@@ -72,8 +78,12 @@ public:
     void connectionRemoved(xpc_connection_t);
 
     void startMockPushService();
-    void startPushService(const String& incomingPushServiceName, const String& pushDatabasePath);
+    void startPushService(const String& incomingPushServiceName, const String& pushDatabasePath, const String& webClipCachePath);
     void handleIncomingPush(const WebCore::PushSubscriptionSetIdentifier&, WebKit::WebPushMessage&&);
+
+#if PLATFORM(IOS)
+    WebClipCache& ensureWebClipCache();
+#endif
 
     // Message handlers
     void setPushAndNotificationsEnabledForOrigin(PushClientConnection&, const String& originString, bool, CompletionHandler<void()>&& replySender);
@@ -89,7 +99,18 @@ public:
     void removeAllPushSubscriptions(PushClientConnection&, CompletionHandler<void(unsigned)>&&);
     void removePushSubscriptionsForOrigin(PushClientConnection&, const WebCore::SecurityOriginData&, CompletionHandler<void(unsigned)>&&);
     void setPublicTokenForTesting(PushClientConnection&, const String& publicToken, CompletionHandler<void()>&&);
-    void didShowNotificationForTesting(PushClientConnection&, const URL& scopeURL, CompletionHandler<void()>&& replySender);
+
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+    void showNotification(PushClientConnection&, const WebCore::NotificationData&, RefPtr<WebCore::NotificationResources>, CompletionHandler<void()>&&);
+    void getNotifications(PushClientConnection&, const URL& registrationURL, const String& tag, CompletionHandler<void(Expected<Vector<WebCore::NotificationData>, WebCore::ExceptionData>&&)>&&);
+    void cancelNotification(PushClientConnection&, WebCore::SecurityOriginData&&, const WTF::UUID& notificationID);
+
+    void getPushPermissionState(PushClientConnection&, const WebCore::SecurityOriginData&, CompletionHandler<void(WebCore::PushPermissionState)>&&);
+    void requestPushPermission(PushClientConnection&, const WebCore::SecurityOriginData&, CompletionHandler<void(bool)>&&);
+#endif // HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+
+    void setAppBadge(PushClientConnection&, WebCore::SecurityOriginData&&, std::optional<uint64_t>);
+    void getAppBadgeForTesting(PushClientConnection&, CompletionHandler<void(std::optional<uint64_t>)>&&);
 
 private:
     WebPushDaemon();
@@ -99,6 +120,7 @@ private:
     void setPushService(std::unique_ptr<PushService>&&);
     void runAfterStartingPushService(Function<void()>&&);
 
+    void handleIncomingPushImpl(const WebCore::PushSubscriptionSetIdentifier&, WebKit::WebPushMessage&&);
     void ensureIncomingPushTransaction();
     void releaseIncomingPushTransaction();
     void incomingPushTransactionTimerFired();
@@ -106,9 +128,14 @@ private:
     Seconds silentPushTimeout() const;
     void rescheduleSilentPushTimer();
     void silentPushTimerFired();
-    void didShowNotificationImpl(const WebCore::PushSubscriptionSetIdentifier&, const String& scope);
+    void didShowNotification(const WebCore::PushSubscriptionSetIdentifier&, const String& scope);
+
+#if PLATFORM(IOS)
+    void updateSubscriptionSetState();
+#endif
 
     PushClientConnection* toPushClientConnection(xpc_connection_t);
+    HashSet<xpc_connection_t> m_pendingConnectionSet;
     HashMap<xpc_connection_t, Ref<PushClientConnection>> m_connectionMap;
 
     std::unique_ptr<PushService> m_pushService;
@@ -116,7 +143,11 @@ private:
     bool m_pushServiceStarted { false };
     Deque<Function<void()>> m_pendingPushServiceFunctions;
 
-    HashMap<WebCore::PushSubscriptionSetIdentifier, Deque<WebKit::WebPushMessage>> m_pushMessages;
+    struct PendingPushMessage {
+        WebCore::PushSubscriptionSetIdentifier identifier;
+        WebKit::WebPushMessage message;
+    };
+    Deque<PendingPushMessage> m_pendingPushMessages;
 
     WebCore::Timer m_incomingPushTransactionTimer;
     OSObjectPtr<os_transaction_t> m_incomingPushTransaction;
@@ -130,6 +161,16 @@ private:
     WebCore::Timer m_silentPushTimer;
     OSObjectPtr<os_transaction_t> m_silentPushTransaction;
     StdList<PotentialSilentPush> m_potentialSilentPushes;
+
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+    Class m_userNotificationCenterClass;
+#endif // HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+
+#if PLATFORM(IOS)
+    RetainPtr<FBSOpenApplicationService> m_openService;
+    std::unique_ptr<WebClipCache> m_webClipCache;
+    String m_webClipCachePath;
+#endif
 };
 
 } // namespace WebPushD

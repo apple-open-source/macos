@@ -36,6 +36,7 @@
 #include "RotateTransformOperation.h"
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
@@ -50,6 +51,13 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(AnimationValue);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(FloatAnimationValue);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(TransformAnimationValue);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(FilterAnimationValue);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(KeyframeValueList);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GraphicsLayer);
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
 String acceleratedEffectPropertyIDAsString(AcceleratedEffectProperty property)
@@ -167,7 +175,7 @@ bool GraphicsLayer::supportsContentsTiling()
 
 // Singleton client used for layers on which clearClient has been called.
 class EmptyGraphicsLayerClient final : public GraphicsLayerClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(EmptyGraphicsLayerClient);
 public:
     static EmptyGraphicsLayerClient& singleton();
 };
@@ -1122,5 +1130,15 @@ void showGraphicsLayerTree(const WebCore::GraphicsLayer* layer)
 
     String output = layer->layerTreeAsText(WebCore::AllLayerTreeAsTextOptions);
     WTFLogAlways("%s\n", output.utf8().data());
+
+    // The tree is too large to print to the os log so save the tree output
+    // to a file in case we don't have easy access to stderr.
+    auto [tempFilePath, fileHandle] = FileSystem::openTemporaryFile("GraphicsLayerTree"_s);
+    if (FileSystem::isHandleValid(fileHandle)) {
+        FileSystem::writeToFile(fileHandle, output.utf8().span());
+        FileSystem::closeFile(fileHandle);
+        WTFLogAlways("Saved GraphicsLayer Tree to %s", tempFilePath.utf8().data());
+    } else
+        WTFLogAlways("Failed to open temporary file for saving the GraphicsLayer Tree.");
 }
 #endif

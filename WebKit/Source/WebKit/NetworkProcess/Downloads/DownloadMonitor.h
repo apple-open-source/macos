@@ -27,13 +27,15 @@
 
 #include <WebCore/Timer.h>
 #include <wtf/Deque.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebKit {
 
 class Download;
 
 class DownloadMonitor {
-    WTF_MAKE_NONCOPYABLE(DownloadMonitor); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(DownloadMonitor);
+    WTF_MAKE_NONCOPYABLE(DownloadMonitor);
 public:
     DownloadMonitor(Download&);
     
@@ -43,7 +45,7 @@ public:
     void timerFired();
 
 private:
-    Download& m_download;
+    CheckedRef<Download> m_download;
 
     double measuredThroughputRate() const;
     uint32_t testSpeedMultiplier() const;

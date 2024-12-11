@@ -73,21 +73,21 @@ func Test_xxd()
   exe '0r! ' . s:xxd_cmd . ' -l 120 -ps -c20 ' . man_copy
   $d
   let expected = [
-      \ '2e54482058584420312022417567757374203139',
-      \ '39362220224d616e75616c207061676520666f72',
-      \ '20787864220a2e5c220a2e5c222032317374204d',
-      \ '617920313939360a2e5c22204d616e2070616765',
-      \ '20617574686f723a0a2e5c2220202020546f6e79',
-      \ '204e7567656e74203c746f6e79407363746e7567']
+      \ '2e544820585844203120224d6179203230323422',
+      \ '20224d616e75616c207061676520666f72207878',
+      \ '64220a2e5c220a2e5c222032317374204d617920',
+      \ '313939360a2e5c22204d616e2070616765206175',
+      \ '74686f723a0a2e5c2220202020546f6e79204e75',
+      \ '67656e74203c746f6e79407363746e7567656e2e']
   call assert_equal(expected, getline(1,'$'), s:Mess(s:test))
 
   " Test 6: Print the date from xxd.1
   let s:test += 1
   for arg in ['-l 13', '-l13', '-len 13']
     %d
-    exe '0r! ' . s:xxd_cmd . ' -s 0x36 ' . arg . ' -cols 13 ' . man_copy
+    exe '0r! ' . s:xxd_cmd . ' -s 0x33 ' . arg . ' -cols 13 ' . man_copy
     $d
-    call assert_equal('00000036: 3231 7374 204d 6179 2031 3939 36  21st May 1996', getline(1), s:Mess(s:test))
+    call assert_equal('00000033: 3231 7374 204d 6179 2031 3939 36  21st May 1996', getline(1), s:Mess(s:test))
   endfor
 
   " Cleanup after tests 5 and 6
@@ -269,6 +269,23 @@ func Test_xxd()
   endfor
 
 
+  " Test 19: Print C include in binary format
+  let s:test += 1
+  call writefile(['TESTabcd09'], 'XXDfile')
+  %d
+  exe '0r! ' . s:xxd_cmd . ' -i -b XXDfile'
+  $d
+  let expected =<< trim [CODE]
+    unsigned char XXDfile[] = {
+      0b01010100, 0b01000101, 0b01010011, 0b01010100, 0b01100001, 0b01100010,
+      0b01100011, 0b01100100, 0b00110000, 0b00111001, 0b00001010
+    };
+    unsigned int XXDfile_len = 11;
+  [CODE]
+
+  call assert_equal(expected, getline(1,'$'), s:Mess(s:test))
+
+
   %d
   bwipe!
   call delete('XXDfile')
@@ -409,6 +426,22 @@ func Test_xxd_max_cols()
       bwipe!
     endfor
   endfor
+endfunc
+
+
+" This used to trigger a buffer overflow (#14738)
+func Test_xxd_buffer_overflow()
+  CheckUnix
+  if system('file ' .. s:xxd_cmd) =~ '32-bit'
+    throw 'Skipped: test only works on 64-bit architecture'
+  endif
+  new
+  let input = repeat('A', 256)
+  call writefile(['-9223372036854775808: ' . repeat("\e[1;32m41\e[0m ", 256) . ' ' . repeat("\e[1;32mA\e[0m", 256)], 'Xxdexpected', 'D')
+  exe 'r! printf ' . input . '| ' . s:xxd_cmd . ' -Ralways -g1 -c256 -d -o 9223372036854775808 > Xxdout'
+  call assert_equalfile('Xxdexpected', 'Xxdout')
+  call delete('Xxdout')
+  bwipe!
 endfunc
 
 " -c0 selects the format specific default column value, as if no -c was given

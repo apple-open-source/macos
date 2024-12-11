@@ -30,6 +30,7 @@
 #import "Device.h"
 #import <wtf/CheckedArithmetic.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebGPU {
 
@@ -85,13 +86,14 @@ static MTLStorageMode storageMode(bool deviceHasUnifiedMemory, WGPUBufferUsageFl
 {
     if (deviceHasUnifiedMemory)
         return MTLStorageModeShared;
-    if (usage & (WGPUBufferUsage_MapRead | WGPUBufferUsage_MapWrite | WGPUBufferUsage_Index))
-        return MTLStorageModeShared;
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+    if (usage & (WGPUBufferUsage_MapRead | WGPUBufferUsage_MapWrite | WGPUBufferUsage_Index))
+        return MTLStorageModeManaged;
     if (mappedAtCreation)
         return MTLStorageModeManaged;
 #else
     UNUSED_PARAM(mappedAtCreation);
+    UNUSED_PARAM(usage);
 #endif
     return MTLStorageModePrivate;
 }
@@ -102,6 +104,11 @@ id<MTLBuffer> Device::safeCreateBuffer(NSUInteger length, MTLStorageMode storage
     id<MTLBuffer> buffer = [m_device newBufferWithLength:std::max<NSUInteger>(1, length) options:resourceOptions];
     setOwnerWithIdentity(buffer);
     return buffer;
+}
+
+id<MTLBuffer> Device::safeCreateBuffer(NSUInteger length) const
+{
+    return safeCreateBuffer(length, MTLStorageModeShared);
 }
 
 Ref<Buffer> Device::createBuffer(const WGPUBufferDescriptor& descriptor)
@@ -135,6 +142,8 @@ Ref<Buffer> Device::createBuffer(const WGPUBufferDescriptor& descriptor)
     return Buffer::create(buffer, descriptor.size, descriptor.usage, Buffer::State::Unmapped, { static_cast<size_t>(0), static_cast<size_t>(0) }, *this);
 }
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Buffer);
+
 Buffer::Buffer(id<MTLBuffer> buffer, uint64_t initialSize, WGPUBufferUsageFlags usage, State initialState, MappingRange initialMappingRange, Device& device)
     : m_buffer(buffer)
     , m_initialSize(initialSize)
@@ -142,6 +151,9 @@ Buffer::Buffer(id<MTLBuffer> buffer, uint64_t initialSize, WGPUBufferUsageFlags 
     , m_state(initialState)
     , m_mappingRange(initialMappingRange)
     , m_device(device)
+#if CPU(X86_64)
+    , m_mappedAtCreation(m_state == State::MappedAtCreation)
+#endif
 {
     if (m_usage & WGPUBufferUsage_Indirect)
         m_indirectBuffer = device.safeCreateBuffer(sizeof(MTLDrawPrimitivesIndirectArguments), MTLStorageModePrivate);
@@ -172,6 +184,7 @@ void Buffer::setCommandEncoder(CommandEncoder& commandEncoder, bool mayModifyBuf
 {
     UNUSED_PARAM(mayModifyBuffer);
     m_commandEncoders.add(commandEncoder);
+    commandEncoder.addBuffer(m_buffer);
     if (m_state == State::Mapped || m_state == State::MappedAtCreation)
         commandEncoder.incrementBufferMapCount();
     if (isDestroyed())
@@ -363,11 +376,16 @@ void Buffer::unmap()
         return;
 
     decrementBufferMapCount();
+    indirectBufferInvalidated();
 
-#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
-    if (m_state == State::MappedAtCreation && m_buffer.storageMode == MTLStorageModeManaged) {
-        for (const auto& mappedRange : m_mappedRanges)
-            [m_buffer didModifyRange:NSMakeRange(static_cast<NSUInteger>(mappedRange.begin()), static_cast<NSUInteger>(mappedRange.end() - mappedRange.begin()))];
+#if CPU(X86_64) && (PLATFORM(MAC) || PLATFORM(MACCATALYST))
+    if (m_buffer.storageMode == MTLStorageModeManaged) {
+        if (m_mappedAtCreation)
+            [m_buffer didModifyRange:NSMakeRange(0, m_buffer.length)];
+        else {
+            for (const auto& mappedRange : m_mappedRanges)
+                [m_buffer didModifyRange:NSMakeRange(static_cast<NSUInteger>(mappedRange.begin()), static_cast<NSUInteger>(mappedRange.end() - mappedRange.begin()))];
+        }
     }
 #endif
 
@@ -410,26 +428,55 @@ id<MTLBuffer> Buffer::indirectIndexedBuffer() const
     return m_indirectIndexedBuffer;
 }
 
-bool Buffer::indirectBufferRequiresRecomputation(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, uint32_t minInstanceCount, MTLIndexType indexType) const
+bool Buffer::indirectBufferRequiresRecomputation(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, uint32_t minInstanceCount, MTLIndexType indexType, uint32_t firstInstance) const
 {
     auto rangeBegin = m_indirectCache.lastBaseIndex;
     auto rangeEnd = m_indirectCache.lastBaseIndex + m_indirectCache.indexCount;
     auto newRangeEnd = baseIndex + indexCount;
-    return baseIndex != rangeBegin || newRangeEnd != rangeEnd || minVertexCount != m_indirectCache.minVertexCount || minInstanceCount != m_indirectCache.minInstanceCount || m_indirectCache.indexType != indexType;
+    return baseIndex != rangeBegin || newRangeEnd != rangeEnd || minVertexCount != m_indirectCache.minVertexCount || minInstanceCount != m_indirectCache.minInstanceCount || m_indirectCache.indexType != indexType || m_indirectCache.firstInstance != firstInstance;
 }
 
-void Buffer::indirectBufferRecomputed(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, uint32_t minInstanceCount, MTLIndexType indexType)
+bool Buffer::indirectBufferRequiresRecomputation(uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount) const
+{
+    return m_indirectCache.indirectOffset != indirectOffset || m_indirectCache.minVertexCount != minVertexCount || m_indirectCache.minInstanceCount != minInstanceCount;
+}
+
+bool Buffer::indirectIndexedBufferRequiresRecomputation(MTLIndexType indexType, NSUInteger indexBufferOffsetInBytes, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount) const
+{
+    return m_indirectCache.indexType != indexType || m_indirectCache.indexBufferOffsetInBytes != indexBufferOffsetInBytes || m_indirectCache.indirectOffset != indirectOffset || m_indirectCache.minVertexCount != minVertexCount || m_indirectCache.minInstanceCount != minInstanceCount;
+}
+
+void Buffer::indirectBufferRecomputed(uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount)
+{
+    m_indirectCache.indirectOffset = indirectOffset;
+    m_indirectCache.minVertexCount = minVertexCount;
+    m_indirectCache.minInstanceCount = minInstanceCount;
+}
+
+void Buffer::indirectIndexedBufferRecomputed(MTLIndexType indexType, NSUInteger indexBufferOffsetInBytes, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount)
+{
+    m_indirectCache.indexType = indexType;
+    m_indirectCache.indexBufferOffsetInBytes = indexBufferOffsetInBytes;
+    m_indirectCache.indirectOffset = indirectOffset;
+    m_indirectCache.minVertexCount = minVertexCount;
+    m_indirectCache.minInstanceCount = minInstanceCount;
+}
+
+void Buffer::indirectBufferRecomputed(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, uint32_t minInstanceCount, MTLIndexType indexType, uint32_t firstInstance)
 {
     m_indirectCache.lastBaseIndex = baseIndex;
     m_indirectCache.indexCount = indexCount;
     m_indirectCache.minVertexCount = minVertexCount;
     m_indirectCache.minInstanceCount = minInstanceCount;
     m_indirectCache.indexType = indexType;
+    m_indirectCache.firstInstance = firstInstance;
 }
 
 void Buffer::indirectBufferInvalidated()
 {
-    indirectBufferRecomputed(0, 0, 0, 0, MTLIndexTypeUInt16);
+    m_indirectCache.indirectOffset = UINT64_MAX;
+    m_indirectCache.indexBufferOffsetInBytes = UINT64_MAX;
+    indirectBufferRecomputed(0, 0, 0, 0, MTLIndexTypeUInt16, 0);
 }
 
 } // namespace WebGPU

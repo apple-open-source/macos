@@ -34,18 +34,20 @@
 #include <wtf/HashMap.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>
 
 namespace WebCore {
 
 class LegacyInlineTextBox;
+struct PaintInfo;
 
 namespace InlineDisplay {
 struct Box;
 }
 
 class GlyphDisplayListCacheEntry : public RefCounted<GlyphDisplayListCacheEntry>, public CanMakeSingleThreadWeakPtr<GlyphDisplayListCacheEntry> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(GlyphDisplayListCacheEntry);
     friend struct GlyphDisplayListCacheKeyTranslator;
     friend void add(Hasher&, const GlyphDisplayListCacheEntry&);
 public:
@@ -100,7 +102,7 @@ struct GlyphDisplayListCacheEntryHash {
 };
 
 class GlyphDisplayListCache {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(GlyphDisplayListCache);
     friend class GlyphDisplayListCacheEntry;
 public:
     GlyphDisplayListCache() = default;

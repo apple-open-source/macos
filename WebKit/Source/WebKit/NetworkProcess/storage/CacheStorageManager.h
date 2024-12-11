@@ -27,6 +27,7 @@
 
 #include "Connection.h"
 #include <WebCore/DOMCacheEngine.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebKit {
@@ -51,7 +52,7 @@ struct CacheStorageRecordInformation;
 
 
 class CacheStorageManager : public CanMakeWeakPtr<CacheStorageManager> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(CacheStorageManager);
 public:
     static String cacheStorageOriginDirectory(const String& rootDirectory, const WebCore::ClientOrigin&);
     static void copySaltFileToOriginDirectory(const String& rootDirectory, const String& originDirectory);
@@ -94,7 +95,7 @@ private:
     std::pair<uint64_t, HashSet<WebCore::DOMCacheIdentifier>> m_pendingSize;
     String m_path;
     FileSystem::Salt m_salt;
-    CacheStorageRegistry& m_registry;
+    CheckedRef<CacheStorageRegistry> m_registry;
     QuotaCheckFunction m_quotaCheckFunction;
     Vector<std::unique_ptr<CacheStorageCache>> m_caches;
     HashMap<WebCore::DOMCacheIdentifier, std::unique_ptr<CacheStorageCache>> m_removedCaches;

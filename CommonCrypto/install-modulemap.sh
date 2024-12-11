@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e -x
 DSTDIR="${DSTROOT}/${PUBLIC_HEADERS_FOLDER_PATH}"
-DSTDIR_PRIV="${DSTROOT}/${PRIVATE_HEADERS_FOLDER_PATH}"
+DSTDIR_PRIV="${DSTROOT}/${PRIVATE_HEADERS_FOLDER_PATH}/.."
 
 install \
     -d \
@@ -21,4 +21,4 @@ install \
     -m "$INSTALL_MODE_FLAG" \
     -o "$INSTALL_OWNER" \
     "$MODULEMAP_PRIVATE_FILE" \
-    "$DSTDIR_PRIV"/module.modulemap
+    "$DSTDIR_PRIV"/CommonCrypto_private.modulemap

@@ -150,7 +150,6 @@ rsync_client(struct cleanup_ctx *cleanup_ctx, const struct opts *opts,
 	 * then.
 	 */
 	rc = 0;
-
 	if (!io_read_close(&sess, fd)) {
 		ERRX1("data remains in read pipe");
 		rc = ERR_IPC;

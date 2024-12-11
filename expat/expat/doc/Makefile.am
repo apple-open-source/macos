@@ -9,6 +9,7 @@
 # Copyright (c) 2017-2024 Sebastian Pipping <sebastian@pipping.org>
 # Copyright (c) 2017      Stephen Groat <stephen@groat.us>
 # Copyright (c) 2017      Joe Orton <jorton@redhat.com>
+# Copyright (c) 2024      Tomas Korbar <tkorbar@redhat.com>
 # Licensed under the MIT license:
 #
 # Permission is  hereby granted,  free of charge,  to any  person obtaining
@@ -37,7 +38,7 @@ dist_man_MANS = xmlwf.1
 
 xmlwf.1: xmlwf.xml
 	-rm -f $@
-	test x$(DOCBOOK_TO_MAN) != x && $(DOCBOOK_TO_MAN) $<
+	test "x$(DOCBOOK_TO_MAN)" != x && $(DOCBOOK_TO_MAN) $<
 	test -f $@ || mv XMLWF.1 $@
 endif
 

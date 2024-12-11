@@ -1,5 +1,0 @@
-module FFI [system] {
-	umbrella header "ffi.h"
-	export *
-	link "ffi"
-}

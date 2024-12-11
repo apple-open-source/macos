@@ -33,9 +33,12 @@
 #include "StyleInheritedData.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PrintContext);
 
 PrintContext::PrintContext(LocalFrame* frame)
     : FrameDestructionObserver(frame)
@@ -88,7 +91,7 @@ FloatBoxExtent PrintContext::computedPageMargin(FloatBoxExtent printMargin)
 {
     if (!frame() || !frame()->document())
         return printMargin;
-    if (!frame()->settings().pageAtRuleSupportEnabled())
+    if (!frame()->settings().pageAtRuleMarginDescriptorsEnabled())
         return printMargin;
     // FIXME Currently no pseudo class is supported.
     auto style = frame()->document()->styleScope().resolver().styleForPage(0);

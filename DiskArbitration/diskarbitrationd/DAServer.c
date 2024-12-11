@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,7 @@
 #include "DAStage.h"
 #include "DASupport.h"
 #include "DAThread.h"
+#include "DATelemetry.h"
 
 #include <paths.h>
 #include <bsm/libbsm.h>
@@ -128,6 +129,42 @@ DADiskRef DADiskListGetDisk( const char * diskID )
     }
 
     return NULL;
+}
+
+static void __DADiskSendTerminationEvent( DADiskRef disk )
+{
+    DAFileSystemRef filesystem = DADiskGetFileSystem( disk );
+    CFStringRef fsImplementation;
+    bool diskIsUnrepairable, diskIsMounted, diskIsProbing;
+    
+    if ( filesystem && DAFileSystemIsFSModule( filesystem ) )
+    {
+        fsImplementation = CFSTR("FSKit");
+    }
+    else
+    {
+        fsImplementation = CFSTR("kext");
+    }
+    
+    /* Use the same unrepairable check as the path for calling DADialogShowDeviceUnrepairable */
+    diskIsUnrepairable = DADiskGetState( disk , kDADiskStateStagedUnrepairable )
+        && DADiskGetState( disk, kDADiskStateRequireRepair )
+        && DADiskGetState( disk, _kDADiskStateMountAutomatic )
+        && DADiskGetClaim( disk ) == NULL;
+    
+    diskIsMounted = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) != NULL;
+    diskIsProbing = DADiskGetState( disk , kDADiskStateStagedProbe )
+        && DADiskGetState( disk , kDADiskStateCommandActive );
+    
+    DATelemetrySendTerminationEvent( ( filesystem ) ? DAFileSystemGetKind( filesystem ) : NULL ,
+                                    fsImplementation ,
+                                    diskIsMounted ,
+                                    DADiskGetState( disk , kDADiskStateStagedAppear ) ,
+                                    diskIsProbing ,
+                                    DADiskGetState( disk , kDADiskStateRequireRepair ) ,
+                                    DADiskGetState( disk , kDADiskStateMountOngoing ) ,
+                                    diskIsUnrepairable ,
+                                    DADiskGetState( disk , kDADiskStateZombie ) );
 }
 
 static DADiskRef __DADiskListGetDiskWithIOMedia( io_service_t media )
@@ -715,6 +752,12 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
             CFDictionaryRef dictionary;
 
             dictionary = CFArrayGetValueAtIndex( gDAConsoleUserList, index );
+           
+            if (CFDictionaryGetValue( dictionary, CFSTR("kCGSSessionIsLoggingOutKey") ) == kCFBooleanTrue)
+            {
+                DALogInfo( "console user is logging out  =  %d", ___CFDictionaryGetIntegerValue( dictionary, kSCConsoleSessionUID ));
+                continue;
+            }
 
             if ( ___CFDictionaryGetIntegerValue( dictionary, kSCConsoleSessionUID ) == previousUserUID )
             {
@@ -724,6 +767,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
 
         if ( index == count )
         {
+            
             count = CFArrayGetCount( gDADiskList );
 
             for ( index = 0; index < count; index++ )
@@ -739,20 +783,32 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
                 if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
                 {
                     Boolean unmount;
-
+                    
                     unmount = FALSE;
-
+                    int options = kDADiskUnmountOptionDefault;
+                    
                     if ( DADiskGetUserUID( disk ) )
                     {
                         if ( DADiskGetUserUID( disk ) == previousUserUID )
                         {
+                            options |= kDADiskUnmountOptionForce;
                             unmount = TRUE;
                         }
                     }
-
+                    
+                    if ( DADiskGetMountedByUserUID( disk ) ) {
+                        if ( DADiskGetDescription( disk, kDADiskDescriptionMediaEncryptedKey ) == kCFBooleanTrue &&
+                            ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
+                            && (DADiskGetMountedByUserUID( disk ) == previousUserUID  ))
+                        {
+                            unmount = TRUE;
+                        }
+                    }
+                    
                     if ( unmount )
                     {
-                        DADiskUnmount( disk, kDADiskUnmountOptionForce, NULL );
+                        DALogInfo( " console user logout: unmounting  disk %@ ", disk);
+                        DADiskUnmount( disk, options, NULL );
                     }
                 }
             }
@@ -1429,6 +1485,8 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
                     }
                 }
             }
+            
+            __DADiskSendTerminationEvent( disk );
 
             if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
             {
@@ -1686,19 +1744,16 @@ kern_return_t _DAServerDiskCopyDescription( mach_port_t _session, caddr_t _disk,
 
     status = kDAReturnBadArgument;
 
-    DALogDebugHeader( "? [?]:%d -> %s", _session, gDAProcessNameID );
+    DASessionRef session = NULL;
 
     if ( _session )
     {
-        DASessionRef session;
-
         session = __DASessionListGetSession( _session );
 
         if ( session )
         {
             DADiskRef disk;
 
-            DALogDebugHeader( "%@ -> %s", session, gDAProcessNameID );
 
             disk = DADiskListGetDisk( _disk );
 
@@ -1714,8 +1769,6 @@ kern_return_t _DAServerDiskCopyDescription( mach_port_t _session, caddr_t _disk,
 
                     if ( *_description )
                     {
-                        DALogDebug( "  copied disk description, id = %@.", disk );
-
                         status = kDAReturnSuccess;
                     }
                 }
@@ -1723,8 +1776,14 @@ kern_return_t _DAServerDiskCopyDescription( mach_port_t _session, caddr_t _disk,
         }
     }
 
+ 
     if ( status )
     {
+        DALogDebugHeader( "? [?]:%d -> %s", _session, gDAProcessNameID );
+        if ( session )
+        {
+            DALogDebugHeader( "%@ -> %s", session, gDAProcessNameID );
+        }
         DALogDebug( "unable to copy disk description, id = %s (status code 0x%08X).", _disk, status );
     }
 
@@ -2409,6 +2468,29 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                         case _kDADiskRename:
                         {
                             status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightRename );
+                              
+#if TARGET_OS_OSX
+                            if ( status == 0 )
+                            {
+                                char * path;
+                                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
+                                {
+                                    CFURLRef mountpoint = DADiskGetBypath( disk );
+                                    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+                                                                
+                                    if ( path &&  ( strncmp( path, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 ) )
+                                    {
+                                        status = sandbox_check_by_audit_token(_token, "file-write-unlink", SANDBOX_FILTER_PATH | SANDBOX_CHECK_CANONICAL | SANDBOX_CHECK_NOFOLLOW , path);
+                                        if ( status )
+                                        {
+                                            DALogInfo(" sandbox check for file-write-unlink failed on %@", disk);
+                                            status = kDAReturnNotPrivileged;
+                                        }
+                                        free( path );
+                                    }
+                                }
+                            }
+#endif
 
                             break;
                         }
@@ -2436,7 +2518,8 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                     {
                         DAQueueRequest( request );
 
-                        DALogDebug( "  queued solicitation, id = %016llX:%016llX, kind = %s, disk = %@, options = 0x%08X.",
+                        DALogInfo( "  %@ queued solicitation, id = %016llX:%016llX, kind = %s, disk = %@, options = 0x%08X.",
+                                     session,
                                     _address,
                                     _context,
                                     _DARequestKindGetName( _kind ),

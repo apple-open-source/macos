@@ -27,6 +27,7 @@
 
 #import "PresentationContext.h"
 #import <wtf/MachSendRight.h>
+#import <wtf/TZoneMalloc.h>
 #import <wtf/Vector.h>
 #import <wtf/spi/cocoa/IOSurfaceSPI.h>
 
@@ -36,7 +37,7 @@ class Device;
 class Instance;
 
 class PresentationContextIOSurface : public PresentationContext {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(PresentationContextIOSurface);
 public:
     static Ref<PresentationContextIOSurface> create(const WGPUSurfaceDescriptor&, const Instance&);
 
@@ -57,7 +58,7 @@ private:
 
     void renderBuffersWereRecreated(NSArray<IOSurface *> *renderBuffers);
     void onSubmittedWorkScheduled(Function<void()>&&);
-    RetainPtr<CGImageRef> getTextureAsNativeImage(uint32_t bufferIndex) final;
+    RetainPtr<CGImageRef> getTextureAsNativeImage(uint32_t bufferIndex, bool& isIOSurfaceSupportedFormat) final;
 
     NSArray<IOSurface *> *m_ioSurfaces { nil };
     struct RenderBuffer {

@@ -34,6 +34,7 @@
 #include "Timer.h"
 #include <wtf/RefPtr.h>
 #include <wtf/SmallMap.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -46,6 +47,7 @@ class ScrollingStateTree;
 // ScrollingCoordinator subclass that maintains a ScrollingStateTree and a ScrollingTree,
 // allowing asynchronous scrolling (in another thread or process).
 class AsyncScrollingCoordinator : public ScrollingCoordinator {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(AsyncScrollingCoordinator, WEBCORE_EXPORT);
 public:
     static Ref<AsyncScrollingCoordinator> create(Page*);
     WEBCORE_EXPORT virtual ~AsyncScrollingCoordinator();
@@ -85,6 +87,8 @@ public:
     const ScrollingStateTree* existingScrollingStateTreeForRootFrameID(FrameIdentifier) const;
     ScrollingStateTree* stateTreeForNodeID(ScrollingNodeID) const;
     std::unique_ptr<ScrollingStateTree> commitTreeStateForRootFrameID(FrameIdentifier, LayerRepresentation::Type);
+
+    WEBCORE_EXPORT void scrollableAreaWillBeDetached(ScrollableArea&) override;
 
 protected:
     WEBCORE_EXPORT AsyncScrollingCoordinator(Page*);
@@ -184,6 +188,7 @@ private:
     
     WEBCORE_EXPORT void setMouseIsOverScrollbar(Scrollbar*, bool isOverScrollbar) override;
     WEBCORE_EXPORT void setScrollbarEnabled(Scrollbar&) override;
+    WEBCORE_EXPORT void setScrollbarWidth(ScrollableArea&, ScrollbarWidth) override;
 
     void hysterisisTimerFired(PAL::HysteresisState);
 

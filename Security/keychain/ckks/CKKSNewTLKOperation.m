@@ -159,6 +159,7 @@
             }
 
             [oldTLK ensureKeyLoadedForContextID:viewState.contextID
+                                          cache:nil
                                           error:&error];
 
             ckksnotice("ckkstlk", viewState.zoneID, "Old TLK is: %@ %@", oldTLK, error);
@@ -240,6 +241,7 @@
             wrappedOldTLK = [oldTLK copy];
             if(wrappedOldTLK) {
                 [wrappedOldTLK ensureKeyLoadedForContextID:oldTLK.contextID
+                                                     cache:nil
                                                      error:&error];
                 if(error != nil) {
                     if([self.deps.lockStateTracker isLockedError:error]) {

@@ -33,6 +33,7 @@
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/PlatformXR.h>
 #include <WebCore/SecurityOriginData.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebKit {
 class PlatformXRSystem;
@@ -52,13 +53,16 @@ namespace WebKit {
 class PlatformXRCoordinator;
 class WebPageProxy;
 
+struct SharedPreferencesForWebProcess;
 struct XRDeviceInfo;
 
 class PlatformXRSystem : public IPC::MessageReceiver, public PlatformXRCoordinatorSessionEventClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(PlatformXRSystem);
 public:
     PlatformXRSystem(WebPageProxy&);
     virtual ~PlatformXRSystem();
+
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const;
 
     using PlatformXRCoordinatorSessionEventClient::weakPtrFactory;
     using PlatformXRCoordinatorSessionEventClient::WeakValueType;
@@ -82,7 +86,7 @@ private:
     void requestPermissionOnSessionFeatures(const WebCore::SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList&, const PlatformXR::Device::FeatureList&, const PlatformXR::Device::FeatureList&, const PlatformXR::Device::FeatureList&, const PlatformXR::Device::FeatureList&, CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&&);
     void initializeTrackingAndRendering();
     void shutDownTrackingAndRendering();
-    void requestFrame(CompletionHandler<void(PlatformXR::FrameData&&)>&&);
+    void requestFrame(std::optional<PlatformXR::RequestData>&&, CompletionHandler<void(PlatformXR::FrameData&&)>&&);
     void submitFrame();
     void didCompleteShutdownTriggeredBySystem();
 

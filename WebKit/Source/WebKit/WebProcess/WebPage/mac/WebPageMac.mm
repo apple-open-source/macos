@@ -76,6 +76,7 @@
 #import <WebCore/HTMLPlugInImageElement.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/ImageOverlay.h>
+#import <WebCore/ImmediateActionStage.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/LocalFrame.h>
 #import <WebCore/LocalFrameView.h>
@@ -99,6 +100,7 @@
 #import <WebCore/TextIterator.h>
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/WindowsKeyboardCodes.h>
+#import <WebCore/markup.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
@@ -426,9 +428,9 @@ bool WebPage::performNonEditingBehaviorForSelector(const String& selector, Keybo
     }
 
     if (selector == "moveToLeftEndOfLine:"_s)
-        didPerformAction = m_userInterfaceLayoutDirection == WebCore::UserInterfaceLayoutDirection::LTR ? m_page->backForward().goBack() : m_page->backForward().goForward();
+        didPerformAction = m_userInterfaceLayoutDirection == WebCore::UserInterfaceLayoutDirection::LTR ? m_page->checkedBackForward()->goBack() : m_page->checkedBackForward()->goForward();
     else if (selector == "moveToRightEndOfLine:"_s)
-        didPerformAction = m_userInterfaceLayoutDirection == WebCore::UserInterfaceLayoutDirection::LTR ? m_page->backForward().goForward() : m_page->backForward().goBack();
+        didPerformAction = m_userInterfaceLayoutDirection == WebCore::UserInterfaceLayoutDirection::LTR ? m_page->checkedBackForward()->goForward() : m_page->checkedBackForward()->goBack();
 
     return didPerformAction;
 }
@@ -761,7 +763,7 @@ void WebPage::handleSelectionServiceClick(FrameSelection& selection, const Vecto
     if (!range)
         return;
 
-    auto selectionString = attributedString(*range);
+    auto selectionString = attributedString(*range, IgnoreUserSelectNone::Yes);
     if (selectionString.isNull())
         return;
 

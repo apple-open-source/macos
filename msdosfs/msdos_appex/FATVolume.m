@@ -4,6 +4,7 @@
 
 #import <Foundation/Foundation.h>
 #include <stdatomic.h>
+#import <sys/mount.h>
 #import <sys/attr.h>
 
 #import "ExtensionCommon.h"
@@ -13,6 +14,7 @@
 #import "FATVolume.h"
 #import "FATItem.h"
 #import "DirItem.h"
+#import <FSKit/NSError+FSKitAdditions.h>
 
 @implementation FATVolume
 
@@ -75,7 +77,7 @@ exit:
 {
     uint64_t fileID = [entryData getFirstCluster:self.systemInfo];
     
-    if (fileID == 0) {
+    if (fileID == FSItemIDInvalid) {
         fileID = [self getNextAvailableFileID];
     }
     
@@ -84,7 +86,7 @@ exit:
 
 -(uint64_t)getNextAvailableFileID
 {
-    uint64_t fileid = 0;
+    uint64_t fileid = FSItemIDInvalid;
     // Counter for file ids of zero-length files (starts at 0xFFFFFFFFFFFFFFFF and is decremented until wrapping around at 0xFFFFFFFF00000000)
     @synchronized (_nextAvailableFileID) {
         fileid = [[_nextAvailableFileID objectAtIndex:0] unsignedLongLongValue];
@@ -360,23 +362,23 @@ exit:
     return 0; //TODO: Verify this
 }
 
-- (int32_t)maxFileSizeInBits {
+- (NSInteger)maximumFileSizeInBits {
     return 33;
 }
 
-- (int32_t)maxLinkCount {
+- (NSInteger)maximumLinkCount {
     return 1;
 }
 
-- (int32_t)maxNameLength {
+- (NSInteger)maximumNameLength {
     return 255;
 }
 
-- (BOOL)isLongNameTruncated {
+- (BOOL)truncatesLongNames {
     return false;
 }
 
-- (int32_t)maxXattrSizeInBits {
+- (NSInteger)maximumXattrSizeInBits {
     return 0;
 }
 
@@ -761,7 +763,7 @@ exit:
           startingAtCookie:(FSDirectoryCookie)cookie
                   verifier:(FSDirectoryVerifier)verifier
        providingAttributes:(FSItemGetAttributesRequest * _Nullable)attributes
-                usingBlock:(nonnull FSDirectoryEntryPacker)packer
+               usingPacker:(nonnull FSDirectoryEntryPacker)packer
               replyHandler:(nonnull void (^)(FSDirectoryVerifier, NSError * _Nullable))reply
 {
     DirItem *dirItem = [DirItem dynamicCast:directory];
@@ -1072,7 +1074,6 @@ exit:
             if (fileItem) {
                 [fileItem fetchFileExtentsFrom:0
                                             to:[fileItem.entryData getSize]
-                               lastValidOffset:[fileItem.entryData getValidDataLength]
                                    usingBlocks:packer
                                   replyHandler:^(NSError * _Nullable fetchError) {
                     if (fetchError) {
@@ -1097,7 +1098,7 @@ exit:
     result.usedBlocks = self.systemInfo.maxValidCluster - self.systemInfo.freeClusters;
     result.totalFiles = 0;
     result.freeFiles = 0;
-    result.filesystemSubType = self.systemInfo.fsSubTypeNum.intValue;
+    result.fileSystemSubType = self.systemInfo.fsSubTypeNum.intValue;
 
     return result;
 }
@@ -1106,7 +1107,7 @@ exit:
 {
     FSVolumeSupportedCapabilities *capabilities         = [FSVolumeSupportedCapabilities new];
     capabilities.supportsSymbolicLinks                  = YES;
-    capabilities.supportsCasePreservingNames            = YES;
+    capabilities.caseSensitivity                        = FSVolumeCaseSensitivityCasePreservingOnly;
     capabilities.supportsHiddenFiles                    = YES;
     capabilities.doesNotSupportRootTimes                = YES;
     capabilities.doesNotSupportSettingFilePermissions   = YES;
@@ -1656,9 +1657,10 @@ exit:
     return reply(itemAttrs, nil);
 }
 
-- (void)synchronizeWithReplyHandler:(nonnull void (^)(NSError * _Nullable))reply
+- (void)synchronizeWithFlags:(FSSyncFlags)flags
+                replyHandler:(nonnull void (^)(NSError * _Nullable))reply
 {
-    __block NSError *err;
+    NSError *err = nil;
 
     err = [self sync];
     if (err) {
@@ -1676,14 +1678,12 @@ exit:
         }];
     }
 
-    [self.resource synchronousMetadataFlushWithReplyHandler:^(NSError * _Nullable error) {
-        err = error;
-        if (error) {
-            os_log_error(fskit_std_log(), "%s: Failed to flush meta cache, error %@",  __func__, error);
-        }
-    }];
+    err = (flags & FSSyncFlagsNoWait) ? [self.resource asynchronousMetadataFlush] : [self.resource metadataFlush];
+    if (err) {
+        os_log_error(fskit_std_log(), "%s: Metadata flush failed (%d), flags 0x%lx", __FUNCTION__, (int)err.fs_posixCode, flags);
+    }
 
-    reply(err);
+    return reply(err);
 }
 
 -(void)activateWithOptions:(FSTaskParameters *)options
@@ -1705,7 +1705,8 @@ exit:
     os_log_debug(fskit_std_log(), "%s:start", __FUNCTION__);
     __block NSError *err;
     // Should we do this sync call or FSKit should take care of it?
-    [self synchronizeWithReplyHandler:^(NSError * _Nullable error) {
+    [self synchronizeWithFlags:FSSyncFlagsWait
+                  replyHandler:^(NSError * _Nullable error) {
         err = error;
     }];
 
@@ -1733,11 +1734,10 @@ exit:
 {
 #if TARGET_OS_OSX
     /* For MacOS, flush writes to disk before unmounting */
-    [self.resource synchronousMetadataFlushWithReplyHandler:^(NSError * _Nullable error) {
-        if (error) {
-            os_log_error(fskit_std_log(), "%s: Failed to meta flush, error %@", __func__, error);
-        }
-    }];
+    NSError *error = [self.resource metadataFlush];
+    if (error) {
+        os_log_error(fskit_std_log(), "%s: Failed to meta flush, error %@", __func__, error);
+    }
 #endif
 
     /* Verify FS is clean, log if dirty */
@@ -1917,13 +1917,13 @@ replyHandler:(nonnull void (^)(NSError * _Nullable))reply
     return reply(volumeName, nil);
 }
 
-- (void)preallocate:(FSItem *)item
-             offset:(uint64_t)offset
-             length:(size_t)length
-              flags:(FSPreallocateFlags)flags
-        usingPacker:(FSExtentPacker)packer
-       replyHandler:(void (^)(size_t bytesAllocated,
-                              NSError * error))reply
+- (void)preallocateSpaceForItem:(FSItem *)item
+                         offset:(uint64_t)offset
+                         length:(size_t)length
+                          flags:(FSPreallocateFlags)flags
+                    usingPacker:(FSExtentPacker)packer
+                   replyHandler:(void (^)(size_t bytesAllocated,
+                                          NSError * error))reply
 {
 
     __block NSError* err = nil;
@@ -1977,7 +1977,6 @@ replyHandler:(nonnull void (^)(NSError * _Nullable))reply
     if (!err) {
         [fileItem fetchFileExtentsFrom:curAllocatedSize
                                     to:(length + curAllocatedSize)
-                       lastValidOffset:curAllocatedSize
                            usingBlocks:packer
                           replyHandler:^(NSError * _Nullable fetchError) {
             err = fetchError;

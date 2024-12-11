@@ -26,13 +26,14 @@
 
 namespace WebCore {
 
+class LayoutSize;
 class MouseEvent;
 class TextRun;
 
 // Renderer for embeds and objects, often, but not always, rendered via plug-ins.
 // For example, <embed src="foo.html"> does not invoke a plug-in.
 class RenderEmbeddedObject final : public RenderWidget {
-    WTF_MAKE_ISO_ALLOCATED(RenderEmbeddedObject);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderEmbeddedObject);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderEmbeddedObject);
 public:
     RenderEmbeddedObject(HTMLFrameOwnerElement&, RenderStyle&&);
@@ -68,6 +69,8 @@ public:
     void willAttachScrollingNode();
     void didAttachScrollingNode();
 
+    void setHasShadowContent() { m_hasShadowContent = true; }
+
 private:
     void paintReplaced(PaintInfo&, const LayoutPoint&) final;
     void paint(PaintInfo&, const LayoutPoint&) final;
@@ -92,6 +95,8 @@ private:
     void getReplacementTextGeometry(const LayoutPoint& accumulatedOffset, FloatRect& contentRect, FloatRect& indicatorRect, FloatRect& replacementTextRect, FloatRect& arrowRect, FontCascade&, TextRun&, float& textWidth) const;
     LayoutRect getReplacementTextGeometry(const LayoutPoint& accumulatedOffset) const;
 
+    bool canHaveChildren() const override { return m_hasShadowContent; }
+
     bool m_isPluginUnavailable;
     enum class UnavailablePluginIndicatorState { Uninitialized, Hidden, Visible };
     UnavailablePluginIndicatorState m_isUnavailablePluginIndicatorState { UnavailablePluginIndicatorState::Uninitialized };
@@ -100,6 +105,7 @@ private:
     bool m_unavailablePluginIndicatorIsPressed;
     bool m_mouseDownWasInUnavailablePluginIndicator;
     String m_unavailabilityDescription;
+    bool m_hasShadowContent { false };
 };
 
 } // namespace WebCore

@@ -7,13 +7,17 @@ def s:ReportError(fname: string, lnum: number, msg: string)
 enddef
 
 def s:PerformCheck(fname: string, pattern: string, msg: string, skip: string)
+  var prev_lnum = 1
   var lnum = 1
   while (lnum > 0)
     cursor(lnum, 1)
     lnum = search(pattern, 'W', 0, 0, skip)
-    ReportError(fname, lnum, msg)
+    if (prev_lnum == lnum)
+      break
+    endif
+    prev_lnum = lnum
     if (lnum > 0)
-      lnum += 1
+      ReportError(fname, lnum, msg)
     endif
   endwhile
 enddef
@@ -23,6 +27,13 @@ def Test_source_files()
     bwipe!
     g:ignoreSwapExists = 'e'
     exe 'edit ' .. fname
+
+    # Some files are generated files and may contain space errors.
+    if fname =~ 'dlldata.c'
+        || fname =~ 'if_ole.h'
+        || fname =~ 'iid_ole.c'
+      continue
+    endif
 
     PerformCheck(fname, ' \t', 'space before Tab', '')
 
@@ -64,7 +75,8 @@ def Test_test_files()
         && fname !~ 'test_listchars.vim'
         && fname !~ 'test_visual.vim'
       cursor(1, 1)
-      var lnum = search(fname =~ "test_regexp_latin" ? '[^á] \t' : ' \t')
+      var skip = 'getline(".") =~ "codestyle: ignore"'
+      var lnum = search(fname =~ "test_regexp_latin" ? '[^á] \t' : ' \t', 'W', 0, 0, skip)
       ReportError('testdir/' .. fname, lnum, 'space before Tab')
     endif
 
@@ -151,4 +163,4 @@ def Test_help_files()
 enddef
 
 
-" vim: shiftwidth=2 sts=2 expandtab
+" vim: shiftwidth=2 sts=2 expandtab nofoldenable

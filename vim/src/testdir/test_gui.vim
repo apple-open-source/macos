@@ -111,6 +111,8 @@ func Test_getfontname_without_arg()
 endfunc
 
 func Test_getwinpos()
+  CheckX11
+
   call assert_match('Window position: X \d\+, Y \d\+', execute('winpos'))
   call assert_true(getwinposx() >= 0)
   call assert_true(getwinposy() >= 0)
@@ -633,7 +635,7 @@ endfunc
 func Test_set_guiligatures()
   CheckX11BasedGui
 
-  if has('gui_gtk') || has('gui_gtk2') || has('gui_gnome') || has('gui_gtk3')
+  if has('gui_gtk') || has('gui_gtk2') || has('gui_gnome') || has('gui_gtk3') || has('win32')
     " Try correct value
     set guiligatures=<>=ab
     call assert_equal("<>=ab", &guiligatures)
@@ -1706,9 +1708,14 @@ func Test_gui_lowlevel_keyevent()
   new
 
   " Test for <Ctrl-A> to <Ctrl-Z> keys
-  for kc in range(65, 90)
+  " FIXME: <Ctrl-C> is excluded for now.  It makes the test flaky.
+  for kc in range(65, 66) + range(68, 90)
     call SendKeys([0x11, kc])
-    let ch = getcharstr()
+    try
+      let ch = getcharstr()
+    catch /^Vim:Interrupt$/
+      let ch = "\<c-c>"
+    endtry
     call assert_equal(nr2char(kc - 64), ch)
   endfor
 

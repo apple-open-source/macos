@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -473,7 +473,7 @@ public:
             : m_enclosedHeight(0)
         { }
 
-        ControlData(BBQJIT& generator, BlockType blockType, BlockSignature signature, LocalOrTempIndex enclosedHeight, RegisterSet liveScratchGPRs);
+        ControlData(BBQJIT& generator, BlockType, BlockSignature, LocalOrTempIndex enclosedHeight, RegisterSet liveScratchGPRs, RegisterSet liveScratchFPRs);
 
         // Re-use the argument layout of another block (eg. else will re-use the argument/result locations from if)
         enum BranchCallingConventionReuseTag { UseBlockCallingConventionOfOtherBranch };
@@ -697,6 +697,7 @@ public:
     using ControlType = ControlData;
     using CallType = CallLinkInfo::CallType;
     using ResultList = Vector<ExpressionType, 8>;
+    using ArgumentList = Vector<ExpressionType, 8>;
     using ControlEntry = typename FunctionParserTypes<ControlType, ExpressionType, CallType>::ControlEntry;
     using TypedExpression = typename FunctionParserTypes<ControlType, ExpressionType, CallType>::TypedExpression;
     using Stack = FunctionParser<BBQJIT>::Stack;
@@ -846,6 +847,9 @@ private:
 #define LOG_DEDENT() do { if (UNLIKELY(Options::verboseBBQJITInstructions())) { m_loggingIndent -= 2; } } while (false);
 
 public:
+    // FIXME: Support fused branch compare on 32-bit platforms.
+    static constexpr bool shouldFuseBranchCompare = is64Bit();
+
     static constexpr bool tierSupportsSIMD = true;
 
     BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, BBQCallee& callee, const FunctionData& function, uint32_t functionIndex, const ModuleInformation& info, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, MemoryMode mode, InternalFunction* compilation, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry, TierUpCount* tierUp);
@@ -889,6 +893,8 @@ public:
     PartialResult WARN_UNUSED_RETURN getLocal(uint32_t localIndex, Value& result);
 
     PartialResult WARN_UNUSED_RETURN setLocal(uint32_t localIndex, Value value);
+
+    PartialResult WARN_UNUSED_RETURN teeLocal(uint32_t localIndex, Value, Value& result);
 
     // Globals
 
@@ -1171,8 +1177,8 @@ public:
 
     PartialResult WARN_UNUSED_RETURN addArrayNewDefault(uint32_t typeIndex, ExpressionType size, ExpressionType& result);
 
-    using arraySegmentOperation = EncodedJSValue SYSV_ABI (&)(JSC::Wasm::Instance*, uint32_t, uint32_t, uint32_t, uint32_t);
-    void pushArrayNewFromSegment(arraySegmentOperation operation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType exceptionType, ExpressionType& result);
+    using ArraySegmentOperation = EncodedJSValue SYSV_ABI (&)(JSC::JSWebAssemblyInstance*, uint32_t, uint32_t, uint32_t, uint32_t);
+    void pushArrayNewFromSegment(ArraySegmentOperation operation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType exceptionType, ExpressionType& result);
 
     PartialResult WARN_UNUSED_RETURN addArrayNewData(uint32_t typeIndex, uint32_t dataIndex, ExpressionType arraySize, ExpressionType offset, ExpressionType& result);
 
@@ -1180,7 +1186,7 @@ public:
 
     void emitArraySetUnchecked(uint32_t typeIndex, Value arrayref, Value index, Value value);
 
-    PartialResult WARN_UNUSED_RETURN addArrayNewFixed(uint32_t typeIndex, Vector<ExpressionType>& args, ExpressionType& result);
+    PartialResult WARN_UNUSED_RETURN addArrayNewFixed(uint32_t typeIndex, ArgumentList& args, ExpressionType& result);
 
     PartialResult WARN_UNUSED_RETURN addArrayGet(ExtGCOpType arrayGetKind, uint32_t typeIndex, ExpressionType arrayref, ExpressionType index, ExpressionType& result);
 
@@ -1202,7 +1208,7 @@ public:
 
     PartialResult WARN_UNUSED_RETURN addStructNewDefault(uint32_t typeIndex, ExpressionType& result);
 
-    PartialResult WARN_UNUSED_RETURN addStructNew(uint32_t typeIndex, Vector<Value>& args, Value& result);
+    PartialResult WARN_UNUSED_RETURN addStructNew(uint32_t typeIndex, ArgumentList& args, Value& result);
 
     PartialResult WARN_UNUSED_RETURN addStructGet(ExtGCOpType structGetKind, Value structValue, const StructType& structType, uint32_t fieldIndex, Value& result);
 
@@ -1723,7 +1729,7 @@ public:
 
     PartialResult WARN_UNUSED_RETURN addDelegateToUnreachable(ControlType& target, ControlType& data);
 
-    PartialResult WARN_UNUSED_RETURN addThrow(unsigned exceptionIndex, Vector<ExpressionType>& arguments, Stack&);
+    PartialResult WARN_UNUSED_RETURN addThrow(unsigned exceptionIndex, ArgumentList& arguments, Stack&);
 
     PartialResult WARN_UNUSED_RETURN addRethrow(unsigned, ControlType& data);
 
@@ -1746,6 +1752,22 @@ public:
     int alignedFrameSize(int frameSize) const;
 
     PartialResult WARN_UNUSED_RETURN endTopLevel(BlockSignature, const Stack&);
+
+    enum BranchFoldResult {
+        BranchAlwaysTaken,
+        BranchNeverTaken,
+        BranchNotFolded
+    };
+
+    BranchFoldResult WARN_UNUSED_RETURN tryFoldFusedBranchCompare(OpType, ExpressionType);
+    Jump WARN_UNUSED_RETURN emitFusedBranchCompareBranch(OpType, ExpressionType, Location);
+    BranchFoldResult WARN_UNUSED_RETURN tryFoldFusedBranchCompare(OpType, ExpressionType, ExpressionType);
+    Jump WARN_UNUSED_RETURN emitFusedBranchCompareBranch(OpType, ExpressionType, Location, ExpressionType, Location);
+
+    PartialResult WARN_UNUSED_RETURN addFusedBranchCompare(OpType, ControlType& target, ExpressionType, Stack&);
+    PartialResult WARN_UNUSED_RETURN addFusedBranchCompare(OpType, ControlType& target, ExpressionType, ExpressionType, Stack&);
+    PartialResult WARN_UNUSED_RETURN addFusedIfCompare(OpType, ExpressionType, BlockSignature, Stack&, ControlType&, Stack&);
+    PartialResult WARN_UNUSED_RETURN addFusedIfCompare(OpType, ExpressionType, ExpressionType, BlockSignature, Stack&, ControlType&, Stack&);
 
     // Flush a value to its canonical slot.
     void flushValue(Value value);
@@ -1776,21 +1798,25 @@ public:
     template<typename Func, size_t N>
     void emitCCall(Func function, const Vector<Value, N>& arguments, Value& result);
 
-    PartialResult WARN_UNUSED_RETURN addCall(unsigned functionIndex, const TypeDefinition& signature, Vector<Value>& arguments, ResultList& results, CallType callType = CallType::Call);
+    void emitTailCall(unsigned functionIndex, const TypeDefinition& signature, ArgumentList& arguments);
+    PartialResult WARN_UNUSED_RETURN addCall(unsigned functionIndex, const TypeDefinition& signature, ArgumentList& arguments, ResultList& results, CallType = CallType::Call);
 
-    void emitIndirectCall(const char* opcode, const Value& calleeIndex, GPRReg calleeInstance, GPRReg calleeCode, GPRReg jsCalleeAnchor, const TypeDefinition& signature, Vector<Value>& arguments, ResultList& results, CallType callType = CallType::Call);
+    void emitIndirectCall(const char* opcode, const Value& callee, GPRReg calleeInstance, GPRReg calleeCode, const TypeDefinition& signature, ArgumentList& arguments, ResultList& results);
+    void emitIndirectTailCall(const char* opcode, const Value& callee, GPRReg calleeInstance, GPRReg calleeCode, const TypeDefinition& signature, ArgumentList& arguments);
     void addRTTSlowPathJump(TypeIndex, GPRReg);
     void emitSlowPathRTTCheck(MacroAssembler::Label, TypeIndex, GPRReg);
 
-    PartialResult WARN_UNUSED_RETURN addCallIndirect(unsigned tableIndex, const TypeDefinition& originalSignature, Vector<Value>& args, ResultList& results, CallType callType = CallType::Call);
+    PartialResult WARN_UNUSED_RETURN addCallIndirect(unsigned tableIndex, const TypeDefinition& originalSignature, ArgumentList& args, ResultList& results, CallType = CallType::Call);
 
-    PartialResult WARN_UNUSED_RETURN addCallRef(const TypeDefinition& originalSignature, Vector<Value>& args, ResultList& results);
+    PartialResult WARN_UNUSED_RETURN addCallRef(const TypeDefinition& originalSignature, ArgumentList& args, ResultList& results, CallType = CallType::Call);
 
     PartialResult WARN_UNUSED_RETURN addUnreachable();
 
     PartialResult WARN_UNUSED_RETURN addCrash();
 
     ALWAYS_INLINE void willParseOpcode();
+
+    ALWAYS_INLINE void willParseExtendedOpcode();
 
     ALWAYS_INLINE void didParseOpcode();
 
@@ -1848,7 +1874,7 @@ public:
 
     void dump(const ControlStack&, const Stack*);
     void didFinishParsingLocals();
-    void didPopValueFromStack(ExpressionType, String);
+    void didPopValueFromStack(ExpressionType, ASCIILiteral);
 
     void finalize();
 
@@ -1928,6 +1954,8 @@ private:
     Location bind(Value value, Location loc);
 
     void unbind(Value value, Location loc);
+
+    void unbindAllRegisters();
 
     template<typename Register>
     static Register fromJSCReg(Reg reg)
@@ -2171,17 +2199,22 @@ private:
         template<typename... Args>
         void initializedPreservedSet(RegisterSet registers, Args... args)
         {
-            for (JSC::Reg reg : registers) {
-                if (reg.isGPR())
-                    m_preserved.add(reg.gpr(), IgnoreVectors);
-                else
-                    m_preserved.add(reg.fpr(), Width::Width128);
-            }
+            for (JSC::Reg reg : registers)
+                initializedPreservedSet(reg);
             initializedPreservedSet(args...);
         }
 
-        inline void initializedPreservedSet()
-        { }
+        template<typename... Args>
+        void initializedPreservedSet(JSC::Reg reg, Args... args)
+        {
+            if (reg.isGPR())
+                m_preserved.add(reg.gpr(), IgnoreVectors);
+            else
+                m_preserved.add(reg.fpr(), Width::Width128);
+            initializedPreservedSet(args...);
+        }
+
+        inline void initializedPreservedSet() { }
 
         BBQJIT& m_generator;
         GPRReg m_tempGPRs[GPRs];
@@ -2237,6 +2270,7 @@ private:
     uint32_t m_lastUseTimestamp; // Monotonically increasing integer incrementing with each register use.
     Vector<RefPtr<SharedTask<void(BBQJIT&, CCallHelpers&)>>, 8> m_latePaths; // Late paths to emit after the rest of the function body.
 
+    // FIXME: All uses of this are to restore sp, so we should emit these as a patchable sub instruction rather than move.
     Vector<DataLabelPtr, 1> m_frameSizeLabels;
     int m_frameSize { 0 };
     int m_maxCalleeStackSize { 0 };

@@ -27,13 +27,22 @@
 
 #include "NetworkTransportReceiveStream.h"
 #include "NetworkTransportSendStream.h"
+#include <wtf/TZoneMalloc.h>
+
+#if PLATFORM(COCOA)
+#include <Network/Network.h>
+#endif
 
 namespace WebKit {
 
 class NetworkTransportBidirectionalStream : public NetworkTransportSendStream, public NetworkTransportReceiveStream {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(NetworkTransportBidirectionalStream);
 public:
-    NetworkTransportBidirectionalStream(NetworkTransportSession&);
+    template<typename... Args> static Ref<NetworkTransportBidirectionalStream> create(Args&&... args) { return adoptRef(*new NetworkTransportBidirectionalStream(std::forward<Args>(args)...)); }
+private:
+#if PLATFORM(COCOA)
+    NetworkTransportBidirectionalStream(NetworkTransportSession&, nw_connection_t);
+#endif
 };
 
 }

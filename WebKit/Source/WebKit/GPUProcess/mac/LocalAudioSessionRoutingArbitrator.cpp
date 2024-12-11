@@ -31,12 +31,15 @@
 #include "GPUProcessConnectionMessages.h"
 #include "Logging.h"
 #include <wtf/LoggerHelper.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
 
 namespace WebKit {
 
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LocalAudioSessionRoutingArbitrator);
 
 UniqueRef<LocalAudioSessionRoutingArbitrator> LocalAudioSessionRoutingArbitrator::create(GPUConnectionToWebProcess& gpuConnectionToWebProcess)
 {
@@ -85,10 +88,9 @@ WTFLogChannel& LocalAudioSessionRoutingArbitrator::logChannel() const
 
 bool LocalAudioSessionRoutingArbitrator::canLog() const
 {
-    auto connection = m_connectionToWebProcess.get();
-    if (!connection)
-        return false;
-    return connection->sessionID().isAlwaysOnLoggingAllowed();
+    if (RefPtr connection = m_connectionToWebProcess.get())
+        return connection->isAlwaysOnLoggingAllowed();
+    return false;
 }
 
 }

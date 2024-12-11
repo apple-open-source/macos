@@ -1971,6 +1971,9 @@ main(int argc, char **argv)
 					case 'V':
 						val |= PRMD_VERBOSE;
 						break;
+					case 'c':
+						val |= PRMD_COMP_GENCNT;
+						break;
 					case 'f':
 						val |= PRMD_FLOWID;
 						break;
@@ -3823,10 +3826,14 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 			if (ndo->ndo_packet_number)
 				ND_PRINT("%5lu  ", packets_captured - skip_packet_cnt);
 
+			if (is_pcap_pkthdr_valid(ndo, h) == 0) {
+				return;
+			}
+
 			ts_print(ndo, &h->ts);
 
 			if (ndo->ndo_kflag && h->comment[0])
-				ND_PRINT("%s ", h->comment);
+				ND_PRINT("(%s) ", h->comment);
 
 			pretty_print_packet(ndo, h, sp, (u_int)packets_captured);
 		}
@@ -3881,10 +3888,14 @@ dump_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 			if (ndo->ndo_packet_number)
 				ND_PRINT("%5lu  ", packets_captured - skip_packet_cnt);
 
+			if (is_pcap_pkthdr_valid(ndo, h) == 0) {
+				return;
+			}
+
 			ts_print(ndo, &h->ts);
 
 			if (ndo->ndo_kflag && h->comment[0])
-				ND_PRINT("%s ", h->comment);
+				ND_PRINT("(%s) ", h->comment);
 
 			pretty_print_packet(ndo, h, sp, (u_int)packets_captured);
 		}
@@ -4482,7 +4493,7 @@ print_pcap(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	ts_print(ndo, &h->ts);
 
 	if (ndo->ndo_kflag && h->comment[0])
-		ND_PRINT("%s ", h->comment);
+		ND_PRINT("(%s) ", h->comment);
 
 	pretty_print_packet(ndo, h, sp, (u_int)packets_captured);
 }
@@ -4562,6 +4573,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	const char *drop_func = NULL;
 	uint16_t drop_line = 0;
 	uint16_t drop_func_len = 0;
+	uint32_t comp_gencnt = 0;
 	struct pcapng_option_info option_info;
 
 	block = pcap_ng_block_alloc_with_raw_block(ndo->ndo_pcap, (u_char *)sp);
@@ -4690,7 +4702,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				if (pcap_is_swapped(ndo->ndo_pcap))
 					packet_flags = SWAPLONG(pmdflags);
 			}
-#ifdef PCAPNG_EPB_FLOW_ID
+
 			if (pcap_ng_block_get_option(block, PCAPNG_EPB_FLOW_ID, &option_info) == 1) {
 				if (option_info.length != 4) {
 					warning("%s: flow_id option length %u != 4", __func__, option_info.length);
@@ -4701,9 +4713,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 					flow_id = SWAPLONG(flow_id);
 				}
 			}
-#endif /* PCAPNG_EPB_FLOW_ID */
 
-#ifdef PCAPNG_EPB_TRACE_TAG
 			if (pcap_ng_block_get_option(block, PCAPNG_EPB_TRACE_TAG, &option_info) == 1) {
 				if (option_info.length != 2) {
 					warning("%s: trace_tag option length %u != 2", __func__, option_info.length);
@@ -4714,7 +4724,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 					trace_tag = SWAPSHORT(trace_tag);
 				}
 			}
-#endif /* PCAPNG_EPB_TRACE_TAG */
+
 			/*
 			 * PCAPNG_EPB_DROP_REASON option is set only for droptap.
 			 */
@@ -4743,6 +4753,19 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				drop_func = (const char *)(option_info.value);
 				drop_func_len = option_info.length;
 			}
+#ifdef PCAPNG_EPB_COMP_GENCNT
+			if (pcap_ng_block_get_option(block, PCAPNG_EPB_COMP_GENCNT, &option_info) == 1) {
+				if (option_info.length != 4) {
+					warning("%s: comp_gencnt option length %u != 4", __func__, option_info.length);
+					goto done;
+				}
+				comp_gencnt = *(uint32_t *)(option_info.value);
+				if (pcap_is_swapped(ndo->ndo_pcap)) {
+					comp_gencnt = SWAPLONG(comp_gencnt);
+				}
+			}
+#endif /* PCAPNG_EPB_COMP_GENCNT */
+
 			if_id = epbp->interface_id;
 
 			pack_flags_code = PCAPNG_EPB_FLAGS;
@@ -4897,6 +4920,10 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	if (ndo->ndo_packet_number)
 		ND_PRINT("%5lu  ", packets_captured - skip_packet_cnt);
 
+	if (is_pcap_pkthdr_valid(ndo, h) == 0) {
+		return;
+	}
+
 	ts_print(ndo, &h->ts);
 
 	/*
@@ -4984,7 +5011,6 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 			}
 		}
 
-#ifdef PCAPNG_EPB_FLOW_ID
 		/*
 		 * Flow-id
 		 */
@@ -4994,8 +5020,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				 flow_id);
 			prsep = ", ";
 		}
-#endif /* PCAPNG_EPB_FLOW_ID */
-#ifdef PCAPNG_EPB_TRACE_TAG
+
 		/*
 		 * trace_tag
 		 */
@@ -5005,13 +5030,25 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				 trace_tag);
 			prsep = ", ";
 		}
-#endif /* PCAPNG_EPB_TRACE_TAG */
+
 		if (ndo->ndo_kflag & PRMD_DLT) {
 			ND_PRINT("%s" "dlt 0x%x",
 				 prsep,
 					 if_info->if_linktype);
 			prsep = ", ";
 		}
+
+#ifdef PKTAP_HAS_COMP_GENCNT
+		/*
+		 * compression generation count
+		 */
+		if (ndo->ndo_kflag & PRMD_COMP_GENCNT) {
+			ND_PRINT("%s" "cmpgc 0x%x",
+				 prsep,
+				 comp_gencnt);
+			prsep = ", ";
+		}
+#endif /* PKTAP_HAS_COMP_GENCNT */
 
 		/*
 		 * Comment

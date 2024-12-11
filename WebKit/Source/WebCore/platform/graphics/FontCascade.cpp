@@ -39,10 +39,13 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RobinHoodHashSet.h>
 #include <wtf/SortedArrayMap.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/AtomStringHash.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(FontCascade);
 
 using namespace WTF::Unicode;
 
@@ -308,7 +311,7 @@ float FontCascade::width(const TextRun& run, SingleThreadWeakHashSet<const Font>
     }
 
     bool hasWordSpacingOrLetterSpacing = wordSpacing() || letterSpacing();
-    float* cacheEntry = protectedFonts()->widthCache().add(run, std::numeric_limits<float>::quiet_NaN(), enableKerning() || requiresShaping(), hasWordSpacingOrLetterSpacing, glyphOverflow);
+    float* cacheEntry = protectedFonts()->widthCache().add(run, std::numeric_limits<float>::quiet_NaN(), enableKerning() || requiresShaping(), hasWordSpacingOrLetterSpacing, !textAutospace().isNoAutospace(), glyphOverflow);
     if (cacheEntry && !std::isnan(*cacheEntry))
         return *cacheEntry;
 

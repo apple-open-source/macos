@@ -42,6 +42,7 @@
 #include <WebCore/RegistrableDomain.h>
 #include <memory>
 #include <wtf/Deque.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashMap.h>
 
 #if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
@@ -109,7 +110,7 @@ struct WebsiteData;
 struct WebsiteDataStoreParameters;
 
 class NetworkProcessProxy final : public AuxiliaryProcessProxy {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(NetworkProcessProxy);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NetworkProcessProxy);
 public:
     using RegistrableDomain = WebCore::RegistrableDomain;
@@ -132,6 +133,8 @@ public:
     static Vector<Ref<NetworkProcessProxy>> allNetworkProcesses();
     
     void getNetworkProcessConnection(WebProcessProxy&, CompletionHandler<void(NetworkProcessConnectionInfo&&)>&&);
+
+    void sharedPreferencesForWebProcessDidChange(WebProcessProxy&, SharedPreferencesForWebProcess&&, CompletionHandler<void()>&&);
 
     Ref<DownloadProxy> createDownloadProxy(WebsiteDataStore&, Ref<API::DownloadClient>&&, const WebCore::ResourceRequest&, const FrameInfoData&, WebPageProxy* originatingPage);
     void dataTaskWithRequest(WebPageProxy&, PAL::SessionID, WebCore::ResourceRequest&&, const std::optional<WebCore::SecurityOriginData>& topOrigin, bool shouldRunAtForegroundPriority, CompletionHandler<void(API::DataTask&)>&&);
@@ -168,7 +171,6 @@ public:
     void insertExpiredStatisticForTesting(PAL::SessionID, const RegistrableDomain&, unsigned numberOfOperatingDaysPassed, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&&);
     void setCacheMaxAgeCap(PAL::SessionID, Seconds, CompletionHandler<void()>&&);
     void setGrandfathered(PAL::SessionID, const RegistrableDomain&, bool isGrandfathered, CompletionHandler<void()>&&);
-    void setNotifyPagesWhenDataRecordsWereScanned(PAL::SessionID, bool, CompletionHandler<void()>&&);
     void setResourceLoadStatisticsTimeAdvanceForTesting(PAL::SessionID, Seconds, CompletionHandler<void()>&&);
     void setIsRunningResourceLoadStatisticsTest(PAL::SessionID, bool, CompletionHandler<void()>&&);
     void setSubframeUnderTopFrameDomain(PAL::SessionID, const SubFrameDomain&, const TopFrameDomain&, CompletionHandler<void()>&&);
@@ -297,6 +299,7 @@ public:
     xpc_object_t xpcEndpointMessage() const { return m_endpointMessage.get(); }
 #endif
 
+    void getPendingPushMessage(PAL::SessionID, CompletionHandler<void(const std::optional<WebPushMessage>&)>&&);
     void getPendingPushMessages(PAL::SessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&&);
     void processPushMessage(PAL::SessionID, const WebPushMessage&, CompletionHandler<void(bool wasProcessed, std::optional<WebCore::NotificationPayload>&&)>&&);
     void processNotificationEvent(const WebCore::NotificationData&, WebCore::NotificationEventType, CompletionHandler<void(bool wasProcessed)>&&);
@@ -372,9 +375,6 @@ private:
     void logDiagnosticMessageWithResult(WebPageProxyIdentifier, const String& message, const String& description, uint32_t result, WebCore::ShouldSample);
     void logDiagnosticMessageWithValue(WebPageProxyIdentifier, const String& message, const String& description, double value, unsigned significantFigures, WebCore::ShouldSample);
     void logTestingEvent(PAL::SessionID, const String& event);
-    void notifyResourceLoadStatisticsProcessed();
-    void notifyWebsiteDataDeletionForRegistrableDomainsFinished();
-    void notifyWebsiteDataScanForRegistrableDomainsFinished();
 
 #if ENABLE(CONTENT_EXTENSIONS)
     void contentExtensionRules(UserContentControllerIdentifier);

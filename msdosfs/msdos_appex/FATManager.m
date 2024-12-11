@@ -470,8 +470,14 @@ out:
         /* First see if we can fill the request at all */
         if (clustersToAlloc > self.fsInfo.freeClusters) {
             if (allowPartial && self.fsInfo.freeClusters) {
+                os_log_debug(fskit_std_log(), "%s: (allowPartial = true) %u clusters requested,"\
+                             "but only %llu are available. Will try to allocate %llu clusters.",\
+                             __func__, clustersToAlloc, self.fsInfo.freeClusters, self.fsInfo.freeClusters);
                 clustersToAlloc = (uint32_t)self.fsInfo.freeClusters;
             } else {
+                os_log_error(fskit_std_log(), "%s: (allowPartial = %d) %u clusters requested,"\
+                             "but only %llu are available. Returning ENOSPC.",\
+                             __func__, allowPartial, clustersToAlloc, self.fsInfo.freeClusters);
                 return reply(fs_errorForPOSIXError(ENOSPC), 0, 0, 0);
             }
         }

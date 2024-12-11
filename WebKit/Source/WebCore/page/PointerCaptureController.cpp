@@ -34,12 +34,15 @@
 #include "Page.h"
 #include "PointerEvent.h"
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(POINTER_LOCK)
 #include "PointerLockController.h"
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PointerCaptureController);
 
 PointerCaptureController::PointerCaptureController(Page& page)
     : m_page(page)
@@ -78,10 +81,13 @@ ExceptionOr<void> PointerCaptureController::setPointerCapture(Element* capturing
     }
 #endif
 
-    // 4. If the pointer is not in the active buttons state, then terminate these steps.
+    // 4. If the pointer is not in the active buttons state or the element's node document is not the active document of the pointer,
+    // then terminate these steps.
+    if (!capturingData->pointerIsPressed || &capturingTarget->document() != capturingData->activeDocument)
+        return { };
+
     // 5. For the specified pointerId, set the pending pointer capture target override to the Element on which this method was invoked.
-    if (capturingData->pointerIsPressed)
-        capturingData->pendingTargetOverride = capturingTarget;
+    capturingData->pendingTargetOverride = capturingTarget;
 
     updateHaveAnyCapturingElement();
     return { };
@@ -210,7 +216,7 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
     RELEASE_ASSERT(is<Element>(target));
 
     auto dispatchOverOrOutEvent = [&](const AtomString& type, EventTarget* target) {
-        dispatchEvent(PointerEvent::create(type, platformTouchEvent, index, isPrimary, view, touchDelta), target);
+        dispatchEvent(PointerEvent::create(type, platformTouchEvent, { }, { }, index, isPrimary, view, touchDelta), target);
     };
 
     auto dispatchEnterOrLeaveEvent = [&](const AtomString& type, Element& targetElement) {
@@ -230,14 +236,26 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
 
         if (type == eventNames().pointerenterEvent) {
             for (auto& element : makeReversedRange(targetChain))
-                dispatchEvent(PointerEvent::create(type, platformTouchEvent, index, isPrimary, view, touchDelta), element.ptr());
+                dispatchEvent(PointerEvent::create(type, platformTouchEvent, { }, { }, index, isPrimary, view, touchDelta), element.ptr());
         } else {
             for (auto& element : targetChain)
-                dispatchEvent(PointerEvent::create(type, platformTouchEvent, index, isPrimary, view, touchDelta), element.ptr());
+                dispatchEvent(PointerEvent::create(type, platformTouchEvent, { }, { }, index, isPrimary, view, touchDelta), element.ptr());
         }
     };
 
-    auto pointerEvent = PointerEvent::create(platformTouchEvent, index, isPrimary, view, touchDelta);
+    auto mapToPointerEvents = [&](const Vector<PlatformTouchEvent>& events) -> Vector<Ref<PointerEvent>> {
+        if (index)
+            return { PointerEvent::create(platformTouchEvent, { }, { }, Event::CanBubble::No, Event::IsCancelable::No, index, isPrimary, view, touchDelta) };
+
+        return WTF::map(events, [&](const auto& event) {
+            return PointerEvent::create(event, { }, { }, Event::CanBubble::No, Event::IsCancelable::No, index, isPrimary, view, touchDelta);
+        });
+    };
+
+    auto coalescedEvents = mapToPointerEvents(platformTouchEvent.coalescedEvents());
+    auto predictedEvents = mapToPointerEvents(platformTouchEvent.predictedEvents());
+
+    auto pointerEvent = PointerEvent::create(platformTouchEvent, coalescedEvents, predictedEvents, index, isPrimary, view, touchDelta);
 
     Ref capturingData = ensureCapturingDataForPointerEvent(pointerEvent);
 
@@ -278,7 +296,7 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
 
         for (auto& chain : leftElementsChain) {
             if (hasCapturingPointerLeaveListener || chain->hasEventListeners(eventNames().pointerleaveEvent))
-                dispatchEvent(PointerEvent::create(eventNames().pointerleaveEvent, platformTouchEvent, index, isPrimary, view, touchDelta), chain.ptr());
+                dispatchEvent(PointerEvent::create(eventNames().pointerleaveEvent, platformTouchEvent, coalescedEvents, predictedEvents, index, isPrimary, view, touchDelta), chain.ptr());
         }
 
         if (currentTarget)
@@ -286,7 +304,7 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
 
         for (auto& chain : makeReversedRange(enteredElementsChain)) {
             if (hasCapturingPointerEnterListener || chain->hasEventListeners(eventNames().pointerenterEvent))
-                dispatchEvent(PointerEvent::create(eventNames().pointerenterEvent, platformTouchEvent, index, isPrimary, view, touchDelta), chain.ptr());
+                dispatchEvent(PointerEvent::create(eventNames().pointerenterEvent, platformTouchEvent, coalescedEvents, predictedEvents, index, isPrimary, view, touchDelta), chain.ptr());
         }
     }
 
@@ -297,6 +315,13 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
         dispatchOverOrOutEvent(eventNames().pointeroverEvent, currentTarget.get());
         dispatchEnterOrLeaveEvent(eventNames().pointerenterEvent, *currentTarget);
     }
+
+#if PLATFORM(IOS_FAMILY)
+    if (pointerEvent->type() == eventNames().pointercancelEvent) {
+        cancelPointer(pointerEvent->pointerId(), platformTouchEvent.touchLocationAtIndex(index), pointerEvent.ptr());
+        return;
+    }
+#endif
 
     dispatchEvent(pointerEvent, &target);
 
@@ -311,27 +336,6 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
     }
 }
 #endif
-
-static AtomString pointerEventType(const AtomString& mouseEventType)
-{
-    auto& names = eventNames();
-    if (mouseEventType == names.mousedownEvent)
-        return names.pointerdownEvent;
-    if (mouseEventType == names.mouseoverEvent)
-        return names.pointeroverEvent;
-    if (mouseEventType == names.mouseenterEvent)
-        return names.pointerenterEvent;
-    if (mouseEventType == names.mousemoveEvent)
-        return names.pointermoveEvent;
-    if (mouseEventType == names.mouseleaveEvent)
-        return names.pointerleaveEvent;
-    if (mouseEventType == names.mouseoutEvent)
-        return names.pointeroutEvent;
-    if (mouseEventType == names.mouseupEvent)
-        return names.pointerupEvent;
-
-    return nullAtom();
-}
 
 RefPtr<PointerEvent> PointerCaptureController::pointerEventForMouseEvent(const MouseEvent& mouseEvent, PointerID pointerId, const String& pointerType)
 {
@@ -351,7 +355,8 @@ RefPtr<PointerEvent> PointerCaptureController::pointerEventForMouseEvent(const M
     MouseButton newButton = mouseEvent.button();
     MouseButton previousMouseButton = capturingData ? capturingData->previousMouseButton : MouseButton::PointerHasNotChanged;
     MouseButton button = [&] {
-        if (!PointerEvent::typeIsUpOrDown(pointerEventType(type))) {
+        auto pointerEventType = PointerEvent::typeFromMouseEventType(type);
+        if (!PointerEvent::typeRequiresResolvedButton(pointerEventType)) {
             if (newButton == previousMouseButton || !pointerIsPressed)
                 return MouseButton::PointerHasNotChanged;
         }
@@ -408,16 +413,24 @@ void PointerCaptureController::pointerEventWillBeDispatched(const PointerEvent& 
 
     bool isPointerdown = event.type() == eventNames().pointerdownEvent;
     bool isPointerup = event.type() == eventNames().pointerupEvent;
-    if (!isPointerdown && !isPointerup)
+    bool isPointermove = event.type() == eventNames().pointermoveEvent;
+
+    if (!isPointerdown && !isPointerup && !isPointermove)
         return;
 
-    auto pointerId = event.pointerId();
-
     auto& element = downcast<Element>(*target);
-    if (event.pointerType() != touchPointerEventType()) {
-        if (RefPtr capturingData = m_activePointerIdsToCapturingData.get(pointerId))
-            capturingData->pointerIsPressed = isPointerdown;
-    } else if (isPointerdown) {
+
+    // Let targetDocument be target's node document.
+    // If the event is pointerdown, pointermove, or pointerup set active document for the event's pointerId to targetDocument.
+    auto capturingData = ensureCapturingDataForPointerEvent(event);
+    capturingData->activeDocument = &element.document();
+
+    if (isPointermove)
+        return;
+
+    capturingData->pointerIsPressed = isPointerdown;
+
+    if (event.pointerType() == touchPointerEventType() && isPointerdown) {
         // https://w3c.github.io/pointerevents/#implicit-pointer-capture
 
         // Some input devices (such as touchscreens) implement a "direct manipulation" metaphor where a pointer is intended to act primarily on the UI
@@ -429,10 +442,7 @@ void PointerCaptureController::pointerEventWillBeDispatched(const PointerEvent& 
         // pointerdown listeners. The hasPointerCapture API may be used (eg. within any pointerdown listener) to determine whether this has occurred. If
         // releasePointerCapture is not called for the pointer before the next pointer event is fired, then a gotpointercapture event will be dispatched
         // to the target (as normal) indicating that capture is active.
-
-        auto capturingData = ensureCapturingDataForPointerEvent(event);
-        capturingData->pointerIsPressed = true;
-        setPointerCapture(&element, pointerId);
+        setPointerCapture(&element, event.pointerId());
     }
     element.document().handlePopoverLightDismiss(event, element);
 }
@@ -472,7 +482,7 @@ void PointerCaptureController::pointerEventWasDispatched(const PointerEvent& eve
         capturingData->preventsCompatibilityMouseEvents = event.defaultPrevented();
 }
 
-void PointerCaptureController::cancelPointer(PointerID pointerId, const IntPoint& documentPoint)
+void PointerCaptureController::cancelPointer(PointerID pointerId, const IntPoint& documentPoint, PointerEvent* existingCancelEvent)
 {
     // https://w3c.github.io/pointerevents/#the-pointercancel-event
 
@@ -522,8 +532,14 @@ void PointerCaptureController::cancelPointer(PointerID pointerId, const IntPoint
     // followed by firing a pointer event named pointerleave.
     auto isPrimary = capturingData->isPrimary ? PointerEvent::IsPrimary::Yes : PointerEvent::IsPrimary::No;
     auto& eventNames = WebCore::eventNames();
-    auto cancelEvent = PointerEvent::create(eventNames.pointercancelEvent, pointerId, capturingData->pointerType, isPrimary);
-    target->dispatchEvent(cancelEvent);
+
+    if (existingCancelEvent)
+        target->dispatchEvent(*existingCancelEvent);
+    else {
+        auto cancelEvent = PointerEvent::create(eventNames.pointercancelEvent, pointerId, capturingData->pointerType, isPrimary);
+        target->dispatchEvent(cancelEvent);
+    }
+
     target->dispatchEvent(PointerEvent::create(eventNames.pointeroutEvent, pointerId, capturingData->pointerType, isPrimary));
     target->dispatchEvent(PointerEvent::create(eventNames.pointerleaveEvent, pointerId, capturingData->pointerType, isPrimary));
     processPendingPointerCapture(pointerId);

@@ -22,17 +22,24 @@
  */
 
 #import <os/log.h>
+#import <CoreFoundation/CFPriv.h>
 
 #import "SFAnalytics+Internal.h"
 #import "SFAnalyticsCollection.h"
 #import "SECSFARules.h"
-#import "SECSFARule.h"
+#import "SECSFAEventRule.h"
 #import "SECSFAAction.h"
 #import "SECSFAActionAutomaticBugCapture.h"
 #import "SECSFAActionTapToRadar.h"
 #import "SECSFAActionDropEvent.h"
+#import "SECSFAVersionMatch.h"
+#import "SECSFAEventFilter.h"
+#import "SECSFAVersion.h"
 #import "SecABC.h"
 #import "SecTapToRadar.h"
+
+#include <os/feature_private.h>
+
 
 static os_log_t
 getOSLog(void) {
@@ -46,17 +53,19 @@ getOSLog(void) {
 
 static NSString* SFCollectionConfig = @"SFCollectionConfig";
 
-typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> SFAMatchingRules;
-
 @interface SFAnalyticsMatchingRule ()
-@property (readwrite) SECSFARule *rule;
+@property (readwrite) SECSFAEventRule *rule;
 @property NSDictionary<NSString*,id> *matchingDictionary;
 @property NSDate *lastMatch;
+@property bool firstMatchArmed;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithSFARule:(SECSFARule *)rule logger:(SFAnalytics*)logger;
+- (instancetype)initWithSFARule:(SECSFAEventRule *)rule logger:(SFAnalytics*)logger;
 
-- (BOOL)matchAttributes:(NSDictionary *)attributes eventClass:(SFAnalyticsEventClass)eventClass;
+- (BOOL)matchAttributes:(NSDictionary *)attributes 
+             eventClass:(SFAnalyticsEventClass)eventClass
+            processName:(NSString *)processName
+                 logger:(SFAnalytics *)logger;
 
 - (BOOL)valueMatch:(id)vKey target:(id)vTarget;
 - (BOOL)isSubsetMatch:(NSDictionary *)match target:(NSDictionary *)target;
@@ -65,13 +74,17 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 
 @implementation SFAnalyticsMatchingRule
 
-- (instancetype)initWithSFARule:(SECSFARule *)rule logger:(SFAnalytics*)logger {
+- (instancetype)initWithSFARule:(SECSFAEventRule *)rule logger:(SFAnalytics*)logger {
     if ((self = [super init]) == nil) {
         return nil;
     }
     self.eventName = rule.eventType;
     self.rule = rule;
     self.lastMatch = [logger datePropertyForKey:[self lastMatchTimeKey]];
+    if ([logger numberPropertyForKey:[self armKey]] != nil) {
+        self.firstMatchArmed = YES;
+    }
+
     return self;
 }
 
@@ -147,8 +160,32 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
     return self.matchingDictionary;
 }
 
-- (BOOL)matchAttributes:(NSDictionary *)attributes eventClass:(SFAnalyticsEventClass)eventClass
++ (NSString *)armKeyForEventName:(NSString *)eventName {
+    return [NSString stringWithFormat:@"SFAColl-%@-armed", eventName];
+}
+
+- (NSString *)armKey {
+    return [[self class] armKeyForEventName:self.eventName];
+}
+
+- (BOOL)matchAttributes:(NSDictionary *)attributes
+             eventClass:(SFAnalyticsEventClass)eventClass
+            processName:(NSString *)processName
+                 logger:(SFAnalytics *)logger
 {
+    if (self.rule.processName) {
+        if ([processName isEqual:self.rule.processName] == NO) {
+            return NO;
+        }
+    }
+
+    if (self.rule.matchOnFirstFailure) {
+        if (eventClass == SFAnalyticsEventClassSuccess && !self.firstMatchArmed) {
+            [logger setNumberProperty:@YES forKey:[self armKey]];
+            self.firstMatchArmed = YES;
+        }
+    }
+    
     if (self.rule.hasMatch) {
         NSDictionary *match = [self cachedMatchDictionary];
         if (match == nil) {
@@ -158,6 +195,20 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
         /* check if `matchingDictionary' is a subset of `attributes' */
         if (![self isSubsetMatch:match target:attributes]) {
             return NO;
+        }
+    }
+
+    // we assume we are the only writer of the state, so we can avoid accessing
+    // disk for `armKey', so we keep it cached in memory and assume it uptodate.
+    if (self.rule.matchOnFirstFailure) {
+        if (eventClass == SFAnalyticsEventClassHardFailure || eventClass == SFAnalyticsEventClassSoftFailure) {
+            NSString *armKey = [self armKey];
+
+            if (self.firstMatchArmed == NO) {
+                return NO;
+            }
+            [logger setNumberProperty:nil forKey:armKey];
+            self.firstMatchArmed = NO;
         }
     }
     switch (self.rule.eventClass) {
@@ -258,12 +309,19 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 
 @end
 
+@implementation SecSFAParsedCollection
+@end
+
+
 @interface SFAnalyticsCollection ()
 @property SFAMatchingRules *matchingRules;
+@property NSMutableDictionary<NSString*,NSNumber*>* allowedEvents;
+@property (readwrite) BOOL excludedVersion;
+
 @property void(^tearDownMetricsHook)(void);
 @property id<SFAnalyticsCollectionAction> actions;
 @property dispatch_queue_t queue;
-
+@property SECSFAVersion *selfVersion;
 @end
 
 @interface DefaultCollectionActions: NSObject <SFAnalyticsCollectionAction>
@@ -330,29 +388,137 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 
 @end
 
-
-
 @implementation SFAnalyticsCollection
 
 - (instancetype)init {
-    return [self initWithActionInterface:[[DefaultCollectionActions alloc] init]];
+    NSDictionary *version = CFBridgingRelease(_CFCopySystemVersionDictionary());
+    NSString *build = version[(__bridge NSString *)_kCFSystemVersionBuildVersionKey];
+    NSString *product = version[(__bridge NSString *)_kCFSystemVersionProductNameKey];
+    if (![build isKindOfClass:[NSString class]] || ![product isKindOfClass:[NSString class]]) {
+        return nil;
+    }
+    self.processName = [NSProcessInfo.processInfo processName];
+    return [self initWithActionInterface:[[DefaultCollectionActions alloc] init]
+                                 product:product
+                                   build:build];
 }
 
 - (instancetype)initWithActionInterface:(id<SFAnalyticsCollectionAction>)actions
+                                product:(NSString *)product
+                                  build:(NSString *)build
 {
+    SECSFAVersion *selfVersion = [[self class] parseVersion:build platform:product];
+    if (selfVersion == nil) {
+        return nil;
+    }
     if ((self = [super init]) == nil) {
         return nil;
     }
     self.queue = dispatch_queue_create("SFAnalyticsCollection", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
     self.actions = actions;
+    self.selfVersion = selfVersion;
     return self;
 }
+
++ (SECSFAVersion *_Nullable)parseVersion:(NSString *)build platform:(NSString *)platform {
+    SECSFAVersion *version = [[SECSFAVersion alloc] init];
+    if ([platform isEqual:@"macOS"] || [platform isEqual:@"Mac OS X"]) {
+        version.productName = SECSFAProductName_macOS;
+    } else if ([platform isEqual:@"iPhone OS"]) {
+        version.productName = SECSFAProductName_iphoneOS;
+    } else if ([platform isEqual:@"Apple TVOS"]) {
+        version.productName = SECSFAProductName_tvOS;
+    } else if ([platform isEqual:@"xrOS"]) {
+        version.productName = SECSFAProductName_xrOS;
+    } else if ([platform isEqual:@"Watch OS"]) {
+        version.productName = SECSFAProductName_watchOS;
+    } else {
+        return nil;
+    }
+
+    NSError *error = NULL;
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"^(\\d+)([A-Z])(\\d+)" options:0 error:&error];
+    NSArray *matches = [regex matchesInString:build options:0 range:NSMakeRange(0, [build length])];
+    if (!matches || matches.count != 1) {
+        return nil;
+    }
+
+    NSTextCheckingResult *matchResult = [matches objectAtIndex:0];
+
+    if (matchResult.numberOfRanges != 4) {
+        return nil;
+    }
+
+    version.major = [[build substringWithRange:[matchResult rangeAtIndex:1]] intValue];
+    version.minor = [[build substringWithRange:[matchResult rangeAtIndex:2]] characterAtIndex:0] - 'A' + 1;
+    version.build = [[build substringWithRange:[matchResult rangeAtIndex:3]] intValue];
+
+    return version;
+}
+
 
 - (void)dealloc {
     [self onQueue_stopMetricCollection];
 }
 
-- (SFAMatchingRules* _Nullable)parseCollection:(NSData *)data logger:(SFAnalytics *)logger {
+- (BOOL)matchRuleWithSelf:(SECSFAVersionMatch*)match {
+    if (os_feature_enabled("Security", "AllowAllMetrics")) {
+        return YES;
+    }
+    if (match.versionsCount == 0) {
+        return YES;
+    }
+    for (SECSFAVersion *v in match.versions) {
+        if (v.productName != self.selfVersion.productName) {
+            continue;
+        }
+        if (v.major > self.selfVersion.major) {
+            continue;
+        }
+        // almost a match, if we are on same minor, check build
+        // otherwise, make sure minor is less then self.
+        if (v.minor == self.selfVersion.minor) {
+            if (v.build < self.selfVersion.build) {
+                return NO;
+            }
+            return YES;
+        } else if (v.minor < self.selfVersion.minor) {
+            return YES;
+        }
+        return NO;
+    }
+    return NO;
+}
+
+// exact match on platform
+// self version >= allowed version
+- (BOOL)allowedVersionsWithSelf:(SECSFAVersionMatch*)match {
+    if (os_feature_enabled("Security", "AllowAllMetrics")) {
+        return YES;
+    }
+    if (match.versionsCount == 0) {
+        return YES;
+    }
+    for (SECSFAVersion *v in match.versions) {
+        if (v.productName != self.selfVersion.productName) {
+            continue;
+        }
+        if (v.major <= self.selfVersion.major) {
+            return YES;
+        }
+        if (v.minor < self.selfVersion.minor) {
+            return YES;
+        }
+        if (v.minor == self.selfVersion.minor && v.build <= self.selfVersion.build) {
+            return YES;
+        }
+        return NO;
+    }
+    return NO;
+}
+
+
+- (SecSFAParsedCollection* _Nullable)parseCollection:(NSData *)data logger:(SFAnalytics *)logger {
 
     NSError *error;
 
@@ -362,19 +528,47 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
     }
 
     SECSFARules *rules = [[SECSFARules alloc] initWithData:decompressed];
-    SFAMatchingRules* parsed = [NSMutableDictionary dictionary];
+    
+    SecSFAParsedCollection *parsed = [[SecSFAParsedCollection alloc] init];
 
-    for (SECSFARule* rule in rules.rules) {
-        NSMutableSet<SFAnalyticsMatchingRule *>* r = parsed[rule.eventType];
+    parsed.excludedVersion = ![self allowedVersionsWithSelf:rules.allowedBuilds];
+    if (parsed.excludedVersion) {
+        return parsed;
+    }
+    
+    NSNumber *zero = @0;
+
+    parsed.allowedEvents = [NSMutableDictionary dictionary];
+    for (SECSFAEventFilter* rule in rules.eventFilters) {
+        NSNumber *dropRate = nil;
+        if (rule.dropRate == 0) {
+            dropRate = zero;
+        } else if (rule.dropRate > 0 && rule.dropRate <= 100) {
+            dropRate = @(rule.dropRate);
+        }
+        parsed.allowedEvents[rule.event] = dropRate;
+    }
+
+    parsed.matchingRules = [NSMutableDictionary dictionary];
+
+    for (SECSFAEventRule* rule in rules.eventRules) {
+        if (rule.versions != nil && ![self matchRuleWithSelf:rule.versions]) {
+            continue;
+        }
+        NSMutableSet<SFAnalyticsMatchingRule *>* r = parsed.matchingRules[rule.eventType];
         if (r == NULL) {
             r = [NSMutableSet set];
-            parsed[rule.eventType] = r;
+            parsed.matchingRules[rule.eventType] = r;
         }
         SFAnalyticsMatchingRule *mr = [[SFAnalyticsMatchingRule alloc] initWithSFARule:rule logger:logger];
         if (mr) {
             [r addObject:mr];
         }
+        
+        // allow filtered events
+        parsed.allowedEvents[rule.eventType] = zero;
     }
+    
     return parsed;
 }
 
@@ -389,13 +583,39 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 
         __weak typeof(logger) weakLogger = logger;
         __weak typeof(self) weakSelf = self;
-
-        metricsHook = ^SFAnalyticsMetricsHookActions(NSString * _Nonnull eventName, SFAnalyticsEventClass eventClass, NSDictionary * _Nonnull attributes, SFAnalyticsTimestampBucket timestampBucket) {
+        
+        metricsHook = ^SFAnalyticsMetricsHookActions(NSString * _Nonnull eventName, SFAnalyticsEventClass eventClass, NSDictionary * _Nonnull attributes, SFAnalyticsTimestampBucket timestampBucket)
+        {
             __strong typeof(logger) strongLogger = weakLogger;
-            if (strongLogger == nil) {
+            __strong typeof(self) strongSelf = weakSelf;
+            if (strongLogger == nil || strongSelf == nil) {
                 return 0;
             }
-            return [weakSelf match:eventName eventClass:eventClass attributes:attributes bucket:timestampBucket logger:strongLogger];
+            if (strongSelf.excludedVersion) {
+                return SFAnalyticsMetricsHookExcludeEvent;
+            }
+            NSNumber *dropRate = strongSelf.allowedEvents[eventName];
+            if (dropRate == nil) {
+                return SFAnalyticsMetricsHookExcludeEvent;
+            } else if ([dropRate integerValue] > 0) {
+                if ([dropRate integerValue] > arc4random_uniform(100)) {
+                    return SFAnalyticsMetricsHookExcludeEvent;
+                }
+            }
+            
+            return [strongSelf match:eventName
+                          eventClass:eventClass
+                          attributes:attributes
+                              bucket:timestampBucket
+                              logger:strongLogger];
+        };
+
+        if (self.excludedVersion) {
+            [logger AddMultiSamplerForName:@"SFACollection" withTimeInterval:SFAnalyticsSamplerIntervalOncePerReport block:^NSDictionary<NSString *,NSNumber *> *{
+                return @{
+                    @"SFAExclude": @YES,
+                };
+            }];
         };
 
         self.tearDownMetricsHook = ^{
@@ -428,10 +648,13 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 - (void)loadCollection:(SFAnalytics *)logger
 {
     NSData *data = [logger dataPropertyForKey:SFCollectionConfig];
-    SFAMatchingRules * newRules = [self parseCollection:data logger:logger];
+    SecSFAParsedCollection * newRules = [self parseCollection:data logger:logger];
     dispatch_sync(self.queue, ^{
-        self.matchingRules = newRules;
+        self.matchingRules = newRules.matchingRules;
+        self.excludedVersion = newRules.excludedVersion;
+        self.allowedEvents = newRules.allowedEvents;
     });
+    
     os_log(getOSLog(), "Loading matching rules: %@", newRules);
     [self setupMetricsHook:logger];
 }
@@ -439,11 +662,13 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 - (void)storeCollection:(NSData * _Nullable)data logger:(SFAnalytics * _Nullable)logger
 {
     __block BOOL rulesChanged;
-    __typeof(self.matchingRules) newRules = [self parseCollection:data logger:logger];
+    SecSFAParsedCollection* newRules = [self parseCollection:data logger:logger];
 
     dispatch_sync(self.queue, ^{
-        rulesChanged = (newRules != self.matchingRules);
-        self.matchingRules = newRules;
+        rulesChanged = (newRules.matchingRules != self.matchingRules) || (newRules.allowedEvents != self.allowedEvents);
+        self.matchingRules = newRules.matchingRules;
+        self.excludedVersion = newRules.excludedVersion;
+        self.allowedEvents = newRules.allowedEvents;
     });
     if (logger && rulesChanged) {
         os_log(getOSLog(), "Setting up new rules");
@@ -460,6 +685,7 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
 {
     __block SFAnalyticsMetricsHookActions actions = SFAnalyticsMetricsHookNoAction;
     os_log_debug(getOSLog(), "matching rules %@", eventName);
+
     dispatch_sync(self.queue, ^{
         NSSet<SFAnalyticsMatchingRule*>* rules = self.matchingRules[eventName];
         if (rules == nil || rules.count == 0) {
@@ -467,12 +693,20 @@ typedef NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*> 
             return;
         }
         for (SFAnalyticsMatchingRule* rule in rules) {
-            if ([rule matchAttributes:attributes eventClass:eventClass]) {
+            if ([rule matchAttributes:attributes 
+                           eventClass:eventClass
+                          processName:self.processName
+                               logger:logger]) {
                 actions |= [rule doAction:self.actions attributes:attributes logger:logger];
             }
         }
     });
     return actions;
 }
+
+- (void)drainSetupQueue {
+    dispatch_sync(self.queue, ^{});
+}
+
 
 @end

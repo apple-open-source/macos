@@ -125,6 +125,12 @@ TextStream& TextStream::operator<<(const AtomString& string)
     return *this;
 }
 
+TextStream& TextStream::operator<<(const CString& string)
+{
+    m_text.append(string);
+    return *this;
+}
+
 TextStream& TextStream::operator<<(const String& string)
 {
     m_text.append(string);
@@ -145,7 +151,13 @@ TextStream& TextStream::operator<<(StringView string)
 
 TextStream& TextStream::operator<<(const HexNumberBuffer& buffer)
 {
-    m_text.append(makeString(buffer));
+    m_text.append(buffer);
+    return *this;
+}
+
+TextStream& TextStream::operator<<(const FormattedCSSNumber& number)
+{
+    m_text.append(number);
     return *this;
 }
 

@@ -41,10 +41,13 @@
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/RealtimeMediaSourceCenter.h>
 #include <wtf/Assertions.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 using namespace PAL;
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(UserMediaCaptureManager);
 
 UserMediaCaptureManager::UserMediaCaptureManager(WebProcess& process)
     : m_audioFactory(*this)
@@ -189,7 +192,7 @@ void UserMediaCaptureManager::applyConstraintsFailed(RealtimeMediaSourceIdentifi
     }, [](std::nullptr_t) { });
 }
 
-CaptureSourceOrError UserMediaCaptureManager::AudioFactory::createAudioCaptureSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
+CaptureSourceOrError UserMediaCaptureManager::AudioFactory::createAudioCaptureSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier> pageIdentifier)
 {
 #if !ENABLE(GPU_PROCESS)
     if (m_shouldCaptureInGPUProcess)
@@ -215,7 +218,7 @@ void UserMediaCaptureManager::VideoFactory::setShouldCaptureInGPUProcess(bool va
     m_shouldCaptureInGPUProcess = value;
 }
 
-CaptureSourceOrError UserMediaCaptureManager::VideoFactory::createVideoCaptureSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
+CaptureSourceOrError UserMediaCaptureManager::VideoFactory::createVideoCaptureSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier> pageIdentifier)
 {
 #if !ENABLE(GPU_PROCESS)
     if (m_shouldCaptureInGPUProcess)
@@ -227,7 +230,7 @@ CaptureSourceOrError UserMediaCaptureManager::VideoFactory::createVideoCaptureSo
     return RemoteRealtimeVideoSource::create(device, constraints, WTFMove(hashSalts), m_manager, m_shouldCaptureInGPUProcess, pageIdentifier);
 }
 
-CaptureSourceOrError UserMediaCaptureManager::DisplayFactory::createDisplayCaptureSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
+CaptureSourceOrError UserMediaCaptureManager::DisplayFactory::createDisplayCaptureSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier> pageIdentifier)
 {
 #if !ENABLE(GPU_PROCESS)
     if (m_shouldCaptureInGPUProcess)

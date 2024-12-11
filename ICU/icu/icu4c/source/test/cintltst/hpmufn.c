@@ -140,6 +140,7 @@ static void TestHeapFunctions() {
     /* Un-initialize ICU */
     u_cleanup();
 
+#ifndef APPLE_ICU_CHANGES // rdar://133066316
     /* Can not set memory functions with NULL values */
     status = U_ZERO_ERROR;
     u_setMemoryFunctions(&gContext, NULL, myMemRealloc, myMemFree, &status);
@@ -155,6 +156,7 @@ static void TestHeapFunctions() {
     status = U_ZERO_ERROR;
     u_setMemoryFunctions(NULL, myMemAlloc, myMemRealloc, myMemFree, &status);
     TEST_STATUS(status, U_ZERO_ERROR);
+#endif
     u_setMemoryFunctions(&gContext, myMemAlloc, myMemRealloc, myMemFree, &status);
     TEST_STATUS(status, U_ZERO_ERROR);
 
@@ -170,9 +172,15 @@ static void TestHeapFunctions() {
     status = U_ZERO_ERROR;
     rb = ures_open(NULL, "es", &status);
     TEST_STATUS(status, U_ZERO_ERROR);
+#ifndef APPLE_ICU_CHANGES // rdar://133066316
     if (gBlockCount == 0) {
         log_err("Heap functions are not being called from ICU.\n");
     }
+#else
+    if (gBlockCount != 0) {
+        log_err("Heap functions are being called from ICU, but they should be disabled.\n");
+    }
+#endif
     ures_close(rb);
 
     /* Cleanup should put the heap back to its default implementation. */

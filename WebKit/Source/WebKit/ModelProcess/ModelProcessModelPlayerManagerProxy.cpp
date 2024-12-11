@@ -29,10 +29,13 @@
 #if ENABLE(MODEL_PROCESS)
 
 #include "ModelProcessModelPlayerProxy.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ModelProcessModelPlayerManagerProxy);
 
 ModelProcessModelPlayerManagerProxy::ModelProcessModelPlayerManagerProxy(ModelConnectionToWebProcess& connection)
     : m_modelConnectionToWebProcess(connection)
@@ -76,7 +79,7 @@ void ModelProcessModelPlayerManagerProxy::deleteModelPlayer(WebCore::ModelPlayer
 void ModelProcessModelPlayerManagerProxy::didReceivePlayerMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     ASSERT(RunLoop::isMain());
-    MESSAGE_CHECK_BASE(decoder.destinationID(), &connection);
+    MESSAGE_CHECK_BASE(WebCore::ModelPlayerIdentifier::isValidIdentifier(decoder.destinationID()), connection);
     if (auto* player = m_proxies.get(WebCore::ModelPlayerIdentifier(decoder.destinationID())))
         player->didReceiveMessage(connection, decoder);
 }

@@ -63,6 +63,7 @@
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameView.h>
 #include <WebCore/RenderElement.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/UUID.h>
 
 #if ENABLE(DATALIST_ELEMENT)
@@ -110,6 +111,8 @@ static inline JSValueRef callPropertyFunction(JSContextRef context, JSObjectRef 
 
     return JSObjectCallAsFunction(context, function, object, argumentCount, arguments, exception);
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebAutomationSessionProxy);
 
 WebAutomationSessionProxy::WebAutomationSessionProxy(const String& sessionIdentifier)
     : m_sessionIdentifier(sessionIdentifier)
@@ -199,8 +202,8 @@ static JSValueRef evaluateJavaScriptCallback(JSContextRef context, JSObjectRef f
         return JSValueMakeUndefined(context);
 
     WebCore::FrameIdentifier frameID {
-        ObjectIdentifier<WebCore::FrameIdentifierType>(JSValueToNumber(context, arguments[0], exception)),
-        ObjectIdentifier<WebCore::ProcessIdentifierType>(JSValueToNumber(context, arguments[1], exception))
+        LegacyNullableObjectIdentifier<WebCore::FrameIdentifierType>(JSValueToNumber(context, arguments[0], exception)),
+        LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(JSValueToNumber(context, arguments[1], exception))
     };
     uint64_t callbackID = JSValueToNumber(context, arguments[2], exception);
     if (JSValueIsString(context, arguments[3])) {
@@ -316,7 +319,7 @@ WebCore::AccessibilityObject* WebAutomationSessionProxy::getAccessibilityObjectF
         return nullptr;
     }
 
-    auto* frame = frameID ? WebProcess::singleton().webFrame(*frameID) : &page->mainWebFrame();
+    WeakPtr frame = frameID ? WebProcess::singleton().webFrame(*frameID) : &page->mainWebFrame();
     if (!frame || !frame->coreLocalFrame() || !frame->coreLocalFrame()->view()) {
         errorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::FrameNotFound);
         return nullptr;
@@ -327,7 +330,7 @@ WebCore::AccessibilityObject* WebAutomationSessionProxy::getAccessibilityObjectF
         return nullptr;
     }
 
-    WebCore::Element* coreElement = elementForNodeHandle(*frame, nodeHandle);
+    RefPtr coreElement = elementForNodeHandle(*frame, nodeHandle);
     if (!coreElement) {
         errorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::NodeNotFound);
         return nullptr;
@@ -336,9 +339,13 @@ WebCore::AccessibilityObject* WebAutomationSessionProxy::getAccessibilityObjectF
     if (!WebCore::AXObjectCache::accessibilityEnabled())
         WebCore::AXObjectCache::enableAccessibility();
 
-    if (WebCore::AXObjectCache* axObjectCache = coreElement->document().axObjectCache()) {
-        if (WebCore::AccessibilityObject* axObject = axObjectCache->getOrCreate(coreElement))
-            return axObject;
+    if (CheckedPtr axObjectCache = coreElement->document().axObjectCache()) {
+        // Force a layout and cache update. If we don't, and this request has come in before the render tree was built,
+        // the accessibility object for this element will not be created (because it doesn't yet have its renderer).
+        axObjectCache->performDeferredCacheUpdate(ForceLayout::Yes);
+
+        if (RefPtr<WebCore::AccessibilityObject> axObject = axObjectCache->getOrCreate(coreElement.get()))
+            return axObject.get();
     }
 
     errorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::InternalError);
@@ -380,7 +387,7 @@ void WebAutomationSessionProxy::willDestroyGlobalObjectForFrame(WebCore::FrameId
         WebProcess::singleton().parentProcessConnection()->send(Messages::WebAutomationSession::DidEvaluateJavaScriptFunction(callbackID, errorMessage, errorType), 0);
 }
 
-void WebAutomationSessionProxy::evaluateJavaScriptFunction(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> optionalFrameID, const String& function, Vector<String> arguments, bool expectsImplicitCallbackArgument, std::optional<double> callbackTimeout, uint64_t callbackID)
+void WebAutomationSessionProxy::evaluateJavaScriptFunction(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> optionalFrameID, const String& function, Vector<String> arguments, bool expectsImplicitCallbackArgument, bool forceUserGesture, std::optional<double> callbackTimeout, uint64_t callbackID)
 {
     WebPage* page = WebProcess::singleton().webPage(pageID);
     if (!page) {
@@ -415,6 +422,7 @@ void WebAutomationSessionProxy::evaluateJavaScriptFunction(WebCore::PageIdentifi
         toJSValue(context, function),
         toJSArray(context, arguments, toJSValue, &exception),
         JSValueMakeBoolean(context, expectsImplicitCallbackArgument),
+        JSValueMakeBoolean(context, forceUserGesture),
         JSValueMakeNumber(context, frameID.object().toUInt64()),
         JSValueMakeNumber(context, frameID.processIdentifier().toUInt64()),
         JSValueMakeNumber(context, callbackID),
@@ -422,10 +430,9 @@ void WebAutomationSessionProxy::evaluateJavaScriptFunction(WebCore::PageIdentifi
         JSValueMakeNumber(context, callbackTimeout.value_or(-1))
     };
 
-    {
-        WebCore::UserGestureIndicator gestureIndicator(WebCore::IsProcessingUserGesture::Yes, frame->coreLocalFrame()->document());
-        callPropertyFunction(context, scriptObject, "evaluateJavaScriptFunction"_s, std::size(functionArguments), functionArguments, &exception);
-    }
+    auto isProcessingUserGesture = forceUserGesture ? std::optional { WebCore::IsProcessingUserGesture::Yes } : std::nullopt;
+    WebCore::UserGestureIndicator gestureIndicator { isProcessingUserGesture, frame->coreLocalFrame()->document() };
+    callPropertyFunction(context, scriptObject, "evaluateJavaScriptFunction"_s, std::size(functionArguments), functionArguments, &exception);
 
     if (!exception)
         return;
@@ -780,7 +787,7 @@ void WebAutomationSessionProxy::computeElementLayout(WebCore::PageIdentifier pag
 void WebAutomationSessionProxy::getComputedRole(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String nodeHandle, CompletionHandler<void(std::optional<String>, std::optional<String>)>&& completionHandler)
 {
     String errorType;
-    auto* axObject = getAccessibilityObjectForNode(pageID, frameID, nodeHandle, errorType);
+    RefPtr axObject = getAccessibilityObjectForNode(pageID, frameID, nodeHandle, errorType);
 
     if (!errorType.isNull()) {
         completionHandler(errorType, std::nullopt);
@@ -793,7 +800,7 @@ void WebAutomationSessionProxy::getComputedRole(WebCore::PageIdentifier pageID, 
 void WebAutomationSessionProxy::getComputedLabel(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String nodeHandle, CompletionHandler<void(std::optional<String>, std::optional<String>)>&& completionHandler)
 {
     String errorType;
-    auto* axObject = getAccessibilityObjectForNode(pageID, frameID, nodeHandle, errorType);
+    RefPtr axObject = getAccessibilityObjectForNode(pageID, frameID, nodeHandle, errorType);
 
     if (!errorType.isNull()) {
         completionHandler(errorType, std::nullopt);
@@ -930,7 +937,7 @@ void WebAutomationSessionProxy::takeScreenshot(WebCore::PageIdentifier pageID, s
         if (!localMainFrame)
             return;
         auto snapshotRect = WebCore::IntRect(localMainFrame->view()->clientToDocumentRect(rect));
-        RefPtr<WebImage> image = page->scaledSnapshotWithOptions(snapshotRect, 1, SnapshotOptionsShareable);
+        RefPtr<WebImage> image = page->scaledSnapshotWithOptions(snapshotRect, 1, SnapshotOption::Shareable);
         if (!image) {
             String screenshotErrorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::ScreenshotError);
             WebProcess::singleton().parentProcessConnection()->send(Messages::WebAutomationSession::DidTakeScreenshot(callbackID, WTFMove(handle), screenshotErrorType), 0);

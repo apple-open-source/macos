@@ -27,6 +27,7 @@
 #include "Region.h"
 
 #include <stdio.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
 // A region class based on the paper "Scanline Coherent Shape Algebra"
@@ -39,18 +40,14 @@ namespace WebCore {
 
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(Region);
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(RegionShape, Region::Shape);
+
 Region::Region()
 {
 }
 
 Region::Region(const IntRect& rect)
     : m_bounds(rect)
-{
-}
-
-Region::Region(IntRect&& bounds, std::unique_ptr<Region::Shape>&& shape)
-    : m_bounds(WTFMove(bounds))
-    , m_shape(WTFMove(shape))
 {
 }
 
@@ -96,11 +93,11 @@ Vector<IntRect, 1> Region::rects() const
 
     for (Shape::SpanIterator span = m_shape->spans_begin(), end = m_shape->spans_end(); span != end && span + 1 != end; ++span) {
         int y = span->y;
-        int height = (span + 1)->y - y;
+        int height = (span + 1)->y - y; // Ok since isValidShape ensures increasing Span::y.
 
         for (Shape::SegmentIterator segment = m_shape->segments_begin(span), end = m_shape->segments_end(span); segment != end && segment + 1 != end; segment += 2) {
             int x = *segment;
-            int width = *(segment + 1) - x;
+            int width = *(segment + 1) - x; // Ok since isValidShape ensures increasing segments.
 
             rects.append(IntRect(x, y, width, height));
         }
@@ -271,15 +268,20 @@ struct Region::Shape::CompareIntersectsOperation {
 };
 
 Region::Shape::Shape(const IntRect& rect)
-    : m_segments({ rect.x(), rect.maxX() })
-    , m_spans({ { rect.y(), 0 }, { rect.maxY(), 2 } })
 {
+    if (rect.isEmpty())
+        return;
+    m_segments.append(rect.x());
+    m_segments.append(rect.maxX());
+    m_spans.append({ rect.y(), 0 });
+    m_spans.append({ rect.maxY(), 2 });
 }
 
 Region::Shape::Shape(Vector<int, 32>&& segments, Vector<Span, 16>&& spans)
     : m_segments(WTFMove(segments))
     , m_spans(WTFMove(spans))
 {
+    ASSERT(isValidShape(m_segments.span(), m_spans.span()));
 }
 
 void Region::Shape::appendSpan(int y)
@@ -322,11 +324,6 @@ void Region::Shape::appendSpans(const Shape& shape, SpanIterator begin, SpanIter
         appendSpan(it->y, shape.segments_begin(it), shape.segments_end(it));
 }
 
-void Region::Shape::appendSegment(int x)
-{
-    m_segments.append(x);
-}
-
 Region::Shape::SpanIterator Region::Shape::spans_begin() const
 {
     return m_spans.data();
@@ -365,20 +362,27 @@ Region::Shape::SegmentIterator Region::Shape::segments_end(SpanIterator it) cons
     return m_segments.data() + segmentIndex;
 }
 
-#ifndef NDEBUG
-void Region::Shape::dump() const
+WTF::TextStream& operator<<(WTF::TextStream& ts, const Region::Shape& value)
 {
-    for (auto span = spans_begin(), end = spans_end(); span != end; ++span) {
-        printf("%6d: (", span->y);
-
-        for (auto segment = segments_begin(span), end = segments_end(span); segment != end; ++segment)
-            printf("%d ", *segment);
-        printf(")\n");
+    ts << '\n';
+    TextStream::IndentScope indentScope(ts);
+    ts << indent;
+    for (auto span = value.spans_begin(), end = value.spans_end(); span != end; ++span) {
+        ts << "y: " << span->y << " spans: (";
+        int comma = 0;
+        for (auto segment = value.segments_begin(span), end = value.segments_end(span); segment != end; ++segment)
+            ts << (comma++ > 0 ? ", "_s : ""_s) << *segment;
+        ts << ")\n";
     }
-
-    printf("\n");
+    ts << "spans: (";
+    for (size_t i = 0; i < value.m_spans.size(); ++i)
+        ts << (i > 0 ? ", "_s : ""_s) << "y: " << value.m_spans[i].y << " si: " << value.m_spans[i].segmentIndex;
+    ts << ")\n" << "segments: (";
+    for (size_t i = 0; i < value.m_segments.size(); ++i)
+        ts << (i > 0 ? ", "_s : ""_s) << value.m_segments[i];
+    ts << ")\n";
+    return ts;
 }
-#endif
 
 IntRect Region::Shape::bounds() const
 {
@@ -457,7 +461,7 @@ Region::Shape Region::Shape::shapeOperation(const Shape& shape1, const Shape& sh
     // Iterate over all spans.
     while (spans1 != spans1End && spans2 != spans2End) {
         int y = 0;
-        int test = spans1->y - spans2->y;
+        auto test = spans1->y <=> spans2->y;
 
         if (test <= 0) {
             y = spans1->y;
@@ -484,7 +488,7 @@ Region::Shape Region::Shape::shapeOperation(const Shape& shape1, const Shape& sh
 
         // Now iterate over the segments in each span and construct a new vector of segments.
         while (s1 != segments1End && s2 != segments2End) {
-            int test = *s1 - *s2;
+            auto test = *s1 <=> *s2;
             int x;
 
             if (test <= 0) {
@@ -586,16 +590,6 @@ Region::Shape Region::Shape::subtractShapes(const Shape& shape1, const Shape& sh
     return shapeOperation<SubtractOperation>(shape1, shape2);
 }
 
-#ifndef NDEBUG
-void Region::dump() const
-{
-    printf("Bounds: (%d, %d, %d, %d)\n",
-           m_bounds.x(), m_bounds.y(), m_bounds.width(), m_bounds.height());
-    if (m_shape)
-        m_shape->dump();
-}
-#endif
-
 void Region::intersect(const Region& region)
 {
     if (m_bounds.isEmpty())
@@ -667,10 +661,48 @@ void Region::setShape(Shape&& shape)
         *m_shape = WTFMove(shape);
 }
 
-bool Region::Shape::isValid() const
+static std::span<const int> segmentsForSpanSegmentIndices(std::span<const int> segments, size_t start, size_t end)
 {
-    for (auto span = spans_begin(), end = spans_end(); span != end; ++span) {
-        if (UNLIKELY(span->segmentIndex > m_segments.size()))
+    if (segments.size() <= end)
+        return { };
+    return segments.subspan(start, end - start);
+}
+
+bool Region::Shape::isValidShape(std::span<const int> segments, std::span<const Span> spans)
+{
+    const size_t spansSize = spans.size();
+    const size_t segmentsSize = segments.size();
+    if (!spansSize)
+        return !segmentsSize;
+    if (!segmentsSize)
+        return !spansSize;
+    if (UNLIKELY(spansSize == 1))
+        return false;
+    if (UNLIKELY(segmentsSize % 2))
+        return false;
+    for (size_t i = 0; i < spansSize; ++i) {
+        auto& span = spans[i];
+        if (UNLIKELY(span.segmentIndex > segmentsSize))
+            return false;
+        if (UNLIKELY(span.segmentIndex % 2))
+            return false;
+
+        if (i < spansSize - 1) {
+            auto& nextSpan = spans[i + 1];
+
+            if (UNLIKELY(span.y >= nextSpan.y))
+                return false;
+            if (UNLIKELY(span.segmentIndex > nextSpan.segmentIndex))
+                return false;
+
+            std::span spanSegments = segmentsForSpanSegmentIndices(segments, span.segmentIndex, nextSpan.segmentIndex);
+            int lastX = std::numeric_limits<int>::min();
+            for (int segment : spanSegments) {
+                if (UNLIKELY(lastX > segment))
+                    return false;
+                lastX = segment;
+            }
+        } else if (UNLIKELY(span.segmentIndex != segments.size()))
             return false;
     }
     return true;

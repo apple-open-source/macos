@@ -30,6 +30,7 @@
 #include "CachedResourceRequest.h"
 #include "CrossOriginEmbedderPolicy.h"
 #include "CrossOriginPreflightResultCache.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
@@ -151,7 +152,7 @@ CachedResourceRequest createPotentialAccessControlRequest(ResourceRequest&& requ
         options.mode = FetchOptions::Mode::SameOrigin;
 
     if (options.mode != FetchOptions::Mode::NoCors) {
-        if (auto* page = document.page()) {
+        if (RefPtr page = document.page()) {
             if (page->shouldDisableCorsForRequestTo(request.url()))
                 options.mode = FetchOptions::Mode::NoCors;
         }
@@ -175,7 +176,7 @@ CachedResourceRequest createPotentialAccessControlRequest(ResourceRequest&& requ
         options.storedCredentialsPolicy = StoredCredentialsPolicy::Use;
         break;
     case FetchOptions::Credentials::SameOrigin:
-        options.storedCredentialsPolicy = document.securityOrigin().canRequest(request.url(), OriginAccessPatternsForWebProcess::singleton()) ? StoredCredentialsPolicy::Use : StoredCredentialsPolicy::DoNotUse;
+        options.storedCredentialsPolicy = document.protectedSecurityOrigin()->canRequest(request.url(), OriginAccessPatternsForWebProcess::singleton()) ? StoredCredentialsPolicy::Use : StoredCredentialsPolicy::DoNotUse;
         break;
     case FetchOptions::Credentials::Omit:
         options.storedCredentialsPolicy = StoredCredentialsPolicy::DoNotUse;

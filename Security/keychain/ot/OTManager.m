@@ -1198,6 +1198,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 }
 
 - (void)performCKServerUnreadableDataRemoval:(OTControlArguments*)arguments
+                                     altDSID:(NSString*)altDSID
                                        reply:(void (^)(NSError* _Nullable error))reply
 {
     NSError* clientError = nil;
@@ -1210,7 +1211,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }
 
     [cfshContext startOctagonStateMachine];
-    [cfshContext performCKServerUnreadableDataRemoval:^(NSError* removalError) {
+    [cfshContext performCKServerUnreadableDataRemoval:altDSID reply:^(NSError* removalError) {
         reply(removalError);
     }];
 }
@@ -1291,7 +1292,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         return;
     }
 
-    [cfshContext rpcFetchDeviceNamesByPeerID:reply];
+    [cfshContext fetchTrustedDeviceNamesByPeerID:reply];
 }
 
 - (void)fetchAllViableBottles:(OTControlArguments*)arguments

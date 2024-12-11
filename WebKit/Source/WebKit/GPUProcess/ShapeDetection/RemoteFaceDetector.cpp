@@ -30,11 +30,15 @@
 
 #include "ArgumentCoders.h"
 #include "RemoteRenderingBackend.h"
+#include "ShapeDetectionObjectHeap.h"
 #include <WebCore/DetectedFaceInterface.h>
 #include <WebCore/FaceDetectorInterface.h>
 #include <WebCore/ImageBuffer.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteFaceDetector);
 
 RemoteFaceDetector::RemoteFaceDetector(Ref<WebCore::ShapeDetection::FaceDetector>&& faceDetector, ShapeDetection::ObjectHeap& objectHeap, RemoteRenderingBackend& backend, ShapeDetectionIdentifier identifier, WebCore::ProcessIdentifier webProcessIdentifier)
     : m_backing(WTFMove(faceDetector))
@@ -46,6 +50,11 @@ RemoteFaceDetector::RemoteFaceDetector(Ref<WebCore::ShapeDetection::FaceDetector
 }
 
 RemoteFaceDetector::~RemoteFaceDetector() = default;
+
+const SharedPreferencesForWebProcess& RemoteFaceDetector::sharedPreferencesForWebProcess() const
+{
+    return m_backend->sharedPreferencesForWebProcess();
+}
 
 void RemoteFaceDetector::detect(WebCore::RenderingResourceIdentifier renderingResourceIdentifier, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedFace>&&)>&& completionHandler)
 {

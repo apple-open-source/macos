@@ -27,6 +27,7 @@
 #import "RenderBundle.h"
 
 #import "APIConversions.h"
+#import <wtf/TZoneMallocInlines.h>
 
 @implementation ResourceUsageAndRenderStage
 - (instancetype)initWithUsage:(MTLResourceUsage)usage renderStages:(MTLRenderStages)renderStages entryUsage:(OptionSet<WebGPU::BindGroupEntryUsage>)entryUsage binding:(uint32_t)binding resource:(WebGPU::BindGroupEntryUsageData::Resource)resource
@@ -45,6 +46,8 @@
 @end
 
 namespace WebGPU {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderBundle);
 
 RenderBundle::RenderBundle(NSArray<RenderBundleICBWithResources*> *resources, RefPtr<RenderBundleEncoder> encoder, const WGPURenderBundleEncoderDescriptor& descriptor, uint64_t commandCount, Device& device)
     : m_device(device)
@@ -82,6 +85,11 @@ void RenderBundle::replayCommands(RenderPassEncoder& renderPassEncoder) const
 {
     if (m_renderBundleEncoder)
         m_renderBundleEncoder->replayCommands(renderPassEncoder);
+}
+
+bool RenderBundle::requiresCommandReplay() const
+{
+    return !!m_renderBundleEncoder.get();
 }
 
 void RenderBundle::updateMinMaxDepths(float minDepth, float maxDepth)

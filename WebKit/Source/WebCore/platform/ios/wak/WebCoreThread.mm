@@ -44,7 +44,6 @@
 #import <Foundation/NSInvocation.h>
 #import <JavaScriptCore/InitializeThreading.h>
 #import <JavaScriptCore/JSLock.h>
-#import <libkern/OSAtomic.h>
 #import <objc/runtime.h>
 #import <wtf/Assertions.h>
 #import <wtf/BlockPtr.h>
@@ -885,6 +884,20 @@ bool WebThreadIsLocked(void)
 bool WebThreadIsLockedOrDisabled(void)
 {
     return !WebThreadIsEnabled() || WebThreadIsLocked();
+}
+
+bool WebThreadIsLockedOrDisabledInMainOrWebThread(void)
+{
+    if (!WebThreadIsEnabled())
+        return true;
+
+    if (WebThreadIsCurrent())
+        return webThreadLockCount;
+
+    if (pthread_main_np())
+        return mainThreadLockCount;
+
+    return true;
 }
 
 void WebThreadLockPushModal(void)

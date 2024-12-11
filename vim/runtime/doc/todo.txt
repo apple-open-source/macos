@@ -1,4 +1,4 @@
-*todo.txt*      For Vim version 9.0.  Last change: 2023 Jun 08
+*todo.txt*      For Vim version 9.1.  Last change: 2024 Sep 29
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -37,9 +37,6 @@ browser use: https://github.com/vim/vim/issues/1234
 (replace 1234 with the issue/pull number)
 							*known-bugs*
 -------------------- Known bugs and current work -----------------------
-
-FILETYPE_FILE is defined to the same value in multiple places.
-Only use the one in feature.h.  Others too.
 
 Mapping with modifier is not recognized after a partial mapping.  Probably
 because the typeahead was simplified when looking for a matching mapping.
@@ -82,14 +79,12 @@ With 'smoothscroll' set and "lastline" in 'display', moving the cursor to a
 wrapping line that makes the display scroll up may scroll much more than
 needed, thus jump-scrolling. (part of issue 12411)
 
-Add filecopy() ?  #12346
-
 Implement foreach()  PR  #12166
 
 Errors when running tests with valgrind:
 - test_codestyle.vim:  e.g.:
-    command line..script /home/mool/vim/vim90/src/testdir/runtest.vim[569]..function RunTheTest[52]..Test_test_files line 6: keycode_check.vim: space before tab: Expected 0 but got 7
-    command line..script /home/mool/vim/vim90/src/testdir/runtest.vim[569]..function RunTheTest[52]..Test_test_files line 10: setup.vim: trailing white space: Expected 0 but got 23
+    command line..script /home/mool/vim/vim91/src/testdir/runtest.vim[569]..function RunTheTest[52]..Test_test_files line 6: keycode_check.vim: space before tab: Expected 0 but got 7
+    command line..script /home/mool/vim/vim91/src/testdir/runtest.vim[569]..function RunTheTest[52]..Test_test_files line 10: setup.vim: trailing white space: Expected 0 but got 23
 - test_gui.vim:
     Found errors in Test_gui_mouse_event():
 
@@ -122,14 +117,7 @@ Upcoming larger works:
 
 Further Vim9 improvements:
 - Classes and Interfaces. See |vim9-classes|
-  - "final" object members - can only be set in the constructor.
   - Cannot use class type of itself in the method (Issue #12369)
-  - Cannot use an object method in a lambda  #12417
-	Define all methods before compiling them?
-  - Cannot call class member of funcref type  (Issue #12324)
-	Also #12081 first case.
-  - Using list of functions does not work #12081 (repro in later message).
-  - First argument of call() cannot be "obj.Func". (#11865)
   - Getting member of variable with "any" type should be handled at runtime.
     Remove temporary solution from #12096 / patch 9.0.1375.
   - "obj.Method()" does not always work in a compiled function, assumes "obj"
@@ -137,14 +125,8 @@ Further Vim9 improvements:
     Issue #11822: any.Func() can be a dict or an object call, need to handle
     this at runtime.  Also see #12198 for an example.
     Possibly issue #11981 can be fixed at the same time (has two examples).
-  - Support export/import of classes and interfaces.
-  - Make ":defcompile ClassName" compile all functions and methods in the
-    class.
   - Forward declaration of a class?  E.g. for Clone() function.
 	Email lifepillar 2023 Mar 26
-  - object empty(), len() - can class define a method to be used for them?
-  - add to help: when using a default new() method then reordering object
-    members may cause trouble.  Can define new() without arguments to avoid.
   - When "Meta" is a class, is "const MetaAlias = Meta" allowed?  It should
     either work or given an error. Possibly give an error now and implement it
     later (using a typedef).  #12006
@@ -157,8 +139,6 @@ Further Vim9 improvements:
   - More efficient way for interface member index than iterating over list?
   - a variant of type() that returns a different type for each class?
       list<number> and list<string> should also differ.
-- implement :type
-- implement :enum
 - Promise class, could be used to wait on a popup close callback?
 - class local to a function
 - Use Vim9 for more runtime files.
@@ -166,6 +146,8 @@ Further Vim9 improvements:
 - When evaluating constants for script variables, some functions could work:
     has(featureName), len(someString)
 - Implement as part of an expression: ++expr, --expr, expr++, expr--.
+- The use of the literal value "null" and the type specific "null_xxx"
+  values is confusing (#13458, #11770).
 
 Information missing in terminfo:
 - Codes used for focus gained and lost termcodes are hard-coded in
@@ -527,10 +509,6 @@ Information for a specific terminal (e.g. gnome, tmux, konsole, alacritty) is
 spread out.  Make a section with copy/paste examples of script and pointers to
 more information.
 
-Problem that a previous silent ":throw" causes a following try/catch not to
-work. (ZyX, 2013 Sep 28) With examples: (Malcolm Rowe, 2015 Dec 24)
-Also see #8487 for an example.
-
 Request to use "." for the cursor column in search pattern \%<.c and \%<.v.
 (#8179)
 
@@ -558,7 +536,6 @@ SpellCap doesn't show below a closed fold. #12420
 - Adding "~" to 'cdpath' doesn't work for completion?  (Davido, 2013 Aug 19)
 - Problem with 'cdpath' on MS-Windows when a directory is equal to $HOME.
   (2006 Jul 26, Gary Johnson)
-- Completion of ":cd" doesn't use 'cdpath'. #374.
 
 Make "g>" and "g<" in Visual mode move the text right or left.
 Also for a block selection.  #8558
@@ -967,9 +944,6 @@ When 'sidescrolloff' is set, using "zl" to go to the end of the line, suddenly
 scrolls back.  Should allow for this scrolling, like 'scrolloff' does when
 using CTRL-E. (Yee Cheng Chin, #3721)
 
-Add function to make use of internal diff, working on two lists and returning
-unified diff (list of lines).
-
 When splitting a window with few text lines, the relative cursor position is
 kept, which means part of the text isn't displayed.  Better show all the text
 when possible. (Dylan Lloyd, #3973)
@@ -1131,9 +1105,6 @@ Nov 21)
 When t_Co is changed from termresponse, the OptionSet autocommand event isn't
 triggered.  Use the code from the end of set_num_option() in
 set_color_count().
-
-Add another autocommand like TermResponse that is fired for the other terminal
-responses, such as bg and fg.  Use "bg", "fg", "blink", etc. for the name.
 
 When using command line window, CmdlineLeave is triggered without
 CmdlineEnter.  (xtal8, 2017 Oct 30, #2263)
@@ -1729,7 +1700,8 @@ Also Vundle: https://github.com/gmarik/vundle
 Or minpac: https://github.com/k-takata/minpac, since it leverages the builtin
 package feature.
 Long message about this from ZyX, 2014 Mar 23.  And following replies.
-Also see http://vim-wiki.mawercer.de/wiki/topic/vim%20plugin%20managment.html
+Also see (link seems dead):
+http://vim-wiki.mawercer.de/wiki/topic/vim%20plugin%20managment.html
 User view:
 - Support multiple sources, basically any http:// URL. Or a central place that
   will work for everybody (github?  redirects from vim.org?).
@@ -2460,7 +2432,7 @@ Problem with 'ts' set to 9 and 'showbreak' to ">>>". (Matthew Winn, 2007 Oct
 Would be more consistent when an existing tab is re-used. (Tony Mechelynck)
 
 Using Aap to build Vim: add remarks about how to set personal preferences.
-Example on http://www.calmar.ws/tmp/aap.html
+Example on http://www.calmar.ws/tmp/aap.html (link seems dead)
 
 When 'diffopt' has "context:0" a single deleted line causes two folds to merge
 and mess up syncing. (Austin Jennings, 2008 Jan 31)
@@ -2491,7 +2463,7 @@ Asked about latest version: 0.77.1 is on www.vim.org.
 More AmigaOS4 patches. (Peter Bengtsson, Nov 9)
 
 Amiga patches with vbcc. (Adrien Destugues, 2010 Aug 30)
-http://pulkomandy.ath.cx/drop/vim73_vbcc_amiga.diff
+(link seems dead): http://pulkomandy.ath.cx/drop/vim73_vbcc_amiga.diff
 
 Problem with compound words?  (Bert, 2008 May 6)
 No warning for when flags are defined after they are used in an affix.
@@ -2561,8 +2533,9 @@ Win32: Patch for cscope external command. (Mike Williams, 2007 Aug 7)
 
 Win32: XPM support only works with path without spaces.  Patch by Mathias
 Michaelis, 2006 Jun 9.  Another patch for more path names, 2006 May 31.
-New version: http://members.tcnet.ch/michaelis/vim/patches.zip (also for other
-patches by Mathias, see mail Feb 22)
+New version (link seems dead):
+http://members.tcnet.ch/michaelis/vim/patches.zip
+(also for other patches by Mathias, see mail Feb 22)
 
 Win32: compiling with normal features and OLE fails.  Patch by Mathias
 Michaelis, 2006 Jun 4.
@@ -3087,7 +3060,7 @@ Win32 GUI known bugs:
     the screen.
 8   The -P argument doesn't work very well with many MDI applications.
     The last argument of CreateWindowEx() should be used, see MSDN docs.
-    Tutorial: http://win32assembly.online.fr/tut32.html
+    Tutorial (link seems dead): http://win32assembly.online.fr/tut32.html
 6   Win32 GUI: With "-u NONE -U NONE" and doing "CTRL-W v" "CTRL-W o", the ":"
     of ":only" is highlighted like the cursor.  (Lipelis)
 8   When 'encoding' is "utf-8", should use 'guifont' for both normal and wide
@@ -3489,7 +3462,7 @@ Macintosh:
     way to avoid using the builtin termcap.
 8   Xterm sends ^[[H for <Home> and ^[[F for <End> in some mode.  Also
     recognize these keys?  Mostly useful for xterm simulators, like gnometerm.
-    See http://dickey.his.com/xterm/xterm.faq.html#xterm_pc_style.
+    See https://invisible-island.net/xterm/xterm.faq.html#xterm_pc_style
 8   '[ and '] should be set to start/end of line when using a linewise operator
     (e.g., ":w").
 8   CTRL-A can't handle big "long" numbers, they become negative.  Check for
@@ -3778,8 +3751,8 @@ Spell checking:
     What does MAXNGRAMSUGS do?
     Is COMPLEXPREFIXES necessary when we have flags for affixes?
 -   There is no Finnish spell checking file.  For openoffice Voikko is now
-    used, which is based on Malaga: http://home.arcor.de/bjoern-beutel/malaga/
-    (Teemu Likonen)
+    used, which is based on Malaga (link seems dead):
+    http://home.arcor.de/bjoern-beutel/malaga/ (Teemu Likonen)
 8   ":mkspell" still takes much too long in Hungarian dictionary from
     hunspell.  Only solution appears to be to postpone secondary suffixes.
 8   Handle postponed prefix with COMPOUNDPERMITFLAG or COMPOUNDFORBIDFLAG.
@@ -3835,7 +3808,7 @@ Spell checking:
     syntax items (to add @Spell).
     Add ":syntax contains {pattern} add=@Spell" command?  A bit like ":syn
     cluster" but change the contains list directly for matching syntax items.
--   References: MySpell library (in OpenOffice.org).
+-   References: MySpell library (in OpenOffice.org), (links seem dead):
 	http://spellchecker.mozdev.org/source.html
 	http://whiteboard.openoffice.org/source/browse/whiteboard/lingucomponent/source/spellcheck/myspell/
       author: Kevin Hendricks <kevin.hendricks@sympatico.ca>
@@ -3993,8 +3966,9 @@ Multi-byte characters:
     could be entered.  E.g., for "f" command.  But not in Normal mode.  Sort
     of opposite of 'langmap'.  Use ":amap" command?
 -   When breaking a line, take properties of multibyte characters into
-    account.  The "linebreak" program from Bruno Haible can do it:
-    ftp://ftp.ilog.fr/pub/Users/haible/gnu/linebreak-0.1.tar.gz
+    account.  The "linebreak" program from Bruno Haible can do it, this
+    is now part of gnulib module unilbrk:
+    https://www.gnu.org/software/gnulib/MODULES.html
     But it's very complicated...
 -   Problem with 'langmap' being used on the rhs of a mapping. (Nikolai
     Weibull, 2008 May 14).
@@ -4258,7 +4232,6 @@ Vim script language:
 	base64enc()		base 64 encoding
 	base64dec()		base 64 decoding
 	attributes()		return file protection flags "drwxrwxrwx"
-	filecopy(from, to)	Copy a file
 	shorten(fname)		shorten a file name, like home_replace()
 	perl(cmd)		call Perl and return string
 	inputrl()		like input() but right-to-left
@@ -4418,7 +4391,6 @@ Code size:
     left out.
 8   When compiled with a GUI-only version, the termcap entries for terminals
     can be removed.
-8   Can the check for libelf in configure.ac be removed?
 
 
 Messages:
@@ -4681,7 +4653,6 @@ GUI:
 
 
 Autocommands:
-9   Add WinNewPre - before creating a new window. #10635
 9   When triggering WinNew provide the window ID somehow.  #10633
 9   Rework the code from FEAT_OSFILETYPE for autocmd-osfiletypes to use
     'filetype'.  Only for when the current buffer is known.
@@ -4793,10 +4764,10 @@ Omni completion:
 		ctags -f $allTagsFile --fields=+aiKmnsSz --language-force=C++ --C++-kinds=+cefgmnpsut-dlux -u $files
 	www.vim.org script 1213 (Java Development Environment) (Fuchuan Wang)
 	IComplete: http://www.vim.org/scripts/script.php?script_id=1265
-	    and http://stud4.tuwien.ac.at/~e0125672/icomplete/
 	http://cedet.sourceforge.net/intellisense.shtml (for Emacs)
 	Ivan Villanueva has something for Java.
-	Emacs: http://www.xref-tech.com/xrefactory/more_c_completion.html
+	Emacs (link seems dead):
+	http://www.xref-tech.com/xrefactory/more_c_completion.html
 	Completion in .NET framework SharpDevelop: http://www.icsharpcode.net
 -   Pre-expand abbreviations, show which abbrevs would match?
 

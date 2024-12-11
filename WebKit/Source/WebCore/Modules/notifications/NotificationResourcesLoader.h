@@ -31,8 +31,8 @@
 #include "SharedBuffer.h"
 #include "ThreadableLoader.h"
 #include <wtf/CompletionHandler.h>
-#include <wtf/FastMalloc.h>
 #include <wtf/HashSet.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -43,7 +43,7 @@ class ResourceError;
 class ResourceResponse;
 
 class NotificationResourcesLoader {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(NotificationResourcesLoader);
 public:
     explicit NotificationResourcesLoader(Notification&);
 

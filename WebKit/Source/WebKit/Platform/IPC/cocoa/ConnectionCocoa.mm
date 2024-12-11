@@ -40,6 +40,7 @@
 #import <mach/mach_traps.h>
 #import <mach/vm_map.h>
 #import <sys/mman.h>
+#import <wtf/CheckedArithmetic.h>
 #import <wtf/HexNumber.h>
 #import <wtf/MachSendRight.h>
 #import <wtf/RunLoop.h>
@@ -476,7 +477,10 @@ static mach_msg_header_t* readFromMachPort(mach_port_t machPort, ReceiveBuffer& 
 
     if (kr == MACH_RCV_TOO_LARGE) {
         // The message was too large, resize the buffer and try again.
-        buffer.resize(header->msgh_size + MAX_TRAILER_SIZE);
+        auto newBufferSize = checkedSum<size_t>(header->msgh_size, MAX_TRAILER_SIZE);
+        if (newBufferSize.hasOverflowed())
+            return nullptr;
+        buffer.resize(newBufferSize);
         header = reinterpret_cast<mach_msg_header_t*>(buffer.data());
 
         kr = mach_msg(header, MACH_RCV_MSG | MACH_RCV_LARGE | MACH_RCV_TIMEOUT | MACH_RCV_VOUCHER, 0, buffer.size(), machPort, 0, MACH_PORT_NULL);
@@ -596,7 +600,7 @@ bool Connection::kill()
 {
     if (m_xpcConnection) {
         terminateWithReason(m_xpcConnection.get(), WebKit::ReasonCode::ConnectionKilled, "Connection::kill");
-        m_wasKilled = true;
+        m_didRequestProcessTermination = true;
         return true;
     }
     return false;

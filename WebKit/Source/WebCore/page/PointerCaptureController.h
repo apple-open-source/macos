@@ -28,6 +28,7 @@
 #include "PlatformMouseEvent.h"
 #include "PointerID.h"
 #include <wtf/HashMap.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -43,7 +44,7 @@ class WindowProxy;
 
 class PointerCaptureController {
     WTF_MAKE_NONCOPYABLE(PointerCaptureController);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(PointerCaptureController);
 public:
     explicit PointerCaptureController(Page&);
 
@@ -66,7 +67,7 @@ public:
     bool hasCancelledPointerEventForIdentifier(PointerID) const;
     bool preventsCompatibilityMouseEventsForIdentifier(PointerID) const;
     void dispatchEvent(PointerEvent&, EventTarget*);
-    WEBCORE_EXPORT void cancelPointer(PointerID, const IntPoint&);
+    WEBCORE_EXPORT void cancelPointer(PointerID, const IntPoint&, PointerEvent* existingCancelEvent = nullptr);
     void processPendingPointerCapture(PointerID);
 
 private:
@@ -76,6 +77,7 @@ private:
             return adoptRef(*new CapturingData(pointerType));
         }
 
+        WeakPtr<Document, WeakPtrImplWithEventTargetData> activeDocument;
         RefPtr<Element> pendingTargetOverride;
         RefPtr<Element> targetOverride;
 #if ENABLE(TOUCH_EVENTS) && (PLATFORM(IOS_FAMILY) || PLATFORM(WPE))

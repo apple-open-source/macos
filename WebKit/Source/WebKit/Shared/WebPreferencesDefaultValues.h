@@ -40,7 +40,19 @@
 #define Webgpu_feature_status Preview
 #endif
 
-#if defined(ENABLE_UNIFIED_PDF_BY_DEFAULT) && ENABLE_UNIFIED_PDF_BY_DEFAULT
+#if defined(ENABLE_WEBXR_WEBGPU_BY_DEFAULT) && ENABLE_WEBXR_WEBGPU_BY_DEFAULT && PLATFORM(VISION)
+#define Webxr_layers_feature_status Stable
+#else
+#define Webxr_layers_feature_status Unstable
+#endif
+
+#if defined(ENABLE_WEBXR_WEBGPU_BY_DEFAULT) && ENABLE_WEBXR_WEBGPU_BY_DEFAULT && PLATFORM(VISION)
+#define Webgpu_webxr_feature_status Stable
+#else
+#define Webgpu_webxr_feature_status Unstable
+#endif
+
+#if defined(ENABLE_UNIFIED_PDF_AS_PREVIEW) && ENABLE_UNIFIED_PDF_AS_PREVIEW
 #define Unifiedpdf_feature_status Preview
 #else
 #define Unifiedpdf_feature_status Internal
@@ -59,12 +71,15 @@ bool defaultPassiveTouchListenersAsDefaultOnDocument();
 bool defaultCSSOMViewScrollingAPIEnabled();
 bool defaultShouldPrintBackgrounds();
 bool defaultAlternateFormControlDesignEnabled();
-bool defaultVideoFullscreenRequiresElementFullscreen();
 bool defaultUseAsyncUIKitInteractions();
 bool defaultWriteRichTextDataWhenCopyingOrDragging();
 #if ENABLE(TEXT_AUTOSIZING)
 bool defaultTextAutosizingUsesIdempotentMode();
 #endif
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+bool defaultVideoFullscreenRequiresElementFullscreen();
 #endif
 
 #if PLATFORM(MAC)
@@ -130,7 +145,6 @@ bool defaultLiveRangeSelectionEnabled();
 bool defaultShouldEnableScreenOrientationAPI();
 bool defaultPopoverAttributeEnabled();
 bool defaultUseGPUProcessForDOMRenderingEnabled();
-bool defaultSearchInputIncrementalAttributeAndSearchEventEnabled();
 
 #if HAVE(SC_CONTENT_SHARING_PICKER)
 bool defaultUseSCContentSharingPicker();

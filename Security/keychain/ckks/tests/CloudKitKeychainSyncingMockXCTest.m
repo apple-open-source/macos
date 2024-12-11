@@ -129,7 +129,7 @@
     self.ckksViews = self.ckksViews ?: [NSMutableSet set];
     self.keys = self.keys ?: [[NSMutableDictionary alloc] init];
 
-    self.defaultCKKS.cuttlefishAdapter = [[CKKSMockCuttlefishAdapter alloc] init:self.zones zoneKeys:self.keys];
+    self.defaultCKKS.cuttlefishAdapter = [[CKKSMockCuttlefishAdapter alloc] init:self.zones zoneKeys:self.keys peerID:self.mockSOSAdapter.selfPeer.peerID];
     
     [SecMockAKS reset];
 
@@ -439,7 +439,7 @@
 
     CKKSKey* oldTLK = zonekeys.tlk;
     NSError* error = nil;
-    [oldTLK ensureKeyLoadedForContextID:self.defaultCKKS.operationDependencies.contextID error: &error];
+    [oldTLK ensureKeyLoadedForContextID:self.defaultCKKS.operationDependencies.contextID cache:nil error: &error];
     XCTAssertNil(error, "shouldn't error ensuring that the oldTLK has its key material");
 
     [self createFakeKeyHierarchy: zoneID oldTLK:oldTLK];

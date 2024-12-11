@@ -35,10 +35,13 @@
 #import <Metal/MTLEvent_Private.h>
 #import <Metal/MTLTexture_Private.h>
 #import <WebCore/PlatformXRPose.h>
+#import <wtf/TZoneMallocInlines.h>
 
 #import "ARKitSoftLink.h"
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ARKitCoordinator);
 
 struct ARKitCoordinator::RenderState {
     RetainPtr<id<WKARPresentationSession>> presentationSession;
@@ -127,7 +130,7 @@ void ARKitCoordinator::startSession(WebPageProxy& page, WeakPtr<SessionEventClie
             auto presentationSessionDesc = adoptNS([WKARPresentationSessionDescriptor new]);
             [presentationSessionDesc setPresentingViewController:presentingViewController];
 
-            auto presentationSession = adoptNS(createPresesentationSession(m_session.get(), presentationSessionDesc.get()));
+            auto presentationSession = adoptNS(createPresentationSession(m_session.get(), presentationSessionDesc.get()));
 
             auto renderState = Box<RenderState>::create();
             renderState->presentationSession = WTFMove(presentationSession);
@@ -186,7 +189,7 @@ void ARKitCoordinator::endSessionIfExists(WebPageProxy& page)
     endSessionIfExists(page.webPageIDInMainFrameProcess());
 }
 
-void ARKitCoordinator::scheduleAnimationFrame(WebPageProxy& page, PlatformXR::Device::RequestFrameCallback&& onFrameUpdateCallback)
+void ARKitCoordinator::scheduleAnimationFrame(WebPageProxy& page, std::optional<PlatformXR::RequestData>&&, PlatformXR::Device::RequestFrameCallback&& onFrameUpdateCallback)
 {
     RELEASE_LOG(XR, "ARKitCoordinator::scheduleAnimationFrame");
     WTF::switchOn(m_state,

@@ -27,20 +27,28 @@
 
 #include "RenderBox.h"
 #include <wtf/CheckedPtr.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
-enum class ItemLayoutRequirement : bool { NeedsColumnAxisStretchAlignment = 1 };
-using ItemsLayoutRequirements = SingleThreadWeakHashMap<RenderBox, ItemLayoutRequirement>;
+enum class ItemLayoutRequirement : uint8_t {
+    NeedsColumnAxisStretchAlignment = 1 << 0,
+    MinContentContributionForSecondColumnPass = 1 << 1,
+};
+using ItemsLayoutRequirements = SingleThreadWeakHashMap<RenderBox, OptionSet<ItemLayoutRequirement>>;
 
-class GridLayoutState : public CanMakeCheckedPtr<GridLayoutState>, public CanMakeWeakPtr<GridLayoutState> {
-    WTF_MAKE_FAST_ALLOCATED;
-    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(GridLayoutState);
+class GridLayoutState {
+    WTF_MAKE_TZONE_ALLOCATED(GridLayoutState);
 public:
-    ItemsLayoutRequirements& itemsLayoutRequirements() { return m_itemsLayoutRequirements; }
+    bool containsLayoutRequirementForGridItem(const RenderBox& gridItem, ItemLayoutRequirement) const;
+    void setLayoutRequirementForGridItem(const RenderBox& gridItem, ItemLayoutRequirement);
+
+    bool needsSecondTrackSizingPass() const { return m_needsSecondTrackSizingPass; }
+    void setNeedsSecondTrackSizingPass() { m_needsSecondTrackSizingPass = true; }
 
 private:
     ItemsLayoutRequirements m_itemsLayoutRequirements;
+    bool m_needsSecondTrackSizingPass { false };
 };
 
 } // namespace WebCore

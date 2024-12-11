@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/Ref.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 #if USE(SKIA)
@@ -72,7 +73,7 @@ struct ColorDataForIPC {
 //    - 4x float color components + color space, stored in a reference counted sub-object
 
 class Color {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(Color);
 public:
     enum class Flags {
         Semantic                        = 1 << 0,
@@ -81,7 +82,7 @@ public:
 
     Color() = default;
 
-    Color(SRGBA<uint8_t>, OptionSet<Flags> = { });
+    WEBCORE_EXPORT Color(SRGBA<uint8_t>, OptionSet<Flags> = { });
     Color(std::optional<SRGBA<uint8_t>>, OptionSet<Flags> = { });
     WEBCORE_EXPORT Color(std::optional<ColorDataForIPC>&&);
 

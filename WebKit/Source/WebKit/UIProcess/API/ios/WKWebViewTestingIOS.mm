@@ -30,6 +30,7 @@
 
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteLayerTreeViews.h"
+#import "RemoteScrollingCoordinatorProxy.h"
 #import "SystemPreviewController.h"
 #import "UIKitSPI.h"
 #import "WKContentViewInteraction.h"
@@ -298,6 +299,19 @@ static void dumpUIView(TextStream& ts, UIView *view)
     return ts.release();
 }
 
+- (NSString *)_scrollbarState:(unsigned long long)scrollingNodeID processID:(unsigned long long)processID isVertical:(bool)isVertical
+{
+    if (_page->scrollingCoordinatorProxy()->rootScrollingNodeID() == WebCore::ScrollingNodeID(LegacyNullableObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(processID))) {
+        TextStream ts(TextStream::LineMode::MultipleLine);
+        {
+            TextStream::GroupScope scope(ts);
+            ts << ([_scrollView showsHorizontalScrollIndicator] ? ""_s : "none"_s);
+        }
+        return ts.release();
+    }
+    return _page->scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID(LegacyNullableObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(processID)), isVertical);
+}
+
 - (NSNumber *)_stableStateOverride
 {
     // For subclasses to override.
@@ -306,6 +320,8 @@ static void dumpUIView(TextStream& ts, UIView *view)
 
 - (NSDictionary *)_propertiesOfLayerWithID:(unsigned long long)layerID
 {
+    if (!layerID)
+        return nil;
     CALayer* layer = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).layerWithIDForTesting({ ObjectIdentifier<WebCore::PlatformLayerIdentifierType>(layerID), _page->legacyMainFrameProcess().coreProcessIdentifier() });
     if (!layer)
         return nil;

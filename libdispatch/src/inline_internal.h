@@ -1623,6 +1623,32 @@ _dispatch_queue_move_to_contended_sync(dispatch_queue_t dq)
 	os_atomic_and(&dq->dq_state, ~clearbits, relaxed);
 }
 
+DISPATCH_ALWAYS_INLINE
+static inline
+dispatch_qos_t
+_dispatch_qos_from_ptr(void *tail)
+{
+	return (dispatch_qos_t)(((uintptr_t)tail & DISPATCH_QOS_MASK) << DISPATCH_QOS_SHIFT);
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline void *
+_dispatch_drop_qos_from_ptr(void *tail)
+{
+	return (void *)((uintptr_t)tail & ~DISPATCH_QOS_MASK);
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline void *
+_dispatch_merge_max_qos_to_ptr(void *new_tail, void *old_tail,
+		dispatch_qos_t self)
+{
+	dispatch_qos_t qos = MAX(self, _dispatch_qos_from_ptr(old_tail)) >> DISPATCH_QOS_SHIFT;
+	dispatch_assert(((uintptr_t)new_tail & DISPATCH_QOS_MASK) == 0);
+	dispatch_assert(!(qos & ~DISPATCH_QOS_MASK));
+	return (void *)((uintptr_t)new_tail | qos);
+}
+
 #pragma mark -
 #pragma mark os_mpsc_queue
 
@@ -1665,10 +1691,39 @@ _dispatch_queue_move_to_contended_sync(dispatch_queue_t dq)
 		os_mpsc_push_was_empty(_token); \
 	})
 
-// Returns true when the queue was empty and the head must be set
+// Returns true when the queue was empty. This macro sets head if the list was
+// previously empty
 #define os_mpsc_push_item(Q, tail, _o_next)  ({ \
 		os_mpsc_node_type(Q) _tail = (tail); \
 		os_mpsc_push_list(Q, _tail, _tail, _o_next); \
+	})
+
+// These calls merge a monotonically-increasing QoS into the tail pointer to
+// allow redriving when the current enqueuer runs at a higher QoS than all the
+// previous enqueuers
+#define os_mpsc_push_update_tail_with_qos(Q, tail, _o_next, qos) ({ \
+		os_mpsc_node_type(Q) _tl = (tail); \
+		os_atomic_store(&_tl->_o_next, NULL, relaxed); \
+		_dispatch_set_enqueuer_for(_os_mpsc_tail Q); \
+		os_mpsc_node_type(Q) _old, _new; \
+		os_atomic_rmw_loop(_os_mpsc_tail Q, _old, _new, release, { \
+			_new = _dispatch_merge_max_qos_to_ptr(_tl, _old, qos); \
+		}); \
+		_old; \
+	})
+
+#define  os_mpsc_push_list_with_qos(Q, head, tail, _o_next, qos) ({ \
+		os_mpsc_node_type(Q) _token; \
+		_token = os_mpsc_push_update_tail_with_qos(Q, tail, _o_next, qos); \
+		os_mpsc_push_update_prev(Q, _dispatch_drop_qos_from_ptr(_token), head, _o_next); \
+		_token; \
+	})
+
+// Returns the previous value of Q->tail, which can be compared with NULL or
+// passed to _dispatch_qos_from_ptr to get the max previous enqueuer QoS
+#define os_mpsc_push_item_with_qos(Q, tail, _o_next, qos) ({ \
+		os_mpsc_node_type(Q) _tail = (tail); \
+		os_mpsc_push_list_with_qos(Q, _tail, _tail, _o_next, (qos)); \
 	})
 
 //
@@ -1701,15 +1756,28 @@ _dispatch_queue_move_to_contended_sync(dispatch_queue_t dq)
 	})
 
 #define os_mpsc_pop_head(Q, head, _o_next)  ({ \
-		os_mpsc_node_type(Q) _head = (head), _n; \
+		os_mpsc_node_type(Q) _head = (head), _n, _nt, _ot; \
 		_n = os_atomic_load(&_head->_o_next, dependency); \
 		os_atomic_store(_os_mpsc_head Q, _n, relaxed); \
 		/* 22708742: set tail to NULL with release, so that NULL write */ \
 		/* to head above doesn't clobber head from concurrent enqueuer */ \
-		if (unlikely(!_n && \
-				!os_atomic_cmpxchg(_os_mpsc_tail Q, _head, NULL, release))) { \
-			_n = os_mpsc_get_next(_head, _o_next, _os_mpsc_tail Q); \
-			os_atomic_store(_os_mpsc_head Q, _n, relaxed); \
+		if (unlikely(!_n)) { \
+			/* 137564095: we need to load from _tailp with a dependency */ \
+			/* on _n, so that if we observe a different value in _tailp */ \
+			/* than we previously saw in head, we know that tail has */ \
+			/* been updated, not that our tail observation is stale */ \
+			__typeof__(_os_mpsc_tail Q) _tailp; \
+			_tailp = os_atomic_inject_dependency(_os_mpsc_tail Q, _n); \
+			os_atomic_rmw_loop(_tailp, _ot, _nt, release, { \
+				if (_head == _dispatch_drop_qos_from_ptr(_ot)) { \
+					_nt = NULL; \
+				} else { \
+					os_atomic_rmw_loop_give_up({ \
+						_n = os_mpsc_get_next(_head, _o_next, _os_mpsc_tail Q); \
+						os_atomic_store(_os_mpsc_head Q, _n, relaxed); \
+					}); \
+				} \
+			}); \
 		} \
 		_n; \
 	})
@@ -1735,7 +1803,7 @@ _dispatch_queue_move_to_contended_sync(dispatch_queue_t dq)
 		os_atomic_store(_os_mpsc_head Q, NULL, relaxed); \
 		/* 22708742: set tail to NULL with release, so that NULL write */ \
 		/* to head above doesn't clobber head from concurrent enqueuer */ \
-		*(tail) = os_atomic_xchg(_os_mpsc_tail Q, NULL, release); \
+		*(tail) = _dispatch_drop_qos_from_ptr(os_atomic_xchg(_os_mpsc_tail Q, NULL, release)); \
 		_head; \
 	})
 
@@ -1743,11 +1811,6 @@ _dispatch_queue_move_to_contended_sync(dispatch_queue_t dq)
 		__typeof__(head) _head = (head), _tail = (tail), _n = NULL; \
 		if (_head != _tail) _n = os_mpsc_get_next(_head, _o_next, NULL); \
 		_n; \
-	})
-
-#define os_mpsc_prepend(Q, head, tail, _o_next)  ({ \
-		os_mpsc_node_type(Q) _n = os_atomic_load(_os_mpsc_head Q, relaxed); \
-		os_mpsc_undo_pop_list(Q, head, tail, _n, _o_next); \
 	})
 
 #pragma mark -

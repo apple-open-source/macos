@@ -136,7 +136,7 @@ typedef NS_ENUM(uint8_t, fatType) {
 @end
 
 
-@interface FATVolume : FSVolume <FSVolumeOperations, FSVolumeKOIOOperations, FSVolumeRenameOperations, FSVolumePreallocateOperations, FATOps>
+@interface FATVolume : FSVolume <FSVolumeOperations, FSVolumeKernelOffloadedIOOperations, FSVolumeRenameOperations, FSVolumePreallocateOperations, FATOps>
 
 @property FSBlockDeviceResource *resource;
 @property DirNameCachePool *nameCachePool;

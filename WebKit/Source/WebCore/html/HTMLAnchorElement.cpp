@@ -59,7 +59,7 @@
 #include "Settings.h"
 #include "URLKeepingBlobAlive.h"
 #include "UserGestureIndicator.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/WeakHashMap.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -70,7 +70,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLAnchorElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLAnchorElement);
 
 using namespace HTMLNames;
 
@@ -160,7 +160,7 @@ static void appendServerMapMousePosition(StringBuilder& url, Event& event)
     if (!mouseEvent)
         return;
 
-    auto* imageElement = dynamicDowncast<HTMLImageElement>(mouseEvent->target());
+    RefPtr imageElement = dynamicDowncast<HTMLImageElement>(mouseEvent->target());
     if (!imageElement)
         return;
 
@@ -260,7 +260,8 @@ void HTMLAnchorElement::attributeChanged(const QualifiedName& name, const AtomSt
             m_linkRelations.add(Relation::Opener);
         if (m_relList)
             m_relList->associatedAttributeValueChanged();
-    }
+    } else if (name == nameAttr)
+        document().processInternalResourceLinks(this);
 }
 
 bool HTMLAnchorElement::isURLAttribute(const Attribute& attribute) const
@@ -606,7 +607,7 @@ void HTMLAnchorElement::handleClick(Event& event)
     if (systemPreviewInfo.isPreview) {
         systemPreviewInfo.element.elementIdentifier = identifier();
         systemPreviewInfo.element.documentIdentifier = document->identifier();
-        systemPreviewInfo.element.webPageIdentifier = valueOrDefault(document->pageID());
+        systemPreviewInfo.element.webPageIdentifier = document->pageID();
         if (auto* child = firstElementChild())
             systemPreviewInfo.previewRect = child->boundsInRootViewSpace();
 
@@ -744,6 +745,13 @@ String HTMLAnchorElement::referrerPolicyForBindings() const
 ReferrerPolicy HTMLAnchorElement::referrerPolicy() const
 {
     return parseReferrerPolicy(attributeWithoutSynchronization(referrerpolicyAttr), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
+}
+
+Node::InsertedIntoAncestorResult HTMLAnchorElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+{
+    auto result = HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
+    document().processInternalResourceLinks(this);
+    return result;
 }
 
 }

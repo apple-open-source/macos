@@ -75,7 +75,7 @@ enum SWCAXPCOperation {
     swca_update_request_id,
     swca_delete_request_id,
     swca_copy_request_id,
-    swca_select_request_id,
+    swca_select_request_id, // deprecated: no longer used
     swca_copy_pairs_request_id,
     swca_set_selection_request_id,
     swca_enabled_request_id,

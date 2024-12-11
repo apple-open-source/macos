@@ -40,7 +40,11 @@
 #include "config.h"
 #include "JPEGImageDecoder.h"
 
-#include "PlatformDisplay.h"
+#if USE(LCMS)
+#include "LCMSUniquePtr.h"
+#endif
+
+#include <wtf/TZoneMallocInlines.h>
 
 extern "C" {
 #include <setjmp.h>
@@ -244,7 +248,7 @@ static RefPtr<SharedBuffer> readICCProfile(jpeg_decompress_struct* info)
 #endif
 
 class JPEGImageReader {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(JPEGImageReader);
 public:
     JPEGImageReader(JPEGImageDecoder* decoder)
         : m_decoder(decoder)
@@ -723,14 +727,11 @@ void JPEGImageDecoder::setICCProfile(RefPtr<SharedBuffer>&& buffer)
 
     auto span = buffer->span();
     auto iccProfile = LCMSProfilePtr(cmsOpenProfileFromMem(span.data(), span.size()));
-    if (!iccProfile)
+    if (!iccProfile || cmsGetColorSpace(iccProfile.get()) != cmsSigRgbData)
         return;
 
-    auto* displayProfile = PlatformDisplay::sharedDisplay().colorProfile();
-    if (cmsGetColorSpace(iccProfile.get()) != cmsSigRgbData || cmsGetColorSpace(displayProfile) != cmsSigRgbData)
-        return;
-
-    m_iccTransform = LCMSTransformPtr(cmsCreateTransform(iccProfile.get(), TYPE_BGRA_8, displayProfile, TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, 0));
+    auto srgbProfile = LCMSProfilePtr(cmsCreate_sRGBProfile());
+    m_iccTransform = LCMSTransformPtr(cmsCreateTransform(iccProfile.get(), TYPE_BGRA_8, srgbProfile.get(), TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, 0));
 }
 #endif
 

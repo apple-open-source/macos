@@ -73,10 +73,20 @@
 		<key>Enabled</key>
 		<true/>
 	</dict>
+	<key>TTROnUnexpectedPairingPacketFormat</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>FeatureComplete</string>
+	</dict>
 	<key>WatchForceDeviceListFailure</key>
 	<dict>
 		<key>DevelopmentPhase</key>
 		<string>UnderDevelopment</string>
+	</dict>
+	<key>AllowAllMetrics</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
 	</dict>
 </dict>
 </plist>

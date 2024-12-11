@@ -31,7 +31,7 @@
 #import "WritingToolsCompositionCommand.h"
 #import "WritingToolsTypes.h"
 #import <wtf/CheckedPtr.h>
-#import <wtf/FastMalloc.h>
+#import <wtf/TZoneMalloc.h>
 #import <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -49,7 +49,7 @@ struct SimpleRange;
 enum class TextAnimationRunMode : uint8_t;
 
 class WritingToolsController final : public CanMakeWeakPtr<WritingToolsController>, public CanMakeCheckedPtr<WritingToolsController> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WritingToolsController);
     WTF_MAKE_NONCOPYABLE(WritingToolsController);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WritingToolsController);
 
@@ -60,9 +60,11 @@ public:
 
     void didBeginWritingToolsSession(const WritingTools::Session&, const Vector<WritingTools::Context>&);
 
-    void proofreadingSessionDidReceiveSuggestions(const WritingTools::Session&, const Vector<WritingTools::TextSuggestion>&, const WritingTools::Context&, bool finished);
+    void proofreadingSessionDidReceiveSuggestions(const WritingTools::Session&, const Vector<WritingTools::TextSuggestion>&, const CharacterRange&, const WritingTools::Context&, bool finished);
 
     void proofreadingSessionDidUpdateStateForSuggestion(const WritingTools::Session&, WritingTools::TextSuggestion::State, const WritingTools::TextSuggestion&, const WritingTools::Context&);
+
+    void willEndWritingToolsSession(const WritingTools::Session&, bool accepted);
 
     void didEndWritingToolsSession(const WritingTools::Session&, bool accepted);
 
@@ -138,7 +140,8 @@ private:
     };
 
     class EditingScope {
-        WTF_MAKE_NONCOPYABLE(EditingScope); WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED(EditingScope);
+        WTF_MAKE_NONCOPYABLE(EditingScope);
     public:
         EditingScope(Document&);
         ~EditingScope();
@@ -155,6 +158,9 @@ private:
 
     template<WritingTools::Session::Type Type>
     StateFromSessionType<Type>::Value* currentState();
+
+    template<WritingTools::Session::Type Type>
+    const StateFromSessionType<Type>::Value* currentState() const;
 
     std::optional<std::tuple<Node&, DocumentMarker&>> findTextSuggestionMarkerContainingRange(const SimpleRange&) const;
     std::optional<std::tuple<Node&, DocumentMarker&>> findTextSuggestionMarkerByID(const SimpleRange& outerRange, const WritingTools::TextSuggestion::ID&) const;
@@ -176,6 +182,9 @@ private:
 
     template<WritingTools::Session::Type Type>
     void writingToolsSessionDidReceiveAction(WritingTools::Action);
+
+    template<WritingTools::Session::Type Type>
+    void willEndWritingToolsSession(bool accepted);
 
     template<WritingTools::Session::Type Type>
     void didEndWritingToolsSession(bool accepted);

@@ -35,6 +35,7 @@
 #include "WindRule.h"
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
 
@@ -50,25 +51,31 @@ class Path;
 class RenderBox;
 class SVGPathByteStream;
 
+enum class CoordinateAffinity : uint8_t {
+    Relative, Absolute
+};
+
 class BasicShape : public RefCounted<BasicShape> {
+    WTF_MAKE_TZONE_ALLOCATED(BasicShape);
 public:
     virtual ~BasicShape() = default;
 
-    enum class Type {
+    enum class Type : uint8_t {
         Polygon,
         Path,
         Circle,
         Ellipse,
         Inset,
         Rect,
-        Xywh
+        Xywh,
+        Shape
     };
 
     virtual Ref<BasicShape> clone() const = 0;
 
     virtual Type type() const = 0;
 
-    virtual const Path& path(const FloatRect&) = 0;
+    virtual Path path(const FloatRect&) const = 0;
     virtual WindRule windRule() const { return WindRule::NonZero; }
 
     virtual bool canBlend(const BasicShape&) const = 0;
@@ -127,7 +134,9 @@ public:
     enum class Type : uint8_t {
         Value,
         ClosestSide,
-        FarthestSide
+        FarthestSide,
+        ClosestCorner,
+        FarthestCorner
     };
 
     BasicShapeRadius() = default;
@@ -173,16 +182,18 @@ private:
 };
 
 class BasicShapeCircleOrEllipse : public BasicShape {
+    WTF_MAKE_TZONE_ALLOCATED(BasicShapeCircleOrEllipse);
 public:
     void setPositionWasOmitted(bool flag) { m_centerWasOmitted = flag; }
     bool positionWasOmitted() const { return m_centerWasOmitted; }
-    virtual const Path& pathForCenterCoordinate(const FloatRect&, FloatPoint) const = 0;
+    virtual Path pathForCenterCoordinate(const FloatRect&, FloatPoint) const = 0;
 
 private:
     bool m_centerWasOmitted = false;
 };
 
 class BasicShapeCircle final : public BasicShapeCircleOrEllipse {
+    WTF_MAKE_TZONE_ALLOCATED(BasicShapeCircle);
 public:
     static Ref<BasicShapeCircle> create() { return adoptRef(*new BasicShapeCircle); }
     WEBCORE_EXPORT static Ref<BasicShapeCircle> create(BasicShapeCenterCoordinate&& centerX, BasicShapeCenterCoordinate&& centerY, BasicShapeRadius&&);
@@ -191,11 +202,14 @@ public:
 
     const BasicShapeCenterCoordinate& centerX() const { return m_centerX; }
     const BasicShapeCenterCoordinate& centerY() const { return m_centerY; }
+
     const BasicShapeRadius& radius() const { return m_radius; }
-    float floatValueForRadiusInBox(float boxWidth, float boxHeight, FloatPoint) const;
+
+    float floatValueForRadiusInBox(FloatSize boxSize, FloatPoint center) const;
 
     void setCenterX(BasicShapeCenterCoordinate centerX) { m_centerX = WTFMove(centerX); }
     void setCenterY(BasicShapeCenterCoordinate centerY) { m_centerY = WTFMove(centerY); }
+
     void setRadius(BasicShapeRadius radius) { m_radius = WTFMove(radius); }
 
 private:
@@ -204,8 +218,8 @@ private:
 
     Type type() const final { return Type::Circle; }
 
-    const Path& path(const FloatRect&) final;
-    const Path& pathForCenterCoordinate(const FloatRect&, FloatPoint) const final;
+    Path path(const FloatRect&) const final;
+    Path pathForCenterCoordinate(const FloatRect&, FloatPoint) const final;
 
     bool canBlend(const BasicShape&) const final;
     Ref<BasicShape> blend(const BasicShape& from, const BlendingContext&) const final;
@@ -220,6 +234,7 @@ private:
 };
 
 class BasicShapeEllipse final : public BasicShapeCircleOrEllipse {
+    WTF_MAKE_TZONE_ALLOCATED(BasicShapeEllipse);
 public:
     static Ref<BasicShapeEllipse> create() { return adoptRef(*new BasicShapeEllipse); }
     WEBCORE_EXPORT static Ref<BasicShapeEllipse> create(BasicShapeCenterCoordinate&& centerX, BasicShapeCenterCoordinate&& centerY, BasicShapeRadius&& radiusX, BasicShapeRadius&& radiusY);
@@ -230,7 +245,8 @@ public:
     const BasicShapeCenterCoordinate& centerY() const { return m_centerY; }
     const BasicShapeRadius& radiusX() const { return m_radiusX; }
     const BasicShapeRadius& radiusY() const { return m_radiusY; }
-    float floatValueForRadiusInBox(const BasicShapeRadius&, float center, float boxWidthOrHeight) const;
+
+    FloatSize floatSizeForRadiusInBox(FloatSize boxSize, FloatPoint center) const;
 
     void setCenterX(BasicShapeCenterCoordinate centerX) { m_centerX = WTFMove(centerX); }
     void setCenterY(BasicShapeCenterCoordinate centerY) { m_centerY = WTFMove(centerY); }
@@ -243,8 +259,8 @@ private:
 
     Type type() const final { return Type::Ellipse; }
 
-    const Path& path(const FloatRect&) final;
-    const Path& pathForCenterCoordinate(const FloatRect&, FloatPoint) const final;
+    Path path(const FloatRect&) const final;
+    Path pathForCenterCoordinate(const FloatRect&, FloatPoint) const final;
 
     bool canBlend(const BasicShape&) const final;
     Ref<BasicShape> blend(const BasicShape& from, const BlendingContext&) const final;
@@ -260,6 +276,7 @@ private:
 };
 
 class BasicShapePolygon final : public BasicShape {
+    WTF_MAKE_TZONE_ALLOCATED(BasicShapePolygon);
 public:
     static Ref<BasicShapePolygon> create() { return adoptRef(*new BasicShapePolygon); }
     WEBCORE_EXPORT static Ref<BasicShapePolygon> create(WindRule, Vector<Length>&& values);
@@ -281,7 +298,7 @@ private:
 
     Type type() const final { return Type::Polygon; }
 
-    const Path& path(const FloatRect&) final;
+    Path path(const FloatRect&) const final;
 
     bool canBlend(const BasicShape&) const final;
     Ref<BasicShape> blend(const BasicShape& from, const BlendingContext&) const final;
@@ -295,6 +312,7 @@ private:
 };
 
 class BasicShapePath final : public BasicShape {
+    WTF_MAKE_TZONE_ALLOCATED(BasicShapePath);
 public:
     static Ref<BasicShapePath> create(std::unique_ptr<SVGPathByteStream>&& byteStream)
     {
@@ -302,6 +320,8 @@ public:
     }
 
     WEBCORE_EXPORT static Ref<BasicShapePath> create(std::unique_ptr<SVGPathByteStream>&&, float zoom, WindRule);
+
+    virtual ~BasicShapePath();
 
     Ref<BasicShape> clone() const final;
 
@@ -314,7 +334,7 @@ public:
     const SVGPathByteStream* pathData() const { return m_byteStream.get(); }
     const std::unique_ptr<SVGPathByteStream>& byteStream() const { return m_byteStream; }
 
-    const Path& path(const FloatRect&) final;
+    Path path(const FloatRect&) const final;
 
     bool canBlend(const BasicShape&) const final;
     Ref<BasicShape> blend(const BasicShape& from, const BlendingContext&) const final;
@@ -335,6 +355,7 @@ private:
 };
 
 class BasicShapeInset final : public BasicShape {
+    WTF_MAKE_TZONE_ALLOCATED(BasicShapeInset);
 public:
     static Ref<BasicShapeInset> create() { return adoptRef(*new BasicShapeInset); }
     WEBCORE_EXPORT static Ref<BasicShapeInset> create(Length&& right, Length&& top, Length&& bottom, Length&& left, LengthSize&& topLeftRadius, LengthSize&& topRightRadius, LengthSize&& bottomRightRadius, LengthSize&& bottomLeftRadius);
@@ -367,7 +388,7 @@ private:
 
     Type type() const override { return Type::Inset; }
 
-    const Path& path(const FloatRect&) override;
+    Path path(const FloatRect&) const override;
 
     bool canBlend(const BasicShape&) const override;
     Ref<BasicShape> blend(const BasicShape& from, const BlendingContext&) const override;
@@ -388,6 +409,7 @@ private:
 };
 
 class BasicShapeRect final : public BasicShape {
+    WTF_MAKE_TZONE_ALLOCATED(BasicShapeRect);
 public:
     static Ref<BasicShapeRect> create() { return adoptRef(*new BasicShapeRect); }
     WEBCORE_EXPORT static Ref<BasicShapeRect> create(Length&& top, Length&& right, Length&& bottom, Length&& left, LengthSize&& topLeftRadius, LengthSize&& topRightRadius, LengthSize&& bottomRightRadius, LengthSize&& bottomLeftRadius);
@@ -421,7 +443,7 @@ private:
 
     Type type() const final { return Type::Rect; }
 
-    const Path& path(const FloatRect&) final;
+    Path path(const FloatRect&) const final;
 
     bool canBlend(const BasicShape&) const final;
     Ref<BasicShape> blend(const BasicShape& from, const BlendingContext&) const final;
@@ -439,6 +461,7 @@ private:
 };
 
 class BasicShapeXywh final : public BasicShape {
+    WTF_MAKE_TZONE_ALLOCATED(BasicShapeXywh);
 public:
     static Ref<BasicShapeXywh> create() { return adoptRef(*new BasicShapeXywh); }
     WEBCORE_EXPORT static Ref<BasicShapeXywh> create(Length&& insetX, Length&& insetY, Length&& width, Length&& height, LengthSize&& topLeftRadius, LengthSize&& topRightRadius, LengthSize&& bottomRightRadius, LengthSize&& bottomLeftRadius);
@@ -471,7 +494,7 @@ private:
 
     Type type() const final { return Type::Xywh; }
 
-    const Path& path(const FloatRect&) final;
+    Path path(const FloatRect&) const final;
 
     bool canBlend(const BasicShape&) const final;
     Ref<BasicShape> blend(const BasicShape& from, const BlendingContext&) const final;
@@ -491,6 +514,7 @@ private:
     LengthSize m_bottomLeftRadius;
 };
 
+WTF::TextStream& operator<<(WTF::TextStream&, CoordinateAffinity);
 WTF::TextStream& operator<<(WTF::TextStream&, const BasicShapeRadius&);
 WTF::TextStream& operator<<(WTF::TextStream&, const BasicShapeCenterCoordinate&);
 WTF::TextStream& operator<<(WTF::TextStream&, const BasicShape&);

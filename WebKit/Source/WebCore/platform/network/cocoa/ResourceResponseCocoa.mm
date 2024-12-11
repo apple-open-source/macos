@@ -35,12 +35,15 @@
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/text/StringView.h>
 
 WTF_DECLARE_CF_TYPE_TRAIT(SecTrust);
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ResourceResponse);
 
 void ResourceResponse::initNSURLResponse() const
 {
@@ -165,12 +168,7 @@ void ResourceResponse::platformLazyInit(InitLevel initLevel)
 
         if (m_initLevel < CommonFieldsOnly) {
             m_url = [m_nsResponse URL];
-#if USE(AVIF)
-            if (m_url.string().endsWithIgnoringASCIICase(".avif"_s) || m_url.string().endsWithIgnoringASCIICase(".avifs"_s))
-                m_mimeType = "image/avif"_s;
-            else
-#endif
-                m_mimeType = [m_nsResponse MIMEType];
+            m_mimeType = [m_nsResponse MIMEType];
             m_expectedContentLength = [m_nsResponse expectedContentLength];
             // Stripping double quotes as a workaround for <rdar://problem/8757088>, can be removed once that is fixed.
             m_textEncodingName = stripLeadingAndTrailingDoubleQuote([m_nsResponse textEncodingName]);

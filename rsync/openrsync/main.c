@@ -1731,6 +1731,13 @@ main(int argc, char *argv[])
 	}
 
 	/*
+	 * To simplify the cleanup process, we create a new process group now so
+	 * that we can reliably send SIGUSR1 to any children.
+	 */
+	if (setpgid(0, getpid()) == -1)
+		err(ERR_IPC, "setpgid");
+
+	/*
 	 * Now we know that we're the client on the local machine
 	 * invoking rsync(1).
 	 * At this point, we need to start the client and server

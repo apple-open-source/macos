@@ -36,6 +36,7 @@
 #include <WebCore/PlatformVideoPresentationInterface.h>
 #include <WebCore/PlatformView.h>
 #include <WebCore/ShareableBitmap.h>
+#include <WebCore/SpatialVideoMetadata.h>
 #include <WebCore/VideoPresentationModel.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>

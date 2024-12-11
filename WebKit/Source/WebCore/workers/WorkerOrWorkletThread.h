@@ -50,8 +50,8 @@ public:
     virtual ~WorkerOrWorkletThread();
 
     // SerialFunctionDispatcher methods
-    void dispatch(Function<void()>&&) final;
-    bool isCurrent() const final;
+    WEBCORE_EXPORT void dispatch(Function<void()>&&) final;
+    WEBCORE_EXPORT bool isCurrent() const final;
 
     Thread* thread() const { return m_thread.get(); }
 

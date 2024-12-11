@@ -149,6 +149,7 @@ enum TracePointCode {
     SyntheticMomentumEnd,
     SyntheticMomentumEvent,
     RemoteLayerTreeScheduleRenderingUpdate,
+    DisplayLinkUpdate,
 
     UIProcessRange = 14000,
     CommitLayerTreeStart,
@@ -167,6 +168,20 @@ enum TracePointCode {
     GPUProcessRange = 16000,
     WakeUpAndApplyDisplayListStart,
     WakeUpAndApplyDisplayListEnd,
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    GTKWPEPortRange = 20000,
+
+    WaitForCompositionCompletionStart,
+    WaitForCompositionCompletionEnd,
+    FrameCompositionStart,
+    FrameCompositionEnd,
+    LayerFlushStart,
+    LayerFlushEnd,
+    UpdateLayerContentBuffersStart,
+    UpdateLayerContentBuffersEnd,
+#endif
+
 };
 
 #ifdef __cplusplus
@@ -268,7 +283,16 @@ enum WTFOSSignpostType {
 
 #endif
 
+#if HAVE(OS_SIGNPOST)
+
 #if HAVE(KDEBUG_H)
+// By default, os_signpost always emits signpost data to logd. We want to avoid that for WebKit
+// signposts. Instead, we use kdebug_is_enabled to make WebKit's os_signposts behave like kdebug
+// trace points (i.e. we only enable them if a tracing tool is active).
+#define WTFSignpostsEnabled() UNLIKELY(kdebug_is_enabled(KDBG_EVENTID(DBG_APPS, DBG_APPS_WEBKIT_MISC, 0)))
+#else
+#define WTFSignpostsEnabled() true
+#endif
 
 // The first argument to WTF{Emit,Begin,End}Signpost is a pointer that can be used to disambiguate
 // nested intervals with the same name (i.e. used to create an os_signpost_id). If you don't care
@@ -314,7 +338,7 @@ enum WTFOSSignpostType {
 
 #define WTFEmitSignpostWithType(type, emitMacro, pointer, name, timeDelta, timeFormat, format, ...) \
     do { \
-        if (UNLIKELY(kdebug_is_enabled(KDBG_EVENTID(DBG_APPS, DBG_APPS_WEBKIT_MISC, 0)))) \
+        if (WTFSignpostsEnabled()) \
             WTFEmitSignpostAlwaysWithType(type, emitMacro, pointer, name, timeDelta, timeFormat, format, ##__VA_ARGS__); \
     } while (0)
 
@@ -346,20 +370,26 @@ enum WTFOSSignpostType {
 
 #define WTFEmitSignpost(pointer, name, ...) \
     do { \
+        IGNORE_WARNINGS_BEGIN("format-zero-length") \
         if (auto* annotator = SysprofAnnotator::singletonIfCreated()) \
-            annotator->instantMark(std::span(_STRINGIFY(name)), " " __VA_ARGS__); \
+            annotator->instantMark(std::span(_STRINGIFY(name)), "" __VA_ARGS__); \
+        IGNORE_WARNINGS_END \
     } while (0)
 
 #define WTFBeginSignpost(pointer, name, ...) \
     do { \
+        IGNORE_WARNINGS_BEGIN("format-zero-length") \
         if (auto* annotator = SysprofAnnotator::singletonIfCreated()) \
-            annotator->beginMark(pointer, std::span(_STRINGIFY(name)), " " __VA_ARGS__); \
+            annotator->beginMark(pointer, std::span(_STRINGIFY(name)), "" __VA_ARGS__); \
+        IGNORE_WARNINGS_END \
     } while (0)
 
 #define WTFEndSignpost(pointer, name, ...)  \
     do { \
+        IGNORE_WARNINGS_BEGIN("format-zero-length") \
         if (auto* annotator = SysprofAnnotator::singletonIfCreated()) \
-            annotator->endMark(pointer, std::span(_STRINGIFY(name)), " " __VA_ARGS__); \
+            annotator->endMark(pointer, std::span(_STRINGIFY(name)), "" __VA_ARGS__); \
+        IGNORE_WARNINGS_END \
     } while (0)
 
 #define WTFEmitSignpostAlways(pointer, name, ...) WTFEmitSignpost((pointer), name, ##__VA_ARGS__)
@@ -368,8 +398,10 @@ enum WTFOSSignpostType {
 
 #define WTFEmitSignpostWithTimeDelta(pointer, name, timeDelta, ...) \
     do { \
+        IGNORE_WARNINGS_BEGIN("format-zero-length") \
         if (auto* annotator = SysprofAnnotator::singletonIfCreated()) \
-            annotator->mark((timeDelta), std::span(_STRINGIFY(name)), " " __VA_ARGS__); \
+            annotator->mark((timeDelta), std::span(_STRINGIFY(name)), "" __VA_ARGS__); \
+        IGNORE_WARNINGS_END \
     } while (0)
 
 #define WTFBeginSignpostWithTimeDelta(pointer, name, timeDelta, ...) WTFEmitSignpostWithTimeDelta((pointer), name, (timeDelta), ##__VA_ARGS__)

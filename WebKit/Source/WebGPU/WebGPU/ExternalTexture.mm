@@ -31,6 +31,8 @@
 #import "TextureView.h"
 #import <wtf/CheckedArithmetic.h>
 #import <wtf/MathExtras.h>
+#import <wtf/TZoneMallocInlines.h>
+#import <wtf/spi/cocoa/IOSurfaceSPI.h>
 
 namespace WebGPU {
 
@@ -42,11 +44,14 @@ Ref<ExternalTexture> Device::createExternalTexture(const WGPUExternalTextureDesc
     return ExternalTexture::create(descriptor.pixelBuffer, descriptor.colorSpace, *this);
 }
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ExternalTexture);
+
 ExternalTexture::ExternalTexture(CVPixelBufferRef pixelBuffer, WGPUColorSpace colorSpace, Device& device)
     : m_pixelBuffer(pixelBuffer)
     , m_colorSpace(colorSpace)
     , m_device(device)
 {
+    update(pixelBuffer);
 }
 
 ExternalTexture::ExternalTexture(Device& device)
@@ -63,6 +68,7 @@ ExternalTexture::~ExternalTexture() = default;
 
 void ExternalTexture::destroy()
 {
+    m_pixelBuffer = nil;
     m_destroyed = true;
     for (auto& commandEncoder : m_commandEncoders)
         commandEncoder.makeSubmitInvalid();
@@ -88,6 +94,21 @@ bool ExternalTexture::isDestroyed() const
     return m_destroyed;
 }
 
+void ExternalTexture::update(CVPixelBufferRef pixelBuffer)
+{
+#if HAVE(IOSURFACE_SET_OWNERSHIP_IDENTITY) && HAVE(TASK_IDENTITY_TOKEN)
+    if (IOSurfaceRef ioSurface = CVPixelBufferGetIOSurface(pixelBuffer)) {
+        if (auto optionalWebProcessID = m_device->webProcessID()) {
+            if (auto webProcessID = optionalWebProcessID->sendRight())
+                IOSurfaceSetOwnershipIdentity(ioSurface, webProcessID, kIOSurfaceMemoryLedgerTagGraphics, 0);
+        }
+    }
+#endif
+    m_pixelBuffer = pixelBuffer;
+    m_commandEncoders.clear();
+    m_destroyed = false;
+}
+
 } // namespace WebGPU
 
 #pragma mark WGPU Stubs
@@ -110,4 +131,9 @@ void wgpuExternalTextureDestroy(WGPUExternalTexture externalTexture)
 void wgpuExternalTextureUndestroy(WGPUExternalTexture externalTexture)
 {
     WebGPU::fromAPI(externalTexture).undestroy();
+}
+
+void wgpuExternalTextureUpdate(WGPUExternalTexture externalTexture, CVPixelBufferRef pixelBuffer)
+{
+    WebGPU::fromAPI(externalTexture).update(pixelBuffer);
 }

@@ -126,6 +126,7 @@ inline CapabilityLevel canCompile(Node* node)
     case ArithTrunc:
     case ArithSqrt:
     case ArithFRound:
+    case ArithF16Round:
     case ArithNegate:
     case ArithUnary:
     case UInt32ToNumber:
@@ -140,6 +141,7 @@ inline CapabilityLevel canCompile(Node* node)
     case SkipScope:
     case GetGlobalObject:
     case GetGlobalThis:
+    case UnwrapGlobalProxy:
     case CreateActivation:
     case PushWithScope:
     case NewFunction:
@@ -273,8 +275,8 @@ inline CapabilityLevel canCompile(Node* node)
     case IsCellWithType:
     case MapHash:
     case NormalizeMapKey:
-    case MapKeyIndex:
-    case MapValue:
+    case MapGet:
+    case LoadMapValue:
     case MapIterationNext:
     case MapIterationEntry:
     case MapIterationEntryKey:
@@ -291,6 +293,7 @@ inline CapabilityLevel canCompile(Node* node)
     case WeakSetAdd:
     case WeakMapSet:
     case IsEmpty:
+    case IsEmptyStorage:
     case TypeOfIsUndefined:
     case TypeOfIsObject:
     case TypeOfIsFunction:
@@ -309,6 +312,7 @@ inline CapabilityLevel canCompile(Node* node)
     case HasStructureWithFlags:
     case OverridesHasInstance:
     case InstanceOf:
+    case InstanceOfMegamorphic:
     case InstanceOfCustom:
     case DoubleRep:
     case ValueRep:
@@ -563,6 +567,7 @@ CapabilityLevel canCompile(Graph& graph)
                 case PromiseObjectUse:
                 case RegExpObjectUse:
                 case ProxyObjectUse:
+                case GlobalProxyUse:
                 case DerivedArrayUse:
                 case NotCellUse:
                 case NotCellNorBigIntUse:

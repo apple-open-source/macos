@@ -136,20 +136,5 @@ bool TrustdVariantLowMemoryDevice(void) {
 
 bool TrustdVariantPrivateServerOS(void) {
     static BOOL result = NO;
-#if TARGET_OS_IOS
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        NSString *releaseType = CFBridgingRelease(MGCopyAnswer(kMGQReleaseType, NULL));
-        if ([releaseType containsString:@"Darwin Cloud"]) {
-            result = YES;
-        }
-    });
-#endif
-    if (result) {
-        static dispatch_once_t logOnceToken;
-        dispatch_once(&logOnceToken, ^{
-            secnotice("trustd", "trustd running in CloudOS variant");
-        });
-    }
     return result;
 }

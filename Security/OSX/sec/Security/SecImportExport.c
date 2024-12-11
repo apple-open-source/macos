@@ -151,6 +151,7 @@ out:
     CFReleaseSafe(trust);
 }
 
+#if TARGET_OS_OSX
 static void build_unreferenced_certs(const void *value, void *context) {
     bool found = false;
     SecCertificateRef cert = (SecCertificateRef)value;
@@ -172,6 +173,7 @@ static void build_unreferenced_certs(const void *value, void *context) {
         CFArrayAppendValue(a_build_trust_chains_context->unreferenced_certs, cert);
     }
 }
+#endif
 
 static CFMutableDictionaryRef secItemOptionsFromPKCS12Options(CFDictionaryRef options)
 {
@@ -276,9 +278,18 @@ OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArray
 {
     pkcs12_context context = {};
     SecAsn1CoderCreate(&context.coder);
-    if (options)
+    if (options) {
         context.passphrase = CFDictionaryGetValue(options, kSecImportExportPassphrase);
-    context.items = CFDictionaryCreateMutable(kCFAllocatorDefault, 
+        CFRetainSafe(context.passphrase);
+    }
+    if (!context.passphrase) {
+        // Note that this changes a null passphrase into an empty passphrase, which are not
+        // the same thing for key derivation purposes (the former is zero bytes of data,
+        // while the latter is 2 null bytes.) Since key derivation must have some passphrase,
+        // we will choose whether to handle 0-length as null data in p12_pbe_gen().
+        context.passphrase = CFStringCreateWithCString(NULL, "", kCFStringEncodingUTF8);
+    }
+    context.items = CFDictionaryCreateMutable(kCFAllocatorDefault,
         0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     p12_error status = p12decode(&context, pkcs12_data);
     if (!status) {
@@ -312,6 +323,7 @@ OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArray
     }
 
     CFReleaseSafe(context.items);
+    CFReleaseSafe(context.passphrase);
     SecAsn1CoderRelease(context.coder);
     
     switch (status) {

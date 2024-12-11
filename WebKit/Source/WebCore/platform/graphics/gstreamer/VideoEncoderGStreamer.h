@@ -23,7 +23,7 @@
 
 #include "VideoEncoder.h"
 
-#include <wtf/FastMalloc.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebCore {
@@ -31,18 +31,19 @@ namespace WebCore {
 class GStreamerInternalVideoEncoder;
 
 class GStreamerVideoEncoder : public VideoEncoder {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(GStreamerVideoEncoder);
 public:
-    static void create(const String& codecName, const Config&, CreateCallback&&, DescriptionCallback&&, OutputCallback&&, PostTaskCallback&&);
+    static void create(const String& codecName, const Config&, CreateCallback&&, DescriptionCallback&&, OutputCallback&&);
 
-    GStreamerVideoEncoder(DescriptionCallback&&, OutputCallback&&, PostTaskCallback&&);
+    GStreamerVideoEncoder(const Config&, DescriptionCallback&&, OutputCallback&&);
     ~GStreamerVideoEncoder();
 
 private:
-    void encode(RawFrame&&, bool shouldGenerateKeyFrame, EncodeCallback&&) final;
-    void flush(Function<void()>&&) final;
+    Ref<EncodePromise> encode(RawFrame&&, bool shouldGenerateKeyFrame) final;
+    Ref<GenericPromise> flush() final;
     void reset() final;
     void close() final;
+    Ref<GenericPromise> setRates(uint64_t bitRate, double frameRate) final;
 
     Ref<GStreamerInternalVideoEncoder> m_internalEncoder;
 };

@@ -12,6 +12,7 @@
 
 #include <Availability.h>
 #include <TargetConditionals.h>
+#include <stdio.h>
 
 #include "common/MemoryBuffer.h"
 #include "common/string_utils.h"
@@ -30,7 +31,7 @@
 #if defined(NDEBUG) && !defined(ANGLE_METAL_FRAME_CAPTURE)
 #    define ANGLE_METAL_FRAME_CAPTURE_ENABLED 0
 #else
-#    define ANGLE_METAL_FRAME_CAPTURE_ENABLED ANGLE_WITH_MODERN_METAL_API
+#    define ANGLE_METAL_FRAME_CAPTURE_ENABLED 1
 #endif
 
 namespace rx
@@ -104,8 +105,61 @@ bool FrameCaptureDeviceScope()
 #endif
 }
 
+// Ensure that .gputrace files have RW permissions for the user or, if a
+// directory, RWX permissions for the user.
+ANGLE_APPLE_UNUSED
+static inline void FixGPUTracePathPermissions(NSString *path, bool isDir)
+{
+    // Ensure we're only change permissions on files in a gputrace bundle.
+    if (![path containsString:@".gputrace"])
+    {
+        return;
+    }
+
+    NSError *error = nil;
+    NSDictionary<NSFileAttributeKey, id> *attributes =
+        [NSFileManager.defaultManager attributesOfItemAtPath:path error:&error];
+    NSNumber *oldPerms = static_cast<NSNumber *>(attributes[NSFilePosixPermissions]);
+    if (!oldPerms)
+    {
+        NSString *msg =
+            attributes ? @"NSFilePosixPermissions unavailable" : error.localizedDescription;
+        NSLog(@"Unable to read permissions for %@ (%@)", path, msg);
+        return;
+    }
+
+    NSUInteger newPerms = oldPerms.unsignedIntegerValue | S_IRUSR | S_IWUSR;
+    if (isDir)
+    {
+        newPerms |= S_IXUSR;
+    }
+
+    if (![NSFileManager.defaultManager setAttributes:@{
+            NSFilePosixPermissions : @(newPerms)
+        }
+                                        ofItemAtPath:path
+                                               error:&error])
+    {
+        NSLog(@"Unable to set permissions=%3lo for %@ (%@)", static_cast<unsigned long>(newPerms),
+              path, error.localizedDescription);
+    }
+}
+
+ANGLE_APPLE_UNUSED
+static inline void FixGPUTraceBundlePermissions(NSString *bundlePath)
+{
+    FixGPUTracePathPermissions(bundlePath, true);
+    for (NSString *file in [NSFileManager.defaultManager enumeratorAtPath:bundlePath])
+    {
+        FixGPUTracePathPermissions([NSString pathWithComponents:@[ bundlePath, file ]], false);
+    }
+}
+
 ANGLE_APPLE_UNUSED
 std::atomic<size_t> gFrameCaptured(0);
+
+ANGLE_APPLE_UNUSED
+NSString *gFrameCapturePath;
 
 ANGLE_APPLE_UNUSED
 void StartFrameCapture(id<MTLDevice> metalDevice, id<MTLCommandQueue> metalCmdQueue)
@@ -140,14 +194,14 @@ void StartFrameCapture(id<MTLDevice> metalDevice, id<MTLCommandQueue> metalCmdQu
         auto captureDescriptor = mtl::adoptObjCObj([[MTLCaptureDescriptor alloc] init]);
         captureDescriptor.get().captureObject = metalDevice;
         const std::string filePath            = GetMetalCaptureFile();
+        NSString *frameCapturePath            = nil;
         if (filePath != "")
         {
-            const std::string numberedPath =
-                filePath + std::to_string(gFrameCaptured - 1) + ".gputrace";
+            frameCapturePath =
+                [NSString stringWithFormat:@"%s%zu.gputrace", filePath.c_str(), gFrameCaptured - 1];
             captureDescriptor.get().destination = MTLCaptureDestinationGPUTraceDocument;
-            captureDescriptor.get().outputURL =
-                [NSURL fileURLWithPath:[NSString stringWithUTF8String:numberedPath.c_str()]
-                           isDirectory:false];
+            captureDescriptor.get().outputURL   = [NSURL fileURLWithPath:frameCapturePath
+                                                           isDirectory:false];
         }
         else
         {
@@ -156,7 +210,12 @@ void StartFrameCapture(id<MTLDevice> metalDevice, id<MTLCommandQueue> metalCmdQu
         }
 
         NSError *error;
-        if (![captureManager startCaptureWithDescriptor:captureDescriptor.get() error:&error])
+        if ([captureManager startCaptureWithDescriptor:captureDescriptor.get() error:&error])
+        {
+            ASSERT(!gFrameCapturePath);
+            gFrameCapturePath = frameCapturePath;
+        }
+        else
         {
             NSLog(@"Failed to start capture, error %@", error);
         }
@@ -193,6 +252,12 @@ void StopFrameCapture()
     if (captureManager.isCapturing)
     {
         [captureManager stopCapture];
+        if (gFrameCapturePath)
+        {
+            FixGPUTraceBundlePermissions(gFrameCapturePath);
+            [gFrameCapturePath ANGLE_MTL_RELEASE];
+            gFrameCapturePath = nil;
+        }
     }
 #endif
 }
@@ -618,7 +683,7 @@ angle::Result InitializeDepthStencilTextureContentsGPU(const gl::Context *contex
         rtMTL.toRenderPassAttachmentDesc(&rpDesc.stencilAttachment);
         rpDesc.stencilAttachment.loadAction = MTLLoadActionClear;
     }
-    rpDesc.sampleCount = texture->samples();
+    rpDesc.rasterSampleCount = texture->samples();
 
     // End current render pass
     contextMtl->endEncoding(true);
@@ -788,24 +853,15 @@ static MTLLanguageVersion GetUserSetOrHighestMSLVersion(const MTLLanguageVersion
             case 1:
                 switch (minor)
                 {
-#if (defined(__IPHONE_9_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_9_0) &&   \
-    (!defined(__IPHONE_16_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_16_0) && \
-    (TARGET_OS_IOS || TARGET_OS_TV) && !TARGET_OS_MACCATALYST
                     case 0:
-                        return MTLLanguageVersion1_0;
+#if !defined(NDEBUG)
+                        NSLog(@"MSL 1.0 is deprecated, using MSL 1.1 instead\n");
 #endif
-#if (defined(__MAC_10_11) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_11) ||    \
-    (defined(__IPHONE_9_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_9_0) || \
-    (defined(__TVOS_9_0) && __TV_OS_VERSION_MIN_REQUIRED >= __TVOS_9_0)
+                        return MTLLanguageVersion1_1;
                     case 1:
                         return MTLLanguageVersion1_1;
-#endif
-#if (defined(__MAC_10_12) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_12) ||      \
-    (defined(__IPHONE_10_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0) || \
-    (defined(__TVOS_10_0) && __TV_OS_VERSION_MIN_REQUIRED >= __TVOS_10_0)
                     case 2:
                         return MTLLanguageVersion1_2;
-#endif
                     default:
                         assert(0 && "Unsupported MSL Minor Language Version.");
                 }
@@ -813,30 +869,26 @@ static MTLLanguageVersion GetUserSetOrHighestMSLVersion(const MTLLanguageVersion
             case 2:
                 switch (minor)
                 {
-#if (defined(__MAC_10_13) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_13) ||      \
-    (defined(__IPHONE_11_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_11_0) || \
-    (defined(__TVOS_11_0) && __TV_OS_VERSION_MIN_REQUIRED >= __TVOS_11_0)
                     case 0:
                         return MTLLanguageVersion2_0;
-#endif
-#if (defined(__MAC_10_14) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_14) ||      \
-    (defined(__IPHONE_12_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_12_0) || \
-    (defined(__TVOS_12_0) && __TV_OS_VERSION_MIN_REQUIRED >= __TVOS_12_0)
                     case 1:
                         return MTLLanguageVersion2_1;
-#endif
-#if (defined(__MAC_10_15) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_15) ||      \
-    (defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_13_0) || \
-    (defined(__TVOS_13_0) && __TV_OS_VERSION_MIN_REQUIRED >= __TVOS_13_0)
                     case 2:
                         return MTLLanguageVersion2_2;
-#endif
-#if (defined(__MAC_11_0) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_11_0) ||        \
-    (defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_14_0) || \
-    (defined(__TVOS_14_0) && __TV_OS_VERSION_MIN_REQUIRED >= __TVOS_14_0)
                     case 3:
-                        return MTLLanguageVersion2_3;
-#endif
+                        if (@available(macOS 11.0, *))
+                        {
+                            return MTLLanguageVersion2_3;
+                        }
+                        assert(0 && "MSL 2.3 requires macOS 11.");
+                        break;
+                    case 4:
+                        if (@available(macOS 12.0, *))
+                        {
+                            return MTLLanguageVersion2_4;
+                        }
+                        assert(0 && "MSL 2.4 requires macOS 12.");
+                        break;
                     default:
                         assert(0 && "Unsupported MSL Minor Language Version.");
                 }
@@ -849,7 +901,7 @@ static MTLLanguageVersion GetUserSetOrHighestMSLVersion(const MTLLanguageVersion
 }
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
-    const mtl::ContextDevice &metalDevice,
+    id<MTLDevice> metalDevice,
     const std::string &source,
     const std::map<std::string, std::string> &substitutionMacros,
     bool disableFastMath,
@@ -860,7 +912,7 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
                                disableFastMath, usesInvariance, error);
 }
 
-AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(const mtl::ContextDevice &metalDevice,
+AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(id<MTLDevice> metalDevice,
                                                 const std::string &source,
                                                 AutoObjCPtr<NSError *> *error)
 {
@@ -869,7 +921,7 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(const mtl::ContextDevice &metalD
 }
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
-    const mtl::ContextDevice &metalDevice,
+    id<MTLDevice> metalDevice,
     const char *source,
     size_t sourceLen,
     const std::map<std::string, std::string> &substitutionMacros,
@@ -887,14 +939,12 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
         auto options     = [[[MTLCompileOptions alloc] init] ANGLE_MTL_AUTORELEASE];
 
         // Mark all positions in VS with attribute invariant as non-optimizable
-        bool canPerserveInvariance = false;
-#if defined(__MAC_11_0) || defined(__IPHONE_14_0) || defined(__TVOS_14_0)
-        if (ANGLE_APPLE_AVAILABLE_XCI(11.0, 14.0, 14.0))
+        bool canPreserveInvariance = false;
+        if (@available(macOS 11.0, *))
         {
-            canPerserveInvariance      = true;
+            canPreserveInvariance      = true;
             options.preserveInvariance = usesInvariance;
         }
-#endif
 
         // If either:
         //   - fastmath is force-disabled
@@ -909,7 +959,7 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
         {
             options.fastMathEnabled = false;
         }
-        else if (usesInvariance && !canPerserveInvariance)
+        else if (usesInvariance && !canPreserveInvariance)
         {
             options.fastMathEnabled = false;
         }
@@ -929,7 +979,7 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
         auto *platform   = ANGLEPlatformCurrent();
         double startTime = platform->currentTime(platform);
 
-        auto library = metalDevice.newLibraryWithSource(nsSource, options, &nsError);
+        auto library = [metalDevice newLibraryWithSource:nsSource options:options error:&nsError];
         if (angle::GetEnvironmentVar(kANGLEPrintMSLEnv)[0] == '1')
         {
             NSLog(@"%@\n", nsSource);
@@ -968,8 +1018,10 @@ std::string CompileShaderLibraryToFile(const std::string &source,
     }
     // Save the source.
     {
-        angle::SaveFileHelper saveFileHelper(metalFileName.value());
-        saveFileHelper << source;
+        FILE *fp = fopen(metalFileName.value().c_str(), "wb");
+        ASSERT(fp);
+        fwrite(source.c_str(), sizeof(char), metalFileName.value().length(), fp);
+        fclose(fp);
     }
 
     // metal -> air
@@ -1128,10 +1180,8 @@ MTLSamplerAddressMode GetSamplerAddressMode(GLenum wrap)
     {
         case GL_CLAMP_TO_EDGE:
             return MTLSamplerAddressModeClampToEdge;
-#if !ANGLE_PLATFORM_WATCHOS
         case GL_MIRROR_CLAMP_TO_EDGE_EXT:
             return MTLSamplerAddressModeMirrorClampToEdge;
-#endif
         case GL_REPEAT:
             return MTLSamplerAddressModeRepeat;
         case GL_MIRRORED_REPEAT:
@@ -1276,19 +1326,12 @@ MTLWinding GetFrontfaceWinding(GLenum frontFaceMode, bool invert)
     }
 }
 
-#if ANGLE_MTL_PRIMITIVE_TOPOLOGY_CLASS_AVAILABLE
-PrimitiveTopologyClass GetPrimitiveTopologyClass(gl::PrimitiveMode mode)
+MTLPrimitiveTopologyClass GetPrimitiveTopologyClass(gl::PrimitiveMode mode)
 {
     // NOTE(hqle): Support layered renderring in future.
     // In non-layered rendering mode, unspecified is enough.
     return MTLPrimitiveTopologyClassUnspecified;
 }
-#else  // ANGLE_MTL_PRIMITIVE_TOPOLOGY_CLASS_AVAILABLE
-PrimitiveTopologyClass GetPrimitiveTopologyClass(gl::PrimitiveMode mode)
-{
-    return kPrimitiveTopologyClassTriangle;
-}
-#endif
 
 MTLPrimitiveType GetPrimitiveType(gl::PrimitiveMode mode)
 {
@@ -1327,7 +1370,6 @@ MTLIndexType GetIndexType(gl::DrawElementsType type)
     }
 }
 
-#if ANGLE_MTL_SWIZZLE_AVAILABLE
 MTLTextureSwizzle GetTextureSwizzle(GLenum swizzle)
 {
     switch (swizzle)
@@ -1349,7 +1391,6 @@ MTLTextureSwizzle GetTextureSwizzle(GLenum swizzle)
             return MTLTextureSwizzleZero;
     }
 }
-#endif
 
 MTLColorWriteMask GetEmulatedColorWriteMask(const mtl::Format &mtlFormat, bool *isEmulatedOut)
 {
@@ -1481,80 +1522,34 @@ bool DeviceHasMaximumRenderTargetSize(id<MTLDevice> device)
 
 bool SupportsAppleGPUFamily(id<MTLDevice> device, uint8_t appleFamily)
 {
-#if (__MAC_OS_X_VERSION_MAX_ALLOWED >= 101500 || __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000) || \
-    (__TV_OS_VERSION_MAX_ALLOWED >= 130000)
-    // If device supports [MTLDevice supportsFamily:], then use it.
-    if (ANGLE_APPLE_AVAILABLE_XCI(10.15, 13.1, 13))
-    {
-        MTLGPUFamily family;
-        switch (appleFamily)
-        {
-            case 1:
-                family = MTLGPUFamilyApple1;
-                break;
-            case 2:
-                family = MTLGPUFamilyApple2;
-                break;
-            case 3:
-                family = MTLGPUFamilyApple3;
-                break;
-            case 4:
-                family = MTLGPUFamilyApple4;
-                break;
-            case 5:
-                family = MTLGPUFamilyApple5;
-                break;
-#    if TARGET_OS_IOS || (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 110000)
-            case 6:
-                family = MTLGPUFamilyApple6;
-                break;
-#    endif
-            default:
-                return false;
-        }
-        return [device supportsFamily:family];
-    }   // Metal 2.2
-#endif  // __IPHONE_OS_VERSION_MAX_ALLOWED
-
-#if (!TARGET_OS_IOS && !TARGET_OS_TV) || TARGET_OS_MACCATALYST || \
-    (TARGET_OS_IOS && defined(__IPHONE_16_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_16_0)
-    return false;
-#else
-    // If device doesn't support [MTLDevice supportsFamily:], then use
-    // [MTLDevice supportsFeatureSet:].
-    MTLFeatureSet featureSet;
+    MTLGPUFamily family;
     switch (appleFamily)
     {
-#    if TARGET_OS_IOS
         case 1:
-            featureSet = MTLFeatureSet_iOS_GPUFamily1_v1;
+            family = MTLGPUFamilyApple1;
             break;
         case 2:
-            featureSet = MTLFeatureSet_iOS_GPUFamily2_v1;
+            family = MTLGPUFamilyApple2;
             break;
         case 3:
-            featureSet = MTLFeatureSet_iOS_GPUFamily3_v1;
+            family = MTLGPUFamilyApple3;
             break;
         case 4:
-            featureSet = MTLFeatureSet_iOS_GPUFamily4_v1;
+            family = MTLGPUFamilyApple4;
             break;
-#        if __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000
         case 5:
-            featureSet = MTLFeatureSet_iOS_GPUFamily5_v1;
+            family = MTLGPUFamilyApple5;
             break;
-#        endif  // __IPHONE_OS_VERSION_MAX_ALLOWED
-#    elif TARGET_OS_TV
-        case 1:
-        case 2:
-            featureSet = MTLFeatureSet_tvOS_GPUFamily1_v1;
+        case 6:
+            family = MTLGPUFamilyApple6;
             break;
-#    endif  // TARGET_OS_IOS
+        case 7:
+            family = MTLGPUFamilyApple7;
+            break;
         default:
             return false;
     }
-
-    return [device supportsFeatureSet:featureSet];
-#endif      // TARGET_OS_IOS || TARGET_OS_TV
+    return [device supportsFamily:family];
 }
 
 #if (defined(__MAC_13_0) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_13_0) ||        \
@@ -1578,71 +1573,27 @@ bool SupportsAppleGPUFamily(id<MTLDevice> device, uint8_t appleFamily)
 bool SupportsMacGPUFamily(id<MTLDevice> device, uint8_t macFamily)
 {
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
-#    if defined(__MAC_10_15)
-    // If device supports [MTLDevice supportsFamily:], then use it.
-    if (ANGLE_APPLE_AVAILABLE_XCI(10.15, 13.1, 13))
-    {
-        MTLGPUFamily family;
-
-        switch (macFamily)
-        {
-#        if TARGET_OS_MACCATALYST
-            ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
-            case 1:
-                family = ANGLE_MTL_GPU_FAMILY_MAC1;
-                break;
-            case 2:
-                family = ANGLE_MTL_GPU_FAMILY_MAC2;
-                break;
-                ANGLE_APPLE_ALLOW_DEPRECATED_END
-#        else   // TARGET_OS_MACCATALYST
-            ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
-            case 1:
-                family = MTLGPUFamilyMac1;
-                break;
-                ANGLE_APPLE_ALLOW_DEPRECATED_END
-            case 2:
-                family = MTLGPUFamilyMac2;
-                break;
-#        endif  // TARGET_OS_MACCATALYST
-            default:
-                return false;
-        }
-
-        return [device supportsFamily:family];
-    }  // Metal 2.2
-#    endif
-
-    // If device doesn't support [MTLDevice supportsFamily:], then use
-    // [MTLDevice supportsFeatureSet:].
-#    if TARGET_OS_MACCATALYST || ANGLE_MTL_FEATURE_SET_DEPRECATED
-    UNREACHABLE();
-    return false;
-#    else
-
-    ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
-    MTLFeatureSet featureSet;
     switch (macFamily)
     {
         case 1:
-            featureSet = MTLFeatureSet_macOS_GPUFamily1_v1;
-            break;
-#        if defined(__MAC_10_14)
+#    if TARGET_OS_MACCATALYST && __IPHONE_OS_VERSION_MIN_REQUIRED < 160000
+            return [device supportsFamily:MTLGPUFamilyMacCatalyst1];
+#    elif TARGET_OS_OSX && __MAC_OS_X_VERSION_MIN_REQUIRED < 130000
+            return [device supportsFamily:MTLGPUFamilyMac1];
+#    else
+            return [device supportsFamily:MTLGPUFamilyMac2];
+#    endif
         case 2:
-            featureSet = MTLFeatureSet_macOS_GPUFamily2_v1;
-            break;
-#        endif
+#    if TARGET_OS_MACCATALYST && __IPHONE_OS_VERSION_MIN_REQUIRED < 160000
+            return [device supportsFamily:MTLGPUFamilyMacCatalyst2];
+#    else
+            return [device supportsFamily:MTLGPUFamilyMac2];
+#    endif
         default:
-            return false;
+            break;
     }
-    return [device supportsFeatureSet:featureSet];
-    ANGLE_APPLE_ALLOW_DEPRECATED_END
-#    endif  // TARGET_OS_MACCATALYST
-#else       // #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
-
-    return false;
-
 #endif
+    return false;
 }
 
 static NSUInteger getNextLocationForFormat(const FormatCaps &caps,
@@ -1709,9 +1660,7 @@ NSUInteger ComputeTotalSizeUsedForMTLRenderPipelineDescriptor(
     const mtl::ContextDevice &device)
 {
     NSUInteger currentRenderTargetSize = 0;
-    ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
-    bool isMsaa = descriptor.sampleCount > 1;
-    ANGLE_APPLE_ALLOW_DEPRECATED_END
+    bool isMsaa                        = descriptor.rasterSampleCount > 1;
     for (NSUInteger i = 0; i < GetMaxNumberOfRenderTargetsForDevice(device); i++)
     {
         MTLRenderPipelineColorAttachmentDescriptor *color = descriptor.colorAttachments[i];

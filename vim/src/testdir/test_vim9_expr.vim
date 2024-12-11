@@ -309,6 +309,36 @@ def Test_expr2()
         g:vals = [1]
       endif
       assert_equal([1], g:vals)
+
+      # string interpolation with ||
+      assert_equal('true', $"{0 || 1}")
+  END
+  v9.CheckDefAndScriptSuccess(lines)
+
+  # test the short-circuit operation
+  lines =<< trim END
+    assert_equal(true, true && true)
+    assert_equal(false, true && !true)
+    assert_equal(false, !true && true)
+    assert_equal(false, !true && !true)
+
+    assert_equal(true, true || true)
+    assert_equal(true, true || !true)
+    assert_equal(true, !true || true)
+    assert_equal(false, !true || !true)
+
+    assert_equal(false, false && false)
+    assert_equal(false, false && !false)
+    assert_equal(false, !false && false)
+    assert_equal(true, !false && !false)
+
+    assert_equal(false, false || false)
+    assert_equal(true, false || !false)
+    assert_equal(true, !false || false)
+    assert_equal(true, !false || !false)
+
+    assert_equal(false, !true && !true && !true)
+    assert_equal(true, !false || !false || !false)
   END
   v9.CheckDefAndScriptSuccess(lines)
 enddef
@@ -387,7 +417,8 @@ def Test_expr2_fails()
   v9.CheckDefAndScriptFailure(["if 3"], 'E1023:', 1)
   v9.CheckDefExecAndScriptFailure(['var x = 3', 'if x', 'endif'], 'E1023:', 2)
 
-  v9.CheckDefAndScriptFailure(["var x = [] || false"], ['E1012: Type mismatch; expected bool but got list<unknown>', 'E745:'], 1)
+  v9.CheckDefAndScriptFailure(["var x = [] || false"], ['E1012: Type mismatch; expected bool but got list<any>', 'E745:'], 1)
+  v9.CheckDefAndScriptFailure(["var x = $'{false || []}'"], ['E1012: Type mismatch; expected bool but got list<any>', 'E745:'], 1)
 
   var lines =<< trim END
     vim9script
@@ -448,6 +479,9 @@ def Test_expr3()
         failed = true
       endif
       assert_false(failed)
+
+      # string interpolation with &&
+      assert_equal('false', $"{1 && 0}")
   END
   v9.CheckDefAndScriptSuccess(lines)
 enddef
@@ -547,6 +581,8 @@ def Test_expr3_fails()
       echo true && s
   END
   v9.CheckDefAndScriptFailure(lines, ['E1012: Type mismatch; expected bool but got string', 'E1135: Using a String as a Bool: "asdf"'])
+
+  v9.CheckDefAndScriptFailure(["var x = $'{true && []}'"], ['E1012: Type mismatch; expected bool but got list<any>', 'E745:'], 1)
 enddef
 
 " global variables to use for tests with the "any" type
@@ -2082,6 +2118,12 @@ def Test_expr9_number()
       Test()
   END
   v9.CheckDefAndScriptSuccess(lines)
+
+  lines =<< trim END
+    vim9script
+    eval("10\n")
+  END
+  v9.CheckSourceScriptFailure(lines, "E488: Trailing characters: \n")
 enddef
 
 def Test_expr9_float()
@@ -2125,6 +2167,7 @@ def Test_expr9_blob()
   v9.CheckDefAndScriptSuccess(lines)
 
   v9.CheckDefAndScriptFailure(["var x = 0z123"], 'E973:', 1)
+  v9.CheckDefAndScriptFailure(["var x = null_blox"], ['E1001:', 'E121:'], 1)
 enddef
 
 def Test_expr9_string()
@@ -2795,7 +2838,7 @@ def Test_expr9_dict()
       var ds = {k: null_string}
       assert_equal('dict<string>', typename(ds))
       var dl = {a: null_list}
-      assert_equal('dict<list<unknown>>', typename(dl))
+      assert_equal('dict<list<any>>', typename(dl))
   END
   v9.CheckDefAndScriptSuccess(lines)
 
@@ -3038,7 +3081,7 @@ def Test_expr_member()
 
   v9.CheckDefAndScriptFailure(["var x = g:dict_one.#$!"], ['E1002:', 'E15:'], 1)
   v9.CheckDefExecAndScriptFailure(["var d: dict<any>", "echo d['a']"], 'E716:', 2)
-  v9.CheckDefExecAndScriptFailure(["var d: dict<number>", "d = g:list_empty"], 'E1012: Type mismatch; expected dict<number> but got list<unknown>', 2)
+  v9.CheckDefExecAndScriptFailure(["var d: dict<number>", "d = g:list_empty"], 'E1012: Type mismatch; expected dict<number> but got list<any>', 2)
 enddef
 
 def Test_expr9_any_index_slice()

@@ -91,9 +91,59 @@
 #include "MediaCapability.h"
 #endif
 
+#if PLATFORM(COCOA)
+#include "CocoaWindow.h"
+#endif
+
 namespace WebKit {
 
-class WebPageProxyFrameLoadStateObserver;
+#if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
+class WebPageProxyFrameLoadStateObserver final : public FrameLoadStateObserver {
+    WTF_MAKE_NONCOPYABLE(WebPageProxyFrameLoadStateObserver);
+    WTF_MAKE_TZONE_ALLOCATED(WebPageProxyFrameLoadStateObserver);
+public:
+    static constexpr size_t maxVisitedDomainsSize = 6;
+
+    WebPageProxyFrameLoadStateObserver();
+    virtual ~WebPageProxyFrameLoadStateObserver();
+
+    void didReceiveProvisionalURL(const URL& url) override
+    {
+        m_provisionalURLs.append(url);
+    }
+
+    void didCancelProvisionalLoad() override
+    {
+        m_provisionalURLs.clear();
+    }
+
+    void didCommitProvisionalLoad() override
+    {
+        for (auto& url : m_provisionalURLs)
+            didVisitDomain(WebCore::RegistrableDomain(url));
+    }
+
+    const ListHashSet<WebCore::RegistrableDomain>& visitedDomains() const
+    {
+        return m_visitedDomains;
+    }
+
+private:
+    void didVisitDomain(WebCore::RegistrableDomain&& domain)
+    {
+        if (domain.isEmpty())
+            return;
+
+        m_visitedDomains.prependOrMoveToFirst(WTFMove(domain));
+
+        if (m_visitedDomains.size() > maxVisitedDomainsSize)
+            m_visitedDomains.removeLast();
+    }
+
+    Vector<URL> m_provisionalURLs;
+    ListHashSet<WebCore::RegistrableDomain> m_visitedDomains;
+};
+#endif
 
 struct PrivateClickMeasurementAndMetadata {
     WebCore::PrivateClickMeasurement pcm;
@@ -166,6 +216,9 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
 {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
 
+public:
+    virtual ~Internals();
+
     WebPageProxy& page;
     OptionSet<WebCore::ActivityState> activityState;
     RunLoop::Timer audibleActivityTimer;
@@ -189,6 +242,7 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     WebCore::IntSize minimumSizeForAutoLayout;
     WebCore::FloatSize minimumUnobscuredSize;
     Deque<NativeWebMouseEvent> mouseEventQueue;
+    Vector<WebMouseEvent> coalescedMouseEvents;
     WebCore::MediaProducerMutedStateFlags mutedState;
     WebNotificationManagerMessageHandler notificationManagerMessageHandler;
     OptionSet<WebCore::LayoutMilestone> observedLayoutMilestones;
@@ -275,7 +329,6 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
 #endif
 
     CompletionHandler<void(bool)> serviceWorkerLaunchCompletionHandler;
-    CompletionHandler<void(std::optional<WebCore::PageIdentifier>)> serviceWorkerOpenWindowCompletionCallback;
 
 #if ENABLE(SPEECH_SYNTHESIS)
     std::optional<SpeechSynthesisData> optionalSpeechSynthesisData;
@@ -358,8 +411,8 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
 #if ENABLE(APPLE_PAY) && PLATFORM(IOS_FAMILY) && ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
     void getWindowSceneAndBundleIdentifierForPaymentPresentation(WebPageProxyIdentifier, CompletionHandler<void(const String&, const String&)>&&) final;
 #endif
-#if ENABLE(APPLE_PAY) && PLATFORM(MAC)
-    NSWindow *paymentCoordinatorPresentingWindow(const WebPaymentCoordinatorProxy&) final;
+#if ENABLE(APPLE_PAY)
+    CocoaWindow *paymentCoordinatorPresentingWindow(const WebPaymentCoordinatorProxy&) const final;
 #endif
 
 #if ENABLE(INPUT_TYPE_COLOR)
@@ -392,7 +445,7 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     void externalOutputDeviceAvailableDidChange(WebCore::PlaybackTargetClientContextIdentifier, bool) final;
     void setShouldPlayToPlaybackTarget(WebCore::PlaybackTargetClientContextIdentifier, bool) final;
     void playbackTargetPickerWasDismissed(WebCore::PlaybackTargetClientContextIdentifier) final;
-    bool alwaysOnLoggingAllowed() const final { return page.sessionID().isAlwaysOnLoggingAllowed(); }
+    bool alwaysOnLoggingAllowed() const final { return page.isAlwaysOnLoggingAllowed(); }
     RetainPtr<PlatformView> platformView() const final;
 #endif
 };

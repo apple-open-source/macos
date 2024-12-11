@@ -29,6 +29,7 @@
 #import "APIConversions.h"
 #import "Device.h"
 #import <cmath>
+#import <wtf/TZoneMallocInlines.h>
 
 @implementation SamplerIdentifier
 - (instancetype)initWithFirst:(uint64_t)first second:(uint64_t)second
@@ -50,6 +51,7 @@ namespace WebGPU {
 
 NSMutableDictionary<SamplerIdentifier*, id<MTLSamplerState>> *Sampler::cachedSamplerStates = nil;
 NSMutableOrderedSet<SamplerIdentifier*> *Sampler::lastAccessedKeys = nil;
+Lock Sampler::samplerStateLock;
 
 static bool validateCreateSampler(Device& device, const WGPUSamplerDescriptor& descriptor)
 {
@@ -236,6 +238,8 @@ Ref<Sampler> Device::createSampler(const WGPUSamplerDescriptor& descriptor)
     return Sampler::create([[SamplerIdentifier alloc] initWithFirst:newDescriptorHash.first second:newDescriptorHash.second], descriptor, *this);
 }
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Sampler);
+
 Sampler::Sampler(SamplerIdentifier* samplerIdentifier, const WGPUSamplerDescriptor& descriptor, Device& device)
     : m_samplerIdentifier(samplerIdentifier)
     , m_descriptor(descriptor)
@@ -249,7 +253,14 @@ Sampler::Sampler(Device& device)
 {
 }
 
-Sampler::~Sampler() = default;
+Sampler::~Sampler()
+{
+    if (m_samplerIdentifier) {
+        Locker locker { samplerStateLock };
+        [cachedSamplerStates removeObjectForKey:m_samplerIdentifier];
+        [lastAccessedKeys removeObject:m_samplerIdentifier];
+    }
+}
 
 void Sampler::setLabel(String&& label)
 {
@@ -266,6 +277,7 @@ id<MTLSamplerState> Sampler::samplerState() const
     if (!m_samplerIdentifier)
         return nil;
 
+    Locker locker { samplerStateLock };
     if (!cachedSamplerStates) {
         cachedSamplerStates = [NSMutableDictionary dictionary];
         lastAccessedKeys = [NSMutableOrderedSet orderedSet];
@@ -276,9 +288,15 @@ id<MTLSamplerState> Sampler::samplerState() const
         return samplerState;
 
     id<MTLDevice> device = m_device->device();
+    if (!device)
+        return nil;
     if (cachedSamplerStates.count >= device.maxArgumentBufferSamplerCount) {
+        if (!lastAccessedKeys.count)
+            return nil;
+
         SamplerIdentifier* key = [lastAccessedKeys objectAtIndex:0];
-        [cachedSamplerStates removeObjectForKey:key];
+        if (key)
+            [cachedSamplerStates removeObjectForKey:key];
         [lastAccessedKeys removeObjectAtIndex:0];
         ASSERT(cachedSamplerStates.count < device.maxArgumentBufferSamplerCount);
     }

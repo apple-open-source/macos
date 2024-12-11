@@ -282,22 +282,22 @@ public:
     JS_EXPORT_PRIVATE void freeUnneededB3ValuesAfterLowering();
 
     bool shouldDumpIR() const { return m_shouldDumpIR; }
-    void setShouldDumpIR();
+    JS_EXPORT_PRIVATE void setShouldDumpIR();
 
     void setUsessSIMD()
     { 
-        RELEASE_ASSERT(Options::useWebAssemblySIMD());
+        RELEASE_ASSERT(Options::useWasmSIMD());
         m_usesSIMD = true;
     }
     bool usesSIMD() const
     {
         // See also: WasmModuleInformation::usesSIMD().
-        if (!Options::useWebAssemblySIMD())
+        if (!Options::useWasmSIMD())
             return false;
         if (Options::forceAllFunctionsToUseSIMD())
             return true;
         // The LLInt discovers this value.
-        ASSERT(Options::useWebAssemblyLLInt() || Options::useWebAssemblyIPInt());
+        ASSERT(Options::useWasmLLInt() || Options::useWasmIPInt());
         return m_usesSIMD;
     }
 

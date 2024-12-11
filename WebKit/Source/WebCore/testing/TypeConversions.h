@@ -27,7 +27,6 @@
 
 #include "Node.h"
 #include <variant>
-#include <wtf/FastMalloc.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
@@ -149,7 +148,7 @@ public:
     double testImpureNaNUnrestrictedDouble() const { return bitwise_cast<double>(0xffff000000000000ll); }
     double testImpureNaN2UnrestrictedDouble() const { return bitwise_cast<double>(0x7ff8000000000001ll); }
     double testQuietNaNUnrestrictedDouble() const { return std::numeric_limits<double>::quiet_NaN(); }
-    double testPureNaNUnrestrictedDouble() const { return JSC::pureNaN(); }
+    double testPureNaNUnrestrictedDouble() const { return JSC::PNaN; }
 
 private:
     TypeConversions() = default;

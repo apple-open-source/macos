@@ -35,12 +35,14 @@
 #include "CSSLayerStatementRule.h"
 #include "CSSMediaRule.h"
 #include "CSSNamespaceRule.h"
+#include "CSSNestedDeclarations.h"
 #include "CSSPageRule.h"
 #include "CSSPropertyRule.h"
 #include "CSSScopeRule.h"
 #include "CSSStartingStyleRule.h"
 #include "CSSStyleRule.h"
 #include "CSSSupportsRule.h"
+#include "CSSViewTransitionRule.h"
 #include "MediaList.h"
 #include "MutableStyleProperties.h"
 #include "StyleProperties.h"
@@ -87,6 +89,8 @@ template<typename Visitor> constexpr decltype(auto) StyleRuleBase::visitDerived(
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRule>(*this));
     case StyleRuleType::StyleWithNesting:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleWithNesting>(*this));
+    case StyleRuleType::NestedDeclarations:
+        return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleNestedDeclarations>(*this));
     case StyleRuleType::Page:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRulePage>(*this));
     case StyleRuleType::FontFace:
@@ -124,6 +128,8 @@ template<typename Visitor> constexpr decltype(auto) StyleRuleBase::visitDerived(
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleScope>(*this));
     case StyleRuleType::StartingStyle:
         return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleStartingStyle>(*this));
+    case StyleRuleType::ViewTransition:
+        return std::invoke(std::forward<Visitor>(visitor), uncheckedDowncast<StyleRuleViewTransition>(*this));
     case StyleRuleType::Margin:
         break;
     case StyleRuleType::Unknown:
@@ -166,6 +172,9 @@ Ref<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRu
         },
         [&](StyleRuleWithNesting& rule) -> Ref<CSSRule> {
             return CSSStyleRule::create(rule, parentSheet);
+        },
+        [&](StyleRuleNestedDeclarations& rule) -> Ref<CSSRule> {
+            return CSSNestedDeclarations::create(rule, parentSheet);
         },
         [&](StyleRulePage& rule) -> Ref<CSSRule> {
             return CSSPageRule::create(rule, parentSheet);
@@ -216,6 +225,9 @@ Ref<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRu
         },
         [&](StyleRuleStartingStyle& rule) -> Ref<CSSRule> {
             return CSSStartingStyleRule::create(rule, parentSheet);
+        },
+        [&](StyleRuleViewTransition& rule) -> Ref<CSSRule> {
+            return CSSViewTransitionRule::create(rule, parentSheet);
         },
         [](StyleRuleCharset&) -> Ref<CSSRule> {
             RELEASE_ASSERT_NOT_REACHED();
@@ -392,6 +404,19 @@ StyleRulePage::StyleRulePage(const StyleRulePage& o)
     , m_properties(o.m_properties->mutableCopy())
     , m_selectorList(o.m_selectorList)
 {
+}
+
+StyleRuleNestedDeclarations::StyleRuleNestedDeclarations(Ref<StyleProperties>&& properties)
+    : StyleRule(WTFMove(properties), false, { })
+{
+    setType(StyleRuleType::NestedDeclarations);
+}
+
+String StyleRuleNestedDeclarations::debugDescription() const
+{
+    StringBuilder builder;
+    builder.append("StyleRuleNestedDeclarations ["_s, properties().asText(), ']');
+    return builder.toString();
 }
 
 StyleRulePage::~StyleRulePage() = default;

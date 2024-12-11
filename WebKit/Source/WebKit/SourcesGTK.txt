@@ -253,10 +253,12 @@ UIProcess/WebsiteData/soup/WebsiteDataStoreSoup.cpp
 
 UIProcess/cairo/BackingStoreCairo.cpp
 
+UIProcess/glib/DRMDevice.cpp @no-unify
 UIProcess/glib/DisplayLinkGLib.cpp
 UIProcess/glib/DisplayVBlankMonitor.cpp
 UIProcess/glib/DisplayVBlankMonitorDRM.cpp
 UIProcess/glib/DisplayVBlankMonitorTimer.cpp
+UIProcess/glib/FenceMonitor.cpp
 UIProcess/glib/ScreenManager.cpp
 UIProcess/glib/WebPageProxyGLib.cpp
 UIProcess/glib/WebProcessPoolGLib.cpp
@@ -269,6 +271,9 @@ UIProcess/gtk/AcceleratedBackingStoreDMABuf.cpp @no-unify
 UIProcess/gtk/Clipboard.cpp
 UIProcess/gtk/ClipboardGtk3.cpp @no-unify
 UIProcess/gtk/ClipboardGtk4.cpp @no-unify
+UIProcess/gtk/Display.cpp @no-unify
+UIProcess/gtk/DisplayX11.cpp @no-unify
+UIProcess/gtk/DisplayWayland.cpp @no-unify
 UIProcess/gtk/WebDateTimePickerGtk.cpp
 UIProcess/gtk/GtkSettingsManager.cpp
 UIProcess/gtk/HardwareAccelerationManager.cpp

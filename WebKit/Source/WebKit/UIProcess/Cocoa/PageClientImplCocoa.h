@@ -139,6 +139,8 @@ public:
 
     void videoControlsManagerDidChange() override;
 
+    CocoaWindow *platformWindow() const final;
+
 protected:
     RetainPtr<WKWebView> webView() const { return m_webView.get(); }
 

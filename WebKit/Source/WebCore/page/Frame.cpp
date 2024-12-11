@@ -29,11 +29,13 @@
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLIFrameElement.h"
 #include "HistoryController.h"
+#include "LocalDOMWindow.h"
 #include "NavigationScheduler.h"
 #include "Page.h"
 #include "RemoteFrame.h"
 #include "RenderElement.h"
 #include "RenderWidget.h"
+#include "ScrollingCoordinator.h"
 #include "WindowProxy.h"
 #include <wtf/NeverDestroyed.h>
 
@@ -119,6 +121,9 @@ Frame::Frame(Page& page, FrameIdentifier frameID, FrameType frameType, HTMLFrame
     if (ownerElement)
         ownerElement->setContentFrame(*this);
 
+    if (opener)
+        opener->m_openedFrames.add(*this);
+
 #if ASSERT_ENABLED
     FrameLifetimeVerifier::singleton().frameCreated(*this);
 #endif
@@ -151,7 +156,7 @@ void Frame::detachFromPage()
     if (isRootFrame()) {
         if (m_page) {
             m_page->removeRootFrame(downcast<LocalFrame>(*this));
-            if (auto* scrollingCoordinator = m_page->scrollingCoordinator())
+            if (RefPtr scrollingCoordinator = m_page->scrollingCoordinator())
                 scrollingCoordinator->rootFrameWasRemoved(frameID());
         }
     }
@@ -168,7 +173,7 @@ void Frame::disconnectOwnerElement()
     frameWasDisconnectedFromOwner();
 }
 
-void Frame::takeWindowProxyFrom(Frame& frame)
+void Frame::takeWindowProxyAndOpenerFrom(Frame& frame)
 {
     ASSERT(is<LocalDOMWindow>(window()) != is<LocalDOMWindow>(frame.window()));
     ASSERT(m_windowProxy->frame() == this);
@@ -176,6 +181,13 @@ void Frame::takeWindowProxyFrom(Frame& frame)
     m_windowProxy = frame.windowProxy();
     frame.resetWindowProxy();
     m_windowProxy->replaceFrame(*this);
+
+    // FIXME: We ought to be able to assert that there is no existing opener here,
+    // but WKBundleFrameClearOpener is used to clear state between tests and it
+    // only clears in one process.
+    m_opener = frame.m_opener;
+    for (auto& opened : frame.m_openedFrames)
+        opened.m_opener = *this;
 }
 
 Ref<WindowProxy> Frame::protectedWindowProxy() const
@@ -212,17 +224,34 @@ bool Frame::isRootFrameIdentifier(FrameIdentifier identifier)
 }
 #endif
 
-void Frame::setOpener(Frame* opener)
+void Frame::updateOpener(Frame& newOpener)
+{
+    // FIXME: rdar://134621844 Make this work with site isolation.
+    if (m_opener)
+        m_opener->m_openedFrames.remove(*this);
+    newOpener.m_openedFrames.add(*this);
+    if (RefPtr page = this->page())
+        page->setOpenedByDOMWithOpener(true);
+    m_opener = newOpener;
+
+    reinitializeDocumentSecurityContext();
+}
+
+void Frame::disownOpener()
 {
     if (m_opener)
         m_opener->m_openedFrames.remove(*this);
-    if (opener) {
-        opener->m_openedFrames.add(*this);
-        if (RefPtr page = this->page())
-            page->setOpenedByDOMWithOpener(true);
-    }
-    m_opener = opener;
+    m_opener = nullptr;
 
+    reinitializeDocumentSecurityContext();
+}
+
+void Frame::setOpenerForWebKitLegacy(Frame* frame)
+{
+    ASSERT(!m_opener);
+    ASSERT(frame);
+    m_opener = frame;
+    m_page->setOpenedByDOMWithOpener(true);
     reinitializeDocumentSecurityContext();
 }
 
@@ -230,13 +259,6 @@ void Frame::detachFromAllOpenedFrames()
 {
     for (auto& frame : std::exchange(m_openedFrames, { }))
         frame.m_opener = nullptr;
-}
-
-Vector<Ref<Frame>> Frame::openedFrames()
-{
-    return WTF::map(m_openedFrames, [] (auto& frame) {
-        return Ref { frame };
-    });
 }
 
 bool Frame::hasOpenedFrames() const

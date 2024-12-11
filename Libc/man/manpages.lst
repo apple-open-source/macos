@@ -146,7 +146,7 @@ getvfsbyname.3 getvfsbyname.3
 getwc.3 getwc.3 fgetwc.3 getwchar.3
 getwc_l.3 getwc_l.3 fgetwc_l.3 getwchar_l.3
 glob.3 glob.3 globfree.3
-grantpt.3 grantpt.3 posix_openpt.3 ptsname.3 unlockpt.3
+grantpt.3 grantpt.3 posix_openpt.3 ptsname.3 ptsname_r.3 unlockpt.3
 hash.3 hash.3
 hcreate.3 hcreate.3 hdestroy.3 hsearch.3
 imaxabs.3 imaxabs.3

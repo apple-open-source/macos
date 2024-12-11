@@ -75,7 +75,6 @@ enum class SDKAlignedBehavior {
     NoLaBanquePostaleQuirks,
     NoMoviStarPlusCORSPreflightQuirk,
     NoPokerBrosBuiltInTagQuirk,
-    NoSearchInputIncrementalAttributeAndSearchEvent,
     NoShowModalDialog,
     NoTheSecretSocietyHiddenMysteryWindowOpenQuirk,
     NoTypedArrayAPIQuirk,
@@ -125,6 +124,7 @@ enum class SDKAlignedBehavior {
     LaxCookieSameSiteAttribute,
     BlockOptionallyBlockableMixedContent,
     UseCFNetworkNetworkLoader,
+    BlobFileAccessEnforcement,
     BlockCrossOriginRedirectDownloads,
 
     NumberOfBehaviors

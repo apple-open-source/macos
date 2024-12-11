@@ -29,7 +29,6 @@
 
 #if USE(COORDINATED_GRAPHICS)
 
-#include "TextureMapperGLHeaders.h"
 #include <wtf/Condition.h>
 #include <wtf/Function.h>
 #include <wtf/RunLoop.h>
@@ -41,10 +40,14 @@
 
 namespace WebCore {
 
+class CoordinatedPlatformLayerBuffer;
+
 class TextureMapperPlatformLayerProxyGL final : public TextureMapperPlatformLayerProxy {
-    WTF_MAKE_FAST_ALLOCATED();
 public:
-    explicit TextureMapperPlatformLayerProxyGL(ContentType);
+    static Ref<TextureMapperPlatformLayerProxy> create(ContentType contentType)
+    {
+        return adoptRef(*new TextureMapperPlatformLayerProxyGL(contentType));
+    }
     virtual ~TextureMapperPlatformLayerProxyGL();
 
     bool isGLBased() const override { return true; }
@@ -53,33 +56,27 @@ public:
     WEBCORE_EXPORT void invalidate() override;
     WEBCORE_EXPORT void swapBuffer() override;
 
-    std::unique_ptr<TextureMapperPlatformLayerBuffer> getAvailableBuffer(const IntSize&, GLint internalFormat);
-    void pushNextBuffer(std::unique_ptr<TextureMapperPlatformLayerBuffer>&&);
+    void pushNextBuffer(std::unique_ptr<CoordinatedPlatformLayerBuffer>&&);
 
-    void dropCurrentBufferWhilePreservingTexture(bool shouldWait = false);
+    void dropCurrentBufferWhilePreservingTexture(bool shouldWait);
 
     bool scheduleUpdateOnCompositorThread(Function<void()>&&);
 
 private:
-    void appendToUnusedBuffers(std::unique_ptr<TextureMapperPlatformLayerBuffer>);
-    void scheduleReleaseUnusedBuffers();
-    void releaseUnusedBuffersTimerFired();
+    explicit TextureMapperPlatformLayerProxyGL(ContentType);
 
-    std::unique_ptr<TextureMapperPlatformLayerBuffer> m_currentBuffer;
-    std::unique_ptr<TextureMapperPlatformLayerBuffer> m_pendingBuffer;
+    void compositorThreadUpdateTimerFired();
+
+    std::unique_ptr<CoordinatedPlatformLayerBuffer> m_currentBuffer;
+    std::unique_ptr<CoordinatedPlatformLayerBuffer> m_pendingBuffer;
+#if ASSERT_ENABLED
+    RefPtr<Thread> m_compositorThread;
+#endif
 
     Lock m_wasBufferDroppedLock;
     Condition m_wasBufferDroppedCondition;
     bool m_wasBufferDropped WTF_GUARDED_BY_LOCK(m_wasBufferDroppedLock) { false };
 
-    Vector<std::unique_ptr<TextureMapperPlatformLayerBuffer>> m_usedBuffers;
-    std::unique_ptr<RunLoop::Timer> m_releaseUnusedBuffersTimer;
-
-#if ASSERT_ENABLED
-    RefPtr<Thread> m_compositorThread;
-#endif
-
-    void compositorThreadUpdateTimerFired();
     std::unique_ptr<RunLoop::Timer> m_compositorThreadUpdateTimer;
     Function<void()> m_compositorThreadUpdateFunction;
 };

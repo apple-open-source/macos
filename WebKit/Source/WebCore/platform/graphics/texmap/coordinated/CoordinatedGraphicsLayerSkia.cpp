@@ -41,8 +41,8 @@
 #include <skia/gpu/ganesh/gl/GrGLDirectContext.h>
 #include <skia/gpu/gl/GrGLInterface.h>
 #include <skia/gpu/gl/GrGLTypes.h>
-#include <wtf/FastMalloc.h>
 #include <wtf/RunLoop.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/Vector.h>
 #include <wtf/WorkerPool.h>
 
@@ -79,9 +79,12 @@ Ref<Nicosia::Buffer> CoordinatedGraphicsLayer::paintTile(const IntRect& tileRect
 
     // Skia/GPU - accelerated rendering.
     if (auto* acceleratedBufferPool = m_coordinator->skiaAcceleratedBufferPool()) {
-        PlatformDisplay::sharedDisplayForCompositing().skiaGLContext()->makeContextCurrent();
+        PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent();
         if (auto buffer = acceleratedBufferPool->acquireBuffer(tileRect.size(), !contentsOpaque())) {
+            WTFBeginSignpost(this, PaintTile, "Skia accelerated, dirty region %ix%i+%i+%i", tileRect.x(), tileRect.y(), tileRect.width(), tileRect.height());
             paintBuffer(*buffer);
+            WTFEndSignpost(this, PaintTile);
+
             return Ref { *buffer };
         }
     }
@@ -91,26 +94,42 @@ Ref<Nicosia::Buffer> CoordinatedGraphicsLayer::paintTile(const IntRect& tileRect
 
     // Non-blocking, multi-threaded variant.
     if (auto* workerPool = m_coordinator->skiaUnacceleratedThreadedRenderingPool()) {
+        WTFBeginSignpost(this, RecordTile);
+
         // Threaded rendering: record display lists, and asynchronously replay them using dedicated worker threads.
         buffer->beginPainting();
 
-        auto recordingContext = makeUnique<DisplayList::DrawingContext>(tileRect.size());
-        paintIntoGraphicsContext(recordingContext->context());
+        auto displayList = makeUnique<DisplayList::DisplayList>();
+        DisplayList::RecorderImpl recordingContext(*displayList, GraphicsContextState(), FloatRect({ }, tileRect.size()), AffineTransform());
+        paintIntoGraphicsContext(recordingContext);
 
-        workerPool->postTask([buffer = Ref { buffer }, recordingContext = WTFMove(recordingContext)] {
+        workerPool->postTask([buffer = Ref { buffer }, displayList = WTFMove(displayList), tileRect] {
             RELEASE_ASSERT(buffer->surface());
             if (auto* canvas = buffer->surface()->getCanvas()) {
+                static thread_local RefPtr<ControlFactory> s_controlFactory;
+                if (!s_controlFactory)
+                    s_controlFactory = ControlFactory::create();
+
+                WTFBeginSignpost(canvas, PaintTile, "Skia unaccelerated multithread, dirty region %ix%i+%i+%i", tileRect.x(), tileRect.y(), tileRect.width(), tileRect.height());
+
                 GraphicsContextSkia context(*canvas, RenderingMode::Unaccelerated, RenderingPurpose::LayerBacking);
-                recordingContext->replayDisplayList(context);
+                context.drawDisplayListItems(displayList->items(), displayList->resourceHeap(), *s_controlFactory, FloatPoint::zero());
+
+                WTFEndSignpost(canvas, PaintTile);
             }
             buffer->completePainting();
         });
+
+        WTFEndSignpost(this, RecordTile);
 
         return buffer;
     }
 
     // Blocking, single-thread variant.
+    WTFBeginSignpost(this, PaintTile, "Skia unaccelerated, dirty region %ix%i+%i+%i", tileRect.x(), tileRect.y(), tileRect.width(), tileRect.height());
     paintBuffer(buffer.get());
+    WTFEndSignpost(this, PaintTile);
+
     return buffer;
 }
 

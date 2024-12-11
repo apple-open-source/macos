@@ -37,10 +37,13 @@
 #include "RemoteLegacyCDMSessionProxyMessages.h"
 #include <WebCore/LegacyCDM.h>
 #include <wtf/Algorithms.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLegacyCDMFactoryProxy);
 
 RemoteLegacyCDMFactoryProxy::RemoteLegacyCDMFactoryProxy(GPUConnectionToWebProcess& connection)
     : m_gpuConnectionToWebProcess(connection)
@@ -96,30 +99,30 @@ void RemoteLegacyCDMFactoryProxy::supportsKeySystem(const String& keySystem, std
 
 void RemoteLegacyCDMFactoryProxy::didReceiveCDMMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    MESSAGE_CHECK_BASE(decoder.destinationID(), &connection);
-    if (auto* proxy = m_proxies.get(ObjectIdentifier<RemoteLegacyCDMIdentifierType>(decoder.destinationID())))
+    MESSAGE_CHECK_BASE(LegacyNullableObjectIdentifier<RemoteLegacyCDMIdentifierType>::isValidIdentifier(decoder.destinationID()), connection);
+    if (auto* proxy = m_proxies.get(LegacyNullableObjectIdentifier<RemoteLegacyCDMIdentifierType>(decoder.destinationID())))
         proxy->didReceiveMessage(connection, decoder);
 }
 
 void RemoteLegacyCDMFactoryProxy::didReceiveCDMSessionMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    MESSAGE_CHECK_BASE(decoder.destinationID(), &connection);
-    if (auto* session = m_sessions.get(ObjectIdentifier<RemoteLegacyCDMSessionIdentifierType>(decoder.destinationID())))
+    MESSAGE_CHECK_BASE(LegacyNullableObjectIdentifier<RemoteLegacyCDMSessionIdentifierType>::isValidIdentifier(decoder.destinationID()), connection);
+    if (auto* session = m_sessions.get(LegacyNullableObjectIdentifier<RemoteLegacyCDMSessionIdentifierType>(decoder.destinationID())))
         session->didReceiveMessage(connection, decoder);
 }
 
 bool RemoteLegacyCDMFactoryProxy::didReceiveSyncCDMMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& encoder)
 {
-    MESSAGE_CHECK_WITH_RETURN_VALUE_BASE(decoder.destinationID(), &connection, false);
-    if (auto* proxy = m_proxies.get(ObjectIdentifier<RemoteLegacyCDMIdentifierType>(decoder.destinationID())))
+    MESSAGE_CHECK_WITH_RETURN_VALUE_BASE(LegacyNullableObjectIdentifier<RemoteLegacyCDMIdentifierType>::isValidIdentifier(decoder.destinationID()), connection, false);
+    if (auto* proxy = m_proxies.get(LegacyNullableObjectIdentifier<RemoteLegacyCDMIdentifierType>(decoder.destinationID())))
         return proxy->didReceiveSyncMessage(connection, decoder, encoder);
     return false;
 }
 
 bool RemoteLegacyCDMFactoryProxy::didReceiveSyncCDMSessionMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& encoder)
 {
-    MESSAGE_CHECK_WITH_RETURN_VALUE_BASE(decoder.destinationID(), &connection, false);
-    if (auto* session = m_sessions.get(ObjectIdentifier<RemoteLegacyCDMSessionIdentifierType>(decoder.destinationID())))
+    MESSAGE_CHECK_WITH_RETURN_VALUE_BASE(LegacyNullableObjectIdentifier<RemoteLegacyCDMSessionIdentifierType>::isValidIdentifier(decoder.destinationID()), connection, false);
+    if (auto* session = m_sessions.get(LegacyNullableObjectIdentifier<RemoteLegacyCDMSessionIdentifierType>(decoder.destinationID())))
         return session->didReceiveSyncMessage(connection, decoder, encoder);
     return false;
 }
@@ -160,19 +163,24 @@ void RemoteLegacyCDMFactoryProxy::addSession(RemoteLegacyCDMSessionIdentifier id
     m_sessions.set(identifier, WTFMove(session));
 }
 
-void RemoteLegacyCDMFactoryProxy::removeSession(RemoteLegacyCDMSessionIdentifier identifier)
+void RemoteLegacyCDMFactoryProxy::removeSession(RemoteLegacyCDMSessionIdentifier identifier, CompletionHandler<void()>&& completionHandler)
 {
     auto connection = m_gpuConnectionToWebProcess.get();
-    if (!connection)
+    if (!connection) {
+        completionHandler();
         return;
+    }
 
     connection->messageReceiverMap().removeMessageReceiver(Messages::RemoteLegacyCDMSessionProxy::messageReceiverName(), identifier.toUInt64());
 
     ASSERT(m_sessions.contains(identifier));
-    m_sessions.remove(identifier);
+    if (std::unique_ptr session = m_sessions.take(identifier))
+        session->invalidate();
 
     if (connection && allowsExitUnderMemoryPressure())
         connection->gpuProcess().tryExitIfUnusedAndUnderMemoryPressure();
+
+    completionHandler();
 }
 
 RemoteLegacyCDMSessionProxy* RemoteLegacyCDMFactoryProxy::getSession(const RemoteLegacyCDMSessionIdentifier& identifier) const
@@ -193,8 +201,8 @@ const Logger& RemoteLegacyCDMFactoryProxy::logger() const
 {
     if (!m_logger) {
         m_logger = Logger::create(this);
-        auto connection = m_gpuConnectionToWebProcess.get();
-        m_logger->setEnabled(this, connection ? connection->sessionID().isAlwaysOnLoggingAllowed() : false);
+        RefPtr connection { m_gpuConnectionToWebProcess.get() };
+        m_logger->setEnabled(this, connection && connection->isAlwaysOnLoggingAllowed());
     }
 
     return *m_logger;

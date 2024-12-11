@@ -35,6 +35,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSPeerProviderState;
+@class CKKSMemoryKeyCache;
 
 @interface CKKSKey : CKKSCKRecordHolder
 
@@ -168,10 +169,14 @@ NS_ASSUME_NONNULL_BEGIN
 // Attempts checks if the AES key is already loaded, or attempts to load it from the keychain.
 // This will return a ready-to-use CKKSKeychainBackedKey, or fail.
 - (CKKSKeychainBackedKey* _Nullable)ensureKeyLoadedForContextID:(NSString*)contextID
+                                                          cache:(CKKSMemoryKeyCache* _Nullable)cache
                                                           error:(NSError* __autoreleasing*)error;
 
 // Attempts to unwrap this key via unwrapping its wrapping keys via the key hierarchy.
 - (CKKSAESSIVKey* _Nullable)unwrapViaKeyHierarchy: (NSError* __autoreleasing*)error;
+
+- (CKKSAESSIVKey* _Nullable)unwrapViaKeyHierarchy:(CKKSMemoryKeyCache* _Nullable)cache
+                                            error:(NSError* __autoreleasing*)error;
 
 // On a self-wrapped key, determine if this AES-SIV key is the self-wrapped key.
 // If it is, save the key as this CKKSKey's unwrapped key.

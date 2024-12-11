@@ -54,6 +54,7 @@
 #include "UserGestureIndicator.h"
 #include "VisibleUnits.h"
 #include "XLinkNames.h"
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(SERVICE_CONTROLS)
 #include "ImageControlsMac.h"
@@ -62,6 +63,8 @@
 namespace WebCore {
 
 using namespace HTMLNames;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(HitTestResult);
 
 static inline void appendToNodeSet(const HitTestResult::NodeSet& source, HitTestResult::NodeSet& destination)
 {
@@ -390,7 +393,7 @@ bool HitTestResult::hasEntireImage() const
     if (!innerFrame)
         return false;
 
-    if (auto page = innerFrame->page())
+    if (RefPtr page = innerFrame->page())
         return page->hasLocalDataForURL(imageURL);
 
     return false;
@@ -413,7 +416,7 @@ URL HitTestResult::absoluteImageURL() const
         || is<HTMLObjectElement>(*element)
         || is<SVGImageElement>(*element))) {
         auto imageURL = imageNode->document().completeURL(element->imageSourceURL());
-        if (auto* page = imageNode->document().page())
+        if (RefPtr page = imageNode->document().page())
             return page->applyLinkDecorationFiltering(imageURL, LinkDecorationFilteringTrigger::Unspecified);
         return imageURL;
     }
@@ -444,7 +447,7 @@ URL HitTestResult::absoluteMediaURL() const
 #if ENABLE(VIDEO)
     if (auto* element = mediaElement()) {
         auto sourceURL = element->currentSrc();
-        if (auto* page = element->document().page())
+        if (RefPtr page = element->document().page())
             return page->applyLinkDecorationFiltering(sourceURL, LinkDecorationFilteringTrigger::Unspecified);
         return sourceURL;
     }
@@ -684,7 +687,7 @@ URL HitTestResult::absoluteLinkURL() const
         return { };
 
     auto url = m_innerURLElement->absoluteLinkURL();
-    if (auto* page = m_innerURLElement->document().page())
+    if (RefPtr page = m_innerURLElement->document().page())
         return page->applyLinkDecorationFiltering(url, LinkDecorationFilteringTrigger::Unspecified);
 
     return url;

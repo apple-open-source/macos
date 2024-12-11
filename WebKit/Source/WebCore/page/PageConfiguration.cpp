@@ -61,14 +61,18 @@
 #include "ValidationMessageClient.h"
 #include "VisitedLinkStore.h"
 #include "WebRTCProvider.h"
+#include <wtf/TZoneMallocInlines.h>
 #if ENABLE(WEB_AUTHN)
 #include "AuthenticatorCoordinatorClient.h"
+#include "CredentialRequestCoordinatorClient.h"
 #endif
 #if ENABLE(APPLE_PAY)
 #include "PaymentCoordinatorClient.h"
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PageConfiguration);
 
 PageConfiguration::PageConfiguration(
     std::optional<PageIdentifier> identifier,

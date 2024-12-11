@@ -27,7 +27,9 @@
 
 #include "LayoutRect.h"
 #include "LocalFrameViewLayoutContext.h"
+#include "StyleTextEdge.h"
 #include <wtf/Noncopyable.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -40,14 +42,21 @@ class RenderMultiColumnFlow;
 class RenderObject;
 
 class RenderLayoutState {
-    WTF_MAKE_NONCOPYABLE(RenderLayoutState); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RenderLayoutState);
+    WTF_MAKE_NONCOPYABLE(RenderLayoutState);
 
 public:
     struct TextBoxTrim {
         bool trimFirstFormattedLine { false };
-        SingleThreadWeakPtr<const RenderBlockFlow> trimLastFormattedLineOnTarget;
+        SingleThreadWeakPtr<const RenderBlockFlow> lastFormattedLineRoot;
     };
+
     struct LineClamp {
+        size_t maximumLines { 0 };
+        bool shouldDiscardOverflow { false };
+    };
+
+    struct LegacyLineClamp {
         size_t maximumLineCount { 0 };
         size_t currentLineCount { 0 };
         std::optional<LayoutUnit> clampedContentLogicalHeight;
@@ -65,7 +74,7 @@ public:
         , m_blockStartTrimming(Vector<bool>(0))
     {
     }
-    RenderLayoutState(const LocalFrameViewLayoutContext::LayoutStateStack&, RenderBox&, const LayoutSize& offset, LayoutUnit pageHeight, bool pageHeightChanged, std::optional<LineClamp>, std::optional<TextBoxTrim>);
+    RenderLayoutState(const LocalFrameViewLayoutContext::LayoutStateStack&, RenderBox&, const LayoutSize& offset, LayoutUnit pageHeight, bool pageHeightChanged, std::optional<LineClamp>, std::optional<LegacyLineClamp>, std::optional<TextBoxTrim>);
     explicit RenderLayoutState(RenderElement&);
 
     bool isPaginated() const { return m_isPaginated; }
@@ -101,17 +110,17 @@ public:
 #endif
 
     void setLineClamp(std::optional<LineClamp> lineClamp) { m_lineClamp = lineClamp; }
-    std::optional<LineClamp> lineClamp() const { return m_lineClamp; }
+    std::optional<LineClamp> lineClamp() { return m_lineClamp; }
+
+    void setLegacyLineClamp(std::optional<LegacyLineClamp> legacyLineClamp) { m_legacyLineClamp = legacyLineClamp; }
+    std::optional<LegacyLineClamp> legacyLineClamp() const { return m_legacyLineClamp; }
 
     std::optional<TextBoxTrim> textBoxTrim() { return m_textBoxTrim; }
+    void setTextBoxTrim(std::optional<TextBoxTrim> textBoxTrim) { m_textBoxTrim = textBoxTrim; }
+
     bool hasTextBoxTrimStart() const { return m_textBoxTrim && m_textBoxTrim->trimFirstFormattedLine; }
-    bool hasTextBoxTrimEnd(const RenderBlockFlow& candidate) const { return m_textBoxTrim && m_textBoxTrim->trimLastFormattedLineOnTarget.get() == &candidate; }
-
-    void addTextBoxTrimStart();
+    bool hasTextBoxTrimEnd(const RenderBlockFlow& candidate) const { return m_textBoxTrim && m_textBoxTrim->lastFormattedLineRoot.get() == &candidate; }
     void removeTextBoxTrimStart();
-
-    void addTextBoxTrimEnd(const RenderBlockFlow& targetInlineFormattingContext);
-    void resetTextBoxTrim() { m_textBoxTrim = { }; }
 
     void pushBlockStartTrimming(bool blockStartTrimming) { m_blockStartTrimming.append(blockStartTrimming); }
     std::optional<bool> blockStartTrimming() const { return m_blockStartTrimming.isEmpty() ? std::nullopt : std::optional(m_blockStartTrimming.last()); }
@@ -163,6 +172,7 @@ private:
     LayoutSize m_lineGridOffset;
     LayoutSize m_lineGridPaginationOrigin;
     std::optional<LineClamp> m_lineClamp;
+    std::optional<LegacyLineClamp> m_legacyLineClamp;
     std::optional<TextBoxTrim> m_textBoxTrim;
 #if ASSERT_ENABLED
     RenderElement* m_renderer { nullptr };
@@ -211,28 +221,10 @@ private:
     LocalFrameViewLayoutContext* m_context { nullptr };
 };
 
-inline void RenderLayoutState::addTextBoxTrimStart()
-{
-    if (m_textBoxTrim) {
-        m_textBoxTrim->trimFirstFormattedLine = true;
-        return;
-    }
-    m_textBoxTrim = { true, { } };
-}
-
 inline void RenderLayoutState::removeTextBoxTrimStart()
 {
     ASSERT(m_textBoxTrim && m_textBoxTrim->trimFirstFormattedLine);
     m_textBoxTrim->trimFirstFormattedLine = false;
-}
-
-inline void RenderLayoutState::addTextBoxTrimEnd(const RenderBlockFlow& targetInlineFormattingContext)
-{
-    if (m_textBoxTrim) {
-        m_textBoxTrim->trimLastFormattedLineOnTarget = &targetInlineFormattingContext;
-        return;
-    }
-    m_textBoxTrim = { false, &targetInlineFormattingContext };
 }
 
 } // namespace WebCore

@@ -1332,6 +1332,14 @@ void SecRevocationDbCheckNextUpdate(void) {
     sec_action_perform(action);
 }
 
+bool SecRevocationDbFullReset(CFErrorRef *error)
+{
+    if (!SecValidUpdateForceReplaceDatabase()) {
+        return SecError(errSecInternal, error, CFSTR("Unable to force reset of Valid DB"));
+    }
+    return true;
+}
+
 bool SecRevocationDbUpdate(CFErrorRef *error)
 {
     // are we the db owner instance?

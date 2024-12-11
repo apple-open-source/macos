@@ -67,15 +67,15 @@
 #include "VideoTrack.h"
 #include "VideoTrackList.h"
 #include "VideoTrackPrivate.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NativePromise.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Scope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaSource);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MediaSource);
 
 String convertEnumerationToString(MediaSourcePrivate::AddStatus enumerationValue)
 {
@@ -537,6 +537,11 @@ bool MediaSource::isBuffered(const PlatformTimeRanges& ranges) const
 
 void MediaSource::monitorSourceBuffers()
 {
+    if (isClosed())
+        return;
+
+    ASSERT(m_private);
+
     // 2.4.4 SourceBuffer Monitoring
     // https://rawgit.com/w3c/media-source/45627646344eea0170dd1cbc5a3d508ca751abb8/media-source-respec.html#buffer-monitoring
 

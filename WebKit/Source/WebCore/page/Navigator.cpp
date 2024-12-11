@@ -54,10 +54,10 @@
 #include "ShareData.h"
 #include "ShareDataReader.h"
 #include "SharedBuffer.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
 #include <wtf/RunLoop.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/WeakPtr.h>
 
 #if ENABLE(DECLARATIVE_WEB_PUSH)
@@ -66,7 +66,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(Navigator);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Navigator);
 
 Navigator::Navigator(ScriptExecutionContext* context, LocalDOMWindow& window)
     : NavigatorBase(context)
@@ -389,7 +389,13 @@ GPU* Navigator::gpu()
 
 Document* Navigator::document()
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
+    return frame ? frame->document() : nullptr;
+}
+
+const Document* Navigator::document() const
+{
+    RefPtr frame = this->frame();
     return frame ? frame->document() : nullptr;
 }
 
@@ -518,5 +524,16 @@ void Navigator::getPushPermissionState(DOMPromiseDeferred<IDLEnumeration<PushPer
 }
 
 #endif // #if ENABLE(DECLARATIVE_WEB_PUSH)
+
+int Navigator::maxTouchPoints() const
+{
+#if ENABLE(IOS_TOUCH_EVENTS) && !PLATFORM(MACCATALYST)
+    RefPtr document = this->document();
+    if (!document || !document->quirks().needsZeroMaxTouchPointsQuirk())
+        return 5;
+#endif
+
+    return 0;
+}
 
 } // namespace WebCore

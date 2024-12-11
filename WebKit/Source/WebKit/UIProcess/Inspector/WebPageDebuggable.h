@@ -29,17 +29,19 @@
 
 #include <JavaScriptCore/RemoteInspectionTarget.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/TZoneMalloc.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebKit {
 
 class WebPageProxy;
 
 class WebPageDebuggable final : public Inspector::RemoteInspectionTarget {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WebPageDebuggable);
     WTF_MAKE_NONCOPYABLE(WebPageDebuggable);
 public:
     static Ref<WebPageDebuggable> create(WebPageProxy&);
-    ~WebPageDebuggable() = default;
+    ~WebPageDebuggable();
 
     Inspector::RemoteControllableTarget::Type type() const final { return Inspector::RemoteControllableTarget::Type::WebPage; }
 
@@ -60,7 +62,7 @@ public:
 private:
     explicit WebPageDebuggable(WebPageProxy&);
 
-    WebPageProxy* m_page;
+    WeakPtr<WebPageProxy> m_page;
     String m_nameOverride;
 };
 

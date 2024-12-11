@@ -1268,7 +1268,57 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
         let fetchedSetting = try cliqueBridge.fetchAccountSettings()
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: true, webAccess: true), "settings not as expected")
+    }
+
+    func testFetchWalrusWebAccessOffAccountSettings() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
+
+        let setting = makeAccountSettings(walrus: true, webAccess: false)
+        // Attempt to set walrus
+        let setExpectation = self.expectation(description: "walrus expectation")
+        self.fakeCuttlefishServer.updateListener = { _ in
+            setExpectation.fulfill()
+            return nil
+        }
+
+        XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting), "Should not error setting account setting")
+        self.wait(for: [setExpectation], timeout: 1)
+        self.fakeCuttlefishServer.updateListener = nil
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        let fetchedSetting = try cliqueBridge.fetchAccountSettings()
         XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: true, webAccess: false), "settings not as expected")
+    }
+
+    func testFetchWalrusWebAccessOnAccountSettings() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
+
+        let setting = makeAccountSettings(walrus: true, webAccess: true)
+        // Attempt to set walrus
+        let setExpectation = self.expectation(description: "walrus expectation")
+        self.fakeCuttlefishServer.updateListener = { _ in
+            setExpectation.fulfill()
+            return nil
+        }
+
+        XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting), "Should not error setting account setting")
+        self.wait(for: [setExpectation], timeout: 1)
+        self.fakeCuttlefishServer.updateListener = nil
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        let fetchedSetting = try cliqueBridge.fetchAccountSettings()
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: true, webAccess: true), "settings not as expected")
     }
 
     func testFetchWebAccessSetting() throws {
@@ -1306,7 +1356,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
         let fetchedSetting = try cliqueBridge.fetchAccountSettings()
-        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: false, webAccess: false), "settings not as expected")
+        XCTAssertEqualAccountSettings(try XCTUnwrap(fetchedSetting), makeAccountSettings(walrus: false, webAccess: true), "settings not as expected")
     }
 
     // this test forces two peers to have the same clock but different values at the same time as a stable changes update
@@ -1794,7 +1844,7 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let firstCliqueIdentifier = clique.cliqueMemberIdentifier
 
-        let setting = makeAccountSettings(walrus: true)
+        let setting = makeAccountSettings(walrus: true, webAccess: false)
         // Attempt to set walrus
         let setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { _ in

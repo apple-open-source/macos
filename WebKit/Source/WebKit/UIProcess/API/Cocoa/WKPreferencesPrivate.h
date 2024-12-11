@@ -121,7 +121,7 @@ typedef NS_ENUM(NSInteger, _WKPitchCorrectionAlgorithm) {
 @property (nonatomic, setter=_setMediaCaptureRequiresSecureConnection:) BOOL _mediaCaptureRequiresSecureConnection WK_API_AVAILABLE(macos(10.13), ios(11.0));
 @property (nonatomic, setter=_setEnumeratingAllNetworkInterfacesEnabled:) BOOL _enumeratingAllNetworkInterfacesEnabled WK_API_AVAILABLE(macos(10.13), ios(11.0));
 @property (nonatomic, setter=_setICECandidateFilteringEnabled:) BOOL _iceCandidateFilteringEnabled WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
-@property (nonatomic, setter=_setInactiveMediaCaptureSteamRepromptIntervalInMinutes:) double _inactiveMediaCaptureSteamRepromptIntervalInMinutes WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
+@property (nonatomic, setter=_setInactiveMediaCaptureStreamRepromptIntervalInMinutes:) double _inactiveMediaCaptureStreamRepromptIntervalInMinutes WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
 @property (nonatomic, setter=_setInterruptAudioOnPageVisibilityChangeEnabled:) BOOL _interruptAudioOnPageVisibilityChangeEnabled WK_API_AVAILABLE(macos(10.15), ios(13.0));
 
 @property (nonatomic, setter=_setJavaScriptCanAccessClipboard:) BOOL _javaScriptCanAccessClipboard WK_API_AVAILABLE(macos(10.13), ios(11.0));
@@ -191,6 +191,9 @@ typedef NS_ENUM(NSInteger, _WKPitchCorrectionAlgorithm) {
 @property (nonatomic, setter=_setManagedMediaSourceLowThreshold:) double _managedMediaSourceLowThreshold WK_API_AVAILABLE(macos(14.0), ios(17.0));
 @property (nonatomic, setter=_setManagedMediaSourceHighThreshold:) double _managedMediaSourceHighThreshold WK_API_AVAILABLE(macos(14.0), ios(17.0));
 @property (nonatomic, setter=_setMediaCapabilityGrantsEnabled:) BOOL _mediaCapabilityGrantsEnabled WK_API_AVAILABLE(ios(17.4), visionos(1.1)) WK_API_UNAVAILABLE(macos);
+@property (nonatomic, setter=_setAllowPrivacySensitiveOperationsInNonPersistentDataStores:) BOOL _allowPrivacySensitiveOperationsInNonPersistentDataStores WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+@property (nonatomic, setter=_setVideoFullscreenRequiresElementFullscreen:) BOOL _videoFullscreenRequiresElementFullscreen WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+@property (nonatomic, setter=_setSpatialVideoEnabled:) BOOL _spatialVideoEnabled WK_API_AVAILABLE(visionos(WK_XROS_TBA));
 
 #if !TARGET_OS_IPHONE
 @property (nonatomic, setter=_setWebGLEnabled:) BOOL _webGLEnabled WK_API_AVAILABLE(macos(10.13.4));

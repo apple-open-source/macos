@@ -37,6 +37,7 @@
 #include <WebCore/WheelEventTestMonitor.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
 OBJC_CLASS UIScrollView;
@@ -66,7 +67,7 @@ class WebPageProxy;
 class WebWheelEvent;
 
 class RemoteScrollingCoordinatorProxy : public CanMakeWeakPtr<RemoteScrollingCoordinatorProxy> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteScrollingCoordinatorProxy);
     WTF_MAKE_NONCOPYABLE(RemoteScrollingCoordinatorProxy);
 public:
     explicit RemoteScrollingCoordinatorProxy(WebPageProxy&);
@@ -115,13 +116,16 @@ public:
     WebCore::ScrollingNodeID rootScrollingNodeID() const;
 
     const RemoteLayerTreeHost* layerTreeHost() const;
-    WebPageProxy& webPageProxy() const { return m_webPageProxy; }
+    WebPageProxy& webPageProxy() const;
+    Ref<WebPageProxy> protectedWebPageProxy() const;
 
     std::optional<WebCore::RequestedScrollData> commitScrollingTreeState(IPC::Connection&, const RemoteScrollingCoordinatorTransaction&, std::optional<WebCore::LayerHostingContextIdentifier> = std::nullopt);
 
     bool hasFixedOrSticky() const { return m_scrollingTree->hasFixedOrSticky(); }
     bool hasScrollableMainFrame() const;
     bool hasScrollableOrZoomedMainFrame() const;
+
+    WebCore::ScrollbarWidth mainFrameScrollbarWidth() const;
 
     WebCore::OverscrollBehavior mainFrameHorizontalOverscrollBehavior() const;
     WebCore::OverscrollBehavior mainFrameVerticalOverscrollBehavior() const;
@@ -197,7 +201,7 @@ protected:
     void sendUIStateChangedIfNecessary();
 
 private:
-    WebPageProxy& m_webPageProxy;
+    WeakRef<WebPageProxy> m_webPageProxy;
     RefPtr<RemoteScrollingTree> m_scrollingTree;
 
 protected:

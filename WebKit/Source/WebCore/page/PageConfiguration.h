@@ -36,6 +36,7 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RobinHoodHashSet.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
 
@@ -64,6 +65,7 @@ class CacheStorageProvider;
 class ChromeClient;
 class ContextMenuClient;
 class CookieJar;
+class CredentialRequestCoordinatorClient;
 class CryptoClient;
 class DatabaseProvider;
 class DiagnosticLoggingClient;
@@ -94,7 +96,8 @@ class VisitedLinkStore;
 class WebRTCProvider;
 
 class PageConfiguration {
-    WTF_MAKE_NONCOPYABLE(PageConfiguration); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(PageConfiguration, WEBCORE_EXPORT);
+    WTF_MAKE_NONCOPYABLE(PageConfiguration);
 public:
 
     using ClientCreatorForMainFrame = std::variant<CompletionHandler<UniqueRef<LocalFrameLoaderClient>(LocalFrame&)>, CompletionHandler<UniqueRef<RemoteFrameClient>(RemoteFrame&)>>;
@@ -149,6 +152,7 @@ public:
 
 #if ENABLE(WEB_AUTHN)
     std::unique_ptr<AuthenticatorCoordinatorClient> authenticatorCoordinatorClient;
+    std::unique_ptr<CredentialRequestCoordinatorClient> credentialRequestCoordinatorClient;
 #endif
 
 #if ENABLE(APPLICATION_MANIFEST)

@@ -42,24 +42,22 @@ exit:
 /// @return error code, 0 on success
 -(int)ScanBootSector
 {
-    NSMutableData *readBuffer = [[NSMutableData alloc] initWithLength:self.systemInfo.dirBlockSize];
+    uint32_t bytesPerSector = (uint32_t)self.resource.blockSize;
+    NSMutableData *readBuffer = [[NSMutableData alloc] initWithLength:bytesPerSector];
     struct byte_bpb710 *b710 = NULL;
     struct extboot *extboot = NULL;
     struct byte_bpb50 *b50 = NULL;
     union bootsector *boot = NULL;
     uint32_t reservedSectors = 0;
-    uint32_t bytesPerSector = 0;
     uint32_t rootEntryCount = 0;
     uint32_t totalSectors = 0;
     uint32_t fatSectors = 0;
 
-    bytesPerSector = (uint32_t)self.systemInfo.dirBlockSize;
-
     /* read the boot sector from the device */
-    NSError *nsError = [Utilities syncReadFromDevice:[self resource]
-                                                into:readBuffer.mutableBytes
-                                          startingAt:0
-                                              length:bytesPerSector];
+    NSError *nsError = [Utilities syncMetaReadFromDevice:self.resource
+                                                    into:readBuffer.mutableBytes
+                                              startingAt:0
+                                                  length:bytesPerSector];
     if (nsError) {
         return (int)[nsError code];
     }
@@ -370,22 +368,18 @@ exit:
 	return WIN_MAXLEN;
 }
 
-- (BOOL)islongNameTruncated {
+- (BOOL)truncatesLongNames {
 	return 0;
 }
 
 /* FSVolumeXattrOperations */
-
-// There will only ever be one or zero xattrs on the root item,
-// so just use a static array.
-static NSArray *rootItemXattrs = @ [ @MSDOSFS_XATTR_VOLUME_ID_NAME ];
 
 -(NSArray<FSFileName *> *)supportedXattrNamesForItem:(FSItem *)item
 {
     DirItem *theDirItem = [DirItem dynamicCast:item];
 
     if (theDirItem && theDirItem.isRoot) {
-        return rootItemXattrs;
+        return @[[FSFileName nameWithString:@MSDOSFS_XATTR_VOLUME_ID_NAME]];
     } else {
         return nil;
     }
@@ -396,10 +390,10 @@ static NSArray *rootItemXattrs = @ [ @MSDOSFS_XATTR_VOLUME_ID_NAME ];
         ((name).data.length == strlen(match) &&                 \
          memcmp((name).data.bytes, (match), strlen(match)) == 0)
 
-- (void)xattrNamed:(FSFileName *)name
-            ofItem:(FSItem *)item
-      replyHandler:(void (^)(NSData * _Nullable value,
-                             NSError * _Nullable error))reply
+- (void)getXattrNamed:(FSFileName *)name
+               ofItem:(FSItem *)item
+         replyHandler:(void (^)(NSData * _Nullable value,
+                                NSError * _Nullable error))reply
 {
     DirItem *theDirItem = [DirItem dynamicCast:item];
 
@@ -455,12 +449,9 @@ static NSArray *rootItemXattrs = @ [ @MSDOSFS_XATTR_VOLUME_ID_NAME ];
     replyHandler:(void (^)(FSItem * _Nullable, NSError * _Nullable))reply
 {
     unsigned char *uuidConvArray = NULL;
-    struct bootsector33 *bs33 = NULL;
     NSMutableData *bootSector = nil;
     __block NSError *nsError = nil;
     bool isReadOnly = NO;
-    uint16_t bps = 0;
-    uint8_t spc = 0;
     int error = 0;
 
     uuidConvArray = (unsigned char*)calloc(1, 40);
@@ -476,7 +467,7 @@ static NSArray *rootItemXattrs = @ [ @MSDOSFS_XATTR_VOLUME_ID_NAME ];
 
     [Utilities setGMTDiffOffset];
 
-    self.systemInfo = [[FileSystemInfo alloc] initWithBlockDevice:[self resource]];
+    self.systemInfo = [[FileSystemInfo alloc] init];
     self.systemInfo.fsTypeName = @"msdos";
 
     /* Scan the boot sector */
@@ -547,24 +538,20 @@ static NSArray *rootItemXattrs = @ [ @MSDOSFS_XATTR_VOLUME_ID_NAME ];
         return reply(nil, fs_errorForPOSIXError(EINVAL));
     }
 
-    /* If FAT32, get volume name from direntry */
-    /* Read boot sector */
-    bootSector = [[NSMutableData alloc] initWithLength:self.systemInfo.dirBlockSize];
+    /* Read the boot sector in order to read the volume name */
+    bootSector = [[NSMutableData alloc] initWithLength:self.systemInfo.bytesPerSector];
 
-    nsError = [Utilities syncReadFromDevice:self.resource
-                                       into:bootSector.mutableBytes
-                                 startingAt:0
-                                     length:[self.systemInfo dirBlockSize]];
+    nsError = [Utilities syncMetaReadFromDevice:self.resource
+                                           into:bootSector.mutableBytes
+                                     startingAt:0
+                                         length:self.systemInfo.bytesPerSector];
     if (nsError) {
         return reply(nil, nsError);
     }
 
-    bs33 = &(((union bootsector*)bootSector.bytes)->bs33);
-    bps = getuint16(((struct byte_bpb33*)bs33->bsBPB)->bpbBytesPerSec);
-    spc = ((struct byte_bpb33*)bs33->bsBPB)->bpbSecPerClust;
     self.systemInfo.volumeLabel = [Utilities getVolumeName:self.resource
-                                                       bps:bps
-                                                       spc:spc
+                                                       bps:self.systemInfo.bytesPerSector
+                                                       spc:(self.systemInfo.bytesPerCluster / self.systemInfo.bytesPerSector)
                                                 bootsector:bootSector.mutableBytes
                                                      flags:LABEL_FROM_DIRENTRY | LABEL_FROM_BOOTSECT];
     if ((self.systemInfo.volumeLabel != nil) &&
@@ -771,11 +758,11 @@ static NSArray *rootItemXattrs = @ [ @MSDOSFS_XATTR_VOLUME_ID_NAME ];
 -(NSError *)updateLabelInBootSector:(int8_t[SHORT_NAME_LEN])fromShortNameLabel
                              toName:(int8_t[SHORT_NAME_LEN])toShortNameLabel
 {
-    NSMutableData *readBuffer = [[NSMutableData alloc] initWithLength:self.systemInfo.dirBlockSize];
     uint32_t bytesPerSector = self.systemInfo.bytesPerSector;
+    NSMutableData *readBuffer = [[NSMutableData alloc] initWithLength:bytesPerSector];
 
     /* read the boot sector from the device */
-    NSError *err = [Utilities syncReadFromDevice:[self resource]
+    NSError *err = [Utilities syncMetaReadFromDevice:self.resource
                                                 into:readBuffer.mutableBytes
                                           startingAt:0
                                               length:bytesPerSector];
@@ -828,16 +815,6 @@ static NSArray *rootItemXattrs = @ [ @MSDOSFS_XATTR_VOLUME_ID_NAME ];
 
 
 @implementation FileSystemInfo
-
--(instancetype)initWithBlockDevice:(FSBlockDeviceResource  * _Nonnull)device
-{
-    self = [super init];
-    if (self) {
-        _dirBlockSize = [device blockSize];
-        _fsInfoSector = nil;
-    }
-    return self;
-}
 
 -(uint64_t)offsetForCluster:(uint64_t)cluster
 {

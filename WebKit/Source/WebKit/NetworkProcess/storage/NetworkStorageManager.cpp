@@ -60,6 +60,7 @@
 #include <WebCore/UniqueIDBDatabaseTransaction.h>
 #include <pal/crypto/CryptoDigest.h>
 #include <wtf/SuspendableWorkQueue.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/MakeString.h>
 
@@ -143,6 +144,8 @@ static void deleteEmptyOriginDirectory(const String& directory)
     FileSystem::deleteEmptyDirectory(FileSystem::parentPath(directory));
 }
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(NetworkStorageManager);
+
 String NetworkStorageManager::persistedFilePath(const WebCore::ClientOrigin& origin)
 {
     auto directory = originDirectoryPath(m_path, origin, m_salt);
@@ -182,6 +185,8 @@ NetworkStorageManager::NetworkStorageManager(NetworkProcess& process, PAL::Sessi
                 addResult.iterator->value = *this;
         }
     }
+    m_pathNormalizedMainThread = FileSystem::lexicallyNormal(path);
+    m_customIDBStoragePathNormalizedMainThread = FileSystem::lexicallyNormal(customIDBStoragePath);
 
     m_queue->dispatch([this, weakThis = ThreadSafeWeakPtr { *this }, path = path.isolatedCopy(), customLocalStoragePath = crossThreadCopy(customLocalStoragePath), customIDBStoragePath = crossThreadCopy(customIDBStoragePath), customCacheStoragePath = crossThreadCopy(customCacheStoragePath), customServiceWorkerStoragePath = crossThreadCopy(customServiceWorkerStoragePath), defaultOriginQuota, originQuotaRatio, totalQuotaRatio, standardVolumeCapacity, volumeCapacityOverride, level, storageSiteValidationEnabled]() mutable {
         assertIsCurrent(workQueue());
@@ -763,7 +768,7 @@ void NetworkStorageManager::clearStorageForWebPage(WebPageProxyIdentifier pageId
         assertIsCurrent(workQueue());
         for (auto& manager : m_originStorageManagers.values()) {
             if (auto* sessionStorageManager = manager->existingSessionStorageManager())
-                sessionStorageManager->removeNamespace(ObjectIdentifier<StorageNamespaceIdentifierType>(pageIdentifier.toUInt64()));
+                sessionStorageManager->removeNamespace(LegacyNullableObjectIdentifier<StorageNamespaceIdentifierType>(pageIdentifier.toUInt64()));
         }
     });
 }
@@ -775,7 +780,7 @@ void NetworkStorageManager::cloneSessionStorageForWebPage(WebPageProxyIdentifier
 
     m_queue->dispatch([this, protectedThis = Ref { *this }, fromIdentifier, toIdentifier]() mutable {
         assertIsCurrent(workQueue());
-        cloneSessionStorageNamespace(ObjectIdentifier<StorageNamespaceIdentifierType>(fromIdentifier.toUInt64()), ObjectIdentifier<StorageNamespaceIdentifierType>(toIdentifier.toUInt64()));
+        cloneSessionStorageNamespace(LegacyNullableObjectIdentifier<StorageNamespaceIdentifierType>(fromIdentifier.toUInt64()), LegacyNullableObjectIdentifier<StorageNamespaceIdentifierType>(toIdentifier.toUInt64()));
     });
 }
 
@@ -1382,7 +1387,7 @@ bool NetworkStorageManager::isSiteAllowedForConnection(IPC::Connection::UniqueID
 void NetworkStorageManager::connectToStorageArea(IPC::Connection& connection, WebCore::StorageType type, StorageAreaMapIdentifier sourceIdentifier, std::optional<StorageNamespaceIdentifier> namespaceIdentifier, const WebCore::ClientOrigin& origin, CompletionHandler<void(StorageAreaIdentifier, HashMap<String, String>, uint64_t)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
-    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { origin.topOrigin }), &connection, completionHandler({ }, { }, StorageAreaBase::nextMessageIdentifier()));
+    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { origin.topOrigin }), connection, completionHandler({ }, { }, StorageAreaBase::nextMessageIdentifier()));
 
     auto connectionIdentifier = connection.uniqueID();
     // StorageArea may be connected due to LocalStorage prewarming, so do not write origin file eagerly.
@@ -1418,7 +1423,7 @@ void NetworkStorageManager::connectToStorageAreaSync(IPC::Connection& connection
 void NetworkStorageManager::cancelConnectToStorageArea(IPC::Connection& connection, WebCore::StorageType type, std::optional<StorageNamespaceIdentifier> namespaceIdentifier, const WebCore::ClientOrigin& origin)
 {
     assertIsCurrent(workQueue());
-    MESSAGE_CHECK(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { origin.topOrigin }), &connection);
+    MESSAGE_CHECK(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { origin.topOrigin }), connection);
 
     auto iterator = m_originStorageManagers.find(origin);
     if (iterator == m_originStorageManagers.end())
@@ -1451,7 +1456,7 @@ void NetworkStorageManager::disconnectFromStorageArea(IPC::Connection& connectio
     if (!storageArea)
         return;
 
-    MESSAGE_CHECK(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), &connection);
+    MESSAGE_CHECK(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection);
 
     if (storageArea->storageType() == StorageAreaBase::StorageType::Local)
         originStorageManager(storageArea->origin()).localStorageManager(*m_storageAreaRegistry).disconnectFromStorageArea(connection.uniqueID(), identifier);
@@ -1469,9 +1474,9 @@ void NetworkStorageManager::setItem(IPC::Connection& connection, StorageAreaIden
     if (!storageArea)
         return completionHandler(hasError, WTFMove(allItems));
 
-    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), &connection, completionHandler(hasError, WTFMove(allItems)));
+    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler(hasError, WTFMove(allItems)));
 
-    MESSAGE_CHECK_BASE(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), &connection);
+    MESSAGE_CHECK_BASE(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection);
 
     auto result = storageArea->setItem(connection.uniqueID(), implIdentifier, WTFMove(key), WTFMove(value), WTFMove(urlString));
     hasError = !result;
@@ -1492,7 +1497,7 @@ void NetworkStorageManager::removeItem(IPC::Connection& connection, StorageAreaI
     if (!storageArea)
         return completionHandler(hasError, WTFMove(allItems));
 
-    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), &connection, completionHandler(hasError, WTFMove(allItems)));
+    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler(hasError, WTFMove(allItems)));
 
     auto result = storageArea->removeItem(connection.uniqueID(), implIdentifier, WTFMove(key), WTFMove(urlString));
     hasError = !result;
@@ -1511,7 +1516,7 @@ void NetworkStorageManager::clear(IPC::Connection& connection, StorageAreaIdenti
     if (!storageArea)
         return completionHandler();
 
-    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), &connection, completionHandler());
+    MESSAGE_CHECK_COMPLETION(isSiteAllowedForConnection(connection.uniqueID(), WebCore::RegistrableDomain { storageArea->origin().topOrigin }), connection, completionHandler());
 
     storageArea->clear(connection.uniqueID(), implIdentifier, WTFMove(urlString));
     completionHandler();
@@ -1808,7 +1813,7 @@ void NetworkStorageManager::cacheStoragePutRecords(IPC::Connection& connection, 
         return callback(makeUnexpected(WebCore::DOMCacheEngine::Error::Internal));
 
     for (auto& record : records)
-        MESSAGE_CHECK_COMPLETION(record.responseBodySize >= CacheStorageDiskStore::computeRealBodySizeForStorage(record.responseBody), &connection, callback(makeUnexpected(WebCore::DOMCacheEngine::Error::Internal)));
+        MESSAGE_CHECK_COMPLETION(record.responseBodySize >= CacheStorageDiskStore::computeRealBodySizeForStorage(record.responseBody), connection, callback(makeUnexpected(WebCore::DOMCacheEngine::Error::Internal)));
 
     cache->putRecords(WTFMove(records), WTFMove(callback));
 }
@@ -2030,3 +2035,6 @@ bool NetworkStorageManager::shouldManageServiceWorkerRegistrationsByOrigin()
 }
 
 } // namespace WebKit
+
+#undef MESSAGE_CHECK_COMPLETION
+#undef MESSAGE_CHECK

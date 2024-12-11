@@ -28,8 +28,11 @@
 
 #import "APIConversions.h"
 #import "CommandEncoder.h"
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebGPU {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(TextureView);
 
 TextureView::TextureView(id<MTLTexture> texture, const WGPUTextureViewDescriptor& descriptor, const std::optional<WGPUExtent3D>& renderExtent, Texture& parentTexture, Device& device)
     : m_texture(texture)
@@ -179,6 +182,7 @@ void TextureView::destroy()
 void TextureView::setCommandEncoder(CommandEncoder& commandEncoder) const
 {
     m_commandEncoders.add(commandEncoder);
+    commandEncoder.addTexture(m_parentTexture->texture());
     if (isDestroyed() && !m_parentTexture->isCanvasBacking())
         commandEncoder.makeSubmitInvalid();
 }

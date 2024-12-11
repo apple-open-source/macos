@@ -219,6 +219,9 @@ estack_sfile(estack_arg_T which UNUSED)
 	    if (*class_name != NUL)
 	    {
 		// For class methods prepend "<class name>." to the function name.
+		ga_concat(&ga, (char_u *)"<SNR>");
+		ga.ga_len += vim_snprintf((char *)ga.ga_data + ga.ga_len, 23,
+		       "%d_", entry->es_info.ufunc->uf_script_ctx.sc_sid);
 		ga_concat(&ga, class_name);
 		ga_append(&ga, '.');
 	    }
@@ -404,6 +407,48 @@ get_new_scriptitem_for_fname(int *error, char_u *fname)
 	si->sn_state = SN_STATE_NOT_LOADED;
     }
     return sid;
+}
+
+/*
+ * If the script for "sid" is a symlink and "sn_source_sid" is not set
+ * then initialize it. A new script_item is created if needed.
+ */
+    void
+check_script_symlink(int sid)
+{
+    scriptitem_T *si = SCRIPT_ITEM(sid);
+    if (si->sn_syml_checked || si->sn_sourced_sid > 0)
+	return;
+    si->sn_syml_checked = TRUE;
+
+    // If fname is a symbolic link, create an script_item for the real file.
+
+    char_u *real_fname = fix_fname(si->sn_name);
+    if (real_fname != NULL && STRCMP(real_fname, si->sn_name) != 0)
+    {
+	int real_sid = find_script_by_name(real_fname);
+	int error2 = OK;
+	int new_sid = FALSE;
+	if (real_sid < 0)
+	{
+	    real_sid = get_new_scriptitem_for_fname(&error2, real_fname);
+	    new_sid = TRUE;
+	}
+	if (error2 == OK)
+	{
+	    si = SCRIPT_ITEM(sid);
+	    si->sn_sourced_sid = real_sid;
+	    if (new_sid)
+	    {
+		SCRIPT_ITEM(real_sid)->sn_import_autoload
+						    = si->sn_import_autoload;
+		if (si->sn_autoload_prefix != NULL)
+		    SCRIPT_ITEM(real_sid)->sn_autoload_prefix =
+					vim_strsave(si->sn_autoload_prefix);
+	    }
+	}
+    }
+    vim_free(real_fname);
 }
 
     static void
@@ -646,7 +691,7 @@ find_script_in_rtp(char_u *name)
 {
     int sid = -1;
 
-    (void)do_in_path_and_pp(p_rtp, name, DIP_NOAFTER,
+    (void)do_in_path_and_pp(p_rtp, name, DIP_START | DIP_NOAFTER,
 						   find_script_callback, &sid);
     return sid;
 }
@@ -1237,7 +1282,7 @@ cmd_source(char_u *fname, exarg_T *eap)
 	    emsg(_(e_argument_required));
 	else
 	    // source ex commands from the current buffer
-	    do_source_ext(NULL, FALSE, FALSE, NULL, eap, clearvars);
+	    do_source_ext(NULL, FALSE, DOSO_NONE, NULL, eap, clearvars);
     }
     else if (eap != NULL && eap->forceit)
 	// ":source!": read Normal mode commands
@@ -1388,14 +1433,17 @@ do_source_buffer_init(source_cookie_T *sp, exarg_T *eap)
     char_u	*line = NULL;
     char_u	*fname;
 
-    CLEAR_FIELD(*sp);
-
     if (curbuf == NULL)
 	return NULL;
 
     // Use ":source buffer=<num>" as the script name
-    vim_snprintf((char *)IObuff, IOSIZE, ":source buffer=%d", curbuf->b_fnum);
-    fname = vim_strsave(IObuff);
+    if (curbuf->b_ffname != NULL)
+	fname = vim_strsave(curbuf->b_ffname);
+    else
+    {
+	vim_snprintf((char *)IObuff, IOSIZE, ":source buffer=%d", curbuf->b_fnum);
+	fname = vim_strsave(IObuff);
+    }
     if (fname == NULL)
 	return NULL;
 
@@ -1412,6 +1460,8 @@ do_source_buffer_init(source_cookie_T *sp, exarg_T *eap)
     }
     sp->buf_lnum = 0;
     sp->source_from_buf = TRUE;
+    // When sourcing a range of lines from a buffer, use buffer line number.
+    sp->sourcing_lnum = eap->line1 - 1;
 
     return fname;
 
@@ -1614,13 +1664,6 @@ do_source_ext(
 	cookie.fileformat = EOL_UNKNOWN;
 #endif
 
-    if (fname == NULL)
-	// When sourcing a range of lines from a buffer, use the buffer line
-	// number.
-	cookie.sourcing_lnum = eap->line1 - 1;
-    else
-	cookie.sourcing_lnum = 0;
-
 #ifdef FEAT_EVAL
     // Check if this script has a breakpoint.
     cookie.breakpoint = dbg_find_breakpoint(TRUE, fname_exp, (linenr_T)0);
@@ -1708,6 +1751,8 @@ do_source_ext(
 	    // reset version, "vim9script" may have been added or removed.
 	    si->sn_version = 1;
 	}
+	if (ret_sid != NULL)
+	    *ret_sid = sid;
     }
     else
     {
@@ -2487,7 +2532,7 @@ getsourceline(
     int
 sourcing_a_script(exarg_T *eap)
 {
-    return (getline_equal(eap->getline, eap->cookie, getsourceline));
+    return (getline_equal(eap->ea_getline, eap->cookie, getsourceline));
 }
 
 /*
@@ -2515,7 +2560,7 @@ ex_scriptencoding(exarg_T *eap)
 	name = eap->arg;
 
     // Setup for conversion from the specified encoding to 'encoding'.
-    sp = (source_cookie_T *)getline_cookie(eap->getline, eap->cookie);
+    sp = (source_cookie_T *)getline_cookie(eap->ea_getline, eap->cookie);
     convert_setup(&sp->conv, name, p_enc);
 
     if (name != eap->arg)
@@ -2579,7 +2624,7 @@ do_finish(exarg_T *eap, int reanimate)
     int		idx;
 
     if (reanimate)
-	((source_cookie_T *)getline_cookie(eap->getline,
+	((source_cookie_T *)getline_cookie(eap->ea_getline,
 					      eap->cookie))->finished = FALSE;
 
     // Cleanup (and inactivate) conditionals, but stop when a try conditional
@@ -2593,7 +2638,7 @@ do_finish(exarg_T *eap, int reanimate)
 	report_make_pending(CSTP_FINISH, NULL);
     }
     else
-	((source_cookie_T *)getline_cookie(eap->getline,
+	((source_cookie_T *)getline_cookie(eap->ea_getline,
 					       eap->cookie))->finished = TRUE;
 }
 

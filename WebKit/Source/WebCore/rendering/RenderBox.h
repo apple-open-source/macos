@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2006, 2007, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2024 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -48,7 +48,7 @@ enum ShouldComputePreferred { ComputeActual, ComputePreferred };
 enum class StretchingMode { Any, Explicit };
 
 class RenderBox : public RenderBoxModelObject {
-    WTF_MAKE_ISO_ALLOCATED(RenderBox);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderBox);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderBox);
 public:
     virtual ~RenderBox();
@@ -81,7 +81,7 @@ public:
     inline LayoutUnit logicalHeight() const;
 
     enum class AllowIntrinsic : bool { No, Yes };
-    LayoutUnit constrainLogicalWidthInFragmentByMinMax(LayoutUnit, LayoutUnit, RenderBlock&, RenderFragmentContainer*, AllowIntrinsic = AllowIntrinsic::Yes) const;
+    LayoutUnit constrainLogicalWidthInFragmentByMinMax(LayoutUnit, LayoutUnit, const RenderBlock&, RenderFragmentContainer*, AllowIntrinsic = AllowIntrinsic::Yes) const;
     LayoutUnit constrainLogicalHeightByMinMax(LayoutUnit logicalHeight, std::optional<LayoutUnit> intrinsicContentHeight) const;
     LayoutUnit constrainContentBoxLogicalHeightByMinMax(LayoutUnit logicalHeight, std::optional<LayoutUnit> intrinsicContentHeight) const;
 
@@ -110,9 +110,8 @@ public:
     LayoutRect borderBoundingBox() const final { return borderBoxRect(); }
     inline LayoutSize borderBoxLogicalSize() const;
 
+    // Don't use this; it doesn't make sense in a future world with corner-shape. Use BorderShape instead.
     WEBCORE_EXPORT RoundedRectRadii borderRadii() const;
-    RoundedRect borderRoundedRect() const;
-    RoundedRect roundedBorderBoxRect() const;
 
     // The content area of the box (excludes padding - and intrinsic padding for table cells, etc... - and border).
     inline LayoutRect contentBoxRect() const;
@@ -421,7 +420,6 @@ public:
     virtual LayoutUnit computeReplacedLogicalWidth(ShouldComputePreferred  = ComputeActual) const;
     virtual LayoutUnit computeReplacedLogicalHeight(std::optional<LayoutUnit> estimatedUsedWidth = std::nullopt) const;
 
-    enum class UpdatePercentageHeightDescendants : bool { No, Yes };
     std::optional<LayoutUnit> computePercentageLogicalHeight(const Length& height, UpdatePercentageHeightDescendants = UpdatePercentageHeightDescendants::Yes) const;
 
     inline LayoutUnit availableLogicalWidth() const;
@@ -435,7 +433,7 @@ public:
 
     WEBCORE_EXPORT virtual int verticalScrollbarWidth() const;
     WEBCORE_EXPORT virtual int horizontalScrollbarHeight() const;
-    int intrinsicScrollbarLogicalWidth() const;
+    int intrinsicScrollbarLogicalWidthIncludingGutter() const;
     inline int scrollbarLogicalWidth() const;
     inline int scrollbarLogicalHeight() const;
     virtual bool scroll(ScrollDirection, ScrollGranularity, unsigned stepCount = 1, Element** stopElement = nullptr, RenderBox* startBox = nullptr, const IntPoint& wheelEventAbsolutePoint = IntPoint());
@@ -625,7 +623,8 @@ public:
 
     bool shouldComputeLogicalHeightFromAspectRatio() const;
 
-    bool shouldIgnoreMinMaxSizes() const;
+    bool shouldIgnoreLogicalMinMaxWidthSizes() const;
+    bool shouldIgnoreLogicalMinMaxHeightSizes() const;
 
     // The explicit intrinsic inner size of contain-intrinsic-size
     std::optional<LayoutUnit> explicitIntrinsicInnerWidth() const;
@@ -640,6 +639,9 @@ public:
     bool computeHasTransformRelatedProperty(const RenderStyle&) const;
 
     ShapeOutsideInfo* shapeOutsideInfo() const;
+
+    bool includeVerticalScrollbarSize() const;
+    bool includeHorizontalScrollbarSize() const;
 
 protected:
     RenderBox(Type, Element&, RenderStyle&&, OptionSet<TypeFlag> = { }, TypeSpecificFlags = { });
@@ -665,6 +667,9 @@ protected:
     bool computeBackgroundIsKnownToBeObscured(const LayoutPoint& paintOffset) override;
 
     void paintMaskImages(const PaintInfo&, const LayoutRect&);
+
+    void clipToPaddingBoxShape(GraphicsContext&, const LayoutPoint&, float deviceScaleFactor) const;
+    void clipToContentBoxShape(GraphicsContext&, const LayoutPoint&, float deviceScaleFactor) const;
 
     BackgroundBleedAvoidance determineBackgroundBleedAvoidance(GraphicsContext&) const;
     bool backgroundHasOpaqueTopLayer() const;
@@ -722,9 +727,6 @@ private:
 
     template<typename Function> LayoutUnit computeOrTrimInlineMargin(const RenderBlock& containingBlock, MarginTrimType marginSide, const Function& computeInlineMargin) const;
 
-    bool includeVerticalScrollbarSize() const;
-    bool includeHorizontalScrollbarSize() const;
-
     bool isScrollableOrRubberbandableBox() const override;
 
     // Returns true if we did a full repaint.
@@ -762,8 +764,6 @@ private:
     RepaintRects computeVisibleRectsUsingPaintOffset(const RepaintRects&) const;
     
     LayoutPoint topLeftLocationWithFlipping() const;
-
-    void clipContentForBorderRadius(GraphicsContext&, const LayoutPoint&, float);
 
     void addLayoutOverflow(const LayoutRect&, const LayoutRect& flippedClientRect);
 

@@ -149,10 +149,10 @@ T_DECL(malloc_size_multi_segment,
 {
 	void *ptr = malloc(MiB(12));
 	T_ASSERT_NOTNULL(ptr, "HUGE allocation");
-	T_ASSERT_LE(MiB(12), malloc_size(ptr), "Allocated sufficient size");
-	T_ASSERT_EQ(0, malloc_size((void*)((uintptr_t)ptr + KiB(8))),
+	T_ASSERT_LE((size_t)MiB(12), malloc_size(ptr), "Allocated sufficient size");
+	T_ASSERT_EQ((size_t)0, malloc_size((void*)((uintptr_t)ptr + KiB(8))),
 			"malloc_size is 0 for inner huge pointer in first segment granule");
-	T_ASSERT_EQ(0, malloc_size((void*)((uintptr_t)ptr + MiB(8))),
+	T_ASSERT_EQ((size_t)0, malloc_size((void*)((uintptr_t)ptr + MiB(8))),
 			"malloc_size is 0 for inner huge pointer in last segment granule");
 
 	free(ptr);

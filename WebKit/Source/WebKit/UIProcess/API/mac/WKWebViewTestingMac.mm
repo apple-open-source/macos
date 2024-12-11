@@ -36,6 +36,7 @@
 #import "WebProcessProxy.h"
 #import "WebViewImpl.h"
 #import "_WKFrameHandleInternal.h"
+#import <WebCore/ColorCocoa.h>
 
 @implementation WKWebView (WKTestingMac)
 
@@ -142,9 +143,9 @@
     _impl->createFlagsChangedEventMonitor();
 }
 
-- (void)_removeFlagsChangedEventMonitorForTesting
+- (BOOL)_hasFlagsChangedEventMonitorForTesting
 {
-    _impl->removeFlagsChangedEventMonitor();
+    return _impl->hasFlagsChangedEventMonitor();
 }
 
 @end

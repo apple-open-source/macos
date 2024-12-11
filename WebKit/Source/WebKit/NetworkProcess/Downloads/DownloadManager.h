@@ -31,6 +31,7 @@
 #include "PendingDownload.h"
 #include "PolicyDecision.h"
 #include "SandboxExtension.h"
+#include "UseDownloadPlaceholder.h"
 #include <WebCore/LocalFrameLoaderClient.h>
 #include <WebCore/NotImplemented.h>
 #include <wtf/CheckedRef.h>
@@ -64,9 +65,10 @@ class PendingDownload;
 
 enum class CallDownloadDidStart : bool { No, Yes };
 
-class DownloadManager {
+class DownloadManager : public CanMakeCheckedPtr<DownloadManager> {
     WTF_MAKE_NONCOPYABLE(DownloadManager);
-
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DownloadManager);
 public:
     class Client {
     public:
@@ -91,17 +93,22 @@ public:
     };
 
     explicit DownloadManager(Client&);
+    ~DownloadManager();
 
     void startDownload(PAL::SessionID, DownloadID, const WebCore::ResourceRequest&, const std::optional<WebCore::SecurityOriginData>& topOrigin, std::optional<NavigatingToAppBoundDomain>, const String& suggestedName = { }, WebCore::FromDownloadAttribute = WebCore::FromDownloadAttribute::No, std::optional<WebCore::FrameIdentifier> frameID = std::nullopt, std::optional<WebCore::PageIdentifier> = std::nullopt, std::optional<WebCore::ProcessIdentifier> = std::nullopt);
     void dataTaskBecameDownloadTask(DownloadID, std::unique_ptr<Download>&&);
     void convertNetworkLoadToDownload(DownloadID, std::unique_ptr<NetworkLoad>&&, ResponseCompletionHandler&&,  Vector<RefPtr<WebCore::BlobDataFileReference>>&&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
     void downloadDestinationDecided(DownloadID, Ref<NetworkDataTask>&&);
 
-    void resumeDownload(PAL::SessionID, DownloadID, std::span<const uint8_t> resumeData, const String& path, SandboxExtension::Handle&&, CallDownloadDidStart);
+    void resumeDownload(PAL::SessionID, DownloadID, std::span<const uint8_t> resumeData, const String& path, SandboxExtension::Handle&&, CallDownloadDidStart, std::span<const uint8_t> activityAccessToken);
 
     void cancelDownload(DownloadID, CompletionHandler<void(std::span<const uint8_t>)>&&);
 #if PLATFORM(COCOA)
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+    void publishDownloadProgress(DownloadID, const URL&, std::span<const uint8_t> bookmarkData, WebKit::UseDownloadPlaceholder, std::span<const uint8_t> activityAccessToken);
+#else
     void publishDownloadProgress(DownloadID, const URL&, SandboxExtension::Handle&&);
+#endif
 #endif
     
     Download* download(DownloadID downloadID) { return m_downloads.get(downloadID); }

@@ -21,6 +21,7 @@
 
 #include "GraphicsContextGL.h"
 #include "Logging.h"
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
@@ -35,6 +36,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GLContext);
 
 const char* GLContext::errorString(int statusCode)
 {
@@ -162,14 +165,11 @@ std::unique_ptr<GLContext> GLContext::createWindowContext(GLNativeWindowType win
         surface = createWindowSurfaceWPE(display, config, window);
         break;
 #endif // USE(WPE_RENDERER)
-#if PLATFORM(X11)
-    case PlatformDisplay::Type::X11:
-#endif
-#if PLATFORM(WAYLAND)
-    case PlatformDisplay::Type::Wayland:
-#endif
 #if USE(GBM)
     case PlatformDisplay::Type::GBM:
+#endif
+#if PLATFORM(GTK)
+    case PlatformDisplay::Type::Default:
 #endif
     case PlatformDisplay::Type::Surfaceless:
         RELEASE_ASSERT_NOT_REACHED();
@@ -293,12 +293,6 @@ std::unique_ptr<GLContext> GLContext::createOffscreen(PlatformDisplay& platformD
             context = createWPEContext(platformDisplay, eglSharingContext);
             break;
 #endif
-#if PLATFORM(X11)
-        case PlatformDisplay::Type::X11:
-#endif
-#if PLATFORM(WAYLAND)
-        case PlatformDisplay::Type::Wayland:
-#endif
 #if USE(GBM)
         case PlatformDisplay::Type::GBM:
 #endif
@@ -339,12 +333,6 @@ std::unique_ptr<GLContext> GLContext::createSharing(PlatformDisplay& platformDis
         case PlatformDisplay::Type::WPE:
             context = createWPEContext(platformDisplay);
             break;
-#endif
-#if PLATFORM(X11)
-        case PlatformDisplay::Type::X11:
-#endif
-#if PLATFORM(WAYLAND)
-        case PlatformDisplay::Type::Wayland:
 #endif
 #if USE(GBM)
         case PlatformDisplay::Type::GBM:

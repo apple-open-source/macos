@@ -30,10 +30,6 @@
 #import "ProcessAssertion.h"
 #import "XPCUtilities.h"
 
-#if USE(EXTENSIONKIT)
-#include "ExtensionProcess.h"
-#endif
-
 namespace WebKit {
 
 void XPCConnectionTerminationWatchdog::startConnectionTerminationWatchdog(AuxiliaryProcessProxy& process, Seconds interval)
@@ -47,7 +43,7 @@ XPCConnectionTerminationWatchdog::XPCConnectionTerminationWatchdog(AuxiliaryProc
 #if USE(EXTENSIONKIT_PROCESS_TERMINATION)
     , m_process(process.extensionProcess())
 #else
-    , m_xpcConnection(process.connection()->xpcConnection())
+    , m_xpcConnection(process.connection().xpcConnection())
 #endif
 {
     m_watchdogTimer.startOneShot(interval);

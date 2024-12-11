@@ -31,6 +31,7 @@
 #import "PlatformXRCoordinator.h"
 
 #import <wtf/RetainPtr.h>
+#import <wtf/TZoneMalloc.h>
 #import <wtf/Threading.h>
 #import <wtf/threads/BinarySemaphore.h>
 
@@ -40,7 +41,7 @@
 namespace WebKit {
 
 class ARKitCoordinator final : public PlatformXRCoordinator {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(ARKitCoordinator);
     struct RenderState;
 public:
     ARKitCoordinator();
@@ -52,7 +53,7 @@ public:
     void startSession(WebPageProxy&, WeakPtr<SessionEventClient>&&, const WebCore::SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList&) override;
     void endSessionIfExists(WebPageProxy&) override;
 
-    void scheduleAnimationFrame(WebPageProxy&, PlatformXR::Device::RequestFrameCallback&&) override;
+    void scheduleAnimationFrame(WebPageProxy&, std::optional<PlatformXR::RequestData>&&, PlatformXR::Device::RequestFrameCallback&&) override;
     void submitFrame(WebPageProxy&) override;
 
 protected:

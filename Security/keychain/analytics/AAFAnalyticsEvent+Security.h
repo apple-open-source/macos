@@ -27,7 +27,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface AAFAnalyticsEventSecurity : NSObject
 
-@property dispatch_queue_t queue;
+@property (retain) dispatch_queue_t queue;
 
 - (instancetype)initWithKeychainCircleMetrics:(NSDictionary * _Nullable)metrics
                                       altDSID:(NSString * _Nullable)altDSID

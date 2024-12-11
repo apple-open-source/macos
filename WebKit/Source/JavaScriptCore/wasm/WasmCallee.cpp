@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #if ENABLE(WEBASSEMBLY)
 
 #include "InPlaceInterpreter.h"
+#include "JSToWasm.h"
 #include "LLIntData.h"
 #include "LLIntExceptions.h"
 #include "LLIntThunks.h"
@@ -38,25 +39,26 @@
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
-namespace JSC { namespace Wasm {
+namespace JSC::Wasm {
 
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(Callee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(JITCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(JSEntrypointCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(JSEntrypointInterpreterCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(JSEntrypointJITCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(WasmToJSCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(JSToWasmICCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(OptimizingJITCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(OSREntryCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(OMGCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(BBQCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(IPIntCallee);
-DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(LLIntCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Callee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JITCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JSEntrypointCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JITLessJSEntrypointCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JSEntrypointJITCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WasmToJSCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JSToWasmICCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(OptimizingJITCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(OMGCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(OSREntryCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BBQCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(IPIntCallee);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LLIntCallee);
 
 Callee::Callee(Wasm::CompilationMode compilationMode)
     : NativeCallee(NativeCallee::Category::Wasm, ImplementationVisibility::Private)
     , m_compilationMode(compilationMode)
+    , m_index(0xBADBADBA)
 {
 }
 
@@ -64,6 +66,7 @@ Callee::Callee(Wasm::CompilationMode compilationMode, size_t index, std::pair<co
     : NativeCallee(NativeCallee::Category::Wasm, ImplementationVisibility::Public)
     , m_compilationMode(compilationMode)
     , m_indexOrName(index, WTFMove(name))
+    , m_index(index)
 {
 }
 
@@ -77,8 +80,8 @@ inline void Callee::runWithDowncast(const Func& func)
     case CompilationMode::LLIntMode:
         func(static_cast<LLIntCallee*>(this));
         break;
-    case CompilationMode::JSEntrypointInterpreterMode:
-        func(static_cast<JSEntrypointInterpreterCallee*>(this));
+    case CompilationMode::JITLessJSEntrypointMode:
+        func(static_cast<JITLessJSEntrypointCallee*>(this));
         break;
 #if ENABLE(WEBASSEMBLY_BBQJIT)
     case CompilationMode::BBQMode:
@@ -164,7 +167,7 @@ void Callee::destroy(Callee* callee)
     });
 }
 
-const HandlerInfo* Callee::handlerForIndex(Instance& instance, unsigned index, const Tag* tag)
+const HandlerInfo* Callee::handlerForIndex(JSWebAssemblyInstance& instance, unsigned index, const Tag* tag)
 {
     ASSERT(hasExceptionHandlers());
     return HandlerInfo::handlerForIndex(instance, m_exceptionHandlers, index, tag);
@@ -265,7 +268,7 @@ RegisterAtOffsetList* IPIntCallee::calleeSaveRegistersImpl()
     static std::once_flag initializeFlag;
     std::call_once(initializeFlag, [] {
         RegisterSet registers;
-        registers.add(GPRInfo::regCS0, IgnoreVectors); // Wasm::Instance
+        registers.add(GPRInfo::regCS0, IgnoreVectors); // JSWebAssemblyInstance
 #if CPU(X86_64)
         registers.add(GPRInfo::regCS1, IgnoreVectors); // PM (pointer to metadata)
         registers.add(GPRInfo::regCS2, IgnoreVectors); // PB
@@ -330,7 +333,7 @@ RegisterAtOffsetList* LLIntCallee::calleeSaveRegistersImpl()
     static std::once_flag initializeFlag;
     std::call_once(initializeFlag, [] {
         RegisterSet registers;
-        registers.add(GPRInfo::regCS0, IgnoreVectors); // Wasm::Instance
+        registers.add(GPRInfo::regCS0, IgnoreVectors); // JSWebAssemblyInstance
 #if CPU(X86_64)
         registers.add(GPRInfo::regCS2, IgnoreVectors); // PB
 #elif CPU(ARM64) || CPU(RISCV64)
@@ -381,7 +384,7 @@ void OptimizingJITCallee::addCodeOrigin(unsigned firstInlineCSI, unsigned lastIn
 IndexOrName OptimizingJITCallee::getOrigin(unsigned csi, unsigned depth, bool& isInlined) const
 {
     isInlined = false;
-    auto iter = std::lower_bound(codeOrigins.begin(), codeOrigins.end(), WasmCodeOrigin { 0, csi, 0, 0}, [&] (const auto& a, const auto& b) {
+    auto iter = std::lower_bound(codeOrigins.begin(), codeOrigins.end(), WasmCodeOrigin { 0, csi, 0, 0 }, [&](const auto& a, const auto& b) {
         return b.lastInlineCSI - a.lastInlineCSI;
     });
     if (!iter || iter == codeOrigins.end())
@@ -413,26 +416,49 @@ const StackMap& OptimizingJITCallee::stackmap(CallSiteIndex callSiteIndex) const
 }
 #endif
 
-JSEntrypointInterpreterCallee::JSEntrypointInterpreterCallee(Vector<JSEntrypointInterpreterCalleeMetadata>&& metadata, LLIntCallee* callee)
-    : JSEntrypointCallee(Wasm::CompilationMode::JSEntrypointInterpreterMode)
-    , TrailingArray<JSEntrypointInterpreterCallee, JSEntrypointInterpreterCalleeMetadata>(metadata.size(), metadata.begin(), metadata.end())
-    , wasmCallee(reinterpret_cast<intptr_t>(CalleeBits::boxNativeCalleeIfExists(callee)))
+JITLessJSEntrypointCallee::JITLessJSEntrypointCallee(unsigned frameSize, TypeIndex typeIndex, bool usesSIMD)
+    : JSEntrypointCallee(Wasm::CompilationMode::JITLessJSEntrypointMode)
+    , frameSize(frameSize)
+    , typeIndex(typeIndex)
 {
-    if (Options::useJIT())
-        wasmFunctionPrologue = LLInt::wasmFunctionEntryThunk().code().retagged<LLIntToWasmEntryPtrTag>();
-    else
-        wasmFunctionPrologue = LLInt::getCodeFunctionPtr<CFunctionPtrTag>(wasm_function_prologue_trampoline);
-
+#if ENABLE(JIT)
+    if (Options::useWasmJIT()) {
+#else
+    if (false) {
+#endif
+        if (usesSIMD)
+            wasmFunctionPrologue = LLInt::wasmFunctionEntryThunkSIMD().code().retagged<WasmEntryPtrTag>();
+        else
+            wasmFunctionPrologue = LLInt::wasmFunctionEntryThunk().code().retagged<WasmEntryPtrTag>();
+    } else {
+        if (usesSIMD)
+            wasmFunctionPrologue = CodePtr<CFunctionPtrTag>(LLInt::getCodeFunctionPtr<CFunctionPtrTag>(wasm_function_prologue_simd_trampoline)).retagged<WasmEntryPtrTag>();
+        else
+            wasmFunctionPrologue = CodePtr<CFunctionPtrTag>(LLInt::getCodeFunctionPtr<CFunctionPtrTag>(wasm_function_prologue_trampoline)).retagged<WasmEntryPtrTag>();
+    }
 }
 
-CodePtr<WasmEntryPtrTag> JSEntrypointInterpreterCallee::entrypointImpl() const
+CodePtr<WasmEntryPtrTag> JITLessJSEntrypointCallee::entrypointImpl() const
 {
+    const TypeDefinition& typeDefinition = TypeInformation::get(typeIndex).expand();
     if (m_replacementCallee)
         return m_replacementCallee->entrypoint();
+    if (Options::useWasmSIMD() && (wasmCallingConvention().callInformationFor(typeDefinition).argumentsOrResultsIncludeV128)) {
+#if ENABLE(JIT)
+        if (Options::useJIT())
+            return createJSToWasmJITSharedCrashForSIMDParameters()->entrypoint.compilation->code().retagged<WasmEntryPtrTag>();
+#endif
+        return LLInt::getCodeFunctionPtr<CFunctionPtrTag>(js_to_wasm_wrapper_entry_crash_for_simd_parameters);
+    }
+
+#if ENABLE(JIT)
+    if (Options::useWasmJIT())
+        return createJSToWasmJITShared()->entrypoint.compilation->code().retagged<WasmEntryPtrTag>();
+#endif
     return LLInt::getCodeFunctionPtr<CFunctionPtrTag>(js_to_wasm_wrapper_entry);
 }
 
-RegisterAtOffsetList* JSEntrypointInterpreterCallee::calleeSaveRegistersImpl()
+RegisterAtOffsetList* JITLessJSEntrypointCallee::calleeSaveRegistersImpl()
 {
     // This must be the same to JSToWasm's callee save registers.
     // The reason is that we may use m_replacementCallee which can be set at any time.
@@ -450,6 +476,7 @@ RegisterAtOffsetList* JSEntrypointInterpreterCallee::calleeSaveRegistersImpl()
 #endif
         calleeSaveRegisters.construct(WTFMove(registers));
     });
+    ASSERT(WTF::roundUpToMultipleOf<stackAlignmentBytes()>(calleeSaveRegisters->sizeOfAreaInBytes()) == SpillStackSpaceAligned);
     return &calleeSaveRegisters.get();
 }
 
@@ -469,6 +496,6 @@ void OptimizingJITCallee::linkExceptionHandlers(Vector<UnlinkedHandlerInfo> unli
 
 #endif
 
-} } // namespace JSC::Wasm
+} // namespace JSC::Wasm
 
 #endif // ENABLE(WEBASSEMBLY)

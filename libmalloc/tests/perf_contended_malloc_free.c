@@ -13,6 +13,9 @@
 #include <sys/sysctl.h>
 #include <mach/mach.h>
 #include <perfcheck_keys.h>
+typedef unsigned seed_type_t;
+#else
+typedef unsigned long seed_type_t;
 #endif // !MALLOC_TARGET_EXCLAVES
 
 T_GLOBAL_META(T_META_TAG_PERF, T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED);
@@ -36,7 +39,7 @@ T_GLOBAL_META(T_META_TAG_PERF, T_META_TAG_XZONE, T_META_TAG_VM_NOT_PREFERRED);
 #pragma mark -
 
 static uint64_t
-random_busy_counts(unsigned int *seed, uint64_t *first, uint64_t *second)
+random_busy_counts(seed_type_t *seed, uint64_t *first, uint64_t *second)
 {
 	uint64_t random = rand_r(seed);
 	*first = 0x4 + (random & (0x10 - 1));
@@ -290,7 +293,7 @@ malloc_bench_thread(void * arg)
 {
 	kern_return_t kr;
 	int r;
-	unsigned int seed;
+	seed_type_t seed;
 	volatile double dummy;
 	uint64_t pos, remaining_frees;
 	void *alloc;

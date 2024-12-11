@@ -40,6 +40,7 @@
 #import <wtf/Range.h>
 #import <wtf/RangeSet.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/MakeString.h>
 
 #import "PDFKitSoftLink.h"
@@ -53,7 +54,7 @@ using namespace WebCore;
 static const uint32_t nonLinearizedPDFSentinel = std::numeric_limits<uint32_t>::max();
 
 class ByteRangeRequest : public Identified<ByteRangeRequestIdentifier> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(ByteRangeRequest);
 public:
     ByteRangeRequest() = default;
     ByteRangeRequest(uint64_t position, size_t count, DataRequestCompletionHandler&& completionHandler)
@@ -63,7 +64,7 @@ public:
     {
     }
 
-    NetscapePlugInStreamLoader* streamLoader() { return m_streamLoader; }
+    NetscapePlugInStreamLoader* streamLoader() { return m_streamLoader.get(); }
     void setStreamLoader(NetscapePlugInStreamLoader* loader) { m_streamLoader = loader; }
     void clearStreamLoader();
     void addData(std::span<const uint8_t> data) { m_accumulatedData.append(data); }
@@ -83,10 +84,12 @@ private:
     size_t m_count { 0 };
     DataRequestCompletionHandler m_completionHandler;
     Vector<uint8_t> m_accumulatedData;
-    NetscapePlugInStreamLoader* m_streamLoader { nullptr };
+    WeakPtr<NetscapePlugInStreamLoader> m_streamLoader;
 };
 
 #pragma mark -
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ByteRangeRequest);
 
 void ByteRangeRequest::clearStreamLoader()
 {
@@ -272,6 +275,8 @@ struct PDFIncrementalLoader::RequestData {
 };
 
 #pragma mark -
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PDFIncrementalLoader);
 
 Ref<PDFIncrementalLoader> PDFIncrementalLoader::create(PDFPluginBase& plugin)
 {
@@ -618,7 +623,7 @@ size_t PDFIncrementalLoader::dataProviderGetBytesAtPosition(std::span<uint8_t> b
     }
 
     if (auto data = plugin->dataSpanForRange(position, buffer.size(), CheckValidRanges::Yes); data.data()) {
-        memcpySpan(buffer.first(data.size()), data);
+        memcpySpan(buffer, data);
 #if !LOG_DISABLED
         decrementThreadsWaitingOnCallback();
         incrementalLoaderLog(makeString("Satisfied range request for "_s, data.size(), " bytes at position "_s, position, " synchronously"_s));
@@ -639,7 +644,7 @@ size_t PDFIncrementalLoader::dataProviderGetBytesAtPosition(std::span<uint8_t> b
             if (dataSemaphore->wasSignaled())
                 return;
             RELEASE_ASSERT(bytes.size() <= buffer.size());
-            memcpySpan(buffer.first(bytes.size()), bytes);
+            memcpySpan(buffer, bytes);
             bytesProvided = bytes.size();
             dataSemaphore->signal();
         });

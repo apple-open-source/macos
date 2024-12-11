@@ -42,7 +42,7 @@
 namespace WebCore {
 
 CSSCircleValue::CSSCircleValue(RefPtr<CSSValue>&& radius, RefPtr<CSSValue>&& centerX, RefPtr<CSSValue>&& centerY)
-    : CSSValue(CircleClass)
+    : CSSValue(ClassType::Circle)
     , m_radius(WTFMove(radius))
     , m_centerX(WTFMove(centerX))
     , m_centerY(WTFMove(centerY))
@@ -94,7 +94,7 @@ static SerializablePositionOffset buildSerializablePositionOffset(CSSValue* offs
         side = defaultSide;
     else if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(*amount); (side == CSSValueRight || side == CSSValueBottom) && primitiveValue && primitiveValue->isPercentage()) {
         side = defaultSide;
-        amount = CSSPrimitiveValue::create(Length(100 - primitiveValue->floatValue(), LengthType::Percent));
+        amount = CSSPrimitiveValue::create(Length(100 - primitiveValue->resolveAsPercentageDeprecated<float>(), LengthType::Percent));
     } else if (isZeroLength(*amount)) {
         if (side == CSSValueRight || side == CSSValueBottom)
             amount = CSSPrimitiveValue::create(Length(100, LengthType::Percent));
@@ -130,8 +130,10 @@ bool CSSCircleValue::equals(const CSSCircleValue& other) const
         && compareCSSValuePtr(m_radius, other.m_radius);
 }
 
+// MARK: -
+
 CSSEllipseValue::CSSEllipseValue(RefPtr<CSSValue>&& radiusX, RefPtr<CSSValue>&& radiusY, RefPtr<CSSValue>&& centerX, RefPtr<CSSValue>&& centerY)
-    : CSSValue(EllipseClass)
+    : CSSValue(ClassType::Ellipse)
     , m_radiusX(WTFMove(radiusX))
     , m_radiusY(WTFMove(radiusY))
     , m_centerX(WTFMove(centerX))
@@ -199,8 +201,10 @@ bool CSSEllipseValue::equals(const CSSEllipseValue& other) const
         && compareCSSValuePtr(m_radiusY, other.m_radiusY);
 }
 
+// MARK: -
+
 CSSXywhValue::CSSXywhValue(Ref<CSSValue>&& insetX, Ref<CSSValue>&& insetY, Ref<CSSValue>&& width, Ref<CSSValue>&& height, RefPtr<CSSValue>&& topLeftRadius, RefPtr<CSSValue>&& topRightRadius, RefPtr<CSSValue>&& bottomRightRadius, RefPtr<CSSValue>&& bottomLeftRadius)
-    : CSSValue(XywhShapeClass)
+    : CSSValue(ClassType::XywhShape)
     , m_insetX(WTFMove(insetX))
     , m_insetY(WTFMove(insetY))
     , m_width(WTFMove(width))
@@ -317,8 +321,10 @@ String CSSXywhValue::customCSSText() const
         bottomRightRadiusWidth, bottomRightRadiusHeight, bottomLeftRadiusWidth, bottomLeftRadiusHeight);
 }
 
+// MARK: -
+
 CSSRectShapeValue::CSSRectShapeValue(Ref<CSSValue>&& top, Ref<CSSValue>&& right, Ref<CSSValue>&& bottom, Ref<CSSValue>&& left, RefPtr<CSSValue>&& topLeftRadius, RefPtr<CSSValue>&& topRightRadius, RefPtr<CSSValue>&& bottomRightRadius, RefPtr<CSSValue>&& bottomLeftRadius)
-    : CSSValue(RectShapeClass)
+    : CSSValue(ClassType::RectShape)
     , m_top(WTFMove(top))
     , m_right(WTFMove(right))
     , m_bottom(WTFMove(bottom))
@@ -383,8 +389,10 @@ String CSSRectShapeValue::customCSSText() const
         bottomRightRadiusWidth, bottomRightRadiusHeight, bottomLeftRadiusWidth, bottomLeftRadiusHeight);
 }
 
+// MARK: -
+
 CSSPathValue::CSSPathValue(SVGPathByteStream data, WindRule rule)
-    : CSSValue(PathClass)
+    : CSSValue(ClassType::Path)
     , m_pathData(WTFMove(data))
     , m_windRule(rule)
 {
@@ -414,13 +422,15 @@ bool CSSPathValue::equals(const CSSPathValue& other) const
     return m_pathData == other.m_pathData && m_windRule == other.m_windRule;
 }
 
-CSSPolygonValue::CSSPolygonValue(CSSValueListBuilder values, WindRule rule)
-    : CSSValueContainingVector(PolygonClass, SpaceSeparator, WTFMove(values))
+// MARK: -
+
+CSSPolygonValue::CSSPolygonValue(CSSValueListBuilder&& values, WindRule rule)
+    : CSSValueContainingVector(ClassType::Polygon, SpaceSeparator, WTFMove(values))
     , m_windRule(rule)
 {
 }
 
-Ref<CSSPolygonValue> CSSPolygonValue::create(CSSValueListBuilder values, WindRule rule)
+Ref<CSSPolygonValue> CSSPolygonValue::create(CSSValueListBuilder&& values, WindRule rule)
 {
     return adoptRef(*new CSSPolygonValue(WTFMove(values), rule));
 }
@@ -444,8 +454,10 @@ bool CSSPolygonValue::equals(const CSSPolygonValue& other) const
     return m_windRule == other.m_windRule && itemsEqual(other);
 }
 
+// MARK: -
+
 CSSInsetShapeValue::CSSInsetShapeValue(Ref<CSSValue>&& top, Ref<CSSValue>&& right, Ref<CSSValue>&& bottom, Ref<CSSValue>&& left, RefPtr<CSSValue>&& topLeftRadius, RefPtr<CSSValue>&& topRightRadius, RefPtr<CSSValue>&& bottomRightRadius, RefPtr<CSSValue>&& bottomLeftRadius)
-    : CSSValue(InsetShapeClass)
+    : CSSValue(ClassType::InsetShape)
     , m_top(WTFMove(top))
     , m_right(WTFMove(right))
     , m_bottom(WTFMove(bottom))
@@ -520,6 +532,46 @@ bool CSSInsetShapeValue::equals(const CSSInsetShapeValue& other) const
         && compareCSSValuePtr(m_topRightRadius, other.m_topRightRadius)
         && compareCSSValuePtr(m_bottomRightRadius, other.m_bottomRightRadius)
         && compareCSSValuePtr(m_bottomLeftRadius, other.m_bottomLeftRadius);
+}
+
+// MARK: -
+
+Ref<CSSShapeValue> CSSShapeValue::create(WindRule windRule, Ref<CSSValuePair>&& fromCoordinates, CSSValueListBuilder&& shapeSegments)
+{
+    return adoptRef(*new CSSShapeValue(windRule, WTFMove(fromCoordinates), WTFMove(shapeSegments)));
+}
+
+CSSShapeValue::CSSShapeValue(WindRule windRule, Ref<CSSValuePair>&& fromCoordinates, CSSValueListBuilder&& shapeSegments)
+    : CSSValueContainingVector(ClassType::Shape, CommaSeparator, WTFMove(shapeSegments))
+    , m_fromCoordinates(WTFMove(fromCoordinates))
+    , m_windRule(windRule)
+{
+}
+
+String CSSShapeValue::customCSSText() const
+{
+    StringBuilder builder;
+    builder.append("shape("_s);
+
+    if (windRule() == WindRule::EvenOdd)
+        builder.append("evenodd "_s);
+
+    builder.append("from "_s, m_fromCoordinates->cssText(), ", "_s);
+    serializeItems(builder);
+
+    builder.append(')');
+    return builder.toString();
+}
+
+bool CSSShapeValue::equals(const CSSShapeValue& other) const
+{
+    if (windRule() != other.windRule())
+        return false;
+
+    if (!compareCSSValue(m_fromCoordinates, other.m_fromCoordinates))
+        return false;
+
+    return itemsEqual(other);
 }
 
 } // namespace WebCore

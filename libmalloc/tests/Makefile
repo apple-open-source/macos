@@ -32,6 +32,7 @@ WARNING_CFLAGS := -Wno-format-invalid-specifier -Wno-format-extra-args
 OTHER_CFLAGS += \
 	-DDARWINTEST \
 	-DOS_ATOMIC_CONFIG_MEMORY_ORDER_DEPENDENCY=1 \
+	-DT_META_TAG_XZONE_AND_PGM=T_META_TAG\(\"xzone_and_pgm\"\) \
 	-DT_META_TAG_XZONE=T_META_TAG\(\"xzone\"\) \
 	-DT_META_TAG_XZONE_ONLY=T_META_TAG\(\"xzone_only\"\) \
 	-DT_META_TAG_NANO_ON_XZONE=T_META_TAG\(\"nano_on_xzone\"\) \
@@ -51,7 +52,14 @@ OTHER_CFLAGS += -isystem $(SDKROOT)/System/ExclaveKit/usr/local/standalone/cL4-f
 OTHER_LDFLAGS += -L $(SDKROOT)/System/ExclaveKit/usr/local/lib
 OTHER_LDFLAGS += -lc++
 
-CUSTOM_TARGETS += libmalloc-exclavekit-darwintests
+# FIXME: This should be inherited from SDKSettings.json, but Xcode doesn't
+# invoke the darwintests target once for each variant in BUILD_VARIANTS
+_OTHER_CFLAGS_asan := $(shell plutil -extract DefaultProperties._OTHER_CFLAGS_asan raw -expect string $(SDKROOT)/SDKSettings.json)
+# rdar://128967612 (Don't link compiler-rt for exclavekit sanitizers)
+_OTHER_LDFLAGS_asan := \
+	-fno-sanitize-link-runtime
+
+CUSTOM_TARGETS += libmalloc-exclavekit-darwintests libmalloc-exclavekit-darwintests_asan
 CUSTOM_TARGETS += libmalloc_exclavekit.plist
 endif
 
@@ -79,7 +87,13 @@ OTHER_LDFLAGS += \
 	-lvas-core \
 	-lxrt
 
-CUSTOM_TARGETS += libmalloc-exclavecore-darwintests
+# FIXME: This should be inherited from SDKSettings.json, but Xcode doesn't
+# invoke the darwintests target once for each variant in BUILD_VARIANTS
+_OTHER_CFLAGS_asan := $(shell plutil -extract DefaultProperties._OTHER_CFLAGS_asan raw -expect string $(SDKROOT)/SDKSettings.json)
+_OTHER_LDFLAGS_asan := \
+	-Wl,-image_suffix,_asan
+
+CUSTOM_TARGETS += libmalloc-exclavecore-darwintests libmalloc-exclavecore-darwintests_asan
 CUSTOM_TARGETS += libmalloc_exclavecore.plist
 endif
 
@@ -275,8 +289,16 @@ endif
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets
 
 ifeq ($(MALLOC_EXCLAVEKIT),YES)
+# Linker arguments for ASAN must be prepended to select correct libraries
+libmalloc-exclavekit-darwintests_asan: OTHER_CFLAGS += $(_OTHER_CFLAGS_asan)
+libmalloc-exclavekit-darwintests_asan: OTHER_LDFLAGS := $(_OTHER_LDFLAGS_asan) $(OTHER_LDFLAGS)
+libmalloc-exclavekit-darwintests_asan: $(SOURCES_c) $(SYMROOT)/malloc_type_cpp.o
+	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 libmalloc-exclavekit-darwintests: $(SOURCES_c) $(SYMROOT)/malloc_type_cpp.o
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
+install-libmalloc-exclavekit-darwintests_asan: libmalloc-exclavekit-darwintests_asan
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$(patsubst install-%,%,$@) $(INSTALLDIR)/
 install-libmalloc-exclavekit-darwintests: libmalloc-exclavekit-darwintests
 	mkdir -p $(INSTALLDIR)
 	cp $(SYMROOT)/$(patsubst install-%,%,$@) $(INSTALLDIR)/
@@ -288,9 +310,17 @@ install-libmalloc_exclavekit.plist: libmalloc_exclavekit.plist
 endif
 
 ifeq ($(MALLOC_EXCLAVECORE),YES)
+# Linker arguments for ASAN must be prepended to select correct libraries
+libmalloc-exclavecore-darwintests_asan: OTHER_CFLAGS += $(_OTHER_CFLAGS_asan)
+libmalloc-exclavecore-darwintests_asan: OTHER_LDFLAGS := $(_OTHER_LDFLAGS_asan) $(OTHER_LDFLAGS)
+libmalloc-exclavecore-darwintests_asan: $(SOURCES_c) exclavecore_support.c $(SYMROOT)/malloc_type_cpp.o
+	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 libmalloc-exclavecore-darwintests: $(SOURCES_c) exclavecore_support.c $(SYMROOT)/malloc_type_cpp.o
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
-install-libmalloc-exclavecore-darwintests : libmalloc-exclavecore-darwintests
+install-libmalloc-exclavecore-darwintests_asan: libmalloc-exclavecore-darwintests_asan
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$(patsubst install-%,%,$@) $(INSTALLDIR)/
+install-libmalloc-exclavecore-darwintests: libmalloc-exclavecore-darwintests
 	mkdir -p $(INSTALLDIR)
 	cp $(SYMROOT)/$(patsubst install-%,%,$@) $(INSTALLDIR)/
 libmalloc_exclavecore.plist: $(PROJECT_DIR)/tests/exclave/libmalloc_exclavecore.plist

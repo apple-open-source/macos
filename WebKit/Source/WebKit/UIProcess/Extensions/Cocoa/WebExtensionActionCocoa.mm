@@ -36,6 +36,8 @@
 #import "WKNavigationActionPrivate.h"
 #import "WKNavigationDelegatePrivate.h"
 #import "WKUIDelegatePrivate.h"
+#import "WKWebExtensionActionInternal.h"
+#import "WKWebExtensionControllerDelegatePrivate.h"
 #import "WKWebViewConfigurationPrivate.h"
 #import "WKWebViewInternal.h"
 #import "WKWindowFeaturesPrivate.h"
@@ -47,8 +49,6 @@
 #import "WebExtensionTabParameters.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
-#import "_WKWebExtensionActionInternal.h"
-#import "_WKWebExtensionControllerDelegatePrivate.h"
 #import <wtf/BlockPtr.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -602,12 +602,33 @@ WebExtensionContext* WebExtensionAction::extensionContext() const
     return m_extensionContext.get();
 }
 
+RefPtr<WebExtensionTab> WebExtensionAction::tab() const
+{
+    return m_tab.and_then([](auto const& maybeTab) {
+        return std::optional(RefPtr(maybeTab.get()));
+    }).value_or(nullptr);
+}
+
+RefPtr<WebExtensionWindow> WebExtensionAction::window() const
+{
+    return m_window.and_then([](auto const& maybeWindow) {
+        return std::optional(RefPtr(maybeWindow.get()));
+    }).value_or(nullptr);
+}
+
 void WebExtensionAction::clearCustomizations()
 {
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    if (!m_customIcons && !m_customIconVariants && m_customPopupPath.isNull() && m_customLabel.isNull() && m_customBadgeText.isNull() && !m_customEnabled && !m_blockedResourceCount)
+#else
     if (!m_customIcons && m_customPopupPath.isNull() && m_customLabel.isNull() && m_customBadgeText.isNull() && !m_customEnabled && !m_blockedResourceCount)
+#endif
         return;
 
     m_customIcons = nil;
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    m_customIconVariants = nil;
+#endif
     m_customPopupPath = nullString();
     m_customLabel = nullString();
     m_customBadgeText = nullString();
@@ -619,6 +640,7 @@ void WebExtensionAction::clearCustomizations()
     m_popoverAppearance = Appearance::Default;
 #endif
 
+    clearIconCache();
     propertiesDidChange();
 }
 
@@ -632,7 +654,7 @@ void WebExtensionAction::clearBlockedResourceCount()
 void WebExtensionAction::propertiesDidChange()
 {
     dispatch_async(dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = Ref { *this }]() {
-        [NSNotificationCenter.defaultCenter postNotificationName:_WKWebExtensionActionPropertiesDidChangeNotification object:wrapper() userInfo:nil];
+        [NSNotificationCenter.defaultCenter postNotificationName:WKWebExtensionActionPropertiesDidChangeNotification object:wrapper() userInfo:nil];
     }).get());
 }
 
@@ -641,12 +663,12 @@ WebExtensionAction* WebExtensionAction::fallbackAction() const
     if (!extensionContext())
         return nullptr;
 
-    // Tab actions fallback to the window action.
-    if (m_tab)
-        return extensionContext()->getAction(m_tab->window().get()).ptr();
+    // Tab actions whose tab references have not dropped fallback to the window action.
+    if (RefPtr tab = this->tab())
+        return extensionContext()->getAction(tab->window().get()).ptr();
 
-    // Window actions fallback to the default action.
-    if (m_window)
+    // Window actions and tab actions whose tab references have dropped fallback to the default action.
+    if (m_window.has_value() || m_tab.has_value())
         return &extensionContext()->defaultAction();
 
     // Default actions have no fallback.
@@ -658,11 +680,46 @@ CocoaImage *WebExtensionAction::icon(CGSize idealSize)
     if (!extensionContext())
         return nil;
 
-    if (m_customIcons) {
-        if (CocoaImage *result = extensionContext()->extension().bestImageInIconsDictionary(m_customIcons.get(), idealSize.width > idealSize.height ? idealSize.width : idealSize.height))
-            return result;
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    if (m_customIconVariants || m_customIcons)
+#else
+    if (m_customIcons)
+#endif
+    {
+        // Clear the cache if the display scales change (connecting display, etc.)
+        auto *currentScales = availableScreenScales();
+        if (![currentScales isEqualToSet:m_cachedIconScales.get()])
+            clearIconCache();
 
-        // If custom icons fail, fallback to the default icons.
+        if (m_cachedIcon && CGSizeEqualToSize(idealSize, m_cachedIconIdealSize))
+            return m_cachedIcon.get();
+
+        CocoaImage *result;
+
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+        if (m_customIconVariants) {
+            result = extensionContext()->extension().bestImageForIconVariants(m_customIconVariants.get(), idealSize, [&](auto *error) {
+                extensionContext()->recordError(error);
+            });
+        } else
+#endif // ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+        if (m_customIcons) {
+            result = extensionContext()->extension().bestImageInIconsDictionary(m_customIcons.get(), idealSize, [&](auto *error) {
+                extensionContext()->recordError(error);
+            });
+        }
+
+        if (result) {
+            m_cachedIcon = result;
+            m_cachedIconScales = currentScales;
+            m_cachedIconIdealSize = idealSize;
+
+            return result;
+        }
+
+        clearIconCache();
+
+        // If custom icons fail, fallback.
     }
 
     if (RefPtr fallback = fallbackAction())
@@ -672,14 +729,39 @@ CocoaImage *WebExtensionAction::icon(CGSize idealSize)
     return extensionContext()->extension().actionIcon(idealSize);
 }
 
-void WebExtensionAction::setIconsDictionary(NSDictionary *icons)
+void WebExtensionAction::setIcons(NSDictionary *icons)
 {
     if ([(m_customIcons ?: @{ }) isEqualToDictionary:(icons ?: @{ })])
         return;
 
     m_customIcons = icons.count ? icons : nil;
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    m_customIconVariants = nil;
+#endif
 
+    clearIconCache();
     propertiesDidChange();
+}
+
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+void WebExtensionAction::setIconVariants(NSArray *iconVariants)
+{
+    if ([(m_customIconVariants ?: @[ ]) isEqualToArray:(iconVariants ?: @[ ])])
+        return;
+
+    m_customIconVariants = iconVariants.count ? iconVariants : nil;
+    m_customIcons = nil;
+
+    clearIconCache();
+    propertiesDidChange();
+}
+#endif // ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+
+void WebExtensionAction::clearIconCache()
+{
+    m_cachedIcon = nil;
+    m_cachedIconScales = nil;
+    m_cachedIconIdealSize = CGSizeZero;
 }
 
 String WebExtensionAction::popupPath() const
@@ -1169,9 +1251,11 @@ NSArray *WebExtensionAction::platformMenuItems() const
     if (!extensionContext())
         return @[ ];
 
-    RefPtr tab = m_tab;
-    if (!tab && m_window)
-        tab = m_window->activeTab();
+    RefPtr tab = this->tab();
+    if (!tab) {
+        if (RefPtr window = this->window())
+            tab = window->activeTab();
+    }
 
     WebExtensionMenuItemContextParameters contextParameters;
     contextParameters.types = WebExtensionMenuItemContextType::Action;

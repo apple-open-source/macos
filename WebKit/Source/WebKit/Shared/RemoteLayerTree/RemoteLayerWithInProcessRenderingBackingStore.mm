@@ -40,8 +40,12 @@
 #import <WebCore/ImageBufferPixelFormat.h>
 #import <WebCore/PlatformCALayerClient.h>
 #import <wtf/Scope.h>
+#import <wtf/TZoneMalloc.h>
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLayerWithInProcessRenderingBackingStore);
 
 using namespace WebCore;
 
@@ -103,7 +107,7 @@ DynamicContentScalingResourceCache RemoteLayerWithInProcessRenderingBackingStore
 void RemoteLayerWithInProcessRenderingBackingStore::createContextAndPaintContents()
 {
     if (!m_frontBuffer.imageBuffer) {
-        ASSERT(m_layer->owner()->platformCALayerDelegatesDisplay(m_layer));
+        ASSERT(m_layer.owner()->platformCALayerDelegatesDisplay(&m_layer));
         return;
     }
 
@@ -142,7 +146,7 @@ void RemoteLayerWithInProcessRenderingBackingStore::createContextAndPaintContent
 }
 
 class ImageBufferBackingStoreFlusher final : public ThreadSafeImageBufferSetFlusher {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(ImageBufferBackingStoreFlusher);
     WTF_MAKE_NONCOPYABLE(ImageBufferBackingStoreFlusher);
 public:
     static std::unique_ptr<ImageBufferBackingStoreFlusher> create(std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher> imageBufferFlusher)
@@ -194,7 +198,7 @@ SwapBuffersDisplayRequirement RemoteLayerWithInProcessRenderingBackingStore::pre
     if (!hasFrontBuffer() || result == SetNonVolatileResult::Empty)
         displayRequirement = SwapBuffersDisplayRequirement::NeedsFullDisplay;
 
-    LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " prepareBuffers() - " << displayRequirement);
+    LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer.layerID() << " prepareBuffers() - " << displayRequirement);
     return displayRequirement;
 }
 
@@ -262,7 +266,7 @@ static RefPtr<ImageBuffer> allocateBufferInternal(RemoteLayerBackingStore::Type 
 
 RefPtr<WebCore::ImageBuffer> RemoteLayerWithInProcessRenderingBackingStore::allocateBuffer()
 {
-    auto purpose = m_layer->containsBitmapOnly() ? WebCore::RenderingPurpose::BitmapOnlyLayerBacking : WebCore::RenderingPurpose::LayerBacking;
+    auto purpose = m_layer.containsBitmapOnly() ? WebCore::RenderingPurpose::BitmapOnlyLayerBacking : WebCore::RenderingPurpose::LayerBacking;
     ImageBufferCreationContext creationContext;
     creationContext.surfacePool = &WebCore::IOSurfacePool::sharedPool();
 
@@ -295,7 +299,7 @@ void RemoteLayerWithInProcessRenderingBackingStore::prepareToDisplay()
         return;
     }
 
-    LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " prepareToDisplay()");
+    LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer.layerID() << " prepareToDisplay()");
 
     if (performDelegatedLayerDisplay())
         return;

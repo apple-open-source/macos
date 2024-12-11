@@ -25,6 +25,7 @@
 #include "CSSBasicShapes.h"
 #include "LegacyRenderSVGPath.h"
 #include "LegacyRenderSVGResource.h"
+#include "MutableStyleProperties.h"
 #include "RenderSVGPath.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementTypeHelpers.h"
@@ -33,12 +34,12 @@
 #include "SVGPathUtilities.h"
 #include "SVGPoint.h"
 #include "SVGRenderStyle.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGPathElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(SVGPathElement);
 
 class PathSegListCache {
 public:
@@ -188,6 +189,10 @@ ExceptionOr<Ref<SVGPoint>> SVGPathElement::getPointAtLength(float distance) cons
 {
     protectedDocument()->updateLayoutIgnorePendingStylesheets({ LayoutOptions::ContentVisibilityForceLayout }, this);
 
+    // Spec: If it is not able to compute the total length of path, then throw.
+    if (pathByteStream().isEmpty())
+        return Exception { ExceptionCode::InvalidStateError, "The element's path is empty."_s };
+
     // Spec: Clamp distance to [0, length].
     distance = clampTo<float>(distance, 0, getTotalLength());
 
@@ -229,10 +234,13 @@ RenderPtr<RenderElement> SVGPathElement::createElementRenderer(RenderStyle&& sty
 
 const SVGPathByteStream& SVGPathElement::pathByteStream() const
 {
-    if (CheckedPtr renderer = this->renderer()) {
-        if (RefPtr basicShapePath = renderer->style().d()) {
-            if (WeakPtr pathData = basicShapePath->pathData())
-                return *pathData;
+    if (document().settings().cssDPropertyEnabled()) {
+        if (CheckedPtr renderer = this->renderer()) {
+            if (RefPtr basicShapePath = renderer->style().d()) {
+                if (WeakPtr pathData = basicShapePath->pathData())
+                    return *pathData;
+            }
+            return SVGPathByteStream::empty();
         }
     }
 
@@ -241,9 +249,12 @@ const SVGPathByteStream& SVGPathElement::pathByteStream() const
 
 Path SVGPathElement::path() const
 {
-    if (CheckedPtr renderer = this->renderer()) {
-        if (RefPtr basicShapePath = renderer->style().d())
-            return basicShapePath->path({ });
+    if (document().settings().cssDPropertyEnabled()) {
+        if (CheckedPtr renderer = this->renderer()) {
+            if (RefPtr basicShapePath = renderer->style().d())
+                return basicShapePath->path({ });
+            return { };
+        }
     }
 
     return Ref { m_pathSegList }->currentPath();
@@ -251,15 +262,29 @@ Path SVGPathElement::path() const
 
 void SVGPathElement::collectPresentationalHintsForAttribute(const QualifiedName& name, const AtomString& value, MutableStyleProperties& style)
 {
-    if (name == SVGNames::dAttr && document().settings().cssDPropertyEnabled()) {
-        // In the case of the `d` property, we want to avoid providing a string value since it will require
-        // the path data to be parsed again and path data can be unwieldy.
-        auto property = cssPropertyIdForSVGAttributeName(name, document().protectedSettings());
-        // The WindRule value passed here is not relevant for the `d` property.
-        auto cssPathValue = CSSPathValue::create(Ref { m_pathSegList }->currentPathByteStream(), WindRule::NonZero);
-        addPropertyToPresentationalHintStyle(style, property, WTFMove(cssPathValue));
-    } else
+    if (name == SVGNames::dAttr && document().settings().cssDPropertyEnabled())
+        collectDPresentationalHint(style);
+    else
         SVGGeometryElement::collectPresentationalHintsForAttribute(name, value, style);
+}
+
+void SVGPathElement::collectExtraStyleForPresentationalHints(MutableStyleProperties& style)
+{
+    if (!document().settings().cssDPropertyEnabled())
+        return;
+    if (style.findPropertyIndex(CSSPropertyD) == -1)
+        collectDPresentationalHint(style);
+}
+
+void SVGPathElement::collectDPresentationalHint(MutableStyleProperties& style)
+{
+    ASSERT(document().settings().cssDPropertyEnabled());
+    // In the case of the `d` property, we want to avoid providing a string value since it will require
+    // the path data to be parsed again and path data can be unwieldy.
+    auto property = cssPropertyIdForSVGAttributeName(SVGNames::dAttr, document().protectedSettings());
+    // The WindRule value passed here is not relevant for the `d` property.
+    auto cssPathValue = CSSPathValue::create(Ref { m_pathSegList }->currentPathByteStream(), WindRule::NonZero);
+    addPropertyToPresentationalHintStyle(style, property, WTFMove(cssPathValue));
 }
 
 void SVGPathElement::pathDidChange()

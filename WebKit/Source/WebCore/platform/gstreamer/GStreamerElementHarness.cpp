@@ -27,10 +27,14 @@
 #include <wtf/FileSystem.h>
 #include <wtf/PrintStream.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GStreamerElementHarness);
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(GStreamerElementHarnessStream, GStreamerElementHarness::Stream);
 
 GST_DEBUG_CATEGORY(webkit_element_harness_debug);
 #define GST_CAT_DEFAULT webkit_element_harness_debug
@@ -646,7 +650,7 @@ String MermaidBuilder::describeCaps(const GRefPtr<GstCaps>& caps)
     for (unsigned i = 0; i < capsSize; i++) {
         auto* features = gst_caps_get_features(caps.get(), i);
         const auto* structure = gst_caps_get_structure(caps.get(), i);
-        builder.append(WTF::span(gst_structure_get_name(structure)), "<br/>"_s);
+        builder.append(gstStructureGetName(structure), "<br/>"_s);
         if (features && (gst_caps_features_is_any(features) || !gst_caps_features_is_equal(features, GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY))) {
             GUniquePtr<char> serializedFeature(gst_caps_features_to_string(features));
             builder.append('(', WTF::span(serializedFeature.get()), ')');

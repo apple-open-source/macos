@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "AnchorPositionEvaluator.h"
 #include "MatchResult.h"
 #include "RenderStyle.h"
 #include "Timer.h"
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>
 
 namespace WebCore {
@@ -38,12 +38,12 @@ namespace Style {
 class Resolver;
 
 class MatchedDeclarationsCache {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(MatchedDeclarationsCache);
 public:
     explicit MatchedDeclarationsCache(const Resolver&);
     ~MatchedDeclarationsCache();
 
-    static bool isCacheable(const Element&, const RenderStyle&, const RenderStyle& parentStyle, const AnchorPositionedStateMap*);
+    static bool isCacheable(const Element&, const RenderStyle&, const RenderStyle& parentStyle);
     static unsigned computeHash(const MatchResult&, const StyleCustomPropertyData& inheritedCustomProperties);
 
     struct Entry {

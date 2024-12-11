@@ -44,17 +44,19 @@
 #include <WebCore/Timer.h>
 #include <wtf/Forward.h>
 #include <wtf/Identified.h>
+#include <wtf/RunLoop.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URLHash.h>
 #include <wtf/WeakHashSet.h>
 
 OBJC_CLASS NSError;
 OBJC_CLASS NSMenu;
-OBJC_CLASS _WKWebExtensionStorageSQLiteStore;
 OBJC_CLASS _WKWebExtensionControllerHelper;
-OBJC_PROTOCOL(_WKWebExtensionControllerDelegatePrivate);
+OBJC_CLASS _WKWebExtensionStorageSQLiteStore;
+OBJC_PROTOCOL(WKWebExtensionControllerDelegatePrivate);
 
 #ifdef __OBJC__
-#import "_WKWebExtensionController.h"
+#import "WKWebExtensionController.h"
 #endif
 
 namespace API {
@@ -154,6 +156,8 @@ public:
     template<typename T, typename RawValue>
     void sendToAllProcesses(const T& message, const ObjectIdentifierGenericBase<RawValue>& destinationID);
 
+    bool isFeatureEnabled(const String& featureName) const;
+
 #if PLATFORM(MAC)
     void addItemsToContextMenu(WebPageProxy&, const ContextMenuContextData&, NSMenu *);
 #endif
@@ -177,8 +181,8 @@ public:
     void setShowingActionPopup(bool isOpen) { m_showingActionPopup = isOpen; };
 
 #ifdef __OBJC__
-    _WKWebExtensionController *wrapper() const { return (_WKWebExtensionController *)API::ObjectImpl<API::Object::Type::WebExtensionController>::wrapper(); }
-    _WKWebExtensionControllerDelegatePrivate *delegate() const { return (_WKWebExtensionControllerDelegatePrivate *)wrapper().delegate; }
+    WKWebExtensionController *wrapper() const { return (WKWebExtensionController *)API::ObjectImpl<API::Object::Type::WebExtensionController>::wrapper(); }
+    WKWebExtensionControllerDelegatePrivate *delegate() const { return (WKWebExtensionControllerDelegatePrivate *)wrapper().delegate; }
 #endif
 
 private:
@@ -217,7 +221,7 @@ private:
     void testFinished(bool result, String message, String sourceURL, unsigned lineNumber);
 
     class HTTPCookieStoreObserver : public API::HTTPCookieStoreObserver {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED_INLINE(HTTPCookieStoreObserver);
 
     public:
         explicit HTTPCookieStoreObserver(WebExtensionController& extensionController)
@@ -258,7 +262,7 @@ private:
 #endif
     bool m_showingActionPopup { false };
 
-    std::unique_ptr<WebCore::Timer> m_purgeOldMatchedRulesTimer;
+    std::unique_ptr<RunLoop::Timer> m_purgeOldMatchedRulesTimer;
     std::unique_ptr<HTTPCookieStoreObserver> m_cookieStoreObserver;
 };
 

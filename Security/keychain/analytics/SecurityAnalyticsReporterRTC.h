@@ -26,7 +26,7 @@
 #import <AAAFoundation/AAAFoundation.h>
 #endif
 
-#import "AAFAnalyticsEvent+Security.h"
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 NS_ASSUME_NONNULL_BEGIN
 

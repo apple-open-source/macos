@@ -41,6 +41,7 @@
 #include "ElementTargetingTypes.h"
 #include "FrameDestructionObserver.h"
 #include "FrameLoaderTypes.h"
+#include "HTTPSByDefaultMode.h"
 #include "LinkIcon.h"
 #include "NavigationAction.h"
 #include "NavigationIdentifier.h"
@@ -169,6 +170,12 @@ enum class ColorSchemePreference : uint8_t {
     NoPreference,
     Light,
     Dark
+};
+
+enum class PushAndNotificationsEnabledPolicy: uint8_t {
+    UseGlobalPolicy,
+    No,
+    Yes,
 };
 
 enum class ContentExtensionDefaultEnablement : bool { Disabled, Enabled };
@@ -400,6 +407,12 @@ public:
     WEBCORE_EXPORT ColorSchemePreference colorSchemePreference() const;
     void setColorSchemePreference(ColorSchemePreference preference) { m_colorSchemePreference = preference; }
 
+    HTTPSByDefaultMode httpsByDefaultMode() { return m_httpsByDefaultMode; }
+    WEBCORE_EXPORT void setHTTPSByDefaultMode(HTTPSByDefaultMode);
+
+    PushAndNotificationsEnabledPolicy pushAndNotificationsEnabledPolicy() const { return m_pushAndNotificationsEnabledPolicy; }
+    void setPushAndNotificationsEnabledPolicy(PushAndNotificationsEnabledPolicy policy) { m_pushAndNotificationsEnabledPolicy = policy; }
+
     void addSubresourceLoader(SubresourceLoader&);
     void removeSubresourceLoader(LoadCompletionType, SubresourceLoader&);
     void addPlugInStreamLoader(ResourceLoader&);
@@ -507,10 +520,13 @@ public:
     void contentFilterHandleProvisionalLoadFailure(const ResourceError&);
 #endif
 
-    NavigationIdentifier navigationID() const { return m_navigationID; }
+    std::optional<NavigationIdentifier> navigationID() const { return m_navigationID.asOptional(); }
     WEBCORE_EXPORT void setNavigationID(NavigationIdentifier);
 
     bool isInitialAboutBlank() const { return m_isInitialAboutBlank; }
+
+    bool navigationCanTriggerCrossDocumentViewTransition(Document& oldDocument, bool fromBackForwardCache);
+    WEBCORE_EXPORT void whenDocumentIsCreated(Function<void(Document*)>&&);
 
 protected:
     WEBCORE_EXPORT DocumentLoader(const ResourceRequest&, const SubstituteData&);
@@ -647,7 +663,7 @@ private:
     // benefit of the various policy handlers.
     NavigationAction m_triggeringAction;
 
-    NavigationIdentifier m_navigationID;
+    Markable<NavigationIdentifier> m_navigationID;
 
     // We retain all the received responses so we can play back the
     // WebResourceLoadDelegate messages if the item is loaded from the
@@ -734,7 +750,9 @@ private:
     MouseEventPolicy m_mouseEventPolicy { MouseEventPolicy::Default };
     ModalContainerObservationPolicy m_modalContainerObservationPolicy { ModalContainerObservationPolicy::Disabled };
     ColorSchemePreference m_colorSchemePreference { ColorSchemePreference::NoPreference };
+    HTTPSByDefaultMode m_httpsByDefaultMode { HTTPSByDefaultMode::Disabled };
     ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy { ShouldOpenExternalURLsPolicy::ShouldNotAllow };
+    PushAndNotificationsEnabledPolicy m_pushAndNotificationsEnabledPolicy { PushAndNotificationsEnabledPolicy::UseGlobalPolicy };
 
     bool m_idempotentModeAutosizingOnlyHonorsPercentages { false };
 
@@ -773,6 +791,8 @@ private:
 #endif
 
     bool m_canUseServiceWorkers { true };
+
+    Function<void(Document*)> m_whenDocumentIsCreatedCallback;
 
 #if ASSERT_ENABLED
     bool m_hasEverBeenAttached { false };

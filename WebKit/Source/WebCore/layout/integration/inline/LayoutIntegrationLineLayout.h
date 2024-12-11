@@ -87,7 +87,8 @@ public:
     bool removedFromTree(const RenderElement& parent, RenderObject& child);
     bool updateTextContent(const RenderText&, size_t offset, int delta);
     bool rootStyleWillChange(const RenderBlockFlow&, const RenderStyle& newStyle);
-    bool styleWillChange(const RenderElement&, const RenderStyle& newStyle);
+    bool styleWillChange(const RenderElement&, const RenderStyle& newStyle, StyleDifference);
+    bool boxContentWillChange(const RenderBox&);
 
     std::pair<LayoutUnit, LayoutUnit> computeIntrinsicWidthConstraints();
 
@@ -142,7 +143,7 @@ private:
     void preparePlacedFloats();
     FloatRect constructContent(const Layout::InlineLayoutState&, Layout::InlineLayoutResult&&);
     Vector<LineAdjustment> adjustContentForPagination(const Layout::BlockLayoutState&, bool isPartialLayout);
-    void updateRenderTreePositions(const Vector<LineAdjustment>&);
+    void updateRenderTreePositions(const Vector<LineAdjustment>&, const Layout::InlineLayoutState&);
 
     InlineContent& ensureInlineContent();
 

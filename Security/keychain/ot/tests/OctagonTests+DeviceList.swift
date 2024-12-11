@@ -691,7 +691,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
         }
 
         do {
-            let enforcing = try joiningContext.currentlyEnforcingIDMSTDL()
+            let enforcing = try joiningContext.currentlyEnforcingIDMSTDL_testOnly()
             XCTAssertEqual(enforcing, 1, "Should report that the local MID list will be enforced")
         }
 
@@ -713,7 +713,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
         }
 
         do {
-            let enforcing = try joiningContext.currentlyEnforcingIDMSTDL()
+            let enforcing = try joiningContext.currentlyEnforcingIDMSTDL_testOnly()
             XCTAssertEqual(enforcing, 0, "Should not report that the local MID list will be enforced")
         }
 
@@ -819,7 +819,14 @@ class OctagonDeviceListTests: OctagonTestsBase {
         do {
             let peersByID = try clique.peerDeviceNamesByPeerID()
             XCTAssertNotNil(peersByID, "Should have received information on peers")
-            XCTAssertTrue(peersByID.isEmpty, "peer1 should report no trusted peers")
+            XCTAssertEqual(peersByID.count, 1, "peer1 should report knowledge of one peer (itself)")
+
+            let peer1ID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+            if let deviceName = peersByID[peer1ID] {
+                XCTAssertEqual(deviceName, self.cuttlefishContext.deviceAdapter.deviceName(), "reported device name should match the local device")
+            } else {
+                XCTFail("peer1 ID should be in peers dictionary")
+            }
         } catch {
             XCTFail("Error thrown: \(error)")
         }
@@ -965,7 +972,14 @@ class OctagonDeviceListTests: OctagonTestsBase {
         do {
             let peersByID = try clique.peerDeviceNamesByPeerID()
             XCTAssertNotNil(peersByID, "Should have received information on peers")
-            XCTAssertTrue(peersByID.isEmpty, "peer1 should report no trusted peers")
+            XCTAssertEqual(peersByID.count, 1, "peer1 should report knowledge of one peer (itself)")
+
+            let peer1ID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+            if let deviceName = peersByID[peer1ID] {
+                XCTAssertEqual(deviceName, self.cuttlefishContext.deviceAdapter.deviceName(), "reported device name should match the local device")
+            } else {
+                XCTFail("peer1 ID should be in peers dictionary")
+            }
         } catch {
             XCTFail("Error thrown: \(error)")
         }

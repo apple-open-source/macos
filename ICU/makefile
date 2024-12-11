@@ -1568,9 +1568,12 @@ endif
 			fi; \
 			$(UNIFDEF) $(UNIFDEF_FLAGS) -o $(OBJROOT_CURRENT)/ICU.modulemap         $(SRCROOT)/apple/modules/ICU.modulemap; \
 			$(UNIFDEF) $(UNIFDEF_FLAGS) -o $(OBJROOT_CURRENT)/ICU.private.modulemap $(SRCROOT)/apple/modules/ICU.private.modulemap; \
+			$(UNIFDEF) $(UNIFDEF_FLAGS) -o $(OBJROOT_CURRENT)/unicode.modulemap         $(SRCROOT)/apple/modules/unicode.modulemap; \
+			$(UNIFDEF) $(UNIFDEF_FLAGS) -o $(OBJROOT_CURRENT)/unicode_private.modulemap $(SRCROOT)/apple/modules/unicode_private.modulemap; \
 			$(INSTALL_DATA) $(OBJROOT_CURRENT)/ICU.modulemap         $(DSTROOT)/$(HDR_PREFIX)/include/unicode/module.modulemap; \
 			$(INSTALL_DATA) $(OBJROOT_CURRENT)/ICU.private.modulemap $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/module.modulemap; \
-			$(INSTALL_DATA) $(SRCROOT)/apple/modules/empty.modulemap       $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/module.private.modulemap; \
+			$(INSTALL_DATA) $(OBJROOT_CURRENT)/unicode.modulemap         $(DSTROOT)/$(HDR_PREFIX)/include/unicode.modulemap; \
+			$(INSTALL_DATA) $(OBJROOT_CURRENT)/unicode_private.modulemap $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode_private.modulemap; \
 		fi; \
 	);
 installapi : installhdrsint 

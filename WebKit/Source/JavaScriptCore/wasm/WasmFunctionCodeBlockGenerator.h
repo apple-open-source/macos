@@ -87,7 +87,7 @@ public:
     const BitVector& tailCallSuccessors() const { return m_tailCallSuccessors; }
     bool tailCallClobbersInstance() const { return m_tailCallClobbersInstance ; }
     void setTailCall(uint32_t, bool);
-    void setTailCallClobbersInstance(bool value) { m_tailCallClobbersInstance  = value; }
+    void setTailCallClobbersInstance() { m_tailCallClobbersInstance = true; }
 
     void setNumVars(unsigned numVars) { m_numVars = numVars; }
     void setNumCalleeLocals(unsigned numCalleeLocals) { m_numCalleeLocals = numCalleeLocals; }
@@ -95,7 +95,7 @@ public:
     ALWAYS_INLINE uint64_t getConstant(VirtualRegister reg) const { return m_constants[reg.toConstantIndex()]; }
     ALWAYS_INLINE Type getConstantType(VirtualRegister reg) const
     {
-        ASSERT(Options::dumpGeneratedWebAssemblyBytecodes());
+        ASSERT(Options::dumpGeneratedWasmBytecodes());
         return m_constantTypes[reg.toConstantIndex()];
     }
 

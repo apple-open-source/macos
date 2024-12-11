@@ -109,7 +109,7 @@ void IPIntPlan::compileFunction(uint32_t functionIndex)
         return;
     }
 
-    if (Options::useWebAssemblyTailCalls()) {
+    if (Options::useWasmTailCalls()) {
         Locker locker { m_lock };
 
         for (auto successor : parseAndCompileResult->get()->tailCallSuccessors())
@@ -128,10 +128,10 @@ void IPIntPlan::compileFunction(uint32_t functionIndex)
 
         if (Options::useJIT()) {
 #if ENABLE(JIT)
-            if (m_moduleInformation->usesSIMD(functionIndex))
-                callee->setEntrypoint(LLInt::inPlaceInterpreterEntryThunkSIMD().retaggedCode<WasmEntryPtrTag>());
-            else
-                callee->setEntrypoint(LLInt::inPlaceInterpreterEntryThunk().retaggedCode<WasmEntryPtrTag>());
+        if (Options::useWasmJIT())
+            callee->setEntrypoint(LLInt::inPlaceInterpreterEntryThunk().retaggedCode<WasmEntryPtrTag>());
+#else
+        if (false);
 #endif
         } else
             callee->setEntrypoint(LLInt::getCodeFunctionPtr<CFunctionPtrTag>(wasm_function_prologue_trampoline));

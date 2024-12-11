@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,7 +55,7 @@ typedef NS_ENUM(NSUInteger, _WKContentSecurityPolicyModeForExtension) {
 
 @interface WKWebViewConfiguration (WKPrivate)
 
-@property (nonatomic, weak, setter=_setRelatedWebView:) WKWebView *_relatedWebView;
+@property (nonatomic, weak, setter=_setRelatedWebView:) WKWebView *_relatedWebView WK_API_DEPRECATED("Please migrate away from using _relatedWebView and talk to the WebKit team if there are difficulties doing so", macos(10.10, WK_MAC_TBA), ios(8.0, WK_IOS_TBA));
 @property (nonatomic, weak, setter=_setWebViewToCloneSessionStorageFrom:) WKWebView *_webViewToCloneSessionStorageFrom;
 @property (nonatomic, copy, setter=_setGroupIdentifier:) NSString *_groupIdentifier;
 
@@ -65,9 +65,10 @@ typedef NS_ENUM(NSUInteger, _WKContentSecurityPolicyModeForExtension) {
 // When not set, the web view allows navigation to any URL that isn't a web extension URL. This is needed to ensure proper configuration of the web view.
 @property (nonatomic, strong, setter=_setRequiredWebExtensionBaseURL:) NSURL *_requiredWebExtensionBaseURL;
 
-@property (nonatomic, strong, readonly) _WKWebExtensionController *_strongWebExtensionController;
-@property (nonatomic, weak, setter=_setWeakWebExtensionController:) _WKWebExtensionController *_weakWebExtensionController;
+@property (nonatomic, strong, readonly) WKWebExtensionController *_strongWebExtensionController;
+@property (nonatomic, weak, setter=_setWeakWebExtensionController:) WKWebExtensionController *_weakWebExtensionController;
 @property (nonatomic, strong, setter=_setWebExtensionController:) _WKWebExtensionController *_webExtensionController;
+@property (nonatomic, strong) WKWebExtensionController *webExtensionController;
 
 @property (nonatomic, weak, setter=_setAlternateWebViewForNavigationGestures:) WKWebView *_alternateWebViewForNavigationGestures;
 
@@ -177,6 +178,7 @@ typedef NS_ENUM(NSUInteger, _WKContentSecurityPolicyModeForExtension) {
 
 #if defined(TARGET_OS_VISION) && TARGET_OS_VISION
 @property (nonatomic, setter=_setGamepadAccessRequiresExplicitConsent:) BOOL _gamepadAccessRequiresExplicitConsent WK_API_AVAILABLE(visionos(2.0));
+@property (nonatomic, setter=_setOverlayRegionsEnabled:) BOOL _overlayRegionsEnabled WK_API_AVAILABLE(visionos(WK_XROS_TBA));
 #endif
 
 @end

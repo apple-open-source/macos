@@ -28,15 +28,18 @@
 
 #include "Decoder.h"
 #include <WebCore/IntSize.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(COCOA) && ENABLE(GPU_PROCESS) && ENABLE(MEDIA_STREAM)
 
 namespace WebKit {
 using namespace WebCore;
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SampleBufferDisplayLayerManager);
+
 void SampleBufferDisplayLayerManager::didReceiveLayerMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    if (auto* layer = m_layers.get(ObjectIdentifier<SampleBufferDisplayLayerIdentifierType>(decoder.destinationID())).get())
+    if (auto* layer = m_layers.get(LegacyNullableObjectIdentifier<SampleBufferDisplayLayerIdentifierType>(decoder.destinationID())).get())
         layer->didReceiveMessage(connection, decoder);
 }
 

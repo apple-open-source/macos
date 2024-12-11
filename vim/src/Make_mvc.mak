@@ -80,7 +80,7 @@
 #	Python3 interface:
 #	  PYTHON3=[Path to Python3 directory]
 #	  DYNAMIC_PYTHON3=yes (to load the Python3 DLL dynamically)
-#	  PYTHON3_VER=[Python3 version, eg 30, 31]  (default is 36)
+#	  PYTHON3_VER=[Python3 version, eg 30, 31]  (default is 38)
 #
 #	Ruby interface:
 #	  RUBY=[Path to Ruby directory]
@@ -127,15 +127,20 @@
 #
 #	Optimization: OPTIMIZE=[SPACE, SPEED, MAXSPEED] (default is MAXSPEED)
 #
-#	Processor Version: CPUNR=[any, i686, sse, sse2, avx, avx2] (default is
-#	sse2)
+#	Processor Version:
+#	 For x86: CPUNR=[any, i686, sse, sse2, avx, avx2, avx512]
+#	 For x64: CPUNR=[sse2, avx, avx2, avx512]
+#	                (default is sse2 (both x86 and x64))
 #	  avx is available on Visual C++ 2010 and after.
 #	  avx2 is available on Visual C++ 2013 Update 2 and after.
+#	  avx512 is available on Visual C++ 2017 and after.
+#	 For ARM64:
+#	  See: https://learn.microsoft.com/en-us/cpp/build/reference/arch-arm64
 #
 #	Version Support: WINVER=[0x0601, 0x0602, 0x0603, 0x0A00] (default is
 #	0x0601)
 #	Supported versions depends on your target SDK, check SDKDDKVer.h
-#	See https://docs.microsoft.com/en-us/cpp/porting/modifying-winver-and-win32-winnt
+#	See https://learn.microsoft.com/en-us/cpp/porting/modifying-winver-and-win32-winnt
 #
 #	Debug version: DEBUG=yes
 #	Mapfile: MAP=[no, yes or lines] (default is yes)
@@ -157,9 +162,57 @@
 # you can set DEFINES on the command line, e.g.,
 #	nmake -f Make_mvc.mvc "DEFINES=-DEMACS_TAGS"
 
-# Build on Windows NT/XP
+RM =		del /f /q
 
-TARGETOS = WINNT
+# Read MAJOR and MINOR from version.h.
+!IF ![for /f "tokens=2,3" %I in (version.h) do \
+	@if "%I"=="VIM_VERSION_MAJOR" ( \
+		echo MAJOR=%J> .\major.tmp \
+	) else if "%I"=="VIM_VERSION_MINOR" ( \
+		echo MINOR=%J> .\minor.tmp && exit \
+	)]
+!ENDIF
+
+!IF EXIST(.\major.tmp)
+! INCLUDE .\major.tmp
+! IF [$(RM) .\major.tmp]
+! ENDIF
+!ELSE
+# Change this value for the new version
+MAJOR =		9
+!ENDIF
+
+!IF EXIST(.\minor.tmp)
+! INCLUDE .\minor.tmp
+! IF [$(RM) .\minor.tmp]
+! ENDIF
+!ELSE
+# Change this value for the new version
+MINOR =		1
+!ENDIF
+
+# Read PATCHLEVEL from version.c.
+!IF ![cmd.exe /V:ON /Q /C "set LINE=0&& set FIND=0&& \
+	for /f "tokens=1,3 delims=, " %I in (version.c) do ( \
+		set /A LINE+=1 > NUL && \
+		if "%J"=="included_patches[^]" ( \
+			set /A FIND=LINE+3 > NUL \
+		) else if "!LINE!"=="!FIND!" ( \
+			echo PATCHLEVEL=%I> .\patchlvl.tmp && exit \
+		) \
+	)"]
+!ENDIF
+!IF EXIST(.\patchlvl.tmp)
+! INCLUDE .\patchlvl.tmp
+! IF [$(RM) .\patchlvl.tmp]
+! ENDIF
+!ENDIF
+
+!IFDEF PATCHLEVEL
+RCFLAGS =	-DVIM_VERSION_PATCHLEVEL=$(PATCHLEVEL)
+!ENDIF
+!message Vim version: $(MAJOR).$(MINOR).$(PATCHLEVEL)
+
 
 !if "$(VIMDLL)" == "yes"
 GUI = yes
@@ -212,38 +265,29 @@ OBJDIR = $(OBJDIR)V
 OBJDIR = $(OBJDIR)d
 !endif
 
-!ifdef PROCESSOR_ARCHITECTURE
-# We're on Windows NT or using VC 6+
-! ifdef CPU
-ASSEMBLY_ARCHITECTURE=$(CPU)
-# Using I386 for $ASSEMBLY_ARCHITECTURE doesn't work for VC7.
-!  if "$(CPU)" == "I386"
+!ifdef CPU
+! if "$(CPU)" == "I386"
 CPU = i386
-!  endif
-! else  # !CPU
-CPU = i386
-!  ifndef PLATFORM
-!   ifdef TARGET_CPU
-PLATFORM = $(TARGET_CPU)
-!   elseif defined(VSCMD_ARG_TGT_ARCH)
-PLATFORM = $(VSCMD_ARG_TGT_ARCH)
-!   endif
-!  endif
-!  ifdef PLATFORM
-!   if ("$(PLATFORM)" == "x64") || ("$(PLATFORM)" == "X64")
-CPU = AMD64
-!   elseif ("$(PLATFORM)" == "arm64") || ("$(PLATFORM)" == "ARM64")
-CPU = ARM64
-!   elseif ("$(PLATFORM)" != "x86") && ("$(PLATFORM)" != "X86")
-!    error *** ERROR Unknown target platform "$(PLATFORM)". Make aborted.
-!   endif
-!  endif  # !PLATFORM
 ! endif
-!else  # !PROCESSOR_ARCHITECTURE
-# We're on Windows 95
+!else  # !CPU
 CPU = i386
-!endif # !PROCESSOR_ARCHITECTURE
-ASSEMBLY_ARCHITECTURE=$(CPU)
+! ifndef PLATFORM
+!  ifdef TARGET_CPU
+PLATFORM = $(TARGET_CPU)
+!  elseif defined(VSCMD_ARG_TGT_ARCH)
+PLATFORM = $(VSCMD_ARG_TGT_ARCH)
+!  endif
+! endif
+! ifdef PLATFORM
+!  if ("$(PLATFORM)" == "x64") || ("$(PLATFORM)" == "X64")
+CPU = AMD64
+!  elseif ("$(PLATFORM)" == "arm64") || ("$(PLATFORM)" == "ARM64")
+CPU = ARM64
+!  elseif ("$(PLATFORM)" != "x86") && ("$(PLATFORM)" != "X86")
+!   error *** ERROR Unknown target platform "$(PLATFORM)". Make aborted.
+!  endif
+! endif  # !PLATFORM
+!endif
 OBJDIR = $(OBJDIR)$(CPU)
 
 # Build a retail version by default
@@ -258,7 +302,9 @@ MAKEFLAGS_GVIMEXT = DEBUG=yes
 LINK = link
 
 # Check VC version.
-!if [echo MSVCVER=_MSC_VER> msvcver.c && $(CC) /EP msvcver.c > msvcver.~ 2> nul]
+!if [echo MSVCVER=_MSC_VER> msvcver.c && \
+	echo MSVC_FULL=_MSC_FULL_VER>> msvcver.c && \
+	$(CC) /EP msvcver.c > msvcver.~ 2> nul]
 ! message *** ERROR
 ! message Cannot run Visual C to determine its version. Make sure cl.exe is in your PATH.
 ! message This can usually be done by running "vcvarsall.bat", located in the bin directory where Visual Studio was installed.
@@ -279,25 +325,17 @@ LINK = link
 MSVC_MAJOR = ($(MSVCVER) / 100 - 5)
 MSVCRT_VER = ($(MSVCVER) / 100 * 10 - 50)
 
-# Calculate MSVC_FULL.
-!if [echo MSVC_FULL=_MSC_FULL_VER> msvcfullver.c && $(CC) /EP msvcfullver.c > msvcfullver.~ 2> nul]
-! message *** ERROR
-! message Cannot run Visual C to determine its version. Make sure cl.exe is in your PATH.
-! message This can usually be done by running "vcvarsall.bat", located in the bin directory where Visual Studio was installed.
-! error Make aborted.
-!else
-! include msvcfullver.~
-! if [del msvcfullver.c msvcfullver.~]
-! endif
-!endif
-
-
 # Calculate MSVCRT_VER
 !if [(set /a MSVCRT_VER="$(MSVCRT_VER)" > nul) && set MSVCRT_VER > msvcrtver.~] == 0
 ! include msvcrtver.~
 ! if [del msvcrtver.~]
 ! endif
 !endif
+
+# Show the versions (for debugging).
+#!message _MSC_VER=$(MSVCVER)
+#!message _MSC_FULL_VER=$(MSVC_FULL)
+#!message MSVCRT_VER=$(MSVCRT_VER)
 
 # Base name of the msvcrXX.dll (vcruntimeXXX.dll)
 MSVCRT_NAME = vcruntime$(MSVCRT_VER)
@@ -310,7 +348,7 @@ WINVER = 0x0601
 # Use multiprocess build
 USE_MP = yes
 
-!if "$(FEATURES)"==""
+!if "$(FEATURES)" == ""
 FEATURES = HUGE
 !endif
 
@@ -329,7 +367,7 @@ CSCOPE_DEFS  = -DFEAT_CSCOPE
 !endif
 
 !ifndef TERMINAL
-! if "$(FEATURES)"=="HUGE"
+! if "$(FEATURES)" == "HUGE"
 TERMINAL = yes
 ! else
 TERMINAL = no
@@ -339,15 +377,15 @@ TERMINAL = no
 !if "$(TERMINAL)" == "yes"
 TERM_OBJ = \
 	$(OBJDIR)/terminal.obj \
-	$(OBJDIR)/vterm_encoding.obj \
-	$(OBJDIR)/vterm_keyboard.obj \
-	$(OBJDIR)/vterm_mouse.obj \
-	$(OBJDIR)/vterm_parser.obj \
-	$(OBJDIR)/vterm_pen.obj \
-	$(OBJDIR)/vterm_screen.obj \
-	$(OBJDIR)/vterm_state.obj \
-	$(OBJDIR)/vterm_unicode.obj \
-	$(OBJDIR)/vterm_vterm.obj
+	$(OBJDIR)/libvterm/encoding.obj \
+	$(OBJDIR)/libvterm/keyboard.obj \
+	$(OBJDIR)/libvterm/mouse.obj \
+	$(OBJDIR)/libvterm/parser.obj \
+	$(OBJDIR)/libvterm/pen.obj \
+	$(OBJDIR)/libvterm/screen.obj \
+	$(OBJDIR)/libvterm/state.obj \
+	$(OBJDIR)/libvterm/unicode.obj \
+	$(OBJDIR)/libvterm/vterm.obj
 TERM_DEFS = -DFEAT_TERMINAL
 TERM_DEPS = \
 	libvterm/include/vterm.h \
@@ -358,7 +396,7 @@ TERM_DEPS = \
 !endif
 
 !ifndef SOUND
-! if "$(FEATURES)"=="HUGE"
+! if "$(FEATURES)" == "HUGE"
 SOUND = yes
 ! else
 SOUND = no
@@ -374,9 +412,9 @@ DYNAMIC_SODIUM = yes
 
 !if "$(SODIUM)" != "no"
 ! if "$(CPU)" == "AMD64"
-SOD_LIB		= $(SODIUM)\x64\Release\v140\dynamic
+SOD_LIB		= $(SODIUM)\x64\Release\v143\dynamic
 ! elseif "$(CPU)" == "i386"
-SOD_LIB		= $(SODIUM)\Win32\Release\v140\dynamic
+SOD_LIB		= $(SODIUM)\Win32\Release\v143\dynamic
 ! else
 SODIUM = no
 ! endif
@@ -399,7 +437,7 @@ NETBEANS = $(GUI)
 !endif
 
 !ifndef CHANNEL
-! if "$(FEATURES)"=="HUGE" || "$(TERMINAL)"=="yes"
+! if "$(FEATURES)" == "HUGE" || "$(TERMINAL)" == "yes"
 CHANNEL = yes
 ! else
 CHANNEL = $(GUI)
@@ -493,9 +531,10 @@ CON_LIB = $(CON_LIB) /DELAYLOAD:comdlg32.dll /DELAYLOAD:ole32.dll DelayImp.lib
 #VIMRUNTIMEDIR = somewhere
 
 CFLAGS = -c /W3 /GF /nologo -I. -Iproto -DHAVE_PATHDEF -DWIN32 -DHAVE_STDINT_H \
-		$(CSCOPE_DEFS) $(TERM_DEFS) $(SOUND_DEFS) $(NETBEANS_DEFS) $(CHANNEL_DEFS) \
+		$(CSCOPE_DEFS) $(TERM_DEFS) $(SOUND_DEFS) $(NETBEANS_DEFS) \
 		$(NBDEBUG_DEFS) $(XPM_DEFS) $(SOD_DEFS) $(SOD_INC) \
-		$(DEFINES) -DWINVER=$(WINVER) -D_WIN32_WINNT=$(WINVER) \
+		$(CHANNEL_DEFS) $(DEFINES) \
+		-DWINVER=$(WINVER) -D_WIN32_WINNT=$(WINVER) \
 		/source-charset:utf-8
 
 #>>>>> end of choices
@@ -503,41 +542,57 @@ CFLAGS = -c /W3 /GF /nologo -I. -Iproto -DHAVE_PATHDEF -DWIN32 -DHAVE_STDINT_H \
 
 DEL_TREE = rmdir /s /q
 
-INTDIR=$(OBJDIR)
-OUTDIR=$(OBJDIR)
+INTDIR = $(OBJDIR)
+OUTDIR = $(OBJDIR)
 
 ### Validate CPUNR
-!ifndef CPUNR
+!if "$(CPU)" == "i386" || "$(CPU)" == "AMD64"
+! ifndef CPUNR
 # default to SSE2
 CPUNR = sse2
-!elseif "$(CPUNR)" == "i386" || "$(CPUNR)" == "i486" || "$(CPUNR)" == "i586"
+! elseif "$(CPU)" == "i386" \
+	&& ("$(CPUNR)" == "i386" || "$(CPUNR)" == "i486" || "$(CPUNR)" == "i586")
 # alias i386, i486 and i586 to i686
-! message *** WARNING CPUNR=$(CPUNR) is not a valid target architecture.
-! message Windows 7 is the minimum target OS, with a minimum target
-! message architecture of i686.
-! message Retargeting to i686
+!  message *** WARNING CPUNR=$(CPUNR) is not a valid target architecture.
+!  message Windows 7 is the minimum target OS, with a minimum target
+!  message architecture of i686.
+!  message Retargeting to i686
 CPUNR = i686
-!elseif "$(CPUNR)" == "pentium4"
+! elseif "$(CPUNR)" == "pentium4"
 # alias pentium4 to sse2
-! message *** WARNING CPUNR=pentium4 is deprecated in favour of sse2.
-! message Retargeting to sse2.
+!  message *** WARNING CPUNR=pentium4 is deprecated in favour of sse2.
+!  message Retargeting to sse2.
 CPUNR = sse2
-!elseif "$(CPUNR)" != "any" && "$(CPUNR)" != "i686" && "$(CPUNR)" != "sse" && "$(CPUNR)" != "sse2" && "$(CPUNR)" != "avx" && "$(CPUNR)" != "avx2"
-! error *** ERROR Unknown target architecture "$(CPUNR)". Make aborted.
+! elseif ("$(CPU)" != "i386" \
+		|| ("$(CPUNR)" != "any" && "$(CPUNR)" != "i686" \
+			&& "$(CPUNR)" != "sse" )) \
+	&& "$(CPUNR)" != "sse2" && "$(CPUNR)" != "avx" \
+	&& "$(CPUNR)" != "avx2" && "$(CPUNR)" != "avx512"
+!  error *** ERROR Unknown target architecture "$(CPUNR)". Make aborted.
+! endif
+!elseif "$(CPU)" == "ARM64"
+# TODO: Validate CPUNR.
 !endif
 
 # Convert processor ID to MVC-compatible number
+!if "$(CPU)" == "i386" || "$(CPU)" == "AMD64"
 # IA32/SSE/SSE2 are only supported on x86
-!if "$(ASSEMBLY_ARCHITECTURE)" == "i386" && ("$(CPUNR)" == "i686" || "$(CPUNR)" == "any")
+! if "$(CPU)" == "i386" \
+	&& ("$(CPUNR)" == "i686" || "$(CPUNR)" == "any")
 CPUARG = /arch:IA32
-!elseif "$(ASSEMBLY_ARCHITECTURE)" == "i386" && "$(CPUNR)" == "sse"
+! elseif "$(CPU)" == "i386" && "$(CPUNR)" == "sse"
 CPUARG = /arch:SSE
-!elseif "$(ASSEMBLY_ARCHITECTURE)" == "i386" && "$(CPUNR)" == "sse2"
+! elseif "$(CPU)" == "i386" && "$(CPUNR)" == "sse2"
 CPUARG = /arch:SSE2
-!elseif "$(CPUNR)" == "avx"
+! elseif "$(CPUNR)" == "avx"
 CPUARG = /arch:AVX
-!elseif "$(CPUNR)" == "avx2"
+! elseif "$(CPUNR)" == "avx2"
 CPUARG = /arch:AVX2
+! elseif "$(CPUNR)" == "avx512"
+CPUARG = /arch:AVX512
+! endif
+!elseif "$(CPU)" == "ARM64" && defined(CPUNR)
+CPUARG = /arch:$(CPUNR)
 !endif
 
 # Pass CPUARG to GvimExt, to avoid using version-dependent defaults
@@ -545,7 +600,7 @@ MAKEFLAGS_GVIMEXT = $(MAKEFLAGS_GVIMEXT) CPUARG="$(CPUARG)"
 
 !if "$(VIMDLL)" == "yes"
 VIMDLLBASE = vim
-! if "$(ASSEMBLY_ARCHITECTURE)" == "i386"
+! if "$(CPU)" == "i386"
 VIMDLLBASE = $(VIMDLLBASE)32
 ! else
 VIMDLLBASE = $(VIMDLLBASE)64
@@ -591,7 +646,7 @@ OPTFLAG = $(OPTFLAG) /GL
 ! endif
 
 CFLAGS = $(CFLAGS) $(OPTFLAG) -DNDEBUG $(CPUARG)
-RCFLAGS = -DNDEBUG
+RCFLAGS = $(RCFLAGS) -DNDEBUG
 ! ifdef USE_MSVCRT
 CFLAGS = $(CFLAGS) /MD
 LIBC = msvcrt.lib
@@ -607,7 +662,7 @@ VIM = vimd
 DEBUGINFO = /ZI
 ! endif
 CFLAGS = $(CFLAGS) -D_DEBUG -DDEBUG /Od
-RCFLAGS = -D_DEBUG -DDEBUG
+RCFLAGS = $(RCFLAGS) -D_DEBUG -DDEBUG
 # The /fixed:no is needed for Quantify.
 LIBC = /fixed:no
 ! ifdef USE_MSVCRT
@@ -621,7 +676,7 @@ LIBC = $(LIBC) libcmtd.lib
 !endif # DEBUG
 
 # Visual Studio 2005 has 'deprecated' many of the standard CRT functions
-CFLAGS_DEPR = /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE
+CFLAGS_DEPR = -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE
 CFLAGS = $(CFLAGS) $(CFLAGS_DEPR)
 
 !include Make_all.mak
@@ -673,6 +728,7 @@ OBJ = \
 	$(OUTDIR)\float.obj \
 	$(OUTDIR)\fold.obj \
 	$(OUTDIR)\getchar.obj \
+	$(OUTDIR)\gc.obj \
 	$(OUTDIR)\gui_xim.obj \
 	$(OUTDIR)\hardcopy.obj \
 	$(OUTDIR)\hashtab.obj \
@@ -751,6 +807,13 @@ OBJ = $(OBJ) $(OUTDIR)\os_w32dll.obj $(OUTDIR)\vimd.res
 EXEOBJC = $(OUTDIR)\os_w32exec.obj $(OUTDIR)\vimc.res
 EXEOBJG = $(OUTDIR)\os_w32exeg.obj $(OUTDIR)\vimg.res
 CFLAGS = $(CFLAGS) -DVIMDLL
+! ifdef MZSCHEME
+EXECFLAGS =
+EXELIBC = $(LIBC)
+! else
+EXECFLAGS = -DUSE_OWNSTARTUP /GS-
+EXELIBC =
+! endif
 !else
 OBJ = $(OBJ) $(OUTDIR)\os_w32exe.obj $(OUTDIR)\vim.res
 !endif
@@ -903,11 +966,9 @@ LUA_LIB = "$(LUA)\lib\lua$(LUA_VER).lib"
 ! endif
 !endif
 
-!ifdef PYTHON
-! ifdef PYTHON3
-DYNAMIC_PYTHON=yes
-DYNAMIC_PYTHON3=yes
-! endif
+!if defined(PYTHON) && defined(PYTHON3)
+DYNAMIC_PYTHON = yes
+DYNAMIC_PYTHON3 = yes
 !endif
 
 # PYTHON interface
@@ -933,8 +994,13 @@ PYTHON_LIB = "$(PYTHON)\libs\python$(PYTHON_VER).lib"
 
 # PYTHON3 interface
 !ifdef PYTHON3
+! ifndef DYNAMIC_PYTHON3_STABLE_ABI
+!  if "$(DYNAMIC_PYTHON3)" == "yes"
+DYNAMIC_PYTHON3_STABLE_ABI = yes
+!  endif
+! endif
 ! ifndef PYTHON3_VER
-PYTHON3_VER = 36
+PYTHON3_VER = 38
 ! endif
 ! if "$(DYNAMIC_PYTHON3_STABLE_ABI)" == "yes"
 PYTHON3_NAME = python3
@@ -972,13 +1038,13 @@ PYTHON3_LIB = "$(PYTHON3)\libs\$(PYTHON3_NAME).lib"
 MZSCHEME_VER = 3m_a0solc
 ! endif
 ! ifndef MZSCHEME_COLLECTS
-MZSCHEME_COLLECTS=$(MZSCHEME)\collects
+MZSCHEME_COLLECTS = $(MZSCHEME)\collects
 ! endif
 CFLAGS = $(CFLAGS) -DFEAT_MZSCHEME -I "$(MZSCHEME)\include"
 ! if EXIST("$(MZSCHEME)\lib\msvc\libmzsch$(MZSCHEME_VER).lib")
-MZSCHEME_MAIN_LIB=mzsch
+MZSCHEME_MAIN_LIB = mzsch
 ! else
-MZSCHEME_MAIN_LIB=racket
+MZSCHEME_MAIN_LIB = racket
 ! endif
 ! if (EXIST("$(MZSCHEME)\lib\lib$(MZSCHEME_MAIN_LIB)$(MZSCHEME_VER).dll") \
      && !EXIST("$(MZSCHEME)\lib\libmzgc$(MZSCHEME_VER).dll")) \
@@ -1016,7 +1082,7 @@ MZSCHEME_LIB = "$(MZSCHEME)\lib\msvc\lib$(MZSCHEME_MAIN_LIB)$(MZSCHEME_VER).lib"
 !   endif
 !  else
 MZSCHEME_LIB = "$(MZSCHEME)\lib\msvc\libmzgc$(MZSCHEME_VER).lib" \
-		"$(MZSCHEME)\lib\msvc\lib$(MZSCHEME_MAIN_LIB)$(MZSCHEME_VER).lib"
+	       "$(MZSCHEME)\lib\msvc\lib$(MZSCHEME_MAIN_LIB)$(MZSCHEME_VER).lib"
 !  endif
 ! endif
 MZSCHEME_OBJ = $(OUTDIR)\if_mzsch.obj
@@ -1118,7 +1184,8 @@ RUBY_INSTALL_NAME = x64-$(RUBY_MSVCRT_NAME)-ruby$(RUBY_API_VER)
 ! message Ruby requested (version $(RUBY_VER)) - root dir is "$(RUBY)"
 CFLAGS = $(CFLAGS) -DFEAT_RUBY
 RUBY_OBJ = $(OUTDIR)\if_ruby.obj
-RUBY_INC = /I "$(RUBY)\include\ruby-$(RUBY_API_VER_LONG)" /I "$(RUBY)\include\ruby-$(RUBY_API_VER_LONG)\$(RUBY_PLATFORM)"
+RUBY_INC = /I "$(RUBY)\include\ruby-$(RUBY_API_VER_LONG)" \
+	   /I "$(RUBY)\include\ruby-$(RUBY_API_VER_LONG)\$(RUBY_PLATFORM)"
 RUBY_LIB = "$(RUBY)\lib\$(RUBY_INSTALL_NAME).lib"
 # Do we want to load Ruby dynamically?
 ! if "$(DYNAMIC_RUBY)" == "yes"
@@ -1168,14 +1235,15 @@ LINK_PDB = /PDB:$(VIM).pdb -debug
 !message
 
 # CFLAGS with /Fo$(OUTDIR)/
-CFLAGS_OUTDIR=$(CFLAGS) /Fo$(OUTDIR)/
+CFLAGS_OUTDIR = $(CFLAGS) /Fo$(OUTDIR)/
 
 PATHDEF_SRC = $(OUTDIR)\pathdef.c
 
 LINKARGS1 = /nologo
 LINKARGS2 = $(CON_LIB) $(GUI_LIB) $(LIBC) $(OLE_LIB) \
-		$(LUA_LIB) $(MZSCHEME_LIB) $(PERL_LIB) $(PYTHON_LIB) $(PYTHON3_LIB) $(RUBY_LIB) \
-		$(TCL_LIB) $(SOUND_LIB) $(NETBEANS_LIB) $(XPM_LIB) $(SOD_LIB) $(LINK_PDB)
+		$(LUA_LIB) $(MZSCHEME_LIB) $(PERL_LIB) $(PYTHON_LIB) \
+		$(PYTHON3_LIB) $(RUBY_LIB) $(TCL_LIB) $(SOUND_LIB) \
+		$(NETBEANS_LIB) $(XPM_LIB) $(SOD_LIB) $(LINK_PDB)
 
 !ifdef NODEBUG
 # Add /opt:ref to remove unreferenced functions and data even when /DEBUG is
@@ -1235,36 +1303,40 @@ all:	$(MAIN_TARGET) \
 
 !if "$(VIMDLL)" == "yes"
 
-$(VIMDLLBASE).dll: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) \
-		$(LUA_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
-		$(TERM_OBJ) $(SOUND_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) \
-		version.c version.h
+$(VIMDLLBASE).dll: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) \
+		$(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) $(LUA_OBJ) $(PERL_OBJ) \
+		$(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
+		$(TERM_OBJ) $(SOUND_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) \
+		$(XPM_OBJ) version.c version.h
 	$(CC) $(CFLAGS_OUTDIR) version.c
 	$(LINK) @<<
-$(LINKARGS1) /dll -out:$(VIMDLLBASE).dll $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ)
-$(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ)
-$(TCL_OBJ) $(TERM_OBJ) $(SOUND_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ)
-$(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
+$(LINKARGS1) /dll -out:$(VIMDLLBASE).dll $(OBJ) $(XDIFF_OBJ)
+$(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ)
+$(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) $(TERM_OBJ) $(SOUND_OBJ)
+$(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
 <<
 
 $(GVIM).exe: $(OUTDIR) $(EXEOBJG) $(VIMDLLBASE).dll
-	$(LINK) $(LINKARGS1) /subsystem:$(SUBSYSTEM) -out:$(GVIM).exe $(EXEOBJG) $(VIMDLLBASE).lib $(LIBC)
+	$(LINK) $(LINKARGS1) /subsystem:$(SUBSYSTEM) -out:$(GVIM).exe \
+		$(EXEOBJG) $(VIMDLLBASE).lib $(EXELIBC)
 
 $(VIM).exe: $(OUTDIR) $(EXEOBJC) $(VIMDLLBASE).dll
-	$(LINK) $(LINKARGS1) /subsystem:$(SUBSYSTEM_CON) -out:$(VIM).exe $(EXEOBJC) $(VIMDLLBASE).lib $(LIBC)
+	$(LINK) $(LINKARGS1) /subsystem:$(SUBSYSTEM_CON) -out:$(VIM).exe \
+		$(EXEOBJC) $(VIMDLLBASE).lib $(EXELIBC)
 
 !else
 
-$(VIM).exe: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) \
-		$(LUA_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
-		$(TERM_OBJ) $(SOUND_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) \
-		version.c version.h
+$(VIM).exe: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) \
+		$(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) $(LUA_OBJ) $(PERL_OBJ) \
+		$(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
+		$(TERM_OBJ) $(SOUND_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) \
+		$(XPM_OBJ) version.c version.h
 	$(CC) $(CFLAGS_OUTDIR) version.c
 	$(LINK) @<<
-$(LINKARGS1) /subsystem:$(SUBSYSTEM) -out:$(VIM).exe $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ)
-$(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ)
-$(TCL_OBJ) $(TERM_OBJ) $(SOUND_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ)
-$(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
+$(LINKARGS1) /subsystem:$(SUBSYSTEM) -out:$(VIM).exe $(OBJ) $(XDIFF_OBJ)
+$(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ)
+$(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) $(TERM_OBJ) $(SOUND_OBJ)
+$(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
 <<
 
 !endif
@@ -1274,14 +1346,20 @@ $(VIM): $(VIM).exe
 $(OUTDIR):
 	if not exist $(OUTDIR)/nul  mkdir $(OUTDIR:/=\)
 
-CFLAGS_INST = /nologo /O2 -DNDEBUG -DWIN32 -DWINVER=$(WINVER) -D_WIN32_WINNT=$(WINVER) $(CFLAGS_DEPR)
+$(OUTDIR)/libvterm: $(OUTDIR)
+	if not exist $(OUTDIR)/libvterm/nul  mkdir $(OUTDIR:/=\)\libvterm
+
+CFLAGS_INST = /nologo /O2 -DNDEBUG -DWIN32 -DWINVER=$(WINVER) \
+	      -D_WIN32_WINNT=$(WINVER) $(CFLAGS_DEPR)
+
+!IFDEF PATCHLEVEL
+CFLAGS_INST = $(CFLAGS_INST) -DVIM_VERSION_PATCHLEVEL=$(PATCHLEVEL)
+!ENDIF
 
 install.exe: dosinst.c dosinst.h version.h
-	$(CC) $(CFLAGS_INST) dosinst.c kernel32.lib shell32.lib \
+	$(CC) $(CFLAGS_INST) /Fe$@ dosinst.c kernel32.lib shell32.lib \
 		user32.lib ole32.lib advapi32.lib uuid.lib \
 		-link -subsystem:$(SUBSYSTEM_TOOLS)
-	- if exist install.exe del install.exe
-	ren dosinst.exe install.exe
 
 uninstall.exe: uninstall.c dosinst.h version.h
 	$(CC) $(CFLAGS_INST) uninstall.c shell32.lib advapi32.lib \
@@ -1316,12 +1394,16 @@ clean: testclean
 	- if exist $(OUTDIR)/nul $(DEL_TREE) $(OUTDIR)
 	- if exist *.obj del *.obj
 	- if exist $(VIM).exe del $(VIM).exe
+	- if exist $(VIM).exp del $(VIM).exp
+	- if exist $(VIM).lib del $(VIM).lib
 	- if exist $(VIM).ilk del $(VIM).ilk
 	- if exist $(VIM).pdb del $(VIM).pdb
 	- if exist $(VIM).map del $(VIM).map
 	- if exist $(VIM).ncb del $(VIM).ncb
 !if "$(VIMDLL)" == "yes"
 	- if exist $(GVIM).exe del $(GVIM).exe
+	- if exist $(GVIM).exp del $(GVIM).exp
+	- if exist $(GVIM).lib del $(GVIM).lib
 	- if exist $(GVIM).map del $(GVIM).map
 	- if exist $(VIMDLLBASE).dll del $(VIMDLLBASE).dll
 	- if exist $(VIMDLLBASE).ilk del $(VIMDLLBASE).ilk
@@ -1359,7 +1441,8 @@ cmdidxs: ex_cmds.h
 #   - change nv_cmds[] in nv_cmds.h to add the new normal/visual mode command.
 #   - run "make nvcmdidxs" to generate nv_cmdidxs.h
 nvcmdidxs: nv_cmds.h
-	$(CC) /nologo -I. -Iproto -DNDEBUG create_nvcmdidxs.c -link -subsystem:$(SUBSYSTEM_TOOLS)
+	$(CC) /nologo -I. -Iproto -DNDEBUG create_nvcmdidxs.c \
+		-link -subsystem:$(SUBSYSTEM_TOOLS)
 	vim --clean -N -X --not-a-term -u create_nvcmdidxs.vim -c quit
 	-del create_nvcmdidxs.exe
 
@@ -1370,7 +1453,7 @@ test:
 
 testgvim testgui:
 	cd testdir
-	$(MAKE) /NOLOGO -f Make_mvc.mak VIMPROG=..\gvim
+	$(MAKE) /NOLOGO -f Make_mvc.mak "VIMPROG=..\gvim.exe"
 	cd ..
 
 testtiny:
@@ -1380,7 +1463,7 @@ testtiny:
 
 testgvimtiny:
 	cd testdir
-	$(MAKE) /NOLOGO -f Make_mvc.mak tiny VIMPROG=..\gvim
+	$(MAKE) /NOLOGO -f Make_mvc.mak "VIMPROG=..\gvim.exe" tiny
 	cd ..
 
 testclean:
@@ -1421,15 +1504,15 @@ test_vim9:
 ###########################################################################
 
 # Create a default rule for transforming .c files to .obj files in $(OUTDIR)
-.c{$(OUTDIR)/}.obj::
+.c{$(OUTDIR)}.obj::
 	$(CC) $(CFLAGS_OUTDIR) $<
 
 # Create a default rule for xdiff.
-{xdiff/}.c{$(OUTDIR)/}.obj::
+{xdiff}.c{$(OUTDIR)}.obj::
 	$(CC) $(CFLAGS_OUTDIR) $<
 
 # Create a default rule for transforming .cpp files to .obj files in $(OUTDIR)
-.cpp{$(OUTDIR)/}.obj::
+.cpp{$(OUTDIR)}.obj::
 	$(CC) $(CFLAGS_OUTDIR) $<
 
 $(OUTDIR)/alloc.obj:	$(OUTDIR) alloc.c  $(INCL)
@@ -1526,6 +1609,8 @@ $(OUTDIR)/fold.obj:	$(OUTDIR) fold.c  $(INCL)
 
 $(OUTDIR)/getchar.obj:	$(OUTDIR) getchar.c  $(INCL)
 
+$(OUTDIR)/gc.obj:	$(OUTDIR) gc.c  $(INCL)
+
 $(OUTDIR)/gui_xim.obj:	$(OUTDIR) gui_xim.c  $(INCL)
 
 $(OUTDIR)/hardcopy.obj:	$(OUTDIR) hardcopy.c  $(INCL) version.h
@@ -1553,8 +1638,7 @@ $(OUTDIR)/if_cscope.obj: $(OUTDIR) if_cscope.c  $(INCL)
 $(OUTDIR)/if_lua.obj: $(OUTDIR) if_lua.c  $(INCL)
 	$(CC) $(CFLAGS_OUTDIR) $(LUA_INC) if_lua.c
 
-auto/if_perl.c : if_perl.xs typemap
-	-if not exist auto/nul mkdir auto
+auto/if_perl.c: if_perl.xs typemap
 	$(XSUBPP) -prototypes -typemap $(XSUBPP_TYPEMAP) \
 		-typemap typemap if_perl.xs -output $@
 
@@ -1586,7 +1670,6 @@ $(OUTDIR)/if_tcl.obj: $(OUTDIR) if_tcl.c  $(INCL)
 	$(CC) $(CFLAGS_OUTDIR) $(TCL_INC) if_tcl.c
 
 $(OUTDIR)/iscygpty.obj:	$(OUTDIR) iscygpty.c $(CUI_INCL)
-	$(CC) $(CFLAGS_OUTDIR) iscygpty.c
 
 $(OUTDIR)/job.obj:	$(OUTDIR) job.c $(INCL)
 
@@ -1649,10 +1732,10 @@ $(OUTDIR)/os_w32dll.obj:	$(OUTDIR) os_w32dll.c
 $(OUTDIR)/os_w32exe.obj:	$(OUTDIR) os_w32exe.c  $(INCL)
 
 $(OUTDIR)/os_w32exec.obj:	$(OUTDIR) os_w32exe.c  $(INCL)
-	$(CC) $(CFLAGS:-DFEAT_GUI_MSWIN=) /Fo$@ os_w32exe.c
+	$(CC) $(CFLAGS:-DFEAT_GUI_MSWIN=) $(EXECFLAGS) /Fo$@ os_w32exe.c
 
 $(OUTDIR)/os_w32exeg.obj:	$(OUTDIR) os_w32exe.c  $(INCL)
-	$(CC) $(CFLAGS) /Fo$@ os_w32exe.c
+	$(CC) $(CFLAGS) $(EXECFLAGS) /Fo$@ os_w32exe.c
 
 $(OUTDIR)/pathdef.obj:	$(OUTDIR) $(PATHDEF_SRC) $(INCL)
 	$(CC) $(CFLAGS_OUTDIR) $(PATHDEF_SRC)
@@ -1752,7 +1835,8 @@ $(OUTDIR)/vimg.res:	$(OUTDIR) vim.rc vim.manifest version.h gui_w32_rc.h \
 $(OUTDIR)/vimd.res:	$(OUTDIR) vim.rc version.h gui_w32_rc.h \
 				tools.bmp tearoff.bmp vim.ico vim_error.ico \
 				vim_alert.ico vim_info.ico vim_quest.ico
-	$(RC) /nologo /l 0x409 /Fo$@ $(RCFLAGS) -DRCDLL -DVIMDLLBASE=\"$(VIMDLLBASE)\" vim.rc
+	$(RC) /nologo /l 0x409 /Fo$@ $(RCFLAGS) \
+		-DRCDLL -DVIMDLLBASE=\"$(VIMDLLBASE)\" vim.rc
 !else
 $(OUTDIR)/vim.res:	$(OUTDIR) vim.rc vim.manifest version.h gui_w32_rc.h \
 				tools.bmp tearoff.bmp vim.ico vim_error.ico \
@@ -1773,32 +1857,27 @@ CCCTERM = $(CC) $(CFLAGS) -Ilibvterm/include -DINLINE="" \
 	-DGET_SPECIAL_PTY_TYPE_FUNCTION=get_special_pty_type \
 	-D_CRT_SECURE_NO_WARNINGS
 
-$(OUTDIR)/vterm_encoding.obj: $(OUTDIR) libvterm/src/encoding.c $(TERM_DEPS)
-	$(CCCTERM) /Fo$@ libvterm/src/encoding.c
+# Create a default rule for vterm.
+{libvterm/src}.c{$(OUTDIR)/libvterm}.obj::
+	$(CCCTERM) /Fo$(OUTDIR)/libvterm/ $<
 
-$(OUTDIR)/vterm_keyboard.obj: $(OUTDIR) libvterm/src/keyboard.c $(TERM_DEPS)
-	$(CCCTERM) /Fo$@ libvterm/src/keyboard.c
+$(OUTDIR)/libvterm/encoding.obj: $(OUTDIR)/libvterm libvterm/src/encoding.c $(TERM_DEPS)
 
-$(OUTDIR)/vterm_mouse.obj: $(OUTDIR) libvterm/src/mouse.c $(TERM_DEPS)
-	$(CCCTERM) /Fo$@ libvterm/src/mouse.c
+$(OUTDIR)/libvterm/keyboard.obj: $(OUTDIR)/libvterm libvterm/src/keyboard.c $(TERM_DEPS)
 
-$(OUTDIR)/vterm_parser.obj: $(OUTDIR) libvterm/src/parser.c $(TERM_DEPS)
-	$(CCCTERM) /Fo$@ libvterm/src/parser.c
+$(OUTDIR)/libvterm/mouse.obj: $(OUTDIR)/libvterm libvterm/src/mouse.c $(TERM_DEPS)
 
-$(OUTDIR)/vterm_pen.obj: $(OUTDIR) libvterm/src/pen.c $(TERM_DEPS)
-	$(CCCTERM) /Fo$@ libvterm/src/pen.c
+$(OUTDIR)/libvterm/parser.obj: $(OUTDIR)/libvterm libvterm/src/parser.c $(TERM_DEPS)
 
-$(OUTDIR)/vterm_screen.obj: $(OUTDIR) libvterm/src/screen.c $(TERM_DEPS)
-	$(CCCTERM) /Fo$@ libvterm/src/screen.c
+$(OUTDIR)/libvterm/pen.obj: $(OUTDIR)/libvterm libvterm/src/pen.c $(TERM_DEPS)
 
-$(OUTDIR)/vterm_state.obj: $(OUTDIR) libvterm/src/state.c $(TERM_DEPS)
-	$(CCCTERM) /Fo$@ libvterm/src/state.c
+$(OUTDIR)/libvterm/screen.obj: $(OUTDIR)/libvterm libvterm/src/screen.c $(TERM_DEPS)
 
-$(OUTDIR)/vterm_unicode.obj: $(OUTDIR) libvterm/src/unicode.c $(TERM_DEPS)
-	$(CCCTERM) /Fo$@ libvterm/src/unicode.c
+$(OUTDIR)/libvterm/state.obj: $(OUTDIR)/libvterm libvterm/src/state.c $(TERM_DEPS)
 
-$(OUTDIR)/vterm_vterm.obj: $(OUTDIR) libvterm/src/vterm.c $(TERM_DEPS)
-	$(CCCTERM) /Fo$@ libvterm/src/vterm.c
+$(OUTDIR)/libvterm/unicode.obj: $(OUTDIR)/libvterm libvterm/src/unicode.c $(TERM_DEPS)
+
+$(OUTDIR)/libvterm/vterm.obj: $(OUTDIR)/libvterm libvterm/src/vterm.c $(TERM_DEPS)
 
 
 # $CFLAGS may contain backslashes, quotes and chevrons, escape them all.
@@ -1866,6 +1945,7 @@ proto.h: \
 	proto/findfile.pro \
 	proto/float.pro \
 	proto/getchar.pro \
+	proto/gc.pro \
 	proto/gui_xim.pro \
 	proto/hardcopy.pro \
 	proto/hashtab.pro \

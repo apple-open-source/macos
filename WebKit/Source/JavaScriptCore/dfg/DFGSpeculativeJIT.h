@@ -709,22 +709,26 @@ public:
 
     void compileCheckDetached(Node*);
 
+#if USE(JSVALUE64)
+    void cachedGetById(Node*, CodeOrigin, JSValueRegs base, JSValueRegs result, CacheableIdentifier, bool needsBaseCellCheck, AccessType, CacheType);
+    void cachedPutById(Node*, CodeOrigin, GPRReg baseGPR, JSValueRegs valueRegs, CacheableIdentifier, AccessType);
+    void cachedGetByIdWithThis(Node*, CodeOrigin, JSValueRegs baseRegs, JSValueRegs thisRegs, JSValueRegs resultRegs, CacheableIdentifier, bool needsBaseAndThisCellCheck);
+#elif USE(JSVALUE32_64)
     void cachedGetById(Node*, CodeOrigin, JSValueRegs base, JSValueRegs result, GPRReg stubInfoGPR, GPRReg scratchGPR, CacheableIdentifier, JITCompiler::Jump slowPathTarget, SpillRegistersMode, AccessType);
     void cachedPutById(Node*, CodeOrigin, GPRReg baseGPR, JSValueRegs valueRegs, GPRReg stubInfoGPR, GPRReg scratchGPR, GPRReg scratch2GPR, CacheableIdentifier, AccessType, JITCompiler::Jump slowPathTarget = JITCompiler::Jump(), SpillRegistersMode = NeedToSpill);
-
-#if USE(JSVALUE64)
     void cachedGetById(Node*, CodeOrigin, GPRReg baseGPR, GPRReg resultGPR, GPRReg stubInfoGPR, GPRReg scratchGPR, CacheableIdentifier, JITCompiler::Jump slowPathTarget, SpillRegistersMode, AccessType);
     void cachedGetByIdWithThis(Node*, CodeOrigin, GPRReg baseGPR, GPRReg thisGPR, GPRReg resultGPR, GPRReg stubInfoGPR, GPRReg scratchGPR, CacheableIdentifier, const JITCompiler::JumpList& slowPathTarget = JITCompiler::JumpList());
-#elif USE(JSVALUE32_64)
     void cachedGetById(Node*, CodeOrigin, GPRReg baseTagGPROrNone, GPRReg basePayloadGPR, GPRReg resultTagGPR, GPRReg resultPayloadGPR, GPRReg stubInfoGPR, GPRReg scratchGPR, CacheableIdentifier, JITCompiler::Jump slowPathTarget, SpillRegistersMode, AccessType);
     void cachedGetByIdWithThis(Node*, CodeOrigin, GPRReg baseTagGPROrNone, GPRReg basePayloadGPR, GPRReg thisTagGPROrNone, GPRReg thisPayloadGPR, GPRReg resultTagGPR, GPRReg resultPayloadGPR, GPRReg stubInfoGPR, GPRReg scratchGPR, CacheableIdentifier, const JITCompiler::JumpList& slowPathTarget = JITCompiler::JumpList());
+    void compileGetByIdFlush(Node*, AccessType);
+    void compilePutByIdFlush(Node*);
+    void compileInstanceOfForCells(Node*, JSValueRegs, JSValueRegs, GPRReg, GPRReg, Jump);
 #endif
 
     void compileDeleteById(Node*);
     void compileDeleteByVal(Node*);
     void compilePushWithScope(Node*);
     void compileGetById(Node*, AccessType);
-    void compileGetByIdFlush(Node*, AccessType);
     void compileGetByIdMegamorphic(Node*);
     void compileGetByIdWithThisMegamorphic(Node*);
     void compileInById(Node*);
@@ -744,10 +748,10 @@ public:
     void nonSpeculativePeepholeStrictEq(Node*, Node* branchNode, bool invert = false);
     void genericJSValueNonPeepholeStrictEq(Node*, bool invert = false);
     bool genericJSValueStrictEq(Node*, bool invert = false);
-    
-    void compileInstanceOfForCells(Node*, JSValueRegs valueGPR, JSValueRegs prototypeGPR, GPRReg resultGPT, GPRReg stubInfoGPR, JITCompiler::Jump slowCase = JITCompiler::Jump());
+
     void compileInstanceOf(Node*);
     void compileInstanceOfCustom(Node*);
+    void compileInstanceOfMegamorphic(Node*);
     void compileOverridesHasInstance(Node*);
 
     void compileIsCellWithType(Node*);
@@ -1487,9 +1491,10 @@ public:
     void compileCallCustomAccessorSetter(Node*);
     void compileNormalizeMapKey(Node*);
     template<typename MapOrSet>
-    ALWAYS_INLINE void compileGetMapIndexImpl(Node*);
-    void compileMapKeyIndex(Node*);
-    void compileMapValue(Node*);
+    ALWAYS_INLINE void compileMapGetImpl(Node*);
+    void compileMapGet(Node*);
+    void compileLoadMapValue(Node*);
+    void compileIsEmptyStorage(Node*);
     void compileMapIteratorNext(Node*);
     void compileMapIteratorKey(Node*);
     void compileMapIteratorValue(Node*);
@@ -1525,16 +1530,15 @@ public:
     void compilePutByValMegamorphic(Node*);
 
     // We use a scopedLambda to placate register allocation validation.
-    enum class CanUseFlush : bool { No, Yes };
-    void compileGetByVal(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
+    void compileGetByVal(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
 
     void compileGetCharCodeAt(Node*);
-    void compileGetByValOnString(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
+    void compileGetByValOnString(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
     void compileFromCharCode(Node*); 
     void compileGetByValMegamorphic(Node*);
 
-    void compileGetByValOnDirectArguments(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
-    void compileGetByValOnScopedArguments(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
+    void compileGetByValOnDirectArguments(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
+    void compileGetByValOnScopedArguments(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
 
     void compileGetPrivateName(Node*);
     void compileGetPrivateNameById(Node*);
@@ -1544,6 +1548,7 @@ public:
     void compileSkipScope(Node*);
     void compileGetGlobalObject(Node*);
     void compileGetGlobalThis(Node*);
+    void compileUnwrapGlobalProxy(Node*);
 
     void compileGetArrayLength(Node*);
 #if USE(LARGE_TYPED_ARRAYS)
@@ -1598,6 +1603,7 @@ public:
     void compileValueDiv(Node*);
     void compileArithDiv(Node*);
     void compileArithFRound(Node*);
+    void compileArithF16Round(Node*);
     void compileValueMod(Node*);
     void compileArithMod(Node*);
     void compileArithPow(Node*);
@@ -1611,17 +1617,16 @@ public:
     void compileGetIndexedPropertyStorage(Node*);
     void compileResolveRope(Node*);
     JITCompiler::Jump jumpForTypedArrayOutOfBounds(Node*, GPRReg baseGPR, GPRReg indexGPR, GPRReg scratchGPR, GPRReg scratch2GPR);
-    JITCompiler::Jump jumpForTypedArrayIsDetachedIfOutOfBounds(Node*, GPRReg baseGPR, JITCompiler::Jump outOfBounds);
     void compileGetTypedArrayByteOffset(Node*);
 #if USE(LARGE_TYPED_ARRAYS)
     void compileGetTypedArrayByteOffsetAsInt52(Node*);
 #endif
-    void compileGetByValOnIntTypedArray(Node*, TypedArrayType, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
+    void compileGetByValOnIntTypedArray(Node*, TypedArrayType, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
     void compilePutByValForIntTypedArray(Node*, TypedArrayType);
-    void compileGetByValOnFloatTypedArray(Node*, TypedArrayType, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
+    void compileGetByValOnFloatTypedArray(Node*, TypedArrayType, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
     void compilePutByValForFloatTypedArray(Node*, TypedArrayType);
-    void compileGetByValForObjectWithString(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
-    void compileGetByValForObjectWithSymbol(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
+    void compileGetByValForObjectWithString(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
+    void compileGetByValForObjectWithSymbol(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat, bool needsFlush)>& prefix);
     void compilePutByValForCellWithString(Node*);
     void compilePutByValForCellWithSymbol(Node*);
     void compileGetByValWithThis(Node*);
@@ -1732,7 +1737,6 @@ public:
     void compileEnumeratorHasOwnProperty(Node*);
     void compileEnumeratorPutByVal(Node*);
 
-    void compilePutByIdFlush(Node*);
     void compilePutById(Node*);
     void compilePutByIdDirect(Node*);
     void compilePutByIdWithThis(Node*);
@@ -1911,6 +1915,8 @@ public:
     void speculatePromiseObject(Edge, GPRReg cell);
     void speculateProxyObject(Edge, GPRReg cell);
     void speculateProxyObject(Edge);
+    void speculateGlobalProxy(Edge, GPRReg cell);
+    void speculateGlobalProxy(Edge);
     void speculateDerivedArray(Edge, GPRReg cell);
     void speculateDerivedArray(Edge);
     void speculateDateObject(Edge);

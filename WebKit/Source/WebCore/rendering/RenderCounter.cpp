@@ -35,8 +35,8 @@
 #include "RenderListItem.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(TREE_DEBUGGING)
 #include <stdio.h>
@@ -46,7 +46,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderCounter);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderCounter);
 
 using CounterMap = HashMap<AtomString, Ref<CounterNode>>;
 using CounterMaps = SingleThreadWeakHashMap<RenderElement, std::unique_ptr<CounterMap>>;
@@ -438,10 +438,8 @@ RenderCounter::RenderCounter(Document& document, const CounterContent& counter)
     view().addCounterNeedingUpdate(*this);
 }
 
-RenderCounter::~RenderCounter()
-{
-    // Do not add any code here. Add it to willBeDestroyed() instead.
-}
+// Do not add any code in below destructor. Add it to willBeDestroyed() instead.
+RenderCounter::~RenderCounter() = default;
 
 void RenderCounter::willBeDestroyed()
 {

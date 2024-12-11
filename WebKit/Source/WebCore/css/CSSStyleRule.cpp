@@ -24,6 +24,8 @@
 
 #include "CSSGroupingRule.h"
 #include "CSSParser.h"
+#include "CSSParserEnum.h"
+#include "CSSParserImpl.h"
 #include "CSSRuleList.h"
 #include "CSSStyleSheet.h"
 #include "DeclaredStylePropertyMap.h"
@@ -113,9 +115,8 @@ void CSSStyleRule::setSelectorText(const String& selectorText)
         return;
 
     CSSParser p(parserContext());
-    auto isNestedContext = hasStyleRuleAncestor() ? CSSParserEnum::IsNestedContext::Yes : CSSParserEnum::IsNestedContext::No;
     RefPtr sheet = parentStyleSheet();
-    auto selectorList = p.parseSelectorList(selectorText, sheet ? &sheet->contents() : nullptr, isNestedContext);
+    auto selectorList = p.parseSelectorList(selectorText, sheet ? &sheet->contents() : nullptr, nestedContext());
     if (!selectorList)
         return;
 
@@ -235,11 +236,14 @@ ExceptionOr<unsigned> CSSStyleRule::insertRule(const String& ruleString, unsigne
         return Exception { ExceptionCode::IndexSizeError };
 
     RefPtr styleSheet = parentStyleSheet();
-    RefPtr<StyleRuleBase> newRule = CSSParser::parseRule(parserContext(), styleSheet ? &styleSheet->contents() : nullptr, ruleString, CSSParserEnum::IsNestedContext::Yes);
-    if (!newRule)
-        return Exception { ExceptionCode::SyntaxError };
-    // We only accepts style rule or group rule (@media,...) inside style rules.
-    if (!newRule->isStyleRule() && !newRule->isGroupRule())
+    RefPtr newRule = CSSParser::parseRule(parserContext(), styleSheet ? &styleSheet->contents() : nullptr, ruleString, CSSParserEnum::NestedContextType::Style);
+    if (!newRule) {
+        newRule = CSSParserImpl::parseNestedDeclarations(parserContext(), ruleString);
+        if (!newRule)
+            return Exception { ExceptionCode::SyntaxError };
+    }
+    // We only accepts style rule, nested group rule (@media,...) or nested declarations inside style rules.
+    if (!newRule->isStyleRule() && !newRule->isGroupRule() && !newRule->isNestedDeclarationsRule())
         return Exception { ExceptionCode::HierarchyRequestError };
 
     CSSStyleSheet::RuleMutationScope mutationScope(this);

@@ -26,6 +26,8 @@
 #include "config.h"
 #include "LibWebRTCSocketClient.h"
 
+#if !PLATFORM(COCOA)
+
 #if USE(LIBWEBRTC)
 
 #include "Connection.h"
@@ -34,8 +36,11 @@
 #include "NetworkRTCProvider.h"
 #include <WebCore/SharedBuffer.h>
 #include <wtf/Function.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCSocketClient);
 
 LibWebRTCSocketClient::LibWebRTCSocketClient(WebCore::LibWebRTCSocketIdentifier identifier, NetworkRTCProvider& rtcProvider, std::unique_ptr<rtc::AsyncPacketSocket>&& socket, Type type, Ref<IPC::Connection>&& connection)
     : m_identifier(identifier)
@@ -84,7 +89,7 @@ void LibWebRTCSocketClient::close()
     RELEASE_LOG_ERROR_IF(result, Network, "LibWebRTCSocketClient::close (ID=%" PRIu64 ") failed with error %d", m_identifier.toUInt64(), m_socket->GetError());
 
     m_socket->DeregisterReceivedPacketCallback();
-    m_rtcProvider.takeSocket(m_identifier);
+    Ref { m_rtcProvider.get() }->takeSocket(m_identifier);
 }
 
 void LibWebRTCSocketClient::setOption(int option, int value)
@@ -99,7 +104,7 @@ void LibWebRTCSocketClient::signalReadPacket(rtc::AsyncPacketSocket* socket, con
 {
     ASSERT_UNUSED(socket, m_socket.get() == socket);
     std::span data(byteCast<uint8_t>(value), length);
-    m_connection->send(Messages::LibWebRTCNetwork::SignalReadPacket(m_identifier, data, RTCNetwork::IPAddress(address.ipaddr()), address.port(), packetTime), 0);
+    m_connection->send(Messages::LibWebRTCNetwork::SignalReadPacket(m_identifier, data, RTCNetwork::IPAddress(address.ipaddr()), address.port(), packetTime, RTC::Network::EcnMarking::kNotEct), 0);
 }
 
 void LibWebRTCSocketClient::signalSentPacket(rtc::AsyncPacketSocket* socket, const rtc::SentPacket& sentPacket)
@@ -132,9 +137,12 @@ void LibWebRTCSocketClient::signalClose(rtc::AsyncPacketSocket* socket, int erro
 
     // We want to remove 'this' from the socket map now but we will destroy it asynchronously
     // so that the socket parameter of signalClose remains alive as the caller of signalClose may actually being using it afterwards.
-    m_rtcProvider.callOnRTCNetworkThread([socket = m_rtcProvider.takeSocket(m_identifier)] { });
+    Ref rtcProvider = m_rtcProvider.get();
+    rtcProvider->callOnRTCNetworkThread([socket = rtcProvider->takeSocket(m_identifier)] { });
 }
 
 } // namespace WebKit
 
 #endif // USE(LIBWEBRTC)
+
+#endif // !PLATFORM(COCOA)

@@ -38,6 +38,7 @@
 #include <wtf/ProcessID.h>
 #include <wtf/Seconds.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/UniqueRef.h>
 
@@ -65,10 +66,9 @@ class AuxiliaryProcessProxy
     : public ThreadSafeRefCounted<AuxiliaryProcessProxy, WTF::DestructionThread::MainRunLoop>
     , public ResponsivenessTimer::Client
     , private ProcessLauncher::Client
-    , public IPC::Connection::Client
-    , public CanMakeThreadSafeCheckedPtr<AuxiliaryProcessProxy> {
+    , public IPC::Connection::Client {
     WTF_MAKE_NONCOPYABLE(AuxiliaryProcessProxy);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(AuxiliaryProcessProxy);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(AuxiliaryProcessProxy);
 protected:
     AuxiliaryProcessProxy(ShouldTakeUIBackgroundAssertion, AlwaysRunsAtBackgroundPriority = AlwaysRunsAtBackgroundPriority::No, Seconds responsivenessTimeout = ResponsivenessTimer::defaultResponsivenessTimeout);
@@ -125,13 +125,13 @@ public:
         return sendSync<T>(std::forward<T>(message), destinationID.toUInt64(), timeout, sendSyncOptions);
     }
 
-    IPC::Connection* connection() const
+    IPC::Connection& connection() const
     {
-        ASSERT(m_connection);
-        return m_connection.get();
+        RELEASE_ASSERT(m_connection);
+        return *m_connection;
     }
 
-    RefPtr<IPC::Connection> protectedConnection() const { return connection(); }
+    Ref<IPC::Connection> protectedConnection() const { return connection(); }
 
     bool hasConnection() const
     {
@@ -212,6 +212,7 @@ public:
 
 #if USE(EXTENSIONKIT)
     std::optional<ExtensionProcess> extensionProcess() const;
+    LaunchGrant* launchGrant() const;
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)
@@ -277,6 +278,15 @@ protected:
     static RefPtr<WebCore::SharedBuffer> fetchAudioComponentServerRegistrations();
 #endif
 
+    struct InitializationActivityAndGrant {
+        UniqueRef<ProcessThrottler::ForegroundActivity> foregroundActivity;
+#if USE(EXTENSIONKIT)
+        RefPtr<LaunchGrant> launchGrant;
+#endif
+    };
+
+    InitializationActivityAndGrant initializationActivityAndGrant();
+
 private:
     virtual void connectionWillOpen(IPC::Connection&);
     virtual void processWillShutDown(IPC::Connection&) = 0;
@@ -337,7 +347,7 @@ AuxiliaryProcessProxy::SendSyncResult<T> AuxiliaryProcessProxy::sendSync(T&& mes
 
     TraceScope scope(SyncMessageStart, SyncMessageEnd);
 
-    return connection()->sendSync(std::forward<T>(message), destinationID, timeout, sendSyncOptions);
+    return connection().sendSync(std::forward<T>(message), destinationID, timeout, sendSyncOptions);
 }
 
 template<typename T, typename C>

@@ -37,13 +37,13 @@
 #include "RenderTable.h"
 #include "RenderTableCaption.h"
 #include "RenderTableCell.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderTableCol);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderTableCol);
 
 RenderTableCol::RenderTableCol(Element& element, RenderStyle&& style)
     : RenderBox(Type::TableCol, element, WTFMove(style))
@@ -102,8 +102,12 @@ void RenderTableCol::updateFromElement()
         m_span = tc.span();
     } else
         m_span = 1;
-    if (m_span != oldSpan && hasInitializedStyle() && parent())
-        setNeedsLayoutAndPrefWidthsRecalc();
+    if (m_span != oldSpan && parent()) {
+        if (hasInitializedStyle())
+            setNeedsLayoutAndPrefWidthsRecalc();
+        if (RenderTable* table = this->table())
+            table->invalidateColumns();
+    }
 }
 
 void RenderTableCol::insertedIntoTree()

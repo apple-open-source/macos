@@ -40,7 +40,7 @@ namespace WebCore {
 
 void YouTubePluginReplacement::registerPluginReplacement(PluginReplacementRegistrar registrar)
 {
-    registrar(ReplacementPlugin(create, supportsMIMEType, supportsFileExtension, supportsURL, isEnabledBySettings));
+    registrar(ReplacementPlugin(create, supportsMIMEType, supportsFileExtension, supportsURL));
 }
 
 Ref<PluginReplacement> YouTubePluginReplacement::create(HTMLPlugInElement& plugin, const Vector<AtomString>& paramNames, const Vector<AtomString>& paramValues)
@@ -66,6 +66,8 @@ YouTubePluginReplacement::YouTubePluginReplacement(HTMLPlugInElement& plugin, co
     for (size_t i = 0; i < paramNames.size(); ++i)
         m_attributes.add(paramNames[i], paramValues[i]);
 }
+
+YouTubePluginReplacement::~YouTubePluginReplacement() = default;
 
 RenderPtr<RenderElement> YouTubePluginReplacement::createElementRenderer(HTMLPlugInElement& plugin, RenderStyle&& style, const RenderTreePosition& insertionPosition)
 {
@@ -335,9 +337,4 @@ bool YouTubePluginReplacement::supportsURL(const URL& url)
     return isYouTubeURL(url);
 }
 
-bool YouTubePluginReplacement::isEnabledBySettings(const Settings& settings)
-{
-    return settings.youTubeFlashPluginReplacementEnabled();
-}
-    
 }

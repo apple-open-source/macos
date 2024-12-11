@@ -59,23 +59,23 @@ class BackgroundPainter {
 public:
     BackgroundPainter(RenderBoxModelObject&, const PaintInfo&);
 
-    void paintBackground(const LayoutRect&, BackgroundBleedAvoidance);
+    void setOverrideClip(FillBox overrideClip) { m_overrideClip = overrideClip; }
+    void setOverrideOrigin(FillBox overrideOrigin) { m_overrideOrigin = overrideOrigin; }
 
-    void paintFillLayers(const Color&, const FillLayer&, const LayoutRect&, BackgroundBleedAvoidance, CompositeOperator, RenderElement* backgroundObject = nullptr);
-    void paintFillLayer(const Color&, const FillLayer&, const LayoutRect&, BackgroundBleedAvoidance, const InlineIterator::InlineBoxIterator&, const LayoutRect& backgroundImageStrip = { }, CompositeOperator = CompositeOperator::SourceOver, RenderElement* backgroundObject = nullptr, BaseBackgroundColorUsage = BaseBackgroundColorUse);
+    void paintBackground(const LayoutRect&, BackgroundBleedAvoidance) const;
 
-    void paintBoxShadow(const LayoutRect&, const RenderStyle&, ShadowStyle, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true);
+    void paintFillLayers(const Color&, const FillLayer&, const LayoutRect&, BackgroundBleedAvoidance, CompositeOperator, RenderElement* backgroundObject = nullptr) const;
+    void paintFillLayer(const Color&, const FillLayer&, const LayoutRect&, BackgroundBleedAvoidance, const InlineIterator::InlineBoxIterator&, const LayoutRect& backgroundImageStrip = { }, CompositeOperator = CompositeOperator::SourceOver, RenderElement* backgroundObject = nullptr, BaseBackgroundColorUsage = BaseBackgroundColorUse) const;
+
+    void paintBoxShadow(const LayoutRect&, const RenderStyle&, ShadowStyle, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
 
     static bool paintsOwnBackground(const RenderBoxModelObject&);
-    static BackgroundImageGeometry calculateBackgroundImageGeometry(const RenderBoxModelObject&, const RenderLayerModelObject* paintContainer, const FillLayer&, const LayoutPoint& paintOffset, const LayoutRect& borderBoxRect);
-    static void clipRoundedInnerRect(GraphicsContext&, const FloatRect&, const FloatRoundedRect& clipRect);
+    static BackgroundImageGeometry calculateBackgroundImageGeometry(const RenderBoxModelObject&, const RenderLayerModelObject* paintContainer, const FillLayer&, const LayoutPoint& paintOffset, const LayoutRect& borderBoxRect, std::optional<FillBox> overrideOrigin = std::nullopt);
+    static void clipRoundedInnerRect(GraphicsContext&, const FloatRoundedRect& clipRect);
     static bool boxShadowShouldBeAppliedToBackground(const RenderBoxModelObject&, const LayoutPoint& paintOffset, BackgroundBleedAvoidance, const InlineIterator::InlineBoxIterator&);
 
 private:
-    void paintRootBoxFillLayers();
-
-    RoundedRect backgroundRoundedRectAdjustedForBleedAvoidance(const LayoutRect& borderRect, BackgroundBleedAvoidance, const InlineIterator::InlineBoxIterator&, bool includeLogicalLeftEdge, bool includeLogicalRightEdge) const;
-    RoundedRect backgroundRoundedRect(const LayoutRect& borderRect, const InlineIterator::InlineBoxIterator&, bool includeLogicalLeftEdge, bool includeLogicalRightEdge) const;
+    void paintRootBoxFillLayers() const;
 
     static LayoutSize calculateFillTileSize(const RenderBoxModelObject&, const FillLayer&, const LayoutSize& positioningAreaSize);
 
@@ -84,6 +84,8 @@ private:
 
     RenderBoxModelObject& m_renderer;
     const PaintInfo& m_paintInfo;
+    std::optional<FillBox> m_overrideClip;
+    std::optional<FillBox> m_overrideOrigin;
 };
 
 }

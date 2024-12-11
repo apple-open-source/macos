@@ -2118,6 +2118,7 @@ static ClientExtensions GenerateClientExtensions()
 
 #if defined(ANGLE_ENABLE_D3D11)
     extensions.platformANGLED3D11ON12 = angle::IsWindows10OrLater();
+    extensions.platformANGLED3DLUID   = true;
     extensions.platformANGLEDeviceId  = true;
 #endif
 
@@ -2355,6 +2356,9 @@ void Display::initializeFrontendFeatures()
     ANGLE_FEATURE_CONDITION(&mFrontendFeatures, emulatePixelLocalStorage, true);
 
     ANGLE_FEATURE_CONDITION(&mFrontendFeatures, forceMinimumMaxVertexAttributes, false);
+
+    // Reject shaders with undefined behavior.  In the compiler, this only applies to WebGL.
+    ANGLE_FEATURE_CONDITION(&mFrontendFeatures, rejectWebglShadersWithUndefinedBehavior, true);
 
     mImplementation->initializeFrontendFeatures(&mFrontendFeatures);
 }

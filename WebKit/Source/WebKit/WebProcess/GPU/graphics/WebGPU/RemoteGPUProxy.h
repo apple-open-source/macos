@@ -33,7 +33,8 @@
 #include "WebGPUIdentifier.h"
 #include <WebCore/WebGPU.h>
 #include <WebCore/WebGPUPresentationContext.h>
-#include <wtf/Deque.h>
+#include <WebCore/WorkerOrWorkletThread.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
@@ -52,16 +53,18 @@ class DowncastConvertToBackingContext;
 }
 
 class RemoteGPUProxy final : public WebCore::WebGPU::GPU, private IPC::Connection::Client, public ThreadSafeRefCounted<RemoteGPUProxy>, SerialFunctionDispatcher {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteGPUProxy);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteGPUProxy);
 public:
     static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, WebPage&);
-    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, RemoteRenderingBackendProxy&, SerialFunctionDispatcher&);
+    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, RemoteRenderingBackendProxy&, WebCore::WorkerOrWorkletThread&);
 
     virtual ~RemoteGPUProxy();
 
     RemoteGPUProxy& root() { return *this; }
 
     IPC::StreamClientConnection& streamClientConnection() { return *m_streamConnection; }
+    Ref<IPC::StreamClientConnection> protectedStreamClientConnection() { return *m_streamConnection; }
 
     void ref() const final { return ThreadSafeRefCounted<RemoteGPUProxy>::ref(); }
     void deref() const final { return ThreadSafeRefCounted<RemoteGPUProxy>::deref(); }
@@ -70,9 +73,11 @@ public:
     WebGPUIdentifier backing() const { return m_backing; }
 
 private:
-    friend class WebGPU::DowncastConvertToBackingContext;
+    class Dispatcher;
+    static RefPtr<RemoteGPUProxy> create(WebGPU::ConvertToBackingContext&, RemoteRenderingBackendProxy&, Dispatcher&&);
 
-    RemoteGPUProxy(WebGPU::ConvertToBackingContext&, SerialFunctionDispatcher&);
+    friend class WebGPU::DowncastConvertToBackingContext;
+    RemoteGPUProxy(WebGPU::ConvertToBackingContext&, Dispatcher&&);
     void initializeIPC(Ref<IPC::StreamClientConnection>&&, RenderingBackendIdentifier, IPC::StreamServerConnection::Handle&&);
 
     RemoteGPUProxy(const RemoteGPUProxy&) = delete;
@@ -90,16 +95,15 @@ private:
 
     void waitUntilInitialized();
 
-    static inline constexpr Seconds defaultSendTimeout = 30_s;
     template<typename T>
     WARN_UNUSED_RETURN IPC::Error send(T&& message)
     {
-        return root().streamClientConnection().send(std::forward<T>(message), backing(), defaultSendTimeout);
+        return root().streamClientConnection().send(std::forward<T>(message), backing());
     }
     template<typename T>
     WARN_UNUSED_RETURN IPC::Connection::SendSyncResult<T> sendSync(T&& message)
     {
-        return root().streamClientConnection().sendSync(std::forward<T>(message), backing(), defaultSendTimeout);
+        return root().streamClientConnection().sendSync(std::forward<T>(message), backing());
     }
 
     void requestAdapter(const WebCore::WebGPU::RequestAdapterOptions&, CompletionHandler<void(RefPtr<WebCore::WebGPU::Adapter>&&)>&&) final;
@@ -130,17 +134,35 @@ private:
     bool isValid(const WebCore::WebGPU::ShaderModule&) const final;
     bool isValid(const WebCore::WebGPU::Texture&) const final;
     bool isValid(const WebCore::WebGPU::TextureView&) const final;
+    bool isValid(const WebCore::WebGPU::XRBinding&) const final;
+    bool isValid(const WebCore::WebGPU::XRSubImage&) const final;
+    bool isValid(const WebCore::WebGPU::XRProjectionLayer&) const final;
+    bool isValid(const WebCore::WebGPU::XRView&) const final;
 
     void abandonGPUProcess();
     void disconnectGpuProcessIfNeeded();
+
+    class Dispatcher {
+    public:
+        using InternalDispatcher = std::variant<Ref<RunLoop>, ThreadSafeWeakPtr<WebCore::WorkerOrWorkletThread>>;
+        explicit Dispatcher(InternalDispatcher&&);
+
+        void dispatch(Function<void()>&&);
+        bool isCurrent() const;
+
+    private:
+        InternalDispatcher m_internalDispatcher;
+    };
 
     // SerialFunctionDispatcher
     void dispatch(Function<void()>&& function) final { m_dispatcher.dispatch(WTFMove(function)); }
     bool isCurrent() const final { return m_dispatcher.isCurrent(); }
 
+    RefPtr<IPC::StreamClientConnection> protectedStreamConnection() const { return m_streamConnection; }
+    Ref<WebGPU::ConvertToBackingContext> protectedConvertToBackingContext() const;
+
     Ref<WebGPU::ConvertToBackingContext> m_convertToBackingContext;
-    Deque<CompletionHandler<void(RefPtr<WebCore::WebGPU::Adapter>&&)>> m_callbacks;
-    SerialFunctionDispatcher& m_dispatcher;
+    Dispatcher m_dispatcher;
     WeakPtr<GPUProcessConnection> m_gpuProcessConnection;
     RefPtr<IPC::StreamClientConnection> m_streamConnection;
     WebGPUIdentifier m_backing { WebGPUIdentifier::generate() };

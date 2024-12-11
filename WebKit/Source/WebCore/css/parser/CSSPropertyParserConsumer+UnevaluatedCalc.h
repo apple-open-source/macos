@@ -36,16 +36,21 @@ namespace WebCore {
 
 class CSSCalcSymbolTable;
 class CSSCalcValue;
+class CSSToLengthConversionData;
 
 // Type-erased helpers to allow for shared code.
 bool unevaluatedCalcEqual(const Ref<CSSCalcValue>&, const Ref<CSSCalcValue>&);
 void unevaluatedCalcSerialization(StringBuilder&, const Ref<CSSCalcValue>&);
+bool unevaluatedCalcRequiresConversionData(const Ref<CSSCalcValue>&);
+Ref<CSSCalcValue> unevaluatedCalcSimplify(const Ref<CSSCalcValue>&, const CSSToLengthConversionData&, const CSSCalcSymbolTable&);
 
 // `UnevaluatedCalc` annotates a `CSSCalcValue` with the raw value type that it
 // will be evaluated to, allowing the processing of calc in generic code.
 template<typename T> struct UnevaluatedCalc {
     using RawType = T;
     Ref<CSSCalcValue> calc;
+
+    Ref<CSSCalcValue> protectedCalc() const { return calc; }
 
     bool operator==(const UnevaluatedCalc<T>& other) const
     {
@@ -55,25 +60,21 @@ template<typename T> struct UnevaluatedCalc {
 
 // MARK: - Utility templates
 
-template<typename T>
-struct IsUnevaluatedCalc : public std::integral_constant<bool, WTF::IsTemplate<T, UnevaluatedCalc>::value> { };
+template<typename T> struct IsUnevaluatedCalc : public std::integral_constant<bool, WTF::IsTemplate<T, UnevaluatedCalc>::value> { };
 
-template<typename TypeList>
-struct TypesMinusUnevaluatedCalc {
+template<typename TypeList> struct TypesMinusUnevaluatedCalc {
     using ResultTypeList = brigand::remove_if<TypeList, IsUnevaluatedCalc<brigand::_1>>;
     using type = VariantOrSingle<ResultTypeList>;
 };
-template<typename... Ts>
-using TypesMinusUnevaluatedCalcType = typename TypesMinusUnevaluatedCalc<brigand::list<Ts...>>::type;
+template<typename... Ts> using TypesMinusUnevaluatedCalcType = typename TypesMinusUnevaluatedCalc<brigand::list<Ts...>>::type;
 
-template<typename>
-struct TypePlusUnevaluatedCalc;
+template<typename> struct TypePlusUnevaluatedCalc;
 
 template<> struct TypePlusUnevaluatedCalc<AngleRaw> {
     using type = brigand::list<AngleRaw, UnevaluatedCalc<AngleRaw>>;
 };
-template<> struct TypePlusUnevaluatedCalc<PercentRaw> {
-    using type = brigand::list<PercentRaw, UnevaluatedCalc<PercentRaw>>;
+template<> struct TypePlusUnevaluatedCalc<PercentageRaw> {
+    using type = brigand::list<PercentageRaw, UnevaluatedCalc<PercentageRaw>>;
 };
 template<> struct TypePlusUnevaluatedCalc<NumberRaw> {
     using type = brigand::list<NumberRaw, UnevaluatedCalc<NumberRaw>>;
@@ -94,52 +95,163 @@ template<> struct TypePlusUnevaluatedCalc<SymbolRaw> {
     using type = brigand::list<SymbolRaw>;
 };
 
-template<typename TypeList>
-struct TypesPlusUnevaluatedCalc {
+template<typename TypeList> struct TypesPlusUnevaluatedCalc {
     using ResultTypeList = brigand::flatten<brigand::transform<TypeList, TypePlusUnevaluatedCalc<brigand::_1>>>;
     using type = VariantOrSingle<ResultTypeList>;
 };
-template<typename... Ts>
-using TypesPlusUnevaluatedCalcType = typename TypesPlusUnevaluatedCalc<brigand::list<Ts...>>::type;
-
+template<typename... Ts> using TypesPlusUnevaluatedCalcType = typename TypesPlusUnevaluatedCalc<brigand::list<Ts...>>::type;
 
 // MARK: - Serialization
 
-template<typename T>
-void serializationForCSS(StringBuilder& builder, const UnevaluatedCalc<T>& unevaluatedCalc)
+template<typename T> void serializationForCSS(StringBuilder& builder, const UnevaluatedCalc<T>& unevaluatedCalc)
 {
     unevaluatedCalcSerialization(builder, unevaluatedCalc.calc);
 }
 
+// MARK: - Requires Conversion Data
+
+template<typename T> bool requiresConversionData(const UnevaluatedCalc<T>& unevaluatedCalc)
+{
+    return unevaluatedCalcRequiresConversionData(unevaluatedCalc.calc);
+}
+
+template<typename T> bool requiresConversionData(const T&)
+{
+    static_assert(!IsUnevaluatedCalc<T>::value);
+    return false;
+}
+
+template<typename... Ts> bool requiresConversionData(const std::variant<Ts...>& component)
+{
+    return WTF::switchOn(component, [&](auto part) -> bool {
+        return requiresConversionData(part);
+    });
+}
+
+template<typename... Ts> bool requiresConversionData(const std::optional<std::variant<Ts...>>& component)
+{
+    return component && requiresConversionData(*component);
+}
+
+// MARK: - Is UnevaluatedCalc
+
+template<typename T> bool isUnevaluatedCalc(const UnevaluatedCalc<T>&)
+{
+    return true;
+}
+
+template<typename T> bool isUnevaluatedCalc(const T&)
+{
+    static_assert(!IsUnevaluatedCalc<T>::value);
+    return false;
+}
+
+template<typename... Ts> bool isUnevaluatedCalc(const std::variant<Ts...>& component)
+{
+    return WTF::switchOn(component, [&](auto part) -> bool {
+        return isUnevaluatedCalc(part);
+    });
+}
+
+template<typename... Ts> bool isUnevaluatedCalc(const std::optional<std::variant<Ts...>>& component)
+{
+    return component && isUnevaluatedCalc(*component);
+}
+
 // MARK: - Evaluation
 
-AngleRaw evaluateCalc(const UnevaluatedCalc<AngleRaw>&, const CSSCalcSymbolTable&);
-NumberRaw evaluateCalc(const UnevaluatedCalc<NumberRaw>&, const CSSCalcSymbolTable&);
-PercentRaw evaluateCalc(const UnevaluatedCalc<PercentRaw>&, const CSSCalcSymbolTable&);
-LengthRaw evaluateCalc(const UnevaluatedCalc<LengthRaw>&, const CSSCalcSymbolTable&);
-ResolutionRaw evaluateCalc(const UnevaluatedCalc<ResolutionRaw>&, const CSSCalcSymbolTable&);
-TimeRaw evaluateCalc(const UnevaluatedCalc<TimeRaw>&, const CSSCalcSymbolTable&);
+AngleRaw evaluateCalc(const UnevaluatedCalc<AngleRaw>&, const CSSToLengthConversionData&, const CSSCalcSymbolTable&);
+AngleRaw evaluateCalcNoConversionDataRequired(const UnevaluatedCalc<AngleRaw>&, const CSSCalcSymbolTable&);
+NumberRaw evaluateCalc(const UnevaluatedCalc<NumberRaw>&, const CSSToLengthConversionData&, const CSSCalcSymbolTable&);
+NumberRaw evaluateCalcNoConversionDataRequired(const UnevaluatedCalc<NumberRaw>&, const CSSCalcSymbolTable&);
+PercentageRaw evaluateCalc(const UnevaluatedCalc<PercentageRaw>&, const CSSToLengthConversionData&, const CSSCalcSymbolTable&);
+PercentageRaw evaluateCalcNoConversionDataRequired(const UnevaluatedCalc<PercentageRaw>&, const CSSCalcSymbolTable&);
+LengthRaw evaluateCalc(const UnevaluatedCalc<LengthRaw>&, const CSSToLengthConversionData&, const CSSCalcSymbolTable&);
+LengthRaw evaluateCalcNoConversionDataRequired(const UnevaluatedCalc<LengthRaw>&, const CSSCalcSymbolTable&);
+ResolutionRaw evaluateCalc(const UnevaluatedCalc<ResolutionRaw>&, const CSSToLengthConversionData&, const CSSCalcSymbolTable&);
+ResolutionRaw evaluateCalcNoConversionDataRequired(const UnevaluatedCalc<ResolutionRaw>&, const CSSCalcSymbolTable&);
+TimeRaw evaluateCalc(const UnevaluatedCalc<TimeRaw>&, const CSSToLengthConversionData&, const CSSCalcSymbolTable&);
+TimeRaw evaluateCalcNoConversionDataRequired(const UnevaluatedCalc<TimeRaw>&, const CSSCalcSymbolTable&);
 
-template<typename T>
-auto evaluateCalc(const T& component, const CSSCalcSymbolTable&) -> T
+template<typename T> auto evaluateCalc(const T& component, const CSSToLengthConversionData&, const CSSCalcSymbolTable&) -> T
 {
     return component;
 }
 
-template<typename... Ts>
-auto evaluateCalc(const std::variant<Ts...>& component, const CSSCalcSymbolTable& symbolTable) -> TypesMinusUnevaluatedCalcType<Ts...>
+template<typename T> auto evaluateCalcNoConversionDataRequired(const T& component, const CSSCalcSymbolTable&) -> T
+{
+    return component;
+}
+
+template<typename... Ts> auto evaluateCalc(const std::variant<Ts...>& component, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> TypesMinusUnevaluatedCalcType<Ts...>
 {
     return WTF::switchOn(component, [&](auto part) -> TypesMinusUnevaluatedCalcType<Ts...> {
-        return evaluateCalc(part, symbolTable);
+        return evaluateCalc(part, conversionData, symbolTable);
     });
 }
 
-template<typename... Ts>
-auto evaluateCalc(const std::optional<std::variant<Ts...>>& component, const CSSCalcSymbolTable& symbolTable) -> std::optional<TypesMinusUnevaluatedCalcType<Ts...>>
+template<typename... Ts> auto evaluateCalcNoConversionDataRequired(const std::variant<Ts...>& component, const CSSCalcSymbolTable& symbolTable) -> TypesMinusUnevaluatedCalcType<Ts...>
 {
-    if (component)
-        return evaluateCalc(*component, symbolTable);
-    return std::nullopt;
+    return WTF::switchOn(component, [&](auto part) -> TypesMinusUnevaluatedCalcType<Ts...> {
+        return evaluateCalcNoConversionDataRequired(part, symbolTable);
+    });
+}
+
+template<typename... Ts> auto evaluateCalcIfNoConversionDataRequired(const std::variant<Ts...>& component, const CSSCalcSymbolTable& symbolTable) -> std::variant<Ts...>
+{
+    return WTF::switchOn(component, [&](auto part) -> std::variant<Ts...> {
+        if (requiresConversionData(part))
+            return part;
+        return evaluateCalcNoConversionDataRequired(part, symbolTable);
+    });
+}
+
+template<typename... Ts> auto evaluateCalc(const std::optional<std::variant<Ts...>>& component, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> std::optional<TypesMinusUnevaluatedCalcType<Ts...>>
+{
+    if (!component)
+        return std::nullopt;
+    return evaluateCalc(component.value(), conversionData, symbolTable);
+}
+
+template<typename... Ts> auto evaluateCalcNoConversionDataRequired(const std::optional<std::variant<Ts...>>& component, const CSSCalcSymbolTable& symbolTable) -> std::optional<TypesMinusUnevaluatedCalcType<Ts...>>
+{
+    if (!component)
+        return std::nullopt;
+    return evaluateCalcNoConversionDataRequired(component.value(), symbolTable);
+}
+
+template<typename... Ts> auto evaluateCalcIfNoConversionDataRequired(const std::optional<std::variant<Ts...>>& component, const CSSCalcSymbolTable& symbolTable) -> std::optional<std::variant<Ts...>>
+{
+    if (!component)
+        return std::nullopt;
+    return evaluateCalcIfNoConversionDataRequired(component.value(), symbolTable);
+}
+
+// MARK: Simplify
+
+template<typename T> auto simplify(const UnevaluatedCalc<T>& unevaluatedCalc, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> UnevaluatedCalc<T>
+{
+    return { .calc = unevaluatedCalcSimplify(unevaluatedCalc, conversionData, symbolTable) };
+}
+
+template<typename T> auto simplify(const T& component, const CSSToLengthConversionData&, const CSSCalcSymbolTable&) -> T
+{
+    static_assert(!IsUnevaluatedCalc<T>::value);
+    return component;
+}
+
+template<typename... Ts> auto simplify(const std::variant<Ts...>& component, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> std::variant<Ts...>
+{
+    return WTF::switchOn(component, [&](auto part) -> bool {
+        return simplify(part, conversionData, symbolTable);
+    });
+}
+
+template<typename... Ts> auto simplify(const std::optional<std::variant<Ts...>>& component, const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) -> std::optional<std::variant<Ts...>>
+{
+    if (!component)
+        return std::nullopt;
+    return simplify(component.value(), conversionData, symbolTable);
 }
 
 } // namespace WebCore

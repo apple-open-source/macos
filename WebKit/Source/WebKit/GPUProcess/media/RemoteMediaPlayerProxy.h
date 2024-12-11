@@ -48,6 +48,7 @@
 #include <wtf/LoggerHelper.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 
@@ -109,7 +110,7 @@ class RemoteMediaPlayerProxy final
     : public RefCounted<RemoteMediaPlayerProxy>
     , public WebCore::MediaPlayerClient
     , private IPC::MessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteMediaPlayerProxy);
 public:
     using WebCore::MediaPlayerClient::WeakPtrImplType;
     using WebCore::MediaPlayerClient::WeakValueType;
@@ -292,7 +293,7 @@ private:
     float mediaPlayerContentsScale() const final;
     bool mediaPlayerPlatformVolumeConfigurationRequired() const final;
     WebCore::CachedResourceLoader* mediaPlayerCachedResourceLoader() final;
-    RefPtr<WebCore::PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() final;
+    Ref<WebCore::PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() final;
     bool doesHaveAttribute(const AtomString&, AtomString* = nullptr) const final;
     bool mediaPlayerShouldUsePersistentCache() const final;
     const String& mediaPlayerMediaCacheDirectory() const final;

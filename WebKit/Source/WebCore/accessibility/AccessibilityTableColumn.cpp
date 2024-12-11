@@ -86,7 +86,7 @@ void AccessibilityTableColumn::setColumnIndex(unsigned columnIndex)
 #endif
 }
 
-bool AccessibilityTableColumn::computeAccessibilityIsIgnored() const
+bool AccessibilityTableColumn::computeIsIgnored() const
 {
     if (!m_parent)
         return true;
@@ -95,7 +95,7 @@ bool AccessibilityTableColumn::computeAccessibilityIsIgnored() const
     return true;
 #endif
     
-    return m_parent->accessibilityIsIgnored();
+    return m_parent->isIgnored();
 }
     
 void AccessibilityTableColumn::addChildren()
@@ -103,7 +103,7 @@ void AccessibilityTableColumn::addChildren()
     ASSERT(!m_childrenInitialized); 
     m_childrenInitialized = true;
 
-    auto* parentTable = dynamicDowncast<AccessibilityTable>(m_parent.get());
+    RefPtr parentTable = dynamicDowncast<AccessibilityTable>(m_parent.get());
     if (!parentTable || !parentTable->isExposable())
         return;
 

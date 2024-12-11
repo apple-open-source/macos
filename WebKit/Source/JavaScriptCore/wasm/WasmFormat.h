@@ -77,12 +77,12 @@ inline bool isValueType(Type type)
         return true;
     case TypeKind::Externref:
     case TypeKind::Funcref:
-        return !Options::useWebAssemblyTypedFunctionReferences();
+        return false;
     case TypeKind::Ref:
     case TypeKind::RefNull:
-        return Options::useWebAssemblyTypedFunctionReferences() && type.index != TypeDefinition::invalidIndex;
+        return type.index != TypeDefinition::invalidIndex;
     case TypeKind::V128:
-        return Options::useWebAssemblySIMD();
+        return Options::useWasmSIMD();
     default:
         break;
     }
@@ -91,9 +91,7 @@ inline bool isValueType(Type type)
 
 inline bool isRefType(Type type)
 {
-    if (Options::useWebAssemblyTypedFunctionReferences())
-        return type.isRef() || type.isRefNull();
-    return type.isFuncref() || type.isExternref();
+    return type.isRef() || type.isRefNull();
 }
 
 // If this is a type, returns true iff it's a ref type; if it's a packed type, returns false
@@ -106,56 +104,52 @@ inline bool isRefType(StorageType type)
 
 inline bool isExternref(Type type)
 {
-    if (Options::useWebAssemblyTypedFunctionReferences())
-        return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Externref);
-    return type.kind == TypeKind::Externref;
+    return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Externref);
 }
 
 inline bool isFuncref(Type type)
 {
-    if (Options::useWebAssemblyTypedFunctionReferences())
-        return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Funcref);
-    return type.kind == TypeKind::Funcref;
+    return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Funcref);
 }
 
 inline bool isEqref(Type type)
 {
-    if (!Options::useWebAssemblyGC())
+    if (!Options::useWasmGC())
         return false;
     return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Eqref);
 }
 
 inline bool isAnyref(Type type)
 {
-    if (!Options::useWebAssemblyGC())
+    if (!Options::useWasmGC())
         return false;
     return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Anyref);
 }
 
 inline bool isNullref(Type type)
 {
-    if (!Options::useWebAssemblyGC())
+    if (!Options::useWasmGC())
         return false;
     return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Nullref);
 }
 
 inline bool isNullfuncref(Type type)
 {
-    if (!Options::useWebAssemblyGC())
+    if (!Options::useWasmGC())
         return false;
     return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Nullfuncref);
 }
 
 inline bool isNullexternref(Type type)
 {
-    if (!Options::useWebAssemblyGC())
+    if (!Options::useWasmGC())
         return false;
     return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Nullexternref);
 }
 
 inline bool isInternalref(Type type)
 {
-    if (!Options::useWebAssemblyGC() || !isRefType(type))
+    if (!Options::useWasmGC() || !isRefType(type))
         return false;
     if (typeIndexIsType(type.index)) {
         switch (static_cast<TypeKind>(type.index)) {
@@ -175,21 +169,21 @@ inline bool isInternalref(Type type)
 
 inline bool isI31ref(Type type)
 {
-    if (!Options::useWebAssemblyGC())
+    if (!Options::useWasmGC())
         return false;
     return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::I31ref);
 }
 
 inline bool isArrayref(Type type)
 {
-    if (!Options::useWebAssemblyGC())
+    if (!Options::useWasmGC())
         return false;
     return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Arrayref);
 }
 
 inline bool isStructref(Type type)
 {
-    if (!Options::useWebAssemblyGC())
+    if (!Options::useWasmGC())
         return false;
     return isRefType(type) && type.index == static_cast<TypeIndex>(TypeKind::Structref);
 }
@@ -219,36 +213,36 @@ inline JSString* typeToJSAPIString(VM& vm, Type type)
     RELEASE_ASSERT_NOT_REACHED();
 }
 
+inline Type nonNullFuncrefType()
+{
+    return Wasm::Type { Wasm::TypeKind::Ref, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Funcref) };
+}
+
 inline Type funcrefType()
 {
-    if (Options::useWebAssemblyTypedFunctionReferences())
-        return Wasm::Type { Wasm::TypeKind::RefNull, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Funcref) };
-    return Types::Funcref;
+    return Wasm::Type { Wasm::TypeKind::RefNull, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Funcref) };
 }
 
 inline Type externrefType(bool isNullable = true)
 {
-    if (Options::useWebAssemblyTypedFunctionReferences())
-        return Wasm::Type { isNullable ? Wasm::TypeKind::RefNull : Wasm::TypeKind::Ref, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Externref) };
-    ASSERT(isNullable);
-    return Types::Externref;
+    return Wasm::Type { isNullable ? Wasm::TypeKind::RefNull : Wasm::TypeKind::Ref, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Externref) };
 }
 
 inline Type eqrefType()
 {
-    ASSERT(Options::useWebAssemblyGC());
+    ASSERT(Options::useWasmGC());
     return Wasm::Type { Wasm::TypeKind::RefNull, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Eqref) };
 }
 
 inline Type anyrefType(bool isNullable = true)
 {
-    ASSERT(Options::useWebAssemblyGC());
+    ASSERT(Options::useWasmGC());
     return Wasm::Type { isNullable ? Wasm::TypeKind::RefNull : Wasm::TypeKind::Ref, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Anyref) };
 }
 
 inline Type arrayrefType(bool isNullable = true)
 {
-    ASSERT(Options::useWebAssemblyGC());
+    ASSERT(Options::useWasmGC());
     // Returns a non-null ref type, since this is used for the return types of array operations
     // that are guaranteed to return a non-null array reference
     return Wasm::Type { isNullable ? Wasm::TypeKind::RefNull : Wasm::TypeKind::Ref, static_cast<Wasm::TypeIndex>(Wasm::TypeKind::Arrayref) };
@@ -256,9 +250,6 @@ inline Type arrayrefType(bool isNullable = true)
 
 inline bool isRefWithTypeIndex(Type type)
 {
-    if (!Options::useWebAssemblyTypedFunctionReferences())
-        return false;
-
     return isRefType(type) && !typeIndexIsType(type.index);
 }
 
@@ -266,7 +257,7 @@ inline bool isRefWithTypeIndex(Type type)
 // for an unresolved recursive reference in a recursion group.
 inline bool isRefWithRecursiveReference(Type type)
 {
-    if (!Options::useWebAssemblyGC())
+    if (!Options::useWasmGC())
         return false;
 
     if (isRefWithTypeIndex(type)) {
@@ -288,9 +279,6 @@ inline bool isRefWithRecursiveReference(StorageType storageType)
 
 inline bool isTypeIndexHeapType(int32_t heapType)
 {
-    if (!Options::useWebAssemblyTypedFunctionReferences())
-        return false;
-
     return heapType >= 0;
 }
 
@@ -300,7 +288,7 @@ inline bool isSubtypeIndex(TypeIndex sub, TypeIndex parent)
         return true;
 
     // When Wasm GC is off, RTTs are not registered and there is no subtyping on typedefs.
-    if (!Options::useWebAssemblyGC())
+    if (!Options::useWasmGC())
         return false;
 
     auto subRTT = TypeInformation::tryGetCanonicalRTT(sub);
@@ -313,9 +301,6 @@ inline bool isSubtypeIndex(TypeIndex sub, TypeIndex parent)
 inline bool isSubtype(Type sub, Type parent)
 {
     // Before the typed funcref proposal there is no non-trivial subtyping.
-    if (!Options::useWebAssemblyTypedFunctionReferences())
-        return sub == parent;
-
     if (sub.isNullable() && !parent.isNullable())
         return false;
 
@@ -380,7 +365,7 @@ inline bool isValidHeapTypeKind(intptr_t kind)
     case static_cast<intptr_t>(TypeKind::Nullref):
     case static_cast<intptr_t>(TypeKind::Nullfuncref):
     case static_cast<intptr_t>(TypeKind::Nullexternref):
-        return Options::useWebAssemblyGC();
+        return Options::useWasmGC();
     default:
         break;
     }

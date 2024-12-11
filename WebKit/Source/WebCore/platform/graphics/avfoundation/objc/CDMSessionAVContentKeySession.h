@@ -28,6 +28,7 @@
 #include "CDMSessionMediaSourceAVFObjC.h"
 #include "SourceBufferPrivateAVFObjC.h"
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WTFSemaphore.h>
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(MEDIA_SOURCE)
@@ -41,11 +42,20 @@ class WorkQueue;
 }
 
 namespace WebCore {
+class CDMSessionAVContentKeySession;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::CDMSessionAVContentKeySession> : std::true_type { };
+}
+
+namespace WebCore {
 
 class CDMPrivateMediaSourceAVFObjC;
 
 class CDMSessionAVContentKeySession : public CDMSessionMediaSourceAVFObjC {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(CDMSessionAVContentKeySession);
 public:
     CDMSessionAVContentKeySession(Vector<int>&& protocolVersions, int cdmVersion, CDMPrivateMediaSourceAVFObjC&, LegacyCDMSessionClient&);
     virtual ~CDMSessionAVContentKeySession();
@@ -67,14 +77,14 @@ public:
 
     void didProvideContentKeyRequest(AVContentKeyRequest *);
 
-protected:
-    RefPtr<Uint8Array> generateKeyReleaseMessage(unsigned short& errorCode, uint32_t& systemCode);
-
     bool hasContentKeySession() const { return m_contentKeySession; }
     AVContentKeySession* contentKeySession();
 
     bool hasContentKeyRequest() const;
     RetainPtr<AVContentKeyRequest> contentKeyRequest() const;
+
+protected:
+    RefPtr<Uint8Array> generateKeyReleaseMessage(unsigned short& errorCode, uint32_t& systemCode);
 
 #if !RELEASE_LOG_DISABLED
     ASCIILiteral logClassName() const { return "CDMSessionAVContentKeySession"_s; }

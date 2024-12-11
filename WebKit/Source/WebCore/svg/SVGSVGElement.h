@@ -25,6 +25,7 @@
 #include "SVGFitToViewBox.h"
 #include "SVGGraphicsElement.h"
 #include "SVGZoomAndPan.h"
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -40,7 +41,8 @@ class SVGViewElement;
 class SVGViewSpec;
 
 class SVGSVGElement final : public SVGGraphicsElement, public SVGFitToViewBox, public SVGZoomAndPan {
-    WTF_MAKE_ISO_ALLOCATED(SVGSVGElement);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SVGSVGElement);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SVGSVGElement);
 public: // DOM
     float currentScale() const;
     void setCurrentScale(float);
@@ -88,6 +90,7 @@ public:
     bool scrollToFragment(StringView fragmentIdentifier);
     void resetScrollAnchor();
 
+    using PropertyRegistry = SVGPropertyOwnerRegistry<SVGSVGElement, SVGGraphicsElement, SVGFitToViewBox>;
     using SVGGraphicsElement::ref;
     using SVGGraphicsElement::deref;
 
@@ -123,8 +126,6 @@ public:
 private:
     SVGSVGElement(const QualifiedName&, Document&);
     virtual ~SVGSVGElement();
-
-    using PropertyRegistry = SVGPropertyOwnerRegistry<SVGSVGElement, SVGGraphicsElement, SVGFitToViewBox>;
 
     void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) override;
     void svgAttributeChanged(const QualifiedName&) override;

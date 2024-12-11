@@ -126,6 +126,52 @@ func Test_buflist_browse()
   %bwipe!
 endfunc
 
+" Test for :bnext and :bprev when called from help and non-help buffers.
+func Test_bnext_bprev_help()
+  %bwipe!
+
+  e XHelp1 | set bt=help
+  let b1 = bufnr()
+  e Xbuf1
+  let b2 = bufnr()
+
+  " There's only one buffer of each type.
+  b XHelp1
+  bnext | call assert_equal(b1, bufnr())
+  bprev | call assert_equal(b1, bufnr())
+  b Xbuf1
+  bnext | call assert_equal(b2, bufnr())
+  bprev | call assert_equal(b2, bufnr())
+
+  " Add one more buffer of each type.
+  e XHelp2 | set bt=help
+  let b3 = bufnr()
+  e Xbuf2
+  let b4 = bufnr()
+
+  " Help buffer jumps to help buffer.
+  b XHelp1
+  bnext | call assert_equal(b3, bufnr())
+  bnext | call assert_equal(b1, bufnr())
+  bprev | call assert_equal(b3, bufnr())
+  bprev | call assert_equal(b1, bufnr())
+
+  " Regular buffer jumps to regular buffer.
+  b Xbuf1
+  bnext | call assert_equal(b4, bufnr())
+  bnext | call assert_equal(b2, bufnr())
+  bprev | call assert_equal(b4, bufnr())
+  bprev | call assert_equal(b2, bufnr())
+
+  " :brewind and :blast are not affected by the buffer type.
+  b Xbuf2
+  brewind | call assert_equal(b1, bufnr())
+  b XHelp1
+  blast   | call assert_equal(b4, bufnr())
+
+  %bwipe!
+endfunc
+
 " Test for :bdelete
 func Test_bdelete_cmd()
   %bwipe!
@@ -133,7 +179,7 @@ func Test_bdelete_cmd()
   call assert_fails('1,1bdelete 1 2', 'E488:')
   call assert_fails('bdelete \)', 'E55:')
 
-  " Deleting a unlisted and unloaded buffer
+  " Deleting an unlisted and unloaded buffer
   edit Xbdelfile1
   let bnr = bufnr()
   set nobuflisted
@@ -252,21 +298,30 @@ func Test_goto_buf_with_confirm()
   CheckUnix
   CheckNotGui
   CheckFeature dialog_con
+  " When dialog_con_gui is defined, Vim is compiled with GUI support
+  " and FEAT_BROWSE will be defined, which causes :confirm :b to
+  " call do_browse(), which will try to use a GUI file browser,
+  " which aborts if a GUI is not available.
+  CheckNotFeature dialog_con_gui
   new XgotoConf
   enew
   call setline(1, 'test')
   call assert_fails('b XgotoConf', 'E37:')
   call feedkeys('c', 'L')
   call assert_fails('confirm b XgotoConf', 'E37:')
-  call assert_equal(1, &modified)
-  call assert_equal('', @%)
+  call assert_true(&modified)
+  call assert_true(empty(bufname('%')))
   call feedkeys('y', 'L')
-  call assert_fails('confirm b XgotoConf', ['', 'E37:'])
-  call assert_equal(1, &modified)
-  call assert_equal('', @%)
+  confirm b XgotoConf
+  call assert_equal('XgotoConf', bufname('%'))
+  call assert_equal(['test'], readfile('Untitled'))
+  e Untitled
+  call setline(2, 'test2')
   call feedkeys('n', 'L')
   confirm b XgotoConf
-  call assert_equal('XgotoConf', @%)
+  call assert_equal('XgotoConf', bufname('%'))
+  call assert_equal(['test'], readfile('Untitled'))
+  call delete('Untitled')
   close!
 endfunc
 

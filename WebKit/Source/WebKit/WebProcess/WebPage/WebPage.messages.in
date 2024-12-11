@@ -38,7 +38,9 @@ messages -> WebPage LegacyReceiver {
 #if PLATFORM(COCOA)
     SetTopContentInsetFenced(float contentInset, MachSendRight machSendRight)
 #endif
+#if !PLATFORM(COCOA)
     SetTopContentInset(float contentInset)
+#endif
 
     SetUnderlayColor(WebCore::Color color)
     SetUnderPageBackgroundColorOverride(WebCore::Color underPageBackgroundColorOverride)
@@ -256,8 +258,8 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     ChangeFont(WebCore::FontChanges changes)
     ChangeFontAttributes(WebCore::FontAttributeChanges changes)
 
-    PreferencesDidChange(struct WebKit::WebPreferencesStore store)
-    PreferencesDidChangeDuringDOMPrintOperation(struct WebKit::WebPreferencesStore store) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
+    PreferencesDidChange(struct WebKit::WebPreferencesStore store, std::optional<uint64_t> sharedPreferencesVersion)
+    PreferencesDidChangeDuringDOMPrintOperation(struct WebKit::WebPreferencesStore store, std::optional<uint64_t> sharedPreferencesVersion) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
 
     SetUserAgent(String userAgent)
     SetHasCustomUserAgent(bool hasCustomUserAgent)
@@ -347,7 +349,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     DidBeginTextSearchOperation();
 
     RequestRectForFoundTextRange(struct WebKit::WebFoundTextRange range) -> (WebCore::FloatRect rect)
-    AddLayerForFindOverlay() -> (WebCore::PlatformLayerIdentifier findLayerID)
+    AddLayerForFindOverlay() -> (std::optional<WebCore::PlatformLayerIdentifier> findLayerID)
     RemoveLayerForFindOverlay() -> ()
 
     # Drag and drop.
@@ -407,9 +409,9 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     DidFinishCheckingText(WebKit::TextCheckerRequestID requestID, Vector<WebCore::TextCheckingResult> result)
     DidCancelCheckingText(WebKit::TextCheckerRequestID requestID)
 #if USE(APPKIT)
-    UppercaseWord()
-    LowercaseWord()
-    CapitalizeWord()
+    UppercaseWord(WebCore::FrameIdentifier frameID)
+    LowercaseWord(WebCore::FrameIdentifier frameID)
+    CapitalizeWord(WebCore::FrameIdentifier frameID)
 #endif
 #if PLATFORM(COCOA)
     SetSmartInsertDeleteEnabled(bool isSmartInsertDeleteEnabled)
@@ -425,6 +427,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     UserMediaAccessWasGranted(WebCore::UserMediaRequestIdentifier userMediaID, WebCore::CaptureDevice audioDevice, WebCore::CaptureDevice videoDevice, struct WebCore::MediaDeviceHashSalts mediaDeviceIdentifierHashSalts, Vector<WebKit::SandboxExtensionHandle> sandboxExtensionHandles) -> ()
     UserMediaAccessWasDenied(WebCore::UserMediaRequestIdentifier userMediaID, uint64_t reason, String messsage, enum:uint8_t WebCore::MediaConstraintType invalidConstraint)
     CaptureDevicesChanged()
+    VoiceActivityDetected()
 #if USE(GSTREAMER)
     SetOrientationForMediaCapture(uint64_t rotation)
     SetMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted)
@@ -449,8 +452,8 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     BeginPrintingDuringDOMPrintOperation(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
     EndPrinting() -> ()
     EndPrintingDuringDOMPrintOperation() -> () AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
-    ComputePagesForPrinting(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo) -> (Vector<WebCore::IntRect> pageRects, double totalScaleFactorForPrinting, WebCore::RectEdges<float> computedPageMargin)
-    ComputePagesForPrintingDuringDOMPrintOperation(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo) -> (Vector<WebCore::IntRect> pageRects, double totalScaleFactorForPrinting, WebCore::RectEdges<float> computedPageMargin) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
+    ComputePagesForPrinting(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo) -> (Vector<WebCore::IntRect> pageRects, double totalScaleFactorForPrinting, WebCore::FloatBoxExtent computedPageMargin)
+    ComputePagesForPrintingDuringDOMPrintOperation(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo) -> (Vector<WebCore::IntRect> pageRects, double totalScaleFactorForPrinting, WebCore::FloatBoxExtent computedPageMargin) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
 #if PLATFORM(COCOA)
     DrawRectToImage(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, WebCore::IntRect rect, WebCore::IntSize imageSize) -> (std::optional<WebCore::ShareableBitmapHandle> image) ReplyCanDispatchOutOfOrder
     DrawRectToImageDuringDOMPrintOperation(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, WebCore::IntRect rect, WebCore::IntSize imageSize) -> (std::optional<WebCore::ShareableBitmapHandle> image) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
@@ -486,7 +489,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     CollapseSelectionInFrame(WebCore::FrameIdentifier frameID)
 #endif
 
-    CopyLinkToHighlight()
+    CopyLinkWithHighlight()
 
     BindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier frameID, Vector<uint8_t> dataToken) -> (Vector<uint8_t> token, int processIdentifier) Synchronous
     UpdateRemotePageAccessibilityOffset(WebCore::FrameIdentifier frameID, WebCore::IntPoint offset);
@@ -559,7 +562,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     GetSamplingProfilerOutput() -> (String string)
     
-    TakeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, uint32_t options) -> (std::optional<WebCore::ShareableBitmapHandle> image)
+    TakeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, OptionSet<WebKit::SnapshotOption> options) -> (std::optional<WebCore::ShareableBitmapHandle> image)
 #if PLATFORM(MAC)
     PerformImmediateActionHitTestAtLocation(WebCore::FrameIdentifier frameID, WebCore::FloatPoint location)
     ImmediateActionDidUpdate()
@@ -765,6 +768,10 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     RequestTextExtraction(std::optional<WebCore::FloatRect> collectionRectInRootView) -> (struct WebCore::TextExtraction::Item item)
 
+#if PLATFORM(IOS_FAMILY)
+    ShouldDismissKeyboardAfterTapAtPoint(WebCore::FloatPoint point) -> (bool shouldDismiss)
+#endif
+
 #if ENABLE(EXTENSION_CAPABILITIES)
     SetMediaEnvironment(String mediaEnvironment)
 #endif
@@ -774,15 +781,27 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     DidBeginWritingToolsSession(struct WebCore::WritingTools::Session session, Vector<WebCore::WritingTools::Context> contexts)
 
-    ProofreadingSessionDidReceiveSuggestions(struct WebCore::WritingTools::Session session, Vector<WebCore::WritingTools::TextSuggestion> suggestions, struct WebCore::WritingTools::Context context, bool finished)
+    ProofreadingSessionDidReceiveSuggestions(struct WebCore::WritingTools::Session session, Vector<WebCore::WritingTools::TextSuggestion> suggestions, struct WebCore::CharacterRange processedRange, struct WebCore::WritingTools::Context context, bool finished) -> ()
 
     ProofreadingSessionDidUpdateStateForSuggestion(struct WebCore::WritingTools::Session session, enum:uint8_t WebCore::WritingTools::TextSuggestionState state, struct WebCore::WritingTools::TextSuggestion suggestion, struct WebCore::WritingTools::Context context)
+
+    WillEndWritingToolsSession(struct WebCore::WritingTools::Session session, bool accepted) -> ()
 
     DidEndWritingToolsSession(struct WebCore::WritingTools::Session session, bool accepted)
 
     CompositionSessionDidReceiveTextWithReplacementRange(struct WebCore::WritingTools::Session session, struct WebCore::AttributedString attributedText, struct WebCore::CharacterRange range, struct WebCore::WritingTools::Context context, bool finished);
 
     WritingToolsSessionDidReceiveAction(struct WebCore::WritingTools::Session session, enum:uint8_t WebCore::WritingTools::Action action);
+
+    ProofreadingSessionSuggestionTextRectsInRootViewCoordinates(struct WebCore::CharacterRange enclosingRangeRelativeToSessionRange) -> (Vector<WebCore::FloatRect> rects)
+
+    UpdateTextVisibilityForActiveWritingToolsSession(struct WebCore::CharacterRange rangeRelativeToSessionRange, bool visible, WTF::UUID identifier) -> ()
+
+    TextPreviewDataForActiveWritingToolsSession(struct WebCore::CharacterRange rangeRelativeToSessionRange) -> (std::optional<WebCore::TextIndicatorData> data)
+
+    SetSelectionForActiveWritingToolsSession(struct WebCore::CharacterRange rangeRelativeToSessionRange) -> ()
+
+    DecorateTextReplacementsForActiveWritingToolsSession(struct WebCore::CharacterRange rangeRelativeToSessionRange) -> ()
 
     CreateTextIndicatorForTextAnimationID(WTF::UUID uuid) -> (std::optional<WebCore::TextIndicatorData> textIndicator)
     UpdateUnderlyingTextVisibilityForTextAnimationID(WTF::UUID uuid, bool visible) -> ()
@@ -791,6 +810,10 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     EnableTextAnimationTypeForElementWithID(String elementID);
 
     IntelligenceTextAnimationsDidComplete();
+#endif
+
+#if PLATFORM(COCOA)
+    CreateTextIndicatorForElementWithID(String elementID) -> (std::optional<WebCore::TextIndicatorData> textIndicator)
 #endif
 
     TakeSnapshotForTargetedElement(WebCore::ElementIdentifier elementID, WebCore::ScriptExecutionContextIdentifier documentID) -> (std::optional<WebCore::ShareableBitmapHandle> image)
@@ -818,4 +841,6 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #endif
 
     CloseCurrentTypingCommand()
+
+    SimulateClickOverFirstMatchingTextInViewportWithUserInteraction(String targetText) -> (bool success)
 }

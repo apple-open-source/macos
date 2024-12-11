@@ -34,6 +34,7 @@
 #include <WebCore/Timer.h>
 #include <WebCore/TransferredMessagePort.h>
 #include <wtf/CheckedRef.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebKit {
 class WebSharedWorkerServerToContextConnection;
@@ -59,7 +60,7 @@ class WebSharedWorker;
 class WebSharedWorkerServer;
 
 class WebSharedWorkerServerToContextConnection final : public IPC::MessageSender, public IPC::MessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WebSharedWorkerServerToContextConnection);
 public:
     WebSharedWorkerServerToContextConnection(NetworkConnectionToWebProcess&, const WebCore::RegistrableDomain&, WebSharedWorkerServer&);
     ~WebSharedWorkerServerToContextConnection();
@@ -88,6 +89,8 @@ private:
     void idleTerminationTimerFired();
     void connectionIsNoLongerNeeded();
 
+    Ref<NetworkConnectionToWebProcess> protectedConnection() const;
+
     // IPC messages.
     void postErrorToWorkerObject(WebCore::SharedWorkerIdentifier, const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, bool isErrorEvent);
     void sharedWorkerTerminated(WebCore::SharedWorkerIdentifier);
@@ -96,7 +99,7 @@ private:
     IPC::Connection* messageSenderConnection() const final;
     uint64_t messageSenderDestinationID() const final;
 
-    NetworkConnectionToWebProcess& m_connection;
+    WeakRef<NetworkConnectionToWebProcess> m_connection;
     WeakPtr<WebSharedWorkerServer> m_server;
     WebCore::RegistrableDomain m_registrableDomain;
     HashMap<WebCore::ProcessIdentifier, HashSet<WebCore::SharedWorkerObjectIdentifier>> m_sharedWorkerObjects;

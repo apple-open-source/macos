@@ -20,7 +20,7 @@
 #include "config.h"
 #include "GLVideoSinkGStreamer.h"
 
-#if ENABLE(VIDEO) && USE(GSTREAMER_GL)
+#if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "GStreamerCommon.h"
 #include "GStreamerVideoSinkCommon.h"
@@ -125,7 +125,7 @@ void webKitGLVideoSinkFinalize(GObject* object)
 
 std::optional<GRefPtr<GstContext>> requestGLContext(const char* contextType)
 {
-    auto& sharedDisplay = PlatformDisplay::sharedDisplayForCompositing();
+    auto& sharedDisplay = PlatformDisplay::sharedDisplay();
     auto* gstGLDisplay = sharedDisplay.gstGLDisplay();
     auto* gstGLContext = sharedDisplay.gstGLContext();
 
@@ -227,7 +227,7 @@ void webKitGLVideoSinkSetMediaPlayerPrivate(WebKitGLVideoSink* sink, MediaPlayer
 
 bool webKitGLVideoSinkProbePlatform()
 {
-    if (!PlatformDisplay::sharedDisplayForCompositing().gstGLContext()) {
+    if (!PlatformDisplay::sharedDisplay().gstGLContext()) {
         GST_WARNING("WebKit shared GL context is not available.");
         return false;
     }

@@ -2252,6 +2252,50 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
+    func honorIDMSListChanges(reply: @escaping (String?, Error?) -> Void) {
+        self.moc.performAndWait {
+            reply(self.containerMO.honorIDMSListChanges, nil)
+        }
+    }
+
+    func trustedDeviceNamesByPeerID(_ reply: @escaping ([String: String]?, (any Error)?) -> Void) {
+        let reply: ([String: String]?, Error?) -> Void = {
+            let logType: OSLogType = $1 == nil ? .info : .error
+            logger.log(level: logType, "trustedDeviceNamesByPeerID complete: \(traceError($1), privacy: .public)")
+            reply($0, $1)
+        }
+        self.moc.performAndWait {
+            do {
+                guard let egoPeerID = self.containerMO.egoPeerID else {
+                    reply(nil, ContainerError.noPreparedIdentity)
+                    return
+                }
+
+                guard let egoPeer = try self.model.peer(withID: egoPeerID) else {
+                    logger.log(level: .error, "self peerID present but egoPeer not found")
+                    reply(nil, ContainerError.noPreparedIdentity)
+                    return
+                }
+
+                var names : [String: String] = [:]
+
+                logger.log(level: .info, "egoPeer: \(egoPeer)")
+
+                for trustedPeerID in egoPeer.dynamicInfo?.includedPeerIDs ?? Set() {
+                    try autoreleasepool {
+                        let trustedPeer = try self.model.peer(withID: trustedPeerID)
+
+                        names[trustedPeerID] = trustedPeer?.stableInfo?.deviceName
+                    }
+                }
+
+                reply(names, nil)
+            } catch {
+                reply(nil, error)
+            }
+        }
+    }
+
     static func accountSettingsToDict(data: Data) throws -> [String: TPPBPeerStableInfoSetting]? {
         let unarchiver = try NSKeyedUnarchiver(forReadingFrom: data)
         return unarchiver.decodeObject(of: [NSDictionary.self, NSString.self, TPPBPeerStableInfoSetting.self],
@@ -2305,7 +2349,7 @@ class Container: NSObject, ConfiguredCloudKit {
                 $0.idmsCuttlefishPassword = idmsCuttlefishPassword ?? ""
                 $0.testingNotifyIdms = notifyIdMS
                 $0.accountInfo = AccountInfo.with {
-                    $0.flags = (internalAccount ? UInt32(AccountFlags.internal.rawValue) : 0) | (demoAccount ? UInt32(AccountFlags.demo.rawValue) : 0)
+                    $0.flags = UInt32(AccountFlags.cdp.rawValue) | (internalAccount ? UInt32(AccountFlags.internal.rawValue) : 0) | (demoAccount ? UInt32(AccountFlags.demo.rawValue) : 0)
                 }
             }
             self.cuttlefish.reset(request) { response in
@@ -5701,7 +5745,7 @@ class Container: NSObject, ConfiguredCloudKit {
             $0.idmsCuttlefishPassword = idmsCuttlefishPassword ?? ""
 	    $0.testingNotifyIdms = notifyIdMS
             $0.accountInfo = AccountInfo.with {
-                $0.flags = (internalAccount ? UInt32(AccountFlags.internal.rawValue) : 0) | (demoAccount ? UInt32(AccountFlags.demo.rawValue) : 0)
+                $0.flags = UInt32(AccountFlags.cdp.rawValue) | (internalAccount ? UInt32(AccountFlags.internal.rawValue) : 0) | (demoAccount ? UInt32(AccountFlags.demo.rawValue) : 0)
             }
         }
         self.cuttlefish.resetAccountCdpcontents(request) { response in

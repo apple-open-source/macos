@@ -33,6 +33,7 @@
 #include "CSSKeyframesRule.h"
 #include "CSSSelector.h"
 #include "CSSSelectorList.h"
+#include "CSSViewTransitionRule.h"
 #include "CommonAtomStrings.h"
 #include "DocumentInlines.h"
 #include "HTMLNames.h"
@@ -47,6 +48,7 @@
 #include "StyleRule.h"
 #include "StyleRuleImport.h"
 #include "StyleSheetContents.h"
+#include "UserAgentParts.h"
 
 namespace WebCore {
 namespace Style {
@@ -74,13 +76,31 @@ static unsigned rulesCountForName(const RuleSet::AtomRuleMap& map, const AtomStr
     return 0;
 }
 
+// FIXME: Maybe we can unify both following functions
+
+static bool hasHostPseudoClassSubjectInSelectorList(const CSSSelectorList* selectorList)
+{
+    if (!selectorList)
+        return false;
+
+    for (auto& selector : *selectorList) {
+        if (selector.isHostPseudoClass())
+            return true;
+
+        if (hasHostPseudoClassSubjectInSelectorList(selector.selectorList()))
+            return true;
+    }
+
+    return false;
+}
+
 static bool isHostSelectorMatchingInShadowTree(const CSSSelector& startSelector)
 {
     auto isHostSelectorMatchingInShadowTreeInSelectorList = [](const CSSSelectorList* selectorList) {
         if (!selectorList || selectorList->isEmpty())
             return false;
-        for (auto* selector = selectorList->first(); selector; selector = CSSSelectorList::next(selector)) {
-            if (isHostSelectorMatchingInShadowTree(*selector))
+        for (auto& selector : *selectorList) {
+            if (isHostSelectorMatchingInShadowTree(selector))
                 return true;
         }
         return false;
@@ -234,6 +254,8 @@ void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerId
                 rootElementSelector = selector;
                 break;
             default:
+                if (hasHostPseudoClassSubjectInSelectorList(selector->selectorList()))
+                    m_hasHostPseudoClassRulesInUniversalBucket = true;
                 break;
             }
             break;
@@ -245,6 +267,7 @@ void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerId
         case CSSSelector::Match::PagePseudoClass:
             break;
         }
+        // We only process the subject (rightmost compound selector).
         if (selector->relation() != CSSSelector::Relation::Subselector)
             break;
         selector = selector->tagHistory();
@@ -286,6 +309,29 @@ void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerId
         }
 
         addToRuleSet(customPseudoElementSelector->value(), m_userAgentPartRules, ruleData);
+
+#if ENABLE(VIDEO)
+        // <https://w3c.github.io/webvtt/#the-cue-pseudo-element>
+        // * 8.2.1. The ::cue pseudo-element:
+        //     As a special exception, the properties corresponding to the background shorthand,
+        //     when they would have been applied to the list of WebVTT Node Objects, must instead
+        //     be applied to the WebVTT cue background box.
+        // To implement this exception, clone rules whose selector matches the `::cue` (a.k.a,
+        // `user-agent-part="cue"`), and replace the selector with one that matches the cue background
+        // box (a.k.a. `user-agent-part="internal-cue-background"`).
+        if (customPseudoElementSelector->value() == UserAgentParts::cue()
+            && customPseudoElementSelector->argument() == nullAtom()) {
+            std::unique_ptr cueBackgroundSelector = makeUnique<MutableCSSSelector>(*customPseudoElementSelector);
+            cueBackgroundSelector->setMatch(CSSSelector::Match::PseudoElement);
+            cueBackgroundSelector->setPseudoElement(CSSSelector::PseudoElement::UserAgentPart);
+            cueBackgroundSelector->setValue(UserAgentParts::internalCueBackground());
+
+            Ref cueBackgroundStyleRule = StyleRule::create(ruleData.styleRule().properties().immutableCopyIfNeeded(), ruleData.styleRule().hasDocumentSecurityOrigin(), CSSSelectorList { MutableCSSSelectorList::from(WTFMove(cueBackgroundSelector)) });
+
+            // Warning: Recursion!
+            addRule(WTFMove(cueBackgroundStyleRule), 0, 0);
+        }
+#endif
         return;
     }
 
@@ -343,6 +389,16 @@ void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerId
 void RuleSet::addPageRule(StyleRulePage& rule)
 {
     m_pageRules.append(&rule);
+}
+
+void RuleSet::setViewTransitionRule(StyleRuleViewTransition& rule)
+{
+    m_viewTransitionRule = &rule;
+}
+
+RefPtr<StyleRuleViewTransition> RuleSet::viewTransitionRule() const
+{
+    return m_viewTransitionRule;
 }
 
 template<typename Function>

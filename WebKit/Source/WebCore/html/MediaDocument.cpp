@@ -44,18 +44,19 @@
 #include "KeyboardEvent.h"
 #include "LocalFrame.h"
 #include "LocalFrameLoaderClient.h"
+#include "MouseEvent.h"
 #include "NodeList.h"
 #include "Page.h"
 #include "RawDataDocumentParser.h"
 #include "ScriptController.h"
 #include "ShadowRoot.h"
 #include "TypedElementDescendantIteratorInlines.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaDocument);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MediaDocument);
 
 using namespace HTMLNames;
 
@@ -182,7 +183,7 @@ void MediaDocument::defaultEventHandler(Event& event)
         return;
 
     if (RefPtr video = ancestorVideoElement(targetNode)) {
-        if (event.type() == eventNames().clickEvent) {
+        if (isAnyClick(event)) {
             if (!video->canPlay()) {
                 video->pause();
                 event.setDefaultHandled();

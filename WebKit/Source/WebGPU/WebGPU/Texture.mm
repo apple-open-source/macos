@@ -34,8 +34,11 @@
 #import <wtf/CheckedArithmetic.h>
 #import <wtf/MathExtras.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebGPU {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Texture);
 
 bool Texture::isCompressedFormat(WGPUTextureFormat format)
 {
@@ -2154,10 +2157,11 @@ NSUInteger Texture::bytesPerRow(WGPUTextureFormat format, uint32_t textureWidth,
         return 0;
     }
     NSUInteger blocksInWidth = textureWidth / blockWidth;
-    return Texture::texelBlockSize(format) * blocksInWidth * sampleCount;
+    auto product = checkedProduct<NSUInteger>(Texture::texelBlockSize(format), blocksInWidth, sampleCount);
+    return product.hasOverflowed() ? NSUIntegerMax : product.value();
 }
 
-uint32_t Texture::texelBlockSize(WGPUTextureFormat format) // Bytes
+Checked<uint32_t> Texture::texelBlockSize(WGPUTextureFormat format) // Bytes
 {
     // For depth-stencil textures, the input value to this function
     // needs to be the output of aspectSpecificFormat().
@@ -2989,15 +2993,19 @@ void Texture::makeCanvasBacking()
     m_canvasBacking = true;
 }
 
-void Texture::waitForCommandBufferCompletion()
+bool Texture::waitForCommandBufferCompletion()
 {
+    bool result = true;
     for (auto& commandEncoder : m_commandEncoders)
-        commandEncoder.waitForCommandBufferCompletion();
+        result = commandEncoder.waitForCommandBufferCompletion() && result;
+
+    return result;
 }
 
 void Texture::setCommandEncoder(CommandEncoder& commandEncoder) const
 {
     m_commandEncoders.add(commandEncoder);
+    commandEncoder.addTexture(m_texture);
     if (!m_canvasBacking && isDestroyed())
         commandEncoder.makeSubmitInvalid();
 }

@@ -29,7 +29,6 @@
 
 #include "Connection.h"
 #include "GPUConnectionToWebProcessMessages.h"
-#include "GPUProcessPreferencesForWebProcess.h"
 #include "MessageReceiverMap.h"
 #include "RemoteAudioHardwareListenerIdentifier.h"
 #include "RemoteAudioSessionIdentifier.h"
@@ -37,6 +36,7 @@
 #include "RemoteRemoteCommandListenerIdentifier.h"
 #include "RenderingBackendIdentifier.h"
 #include "ScopedActiveMessageReceiveQueue.h"
+#include "SharedPreferencesForWebProcess.h"
 #include "WebGPUIdentifier.h"
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/IntDegrees.h>
@@ -133,16 +133,23 @@ class GPUConnectionToWebProcess
     : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<GPUConnectionToWebProcess, WTF::DestructionThread::Main>
     , public WebCore::NowPlayingManagerClient
     , IPC::Connection::Client {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(GPUConnectionToWebProcess);
 public:
     static Ref<GPUConnectionToWebProcess> create(GPUProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&);
     virtual ~GPUConnectionToWebProcess();
 
-    bool isWebGPUEnabled() const { return m_preferences.isWebGPUEnabled; }
-    bool isWebGLEnabled() const { return m_preferences.isWebGLEnabled; }
-    bool isWebXREnabled() const { return m_preferences.isWebXREnabled; }
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const { return m_sharedPreferencesForWebProcess; }
+    void updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess&& sharedPreferencesForWebProcess) { m_sharedPreferencesForWebProcess = WTFMove(sharedPreferencesForWebProcess); }
+
+#if ENABLE(WEBXR)
+    bool isWebXREnabled() const { return sharedPreferencesForWebProcess().webXREnabled; }
+#else
+    bool isWebXREnabled() const { return false; }
+#endif
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-    bool isDynamicContentScalingEnabled() const { return m_preferences.isDynamicContentScalingEnabled; }
+    bool isDynamicContentScalingEnabled() const { return sharedPreferencesForWebProcess().useCGDisplayListsForDOMRendering; }
 #endif
 
     using WebCore::NowPlayingManagerClient::weakPtrFactory;
@@ -165,9 +172,9 @@ public:
     PAL::SessionID sessionID() const { return m_sessionID; }
 
     bool isLockdownModeEnabled() const { return m_isLockdownModeEnabled; }
-    bool isLockdownSafeFontParserEnabled() const { return m_preferences.isLockdownSafeFontParserEnabled; }
+    bool isLockdownSafeFontParserEnabled() const { return sharedPreferencesForWebProcess().lockdownFontParserEnabled; }
 
-    bool allowTestOnlyIPC() const { return m_preferences.allowTestOnlyIPC; }
+    bool allowTestOnlyIPC() const { return sharedPreferencesForWebProcess().allowTestOnlyIPC; }
 
     Logger& logger();
 
@@ -178,6 +185,9 @@ public:
 
 #if ENABLE(MEDIA_STREAM)
     void setOrientationForMediaCapture(WebCore::IntDegrees);
+    void rotationAngleForCaptureDeviceChanged(const String&, WebCore::VideoFrameRotation);
+    void startMonitoringCaptureDeviceRotation(WebCore::PageIdentifier, const String&);
+    void stopMonitoringCaptureDeviceRotation(WebCore::PageIdentifier, const String&);
     void updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture);
     void updateCaptureOrigin(const WebCore::SecurityOriginData&);
     bool setCaptureAttributionString();
@@ -196,13 +206,6 @@ public:
 
 #if ENABLE(APP_PRIVACY_REPORT)
     void setTCCIdentity();
-#endif
-
-#if PLATFORM(MAC)
-    void displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags);
-#endif
-#if PLATFORM(MAC) && ENABLE(WEBGL)
-    void dispatchDisplayWasReconfiguredForTesting() { dispatchDisplayWasReconfigured(); };
 #endif
 
     const WebCore::ProcessIdentity& webProcessIdentity() const { return m_webProcessIdentity; }
@@ -259,6 +262,8 @@ public:
     String mediaEnvironment(WebCore::PageIdentifier);
     void setMediaEnvironment(WebCore::PageIdentifier, const String&);
 #endif
+
+    bool isAlwaysOnLoggingAllowed() const;
 
 private:
     GPUConnectionToWebProcess(GPUProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&);
@@ -445,9 +450,7 @@ private:
 #if ENABLE(IPC_TESTING_API)
     IPCTester m_ipcTester;
 #endif
-    // GPU preferences don't change for a given WebProcess. Pages that use different GPUProcessPreferences
-    // cannot be in the same WebProcess.
-    const GPUProcessPreferencesForWebProcess m_preferences;
+    SharedPreferencesForWebProcess m_sharedPreferencesForWebProcess;
 };
 
 } // namespace WebKit

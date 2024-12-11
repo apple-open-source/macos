@@ -43,12 +43,12 @@
 #include "WebCoreOpaqueRootInlines.h"
 #include <JavaScriptCore/JSLock.h>
 #include <wtf/CrossThreadCopier.h>
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(AudioWorkletGlobalScope);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(AudioWorkletGlobalScope);
 
 RefPtr<AudioWorkletGlobalScope> AudioWorkletGlobalScope::tryCreate(AudioWorkletThread& thread, const WorkletParameters& parameters)
 {
@@ -144,6 +144,10 @@ RefPtr<AudioWorkletProcessor> AudioWorkletGlobalScope::createProcessor(const Str
         return nullptr;
 
     JSC::JSObject* jsConstructor = constructor->callbackData()->callback();
+    ASSERT(jsConstructor);
+    if (!jsConstructor)
+        return nullptr;
+
     auto* globalObject = constructor->callbackData()->globalObject();
     JSC::VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);

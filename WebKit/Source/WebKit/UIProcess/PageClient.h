@@ -53,10 +53,12 @@
 #include <variant>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/WeakPtr.h>
 
 #if PLATFORM(COCOA)
+#include "CocoaWindow.h"
 #include "WKBrowserEngineDefinitions.h"
 #include "WKFoundation.h"
 
@@ -177,6 +179,7 @@ using SessionID = WTF::UUID;
 namespace WebKit {
 
 enum class UndoOrRedo : bool;
+enum class ForceSoftwareCapturingViewportSnapshot : bool;
 enum class TapHandlingResult : uint8_t;
 
 class ContextMenuContextData;
@@ -187,7 +190,7 @@ class NativeWebMouseEvent;
 class NativeWebWheelEvent;
 class RemoteLayerTreeNode;
 class RemoteLayerTreeTransaction;
-class SafeBrowsingWarning;
+class BrowsingWarning;
 class UserData;
 class ViewSnapshot;
 class WebBackForwardListItem;
@@ -240,7 +243,7 @@ class WebKitWebResourceLoadManager;
 #endif
 
 class PageClient : public CanMakeWeakPtr<PageClient> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(PageClient);
 public:
     virtual ~PageClient() { }
 
@@ -325,9 +328,9 @@ public:
 
     virtual void topContentInsetDidChange() { }
 
-    virtual void showSafeBrowsingWarning(const SafeBrowsingWarning&, CompletionHandler<void(std::variant<ContinueUnsafeLoad, URL>&&)>&& completionHandler) { completionHandler(ContinueUnsafeLoad::Yes); }
-    virtual void clearSafeBrowsingWarning() { }
-    virtual void clearSafeBrowsingWarningIfForMainFrameNavigation() { }
+    virtual void showBrowsingWarning(const BrowsingWarning&, CompletionHandler<void(std::variant<ContinueUnsafeLoad, URL>&&)>&& completionHandler) { completionHandler(ContinueUnsafeLoad::Yes); }
+    virtual void clearBrowsingWarning() { }
+    virtual void clearBrowsingWarningIfForMainFrameNavigation() { }
     
 #if ENABLE(DRAG_SUPPORT)
 #if PLATFORM(GTK)
@@ -375,6 +378,10 @@ public:
 
 #if PLATFORM(COCOA) || PLATFORM(GTK)
     virtual RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&) = 0;
+#endif
+
+#if PLATFORM(MAC)
+    virtual RefPtr<ViewSnapshot> takeViewSnapshot(std::optional<WebCore::IntRect>&&, ForceSoftwareCapturingViewportSnapshot) = 0;
 #endif
 
 #if USE(APPKIT)
@@ -514,7 +521,6 @@ public:
     virtual void showPlatformContextMenu(NSMenu *, WebCore::IntPoint) = 0;
 
     virtual void startWindowDrag() = 0;
-    virtual NSWindow *platformWindow() = 0;
     virtual void setShouldSuppressFirstResponderChanges(bool) = 0;
 
     virtual NSView *inspectorAttachmentView() = 0;
@@ -532,6 +538,8 @@ public:
     virtual void layerTreeCommitComplete() = 0;
 
     virtual void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) = 0;
+
+    virtual CocoaWindow *platformWindow() const = 0;
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -636,7 +644,7 @@ public:
     virtual void drawPageBorderForPrinting(WebCore::FloatSize&& size) { }
     virtual bool scrollingUpdatesDisabledForTesting() { return false; }
 
-    virtual bool hasSafeBrowsingWarning() const { return false; }
+    virtual bool hasBrowsingWarning() const { return false; }
 
     virtual void setMouseEventPolicy(WebCore::MouseEventPolicy) { }
 

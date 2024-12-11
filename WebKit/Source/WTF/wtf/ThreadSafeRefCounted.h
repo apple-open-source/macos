@@ -107,6 +107,12 @@ protected:
 private:
     mutable std::atomic<unsigned> m_refCount { 1 };
 
+#if ASSERT_ENABLED
+    // Match the layout of RefCounted, which has flag bits for threading checks.
+    UNUSED_MEMBER_VARIABLE bool m_unused1;
+    UNUSED_MEMBER_VARIABLE bool m_unused2;
+#endif
+
 #if CHECK_THREAD_SAFE_REF_COUNTED_LIFECYCLE
     bool deletionHasEnded() const;
 
@@ -116,6 +122,8 @@ private:
         Yes = 0xFEEDB0BA
     };
     mutable std::atomic<IsAllocatedMemory> m_isAllocatedMemory { IsAllocatedMemory::Yes };
+    // Match the layout of RefCounted.
+    UNUSED_MEMBER_VARIABLE bool m_unused3;
 #endif
 };
 
@@ -140,20 +148,19 @@ public:
         if (!derefBase())
             return;
 
-        auto deleteThis = [this] {
+        if constexpr (destructionThread == DestructionThread::Any) {
             delete static_cast<const T*>(this);
-        };
-        switch (destructionThread) {
-        case DestructionThread::Any:
-            break;
-        case DestructionThread::Main:
-            ensureOnMainThread(WTFMove(deleteThis));
-            return;
-        case DestructionThread::MainRunLoop:
-            ensureOnMainRunLoop(WTFMove(deleteThis));
-            return;
+        } else if constexpr (destructionThread == DestructionThread::Main) {
+            ensureOnMainThread([this] {
+                delete static_cast<const T*>(this);
+            });
+        } else if constexpr (destructionThread == DestructionThread::MainRunLoop) {
+            ensureOnMainRunLoop([this] {
+                delete static_cast<const T*>(this);
+            });
+        } else {
+            static_assert(!sizeof(T), "Unexpected destructionThread enumerator");
         }
-        deleteThis();
     }
 
     void derefAllowingPartiallyDestroyed() const
@@ -161,20 +168,19 @@ public:
         if (!derefBaseWithoutDeletionCheck())
             return;
 
-        auto deleteThis = [this] {
+        if constexpr (destructionThread == DestructionThread::Any) {
             delete static_cast<const T*>(this);
-        };
-        switch (destructionThread) {
-        case DestructionThread::Any:
-            break;
-        case DestructionThread::Main:
-            ensureOnMainThread(WTFMove(deleteThis));
-            return;
-        case DestructionThread::MainRunLoop:
-            ensureOnMainRunLoop(WTFMove(deleteThis));
-            return;
+        } else if constexpr (destructionThread == DestructionThread::Main) {
+            ensureOnMainThread([this] {
+                delete static_cast<const T*>(this);
+            });
+        } else if constexpr (destructionThread == DestructionThread::MainRunLoop) {
+            ensureOnMainRunLoop([this] {
+                delete static_cast<const T*>(this);
+            });
+        } else {
+            static_assert(!sizeof(T), "Unexpected destructionThread enumerator");
         }
-        deleteThis();
     }
 
 protected:

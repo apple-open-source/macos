@@ -39,6 +39,7 @@
 #include "NetworkProcessConnection.h"
 #include "NetworkProcessConnectionInfo.h"
 #include "NetworkSession.h"
+#include "NotificationManagerMessageHandlerMessages.h"
 #include "RemoteAudioHardwareListener.h"
 #include "RemoteAudioSession.h"
 #include "RemoteLegacyCDMFactory.h"
@@ -256,7 +257,7 @@ namespace WebKit {
 using namespace JSC;
 using namespace WebCore;
 
-WTF_MAKE_WK_TZONE_ALLOCATED_IMPL(WebProcess);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebProcess);
 
 #if !PLATFORM(GTK) && !PLATFORM(WPE)
 NO_RETURN static void callExit(IPC::Connection*)
@@ -1373,6 +1374,12 @@ GPUProcessConnection& WebProcess::ensureGPUProcessConnection()
     return *m_gpuProcessConnection;
 }
 
+Seconds WebProcess::gpuProcessTimeoutDuration() const
+{
+    constexpr Seconds defaultTimeoutDuration = 15_s;
+    return m_childProcessDebuggabilityEnabled ? Seconds::infinity() : defaultTimeoutDuration;
+}
+
 void WebProcess::gpuProcessConnectionClosed()
 {
     ASSERT(m_gpuProcessConnection);
@@ -1468,10 +1475,10 @@ void WebProcess::stopMemorySampler()
 #endif
 }
 
-void WebProcess::setTextCheckerState(const TextCheckerState& textCheckerState)
+void WebProcess::setTextCheckerState(OptionSet<TextCheckerState> textCheckerState)
 {
-    bool continuousSpellCheckingTurnedOff = !textCheckerState.isContinuousSpellCheckingEnabled && m_textCheckerState.isContinuousSpellCheckingEnabled;
-    bool grammarCheckingTurnedOff = !textCheckerState.isGrammarCheckingEnabled && m_textCheckerState.isGrammarCheckingEnabled;
+    bool continuousSpellCheckingTurnedOff = !textCheckerState.contains(TextCheckerState::ContinuousSpellCheckingEnabled) && m_textCheckerState.contains(TextCheckerState::ContinuousSpellCheckingEnabled);
+    bool grammarCheckingTurnedOff = !textCheckerState.contains(TextCheckerState::GrammarCheckingEnabled) && m_textCheckerState.contains(TextCheckerState::GrammarCheckingEnabled);
 
     m_textCheckerState = textCheckerState;
 
@@ -2140,6 +2147,14 @@ bool WebProcess::areAllPagesThrottleable() const
 
 void WebProcess::setAppBadge(std::optional<WebPageProxyIdentifier> pageIdentifier, const WebCore::SecurityOriginData& origin, std::optional<uint64_t> badge)
 {
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
+    if (DeprecatedGlobalSettings::builtInNotificationsEnabled()) {
+        if (m_sessionID)
+            ensureNetworkProcessConnection().connection().send(Messages::NotificationManagerMessageHandler::SetAppBadge({ origin, badge }), m_sessionID->toUInt64());
+        return;
+    }
+#endif
+
     parentProcessConnection()->send(Messages::WebProcessProxy::SetAppBadge(pageIdentifier, origin, badge), 0);
 }
 
@@ -2198,6 +2213,11 @@ void WebProcess::updateDomainsWithStorageAccessQuirks(HashSet<WebCore::Registrab
     m_domainsWithStorageAccessQuirks.clear();
     for (auto&& domain : domainsWithStorageAccessQuirks)
         m_domainsWithStorageAccessQuirks.add(domain);
+}
+
+void WebProcess::setChildProcessDebuggabilityEnabled(bool childProcessDebuggabilityEnabled)
+{
+    m_childProcessDebuggabilityEnabled = childProcessDebuggabilityEnabled;
 }
 
 #if ENABLE(GPU_PROCESS)

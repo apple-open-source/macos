@@ -92,6 +92,8 @@ public:
 
     bool multiThreaded() const override { return m_state >= State::Prepared; }
 
+    bool completeSyncIfPossible();
+
 private:
     class ThreadCountHolder;
     friend class ThreadCountHolder;
@@ -122,10 +124,9 @@ protected:
         return true;
     }
 
-#if ENABLE(JIT)
     bool generateWasmToJSStubs();
     bool generateWasmToWasmStubs();
-#endif
+
     void generateStubsIfNecessary() WTF_REQUIRES_LOCK(m_lock);
 
     Vector<uint8_t> m_source;

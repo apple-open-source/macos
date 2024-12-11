@@ -47,8 +47,8 @@
 #include <WebCore/ServiceWorkerTypes.h>
 #include <pal/SessionID.h>
 #include <wtf/CheckedPtr.h>
-#include <wtf/FastMalloc.h>
 #include <wtf/Forward.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeWeakHashSet.h>
 
 namespace IPC {
@@ -92,7 +92,7 @@ class StorageAreaBase;
 class StorageAreaRegistry;
 
 class NetworkStorageManager final : public IPC::WorkQueueMessageReceiver, public CanMakeCheckedPtr<NetworkStorageManager> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(NetworkStorageManager);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NetworkStorageManager);
 public:
     static Ref<NetworkStorageManager> create(NetworkProcess&, PAL::SessionID, Markable<WTF::UUID>, IPC::Connection::UniqueID, const String& path, const String& customLocalStoragePath, const String& customIDBStoragePath, const String& customCacheStoragePath, const String& customServiceWorkerStoragePath, uint64_t defaultOriginQuota, std::optional<double> originQuotaRatio, std::optional<double> totalQuotaRatio, std::optional<uint64_t> standardVolumeCapacity, std::optional<uint64_t> volumeCapacityOverride, UnifiedOriginStorageLevel, bool storageSiteValidationEnabled);
@@ -137,6 +137,8 @@ public:
     void clearServiceWorkerRegistrations(CompletionHandler<void()>&&);
     void importServiceWorkerRegistrations(CompletionHandler<void(std::optional<Vector<WebCore::ServiceWorkerContextData>>)>&&);
     void updateServiceWorkerRegistrations(Vector<WebCore::ServiceWorkerContextData>&&, Vector<WebCore::ServiceWorkerRegistrationKey>&&, CompletionHandler<void(std::optional<Vector<WebCore::ServiceWorkerScripts>>)>&&);
+    const String& path() const { return m_pathNormalizedMainThread; }
+    const String& customIDBStoragePath() const { return m_customIDBStoragePathNormalizedMainThread; }
 
 private:
     NetworkStorageManager(NetworkProcess&, PAL::SessionID, Markable<WTF::UUID>, IPC::Connection::UniqueID, const String& path, const String& customLocalStoragePath, const String& customIDBStoragePath, const String& customCacheStoragePath, const String& customServiceWorkerStoragePath, uint64_t defaultOriginQuota, std::optional<double> originQuotaRatio, std::optional<double> totalQuotaRatio, std::optional<uint64_t> standardVolumeCapacity, std::optional<uint64_t> volumeCapacityOverride, UnifiedOriginStorageLevel, bool storageSiteValidationEnabled);
@@ -263,6 +265,7 @@ private:
     PAL::SessionID m_sessionID;
     Ref<SuspendableWorkQueue> m_queue;
     String m_path;
+    String m_pathNormalizedMainThread;
     FileSystem::Salt m_salt;
     bool m_closed { false };
     HashMap<WebCore::ClientOrigin, std::unique_ptr<OriginStorageManager>> m_originStorageManagers WTF_GUARDED_BY_CAPABILITY(workQueue());
@@ -273,6 +276,7 @@ private:
     std::unique_ptr<CacheStorageRegistry> m_cacheStorageRegistry;
     String m_customLocalStoragePath;
     String m_customIDBStoragePath;
+    String m_customIDBStoragePathNormalizedMainThread;
     String m_customCacheStoragePath;
     String m_customServiceWorkerStoragePath;
     uint64_t m_defaultOriginQuota;

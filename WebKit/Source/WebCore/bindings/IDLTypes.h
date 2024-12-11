@@ -69,6 +69,9 @@ struct IDLType {
     using ParameterType = T;
     using NullableParameterType = std::optional<ImplementationType>;
 
+    using CallbackReturnType = T;
+    using NullableCallbackReturnType = std::optional<ImplementationType>;
+
     using InnerParameterType = T;
     using NullableInnerParameterType = std::optional<ImplementationType>;
 
@@ -96,6 +99,9 @@ struct IDLAny : IDLType<JSC::Strong<JSC::Unknown>> {
     using SequenceStorageType = JSC::JSValue;
     using ParameterType = JSC::JSValue;
     using NullableParameterType = JSC::JSValue;
+
+    using CallbackReturnType = JSC::JSValue;
+    using NullableCallbackReturnType = JSC::JSValue;
 
     using ConversionResultType = JSC::JSValue;
     using NullableConversionResultType = JSC::JSValue;
@@ -387,6 +393,9 @@ template<typename T> struct IDLOptional : IDLType<typename T::NullableType> {
 
 template<typename T>
 struct IsIDLInterface : public std::integral_constant<bool, WTF::IsTemplate<T, IDLInterface>::value> { };
+
+template<typename T>
+struct IsIDLCallbackFunction : public std::integral_constant<bool, WTF::IsTemplate<T, IDLCallbackFunction>::value> { };
 
 template<typename T>
 struct IsIDLDictionary : public std::integral_constant<bool, WTF::IsTemplate<T, IDLDictionary>::value> { };

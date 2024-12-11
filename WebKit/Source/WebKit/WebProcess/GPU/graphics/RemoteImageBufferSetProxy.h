@@ -34,6 +34,7 @@
 #include "WorkQueueMessageReceiver.h"
 #include <wtf/Identified.h>
 #include <wtf/Lock.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(GPU_PROCESS)
 
@@ -52,7 +53,7 @@ struct BufferSetBackendHandle;
 // the code that isn't specific to being remote, and this helper belongs
 // there.
 class ThreadSafeImageBufferSetFlusher {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(ThreadSafeImageBufferSetFlusher);
     WTF_MAKE_NONCOPYABLE(ThreadSafeImageBufferSetFlusher);
 public:
     enum class FlushType {
@@ -84,9 +85,9 @@ public:
 
     OptionSet<BufferInSetType> requestedVolatility() { return m_requestedVolatility; }
     OptionSet<BufferInSetType> confirmedVolatility() { return m_confirmedVolatility; }
-    void clearVolatilityUntilAfter(MarkSurfacesAsVolatileRequestIdentifier previousVolatilityRequest);
+    void clearVolatility();
     void addRequestedVolatility(OptionSet<BufferInSetType> request);
-    void setConfirmedVolatility(MarkSurfacesAsVolatileRequestIdentifier, OptionSet<BufferInSetType> types);
+    void setConfirmedVolatility(OptionSet<BufferInSetType> types);
 
 #if PLATFORM(COCOA)
     void didPrepareForDisplay(ImageBufferSetPrepareBufferForDisplayOutputData, RenderingUpdateID);
@@ -124,7 +125,6 @@ private:
     WebCore::RenderingResourceIdentifier m_displayListIdentifier;
     std::unique_ptr<RemoteDisplayListRecorderProxy> m_displayListRecorder;
 
-    MarkSurfacesAsVolatileRequestIdentifier m_minimumVolatilityRequest;
     OptionSet<BufferInSetType> m_requestedVolatility;
     OptionSet<BufferInSetType> m_confirmedVolatility;
 

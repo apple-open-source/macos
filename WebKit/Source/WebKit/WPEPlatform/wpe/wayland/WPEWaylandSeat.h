@@ -29,22 +29,24 @@
 #include "WPEKeymap.h"
 #include "WPEToplevelWayland.h"
 #include <wayland-client.h>
-#include <wtf/FastMalloc.h>
 #include <wtf/HashMap.h>
 #include <wtf/Seconds.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GWeakPtr.h>
 
 namespace WPE {
 
 class WaylandSeat {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WaylandSeat);
 public:
     explicit WaylandSeat(struct wl_seat*);
     ~WaylandSeat();
 
     struct wl_seat* seat() const { return m_seat; }
     WPEKeymap* keymap() const { return m_keymap.get(); }
+    uint32_t pointerModifiers() const { return m_pointer.modifiers; }
+    std::pair<double, double> pointerCoords() const { return std::pair<double, double>(m_pointer.x, m_pointer.y); }
 
     void startListening();
 

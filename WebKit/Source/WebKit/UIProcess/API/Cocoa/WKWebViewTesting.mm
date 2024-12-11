@@ -52,6 +52,7 @@
 #import <WebCore/ScrollingNodeID.h>
 #import <WebCore/ValidationBubble.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/MakeString.h>
 
 #if PLATFORM(MAC)
@@ -459,7 +460,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 - (NSString*)_scrollbarStateForScrollingNodeID:(uint64_t)scrollingNodeID processID:(uint64_t)processID isVertical:(bool)isVertical
 {
     if (_page)
-        return _page->scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID(ObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), ObjectIdentifier<WebCore::ProcessIdentifierType>(processID)), isVertical);
+        return _page->scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID(LegacyNullableObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(processID)), isVertical);
     return @"";
 }
 
@@ -676,7 +677,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     class WKMediaSessionCoordinatorForTesting
         : public WebKit::MediaSessionCoordinatorProxyPrivate
         , public WebCore::MediaSessionCoordinatorClient {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED_INLINE(WKMediaSessionCoordinatorForTesting);
     public:
 
         static Ref<WKMediaSessionCoordinatorForTesting> create(id <_WKMediaSessionCoordinator> privateCoordinator)
@@ -869,6 +870,11 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     completionHandler(NO);
 
 #endif
+}
+
+- (BOOL)_isLoggerEnabledForTesting
+{
+    return _page->logger().enabled();
 }
 
 @end

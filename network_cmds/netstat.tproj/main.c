@@ -67,6 +67,7 @@ char const copyright[] =
 #include <sys/param.h>
 #include <sys/file.h>
 #include <sys/socket.h>
+#include <sys/socketvar.h>
 #include <sys/sys_domain.h>
 
 #include <netinet/in.h>
@@ -112,8 +113,8 @@ struct protox {
 	char	*pr_name;		/* well-known name */
 	int	pr_protocol;
 } protox[] = {
-	{ protopr,	tcp_stats,	NULL,	"tcp",	IPPROTO_TCP },
-	{ protopr,	udp_stats,	NULL,	"udp",	IPPROTO_UDP },
+	{ protopr,	tcp_stats,	tcp_ifstats,	"tcp",	IPPROTO_TCP },
+	{ protopr,	udp_stats,	udp_ifstats,	"udp",	IPPROTO_UDP },
 	{ protopr,	NULL,		NULL,	"divert", IPPROTO_DIVERT },
 	{ protopr,	ip_stats,	NULL,	"ip",	IPPROTO_RAW },
 	{ protopr,	icmp_stats,	NULL,	"icmp",	IPPROTO_ICMP },
@@ -468,6 +469,12 @@ main(argc, argv)
 		printproto(tp, tp->pr_name);
 		exit(0);
 	}
+	/*
+	 * Avoid printing the interface statistics for each prototocol
+	 */
+	if (iflag && !pflag) {
+		intpr(NULL);
+	}
 	if (af == AF_INET || af == AF_UNSPEC)
 		for (tp = protox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
@@ -531,9 +538,9 @@ printproto(tp, name)
 
 	if (sflag) {
 		if (iflag && !pflag) {
-			if (tp->pr_istats)
+			if (tp->pr_istats) {
 				intpr(tp->pr_istats);
-			else if (vflag)
+			} else if (vflag)
 				printf("%s: no per-interface stats routine\n",
 				    tp->pr_name);
 			return;
@@ -664,3 +671,73 @@ print_time(void)
     return (num_written);
 }
 
+
+void
+print_socket_stats_format(void)
+{
+	if (bflag > 0 || vflag > 0) {
+		if (vflag > 1) {
+			printf(" %12.12s/%-9.9s %12.12s/%-9.9s", "rxbytes", "packets", "txbytes", "packets");
+		} else {
+			printf(" %12.12s %12.12s", "rxbytes", "txbytes");
+		}
+		if (dflag > 0) {
+			if (vflag > 1) {
+				printf(" %12.12s/%-9.9s", "rxdrops", "packets");
+			} else {
+				printf(" %12.12s", "rxdrops");
+			}
+		}
+	}
+	if (vflag > 0) {
+		printf(" %7.7s %7.7s %6.6s %6.6s %5.5s %8.8s",
+		       "rhiwat", "shiwat", "pid", "epid", "state", "options");
+		printf(" %16.16s %8.8s %8.8s %6s %6s %5s",
+		       "gencnt", "flags", "flags1", "usecnt", "rtncnt", "fltrs");
+	}
+
+}
+
+void
+print_socket_stats_data(struct xsocket_n *so, struct xsockbuf_n *so_rcv, struct xsockbuf_n *so_snd, struct xsockstat_n *so_stat)
+{
+	if (bflag > 0 || vflag > 0) {
+		if (vflag > 1) {
+			printf(" %12llu/%-9llu %12llu/%-9llu",
+			       so_stat->xst_tc_stats[SO_STATS_DATA].rxbytes,
+			       so_stat->xst_tc_stats[SO_STATS_DATA].rxpackets,
+			       so_stat->xst_tc_stats[SO_STATS_DATA].txbytes,
+			       so_stat->xst_tc_stats[SO_STATS_DATA].txpackets);
+		} else {
+			printf(" %12llu %12llu",
+			       so_stat->xst_tc_stats[SO_STATS_DATA].rxbytes,
+			       so_stat->xst_tc_stats[SO_STATS_DATA].txbytes);
+		}
+		if (dflag > 0) {
+			if (vflag > 1) {
+				printf(" %12llu/%-9llu",
+				       so_stat->xst_tc_stats[SO_STATS_SBNOSPACE].rxbytes,
+				       so_stat->xst_tc_stats[SO_STATS_SBNOSPACE].rxpackets);
+			} else {
+				printf(" %12llu",
+				       so_stat->xst_tc_stats[SO_STATS_SBNOSPACE].rxbytes);
+			}
+		}
+	}
+	if (vflag > 0) {
+		printf(" %7u %7u %6u %6u %05x %08x",
+		       so_rcv->sb_hiwat,
+		       so_snd->sb_hiwat,
+		       so->so_last_pid,
+		       so->so_e_pid,
+		       so->so_state,
+		       so->so_options);
+		printf(" %016llx %08x %08x %6d %6d %06x",
+		       so->so_gencnt,
+		       so->so_flags,
+		       so->so_flags1,
+		       so->so_usecount,
+		       so->so_retaincnt,
+		       so->xso_filter_flags);
+	}
+}

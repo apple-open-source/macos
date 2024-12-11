@@ -35,8 +35,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property uint32_t fsInfoSectorNumber; // FAT32 only, 0 for FAT12/16
 @property NSMutableData *fsInfoSector; // FAT32 only
 
--(instancetype)initWithBlockDevice:(FSBlockDeviceResource *)device;
-
 @end
 
 @interface msdosVolume()

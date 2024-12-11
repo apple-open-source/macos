@@ -26,29 +26,33 @@
 #pragma once
 
 #include "Supplementable.h"
+#include <wtf/TZoneMalloc.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
 class DeferredPromise;
+class Document;
 class Navigator;
-class NavigatorLoginStatus final : public Supplement<Navigator> {
-    WTF_MAKE_FAST_ALLOCATED;
+enum class IsLoggedIn : uint8_t;
+
+class NavigatorLoginStatus final : public Supplement<Navigator>, public CanMakeWeakPtr<NavigatorLoginStatus> {
+    WTF_MAKE_TZONE_ALLOCATED(NavigatorLoginStatus);
 public:
     explicit NavigatorLoginStatus(Navigator& navigator)
         : m_navigator(navigator)
     {
     }
-    static void setLoggedIn(Navigator&, Ref<DeferredPromise>&&);
-    static void setLoggedOut(Navigator&, Ref<DeferredPromise>&&);
+    static void setStatus(Navigator&, IsLoggedIn, Ref<DeferredPromise>&&);
     static void isLoggedIn(Navigator&, Ref<DeferredPromise>&&);
 
 private:
-    void setLoggedIn(Ref<DeferredPromise>&&);
-    void setLoggedOut(Ref<DeferredPromise>&&);
+    void setStatus(IsLoggedIn, Ref<DeferredPromise>&&);
     void isLoggedIn(Ref<DeferredPromise>&&);
 
     static NavigatorLoginStatus* from(Navigator&);
     static ASCIILiteral supplementName();
+    bool hasSameOrigin() const;
 
     Navigator& m_navigator;
 };

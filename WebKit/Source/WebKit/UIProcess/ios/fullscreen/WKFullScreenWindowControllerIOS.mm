@@ -1072,10 +1072,10 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         // apply the default web view state (which sets both parameters anyways)?
         [webView _setMinimumEffectiveDeviceWidth:0];
         [webView _setViewScale:1.f];
-        WebKit::WKWebViewState().applyTo(webView.get());
         [webView _overrideZoomScaleParametersWithMinimumZoomScale:WebKit::baseScale maximumZoomScale:WebKit::baseScale allowUserScaling:NO];
         [webView _resetContentOffset];
         [_window insertSubview:webView.get() atIndex:0];
+        WebKit::WKWebViewState().applyTo(webView.get());
         [webView setNeedsLayout];
         [webView layoutIfNeeded];
 
@@ -1100,6 +1100,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
             [self._webView _doAfterNextVisibleContentRectAndPresentationUpdate:makeBlockPtr([self, protectedSelf, logIdentifier] {
                 if (auto* manager = [protectedSelf _manager]) {
                     OBJC_ALWAYS_LOG(logIdentifier, "presentation updated");
+                    WebKit::WKWebViewState().applyTo(self._webView);
                     manager->willEnterFullScreen();
                     return;
                 }
@@ -1180,7 +1181,10 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 
 #if PLATFORM(VISION)
             if (WebKit::useSpatialFullScreenTransition()) {
-                CompletionHandler<void()> completionHandler = []() { };
+                CompletionHandler<void()> completionHandler = [protectedSelf = RetainPtr { self }]() {
+                    // We may have lost key status during the transition into fullscreen
+                    [protectedSelf->_window makeKeyAndVisible];
+                };
                 [self _performSpatialFullScreenTransition:YES completionHandler:WTFMove(completionHandler)];
             }
 #endif
@@ -1464,6 +1468,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 
 - (void)placeholderWillMoveToSuperview:(UIView *)superview
 {
+#if !PLATFORM(APPLETV)
     if (superview)
         return;
 
@@ -1471,6 +1476,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         if ([_webViewPlaceholder superview] == nil && [_webViewPlaceholder parent] == self)
             [self close];
     });
+#endif
 }
 
 - (void)didEnterPictureInPicture
@@ -2039,7 +2045,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 {
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     if (self.isFullScreen)
-        [_fullscreenViewController configureEnvironmentPickerButtonView];
+        [_fullscreenViewController configureEnvironmentPickerOrFullscreenVideoButtonView];
 #endif
 }
 

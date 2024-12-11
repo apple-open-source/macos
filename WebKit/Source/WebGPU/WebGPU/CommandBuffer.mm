@@ -27,12 +27,14 @@
 #import "CommandBuffer.h"
 
 #import "APIConversions.h"
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebGPU {
 
-CommandBuffer::CommandBuffer(id<MTLCommandBuffer> commandBuffer, id<MTLSharedEvent> event, Device& device)
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CommandBuffer);
+
+CommandBuffer::CommandBuffer(id<MTLCommandBuffer> commandBuffer, Device& device)
     : m_commandBuffer(commandBuffer)
-    , m_abortEvent(event)
     , m_device(device)
 {
 }
@@ -42,7 +44,10 @@ CommandBuffer::CommandBuffer(Device& device)
 {
 }
 
-CommandBuffer::~CommandBuffer() = default;
+CommandBuffer::~CommandBuffer()
+{
+    m_device->getQueue().removeMTLCommandBuffer(m_commandBuffer);
+}
 
 void CommandBuffer::setLabel(String&& label)
 {
@@ -54,9 +59,8 @@ void CommandBuffer::makeInvalid(NSString* lastError)
     if (!m_commandBuffer || m_commandBuffer.status >= MTLCommandBufferStatusCommitted)
         return;
 
-    [m_abortEvent setSignaledValue:1];
     m_lastErrorString = lastError;
-    m_device->getQueue().commitMTLCommandBuffer(m_commandBuffer);
+    m_device->getQueue().removeMTLCommandBuffer(m_commandBuffer);
     m_commandBuffer = nil;
 }
 
@@ -86,12 +90,14 @@ int CommandBuffer::bufferMapCount() const
     return m_bufferMapCount;
 }
 
-void CommandBuffer::waitForCompletion()
+bool CommandBuffer::waitForCompletion()
 {
     auto status = [m_cachedCommandBuffer status];
-    constexpr auto commandBufferSubmissionTimeout = 5000_ms;
+    constexpr auto commandBufferSubmissionTimeout = 500_ms;
     if (status == MTLCommandBufferStatusCommitted || status == MTLCommandBufferStatusScheduled)
-        m_commandBufferComplete.waitFor(commandBufferSubmissionTimeout);
+        return m_commandBufferComplete.waitFor(commandBufferSubmissionTimeout);
+
+    return true;
 }
 
 } // namespace WebGPU

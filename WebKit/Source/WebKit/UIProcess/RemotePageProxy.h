@@ -34,6 +34,7 @@
 #include <WebCore/NavigationIdentifier.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebKit {
 class RemotePageProxy;
@@ -77,7 +78,7 @@ struct FrameTreeCreationParameters;
 struct NavigationActionData;
 
 class RemotePageProxy : public IPC::MessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemotePageProxy);
 public:
     RemotePageProxy(WebPageProxy&, WebProcessProxy&, const Site&, WebPageProxyMessageReceiverRegistration* = nullptr);
     ~RemotePageProxy();
@@ -105,7 +106,7 @@ private:
     void decidePolicyForNavigationActionAsync(NavigationActionData&&, CompletionHandler<void(PolicyDecision&&)>&&);
     void decidePolicyForNavigationActionSync(NavigationActionData&&, CompletionHandler<void(PolicyDecision&&)>&&);
     void didFailProvisionalLoadForFrame(FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, const String& provisionalURL, const WebCore::ResourceError&, WebCore::WillContinueLoading, const UserData&, WebCore::WillInternallyHandleFailure);
-    void didStartProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, URL&&, URL&& unreachableURL, const UserData&);
+    void didStartProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, URL&&, URL&& unreachableURL, const UserData&, WallTime);
     void didChangeProvisionalURLForFrame(WebCore::FrameIdentifier, std::optional<WebCore::NavigationIdentifier>, URL&&);
     void handleMessage(const String& messageName, const UserData& messageBody);
 

@@ -30,7 +30,6 @@
 #include "config.h"
 #include "StyleResolver.h"
 
-#include "AnchorPositionEvaluator.h"
 #include "BlendingKeyframes.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSFontSelector.h"
@@ -42,6 +41,8 @@
 #include "CSSSelector.h"
 #include "CSSStyleRule.h"
 #include "CSSStyleSheet.h"
+#include "CSSTimingFunctionValue.h"
+#include "CSSViewTransitionRule.h"
 #include "CachedResourceLoader.h"
 #include "CompositeOperation.h"
 #include "Document.h"
@@ -83,9 +84,9 @@
 #include "VisitedLinkState.h"
 #include "WebAnimationTypes.h"
 #include "WebKitFontFamilyNames.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Seconds.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomStringHash.h>
 
@@ -94,15 +95,14 @@ namespace Style {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(Resolver);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Resolver);
 
 class Resolver::State {
 public:
     State() = default;
-    State(const Element& element, const RenderStyle* parentStyle, const RenderStyle* documentElementStyle = nullptr, AnchorPositionedStateMap* anchorPositionedStateMap = nullptr)
+    State(const Element& element, const RenderStyle* parentStyle, const RenderStyle* documentElementStyle = nullptr)
         : m_element(&element)
         , m_parentStyle(parentStyle)
-        , m_anchorPositionedStateMap(anchorPositionedStateMap)
     {
         auto& document = element.document();
         auto* documentElement = document.documentElement();
@@ -129,8 +129,6 @@ public:
     const RenderStyle* userAgentAppearanceStyle() const { return m_userAgentAppearanceStyle.get(); }
     void setUserAgentAppearanceStyle(std::unique_ptr<RenderStyle> style) { m_userAgentAppearanceStyle = WTFMove(style); }
 
-    AnchorPositionedStateMap* anchorPositionedStateMap() const { return m_anchorPositionedStateMap; }
-
 private:
     const Element* m_element { };
     std::unique_ptr<RenderStyle> m_style;
@@ -139,8 +137,6 @@ private:
     const RenderStyle* m_rootElementStyle { };
 
     std::unique_ptr<RenderStyle> m_userAgentAppearanceStyle;
-
-    AnchorPositionedStateMap* m_anchorPositionedStateMap { };
 };
 
 Ref<Resolver> Resolver::create(Document& document, ScopeType scopeType)
@@ -180,7 +176,7 @@ void Resolver::initialize()
         document().fontSelector().incrementIsComputingRootStyleFont();
         m_rootDefaultStyle->fontCascade().update(&document().fontSelector());
         m_rootDefaultStyle->fontCascade().primaryFont();
-        document().fontSelector().decrementIsComputingRootStyleFont();
+        document().protectedFontSelector()->decrementIsComputingRootStyleFont();
     }
 
     if (m_rootDefaultStyle && view)
@@ -246,7 +242,7 @@ void Resolver::addKeyframeStyle(Ref<StyleRuleKeyframes>&& rule)
 
 auto Resolver::initializeStateAndStyle(const Element& element, const ResolutionContext& context) -> State
 {
-    auto state = State { element, context.parentStyle, context.documentElementStyle, context.anchorPositionedStateMap };
+    auto state = State { element, context.parentStyle, context.documentElementStyle };
 
     if (state.parentStyle()) {
         state.setStyle(RenderStyle::createPtrWithRegisteredInitialValues(document().customPropertyRegistry()));
@@ -281,8 +277,7 @@ BuilderContext Resolver::builderContext(const State& state)
         document(),
         *state.parentStyle(),
         state.rootElementStyle(),
-        state.element(),
-        state.anchorPositionedStateMap()
+        state.element()
     };
 }
 
@@ -423,7 +418,7 @@ Vector<Ref<StyleRuleKeyframe>> Resolver::keyframeRulesForName(const AtomString& 
 
     auto timingFunctionForKeyframe = [](Ref<StyleRuleKeyframe> keyframe) -> RefPtr<const TimingFunction> {
         if (auto timingFunctionCSSValue = keyframe->properties().getPropertyCSSValue(CSSPropertyAnimationTimingFunction)) {
-            if (auto timingFunction = TimingFunction::createFromCSSValue(*timingFunctionCSSValue))
+            if (auto timingFunction = createTimingFunction(*timingFunctionCSSValue))
                 return timingFunction;
         }
         return &CubicBezierTimingFunction::defaultTimingFunction();
@@ -501,7 +496,7 @@ void Resolver::keyframeStylesForAnimation(Element& element, const RenderStyle& e
             blendingKeyframe.setStyle(styleForKeyframe(element, elementStyle, context, keyframeRule.get(), blendingKeyframe));
             blendingKeyframe.setOffset(key);
             if (auto timingFunctionCSSValue = keyframeRule->properties().getPropertyCSSValue(CSSPropertyAnimationTimingFunction))
-                blendingKeyframe.setTimingFunction(TimingFunction::createFromCSSValue(*timingFunctionCSSValue.get()));
+                blendingKeyframe.setTimingFunction(createTimingFunction(*timingFunctionCSSValue));
             if (auto compositeOperationCSSValue = keyframeRule->properties().getPropertyCSSValue(CSSPropertyAnimationComposition)) {
                 if (auto compositeOperation = toCompositeOperation(*compositeOperationCSSValue))
                     blendingKeyframe.setCompositeOperation(*compositeOperation);
@@ -668,7 +663,7 @@ void Resolver::applyMatchedProperties(State& state, const MatchResult& matchResu
 
     auto* cacheEntry = m_matchedDeclarationsCache.find(cacheHash, matchResult, parentStyle.inheritedCustomProperties());
 
-    auto hasUsableEntry = cacheEntry && MatchedDeclarationsCache::isCacheable(element, style, parentStyle, state.anchorPositionedStateMap());
+    auto hasUsableEntry = cacheEntry && MatchedDeclarationsCache::isCacheable(element, style, parentStyle);
     if (hasUsableEntry) {
         // We can build up the style by copying non-inherited properties from an earlier style object built using the same exact
         // style declarations. We then only need to apply the inherited properties, if any, as their values can depend on the
@@ -744,7 +739,7 @@ void Resolver::applyMatchedProperties(State& state, const MatchResult& matchResu
     if (cacheEntry || !cacheHash)
         return;
 
-    if (MatchedDeclarationsCache::isCacheable(element, style, parentStyle, state.anchorPositionedStateMap()))
+    if (MatchedDeclarationsCache::isCacheable(element, style, parentStyle))
         m_matchedDeclarationsCache.add(style, parentStyle, state.userAgentAppearanceStyle(), cacheHash, matchResult);
 }
 
@@ -813,6 +808,10 @@ static CSSSelectorList viewTransitionSelector(CSSSelector::PseudoElement element
     return CSSSelectorList(WTFMove(selectorList));
 }
 
+RefPtr<StyleRuleViewTransition> Resolver::viewTransitionRule() const
+{
+    return m_ruleSets.viewTransitionRule();
+}
 
 void Resolver::setViewTransitionStyles(CSSSelector::PseudoElement element, const AtomString& name, Ref<MutableStyleProperties> properties)
 {

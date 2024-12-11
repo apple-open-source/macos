@@ -98,6 +98,51 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
+    func honorIDMSListChanges(for user: TPSpecificUser?, reply: @escaping (String?, Error?) -> Void) {
+        do {
+            logger.info("honorIDMSListChanges for \(String(describing: user), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: user)
+            container.honorIDMSListChanges(reply: { result, error in
+                self.logComplete(function: "honorIDMSListChanges", container: container.name, error: error)
+                reply(result, error?.sanitizeForClientXPC())
+            })
+        } catch {
+            logger.error("honorIDMSListChanges failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func octagonPeerIDGivenBottleID(with specificUser: TPSpecificUser?,
+                                    bottleID: String,
+                                    reply: @escaping (String?, (any Error)?) -> Void) {
+        do {
+            logger.info("Finding bottleID for \(String(describing: specificUser), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: specificUser)
+            container.octagonPeerID(for: bottleID) { result, error in
+                self.logComplete(function: "octagonPeerIDGivenBottleID", container: container.name, error: error)
+                reply(result, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("Finding bottleID failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func trustedDeviceNamesByPeerID(with specificUser: TPSpecificUser?,
+                                    reply: @escaping ([String: String]?, (any Error)?) -> Void) {
+        do {
+            logger.info("Finding deviceNames for \(String(describing: specificUser), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: specificUser)
+            container.trustedDeviceNamesByPeerID { result, error in
+                self.logComplete(function: "trustedDeviceNamesByPeerID", container: container.name, error: error)
+                reply(result, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("Finding deviceNames failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+
     func dumpEgoPeer(with user: TPSpecificUser?,
                      reply: @escaping (String?, TPPeerPermanentInfo?, TPPeerStableInfo?, TPPeerDynamicInfo?, Error?) -> Void) {
         do {

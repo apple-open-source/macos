@@ -1,4 +1,4 @@
-*terminal.txt*	For Vim version 9.0.  Last change: 2023 Nov 08
+*terminal.txt*	For Vim version 9.1.  Last change: 2024 Jul 28
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -208,6 +208,7 @@ Command syntax ~
 			[command].  Use `:execute` if you must have a Vim
 			command following in the same line.
 
+							*terminal-bufname*
 			A new buffer will be created, using [command] or
 			'shell' as the name, prefixed with a "!".  If a buffer
 			by this name already exists a number is added in
@@ -302,6 +303,12 @@ current window into a terminal window.  If there are unsaved changes this
 fails, use ! to force, as usual.
 
 							*terminal-close*
+When the terminal job finishes and no [command] was given (e.g. the 'shell'
+command was executed), the terminal window will be closed by default (unless
+the buffer in next window receiving the space has the 'nobuflisted' option set,
+in which case the terminal window would not be closed automatically, but a new
+empty buffer would be opened in that window).
+
 When the terminal window is closed, e.g. when the shell exits and "++close"
 argument was used, and this is the last normal Vim window, then Vim will exit.
 This is like using |:quit| in a normal window. Help and preview windows are
@@ -529,8 +536,10 @@ term_dumpdiff({filename}, {filename} [, {options}])
 		Can also be used as a |method|: >
 			GetFilename()->term_dumpdiff(otherfile)
 <
-							*term_dumpload()*
-term_dumpload({filename} [, {options}])
+		Return type: |Number|
+
+
+term_dumpload({filename} [, {options}])			*term_dumpload()*
 		Open a new window displaying the contents of {filename}
 		The file must have been created with |term_dumpwrite()|.
 		Returns the buffer number or zero when it fails.
@@ -541,8 +550,10 @@ term_dumpload({filename} [, {options}])
 		Can also be used as a |method|: >
 			GetFilename()->term_dumpload()
 <
-							*term_dumpwrite()*
-term_dumpwrite({buf}, {filename} [, {options}])
+		Return type: |Number|
+
+
+term_dumpwrite({buf}, {filename} [, {options}])		*term_dumpwrite()*
 		Dump the contents of the terminal screen of {buf} in the file
 		{filename}.  This uses a format that can be used with
 		|term_dumpload()| and |term_dumpdiff()|.
@@ -558,6 +569,9 @@ term_dumpwrite({buf}, {filename} [, {options}])
 		Can also be used as a |method|, the base is used for the file
 		name: >
 			GetFilename()->term_dumpwrite(bufnr)
+<
+		Return type: |Number|
+
 
 term_getaltscreen({buf})				*term_getaltscreen()*
 		Returns 1 if the terminal of {buf} is using the alternate
@@ -566,6 +580,8 @@ term_getaltscreen({buf})				*term_getaltscreen()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_getaltscreen()
+<
+		Return type: |Number|
 
 
 term_getansicolors({buf})				*term_getansicolors()*
@@ -580,8 +596,10 @@ term_getansicolors({buf})				*term_getansicolors()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_getansicolors()
+<
+		Return type: list<string> or list<any>
 
-<		{only available when compiled with GUI enabled and/or the
+		{only available when compiled with GUI enabled and/or the
 		|+termguicolors| feature}
 
 term_getattr({attr}, {what})				*term_getattr()*
@@ -595,6 +613,8 @@ term_getattr({attr}, {what})				*term_getattr()*
 
 		Can also be used as a |method|: >
 			GetAttr()->term_getattr()
+<
+		Return type: |Number|
 
 
 term_getcursor({buf})					*term_getcursor()*
@@ -620,14 +640,20 @@ term_getcursor({buf})					*term_getcursor()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_getcursor()
+<
+		Return type: list<any>
+
 
 term_getjob({buf})					*term_getjob()*
 		Get the Job associated with terminal window {buf}.
 		{buf} is used as with |term_getsize()|.
-		Returns |v:null| when there is no job.
+		Returns |v:null| when there is no job. In Vim9 script, return
+		|null_job| when there is no job.
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_getjob()
+<
+		Return type: |job|
 
 
 term_getline({buf}, {row})				*term_getline()*
@@ -642,6 +668,8 @@ term_getline({buf}, {row})				*term_getline()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_getline(row)
+<
+		Return type: |String|
 
 
 term_getscrolled({buf})					*term_getscrolled()*
@@ -657,6 +685,8 @@ term_getscrolled({buf})					*term_getscrolled()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_getscrolled()
+<
+		Return type: |Number|
 
 
 term_getsize({buf})					*term_getsize()*
@@ -670,6 +700,8 @@ term_getsize({buf})					*term_getsize()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_getsize()
+<
+		Return type: list<number> or list<any>
 
 
 term_getstatus({buf})					*term_getstatus()*
@@ -686,6 +718,8 @@ term_getstatus({buf})					*term_getstatus()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_getstatus()
+<
+		Return type: |String|
 
 
 term_gettitle({buf})					*term_gettitle()*
@@ -698,6 +732,8 @@ term_gettitle({buf})					*term_gettitle()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_gettitle()
+<
+		Return type: |String|
 
 
 term_gettty({buf} [, {input}])				*term_gettty()*
@@ -710,11 +746,15 @@ term_gettty({buf} [, {input}])				*term_gettty()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_gettty()
+<
+		Return type: |String|
 
 
 term_list()						*term_list()*
 		Return a list with the buffer numbers of all buffers for
 		terminal windows.
+
+		Return type: list<number> or list<any>
 
 
 term_scrape({buf}, {row})				*term_scrape()*
@@ -737,6 +777,8 @@ term_scrape({buf}, {row})				*term_scrape()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_scrape(row)
+<
+		Return type: list<dict<any>> or list<any>
 
 
 term_sendkeys({buf}, {keys})				*term_sendkeys()*
@@ -748,6 +790,8 @@ term_sendkeys({buf}, {keys})				*term_sendkeys()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_sendkeys(keys)
+<
+		Return type: |Number|
 
 
 term_setansicolors({buf}, {colors})			*term_setansicolors()*
@@ -781,8 +825,10 @@ term_setansicolors({buf}, {colors})			*term_setansicolors()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_setansicolors(colors)
+<
+		Return type: |Number|
 
-<		{only available with GUI enabled and/or the |+termguicolors|
+		{only available with GUI enabled and/or the |+termguicolors|
 		feature}
 
 
@@ -797,6 +843,8 @@ term_setapi({buf}, {expr})				*term_setapi()*
 
 		When used as a method the base is used for {buf}: >
 			GetBufnr()->term_setapi({expr})
+<
+		Return type: |Number|
 
 
 term_setkill({buf}, {how})				*term_setkill()*
@@ -813,6 +861,8 @@ term_setkill({buf}, {how})				*term_setkill()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_setkill(how)
+<
+		Return type: |Number|
 
 
 term_setrestore({buf}, {command})			*term_setrestore()*
@@ -826,6 +876,8 @@ term_setrestore({buf}, {command})			*term_setrestore()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_setrestore(command)
+<
+		Return type: |Number|
 
 
 term_setsize({buf}, {rows}, {cols})		*term_setsize()* *E955*
@@ -840,6 +892,8 @@ term_setsize({buf}, {rows}, {cols})		*term_setsize()* *E955*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_setsize(rows, cols)
+<
+		Return type: |Number|
 
 
 term_start({cmd} [, {options}])			*term_start()*
@@ -915,6 +969,8 @@ term_start({cmd} [, {options}])			*term_start()*
 
 		Can also be used as a |method|: >
 			GetCommand()->term_start()
+<
+		Return type: |Number|
 
 
 term_wait({buf} [, {time}])					*term_wait()*
@@ -925,6 +981,8 @@ term_wait({buf} [, {time}])					*term_wait()*
 
 		Can also be used as a |method|: >
 			GetBufnr()->term_wait()
+<
+		Return type: |Number|
 
 ==============================================================================
 3. Terminal communication			 *terminal-communication*
@@ -1024,17 +1082,17 @@ This can be used to pass the current directory from a shell to Vim.
 Put this in your .vimrc: >
 	def g:Tapi_lcd(_, path: string)
 	    if isdirectory(path)
-                execute 'silent lcd ' .. fnameescape(path)
-            endif
+		execute 'silent lcd ' .. fnameescape(path)
+	    endif
 	enddef
 <
 And, in a bash init file: >
-        if [[ -n "$VIM_TERMINAL" ]]; then
-            PROMPT_COMMAND='_vim_sync_PWD'
-            function _vim_sync_PWD() {
-              printf '\033]51;["call", "Tapi_lcd", "%q"]\007' "$PWD"
-            }
-        fi
+	if [[ -n "$VIM_TERMINAL" ]]; then
+	    PROMPT_COMMAND='_vim_sync_PWD'
+	    function _vim_sync_PWD() {
+		printf '\033]51;["call", "Tapi_lcd", "%q"]\007' "$PWD"
+	    }
+	fi
 <
 Or, for zsh: >
 	if [[ -n "$VIM_TERMINAL" ]]; then
@@ -1195,6 +1253,8 @@ Starting ~
 							*termdebug-starting*
 Load the plugin with this command: >
 	packadd termdebug
+When loading the plugin from the |.vimrc| file, add the "!" attribute: >
+	packadd! termdebug
 <							*:Termdebug*
 To start debugging use `:Termdebug` or `:TermdebugCommand` followed by the
 command name, for example: >
@@ -1225,6 +1285,15 @@ When the debugger ends, typically by typing "quit" in the gdb window, the two
 opened windows are closed.
 
 Only one debugger can be active at a time.
+
+						*termdebug-timeout*
+Depending on how gdb is launched, termdebug startup time may vary.
+To avoid termdebug to get stuck if the startup process of gdb takes too long,
+a configurable timeout is included. Such time out is configurable in terms of
+multiple of 10ms: >
+    let g:termdebug_config['timeout'] = 500 # 500 * 10ms = 5 seconds.
+
+The default timeout is 3000 ms.
 							*:TermdebugCommand*
 If you want to give specific commands to the command being debugged, you can
 use the `:TermdebugCommand` command followed by the command name and
@@ -1331,6 +1400,9 @@ gdb:
  *:Break*	set a breakpoint at the cursor position
  :Break {position}
 		set a breakpoint at the specified position
+ *:Tbreak*	set a temporary breakpoint at the cursor position
+ :Tbreak {position}
+		set a temporary breakpoint at the specified position
  *:Clear*	delete the breakpoint at the cursor position
 
  *:Step*	execute the gdb "step" command
@@ -1399,8 +1471,8 @@ Other commands ~
  *:Asm*	     jump to the window with the disassembly, create it if there
 	     isn't one
  *:Var*	     jump to the window with the local and argument variables,
-             create it if there isn't one. This window updates whenever the
-             program is stopped
+	     create it if there isn't one. This window updates whenever the
+	     program is stopped
 
 Events ~
 							*termdebug-events*
@@ -1458,35 +1530,46 @@ in a buffer with 'buftype' set to "prompt".  This works slightly differently:
 
 						*termdebug_use_prompt*
 Prompt mode can be used even when the |+terminal| feature is present with: >
-	let g:termdebug_config['use_prompt'] = 1
+	let g:termdebug_config['use_prompt'] = v:true
 If there is no g:termdebug_config you can use: >
-	let g:termdebug_use_prompt = 1
+	let g:termdebug_use_prompt = v:true
+
 <
+However, the latter form will be deprecated in future releases.
+
 Mappings ~
+The termdebug plugin enables a few default mappings.  All those mappings
+are reset to their original values once the termdebug session concludes.
+
 					*termdebug_map_K* *termdebug-mappings*
 The K key is normally mapped to |:Evaluate| unless a buffer local (|:map-local|)
 mapping to K already exists.  If you do not want this use: >
-	let g:termdebug_config['map_K'] = 0
+	let g:termdebug_config['map_K'] = v:false
 If there is no g:termdebug_config you can use: >
-	let g:termdebug_map_K = 0
+	let g:termdebug_map_K = v:false
 <
+However, the latter form will be deprecated in future releases.
+
 						*termdebug_map_minus*
 The - key is normally mapped to |:Down| unless a buffer local mapping to the -
 key already exists.  If you do not want this use: >
-	let g:termdebug_config['map_minus'] = 0
+	let g:termdebug_config['map_minus'] = v:false
 <
 						*termdebug_map_plus*
 The + key is normally mapped to |:Up| unless a buffer local mapping to the +
 key already exists.  If you do not want this use: >
-	let g:termdebug_config['map_plus'] = 0
+	let g:termdebug_config['map_plus'] = v:false
 <
 						*termdebug_disasm_window*
 If you want the Asm window shown by default, set the "disasm_window" flag to
 1.  The "disasm_window_height" entry can be used to set the window height: >
-	let g:termdebug_config['disasm_window'] = 1
+	let g:termdebug_config['disasm_window'] = v:true
 	let g:termdebug_config['disasm_window_height'] = 15
 If there is no g:termdebug_config you can use: >
 	let g:termdebug_disasm_window = 15
+
+However, the latter form will be deprecated in future releases.
+
 Any value greater than 1 will set the Asm window height to that value.
 If the current window has enough horizontal space, it will be vertically split
 and the Asm window will be shown side by side with the source code window (and
@@ -1496,10 +1579,13 @@ the height option won't be used).
 If you want the Var window shown by default, set the "variables_window" flag
 to 1.  The "variables_window_height" entry can be used to set the window
 height: >
-	let g:termdebug_config['variables_window'] = 1
+	let g:termdebug_config['variables_window'] = v:true
 	let g:termdebug_config['variables_window_height'] = 15
 If there is no g:termdebug_config you can use: >
 	let g:termdebug_variables_window = 15
+
+However, the latter form will be deprecated in future releases.
+
 Any value greater than 1 will set the Var window height to that value.
 If the current window has enough horizontal space, it will be vertically split
 and the Var window will be shown side by side with the source code window (and
@@ -1527,6 +1613,8 @@ g:termdebug_config or the "g:termdebugger" variable before invoking
 	let g:termdebug_config['command'] = "mygdb"
 If there is no g:termdebug_config you can use: >
 	let g:termdebugger = "mygdb"
+
+However, the latter form will be deprecated in future releases.
 
 If the command needs an argument use a List: >
 	let g:termdebug_config['command'] = ['rr', 'replay', '--']
@@ -1585,6 +1673,7 @@ If you don't want this then disable it with: >
 If there is no g:termdebug_config you can use: >
 	let g:termdebug_popup = 0
 
+However, the latter form will be deprecated in future releases.
 
 Change default signs ~
 							*termdebug_signs*
@@ -1614,6 +1703,8 @@ split: >
 	let g:termdebug_config['wide'] = 163
 If there is no g:termdebug_config you can use: >
 	let g:termdebug_wide = 163
+
+However, the latter form will be deprecated in future releases.
 
 This will set 'columns' to 163 when `:Termdebug` is used.  The value is
 restored when quitting the debugger.

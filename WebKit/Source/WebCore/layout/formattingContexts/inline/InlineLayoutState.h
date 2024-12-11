@@ -50,13 +50,16 @@ public:
     void setAvailableLineWidthOverride(AvailableLineWidthOverride availableLineWidthOverride) { m_availableLineWidthOverride = availableLineWidthOverride; }
     const AvailableLineWidthOverride& availableLineWidthOverride() const { return m_availableLineWidthOverride; }
 
-    void setClampedLineIndex(size_t lineIndex) { m_clampedLineIndex = lineIndex; }
-    std::optional<size_t> clampedLineIndex() const { return m_clampedLineIndex; }
+    void setLegacyClampedLineIndex(size_t lineIndex) { m_legacyClampedLineIndex = lineIndex; }
+    std::optional<size_t> legacyClampedLineIndex() const { return m_legacyClampedLineIndex; }
 
     void setHyphenationLimitLines(size_t hyphenationLimitLines) { m_hyphenationLimitLines = hyphenationLimitLines; }
     void incrementSuccessiveHyphenatedLineCount() { ++m_successiveHyphenatedLineCount; }
     void resetSuccessiveHyphenatedLineCount() { m_successiveHyphenatedLineCount = 0; }
     bool isHyphenationDisabled() const { return m_hyphenationLimitLines && *m_hyphenationLimitLines <= m_successiveHyphenatedLineCount; }
+
+    void setFirstLineStartTrimForInitialLetter(InlineLayoutUnit trimmedThisMuch) { m_firstLineStartTrimForInitialLetter = trimmedThisMuch; }
+    InlineLayoutUnit firstLineStartTrimForInitialLetter() const { return m_firstLineStartTrimForInitialLetter; }
 
     void setInStandardsMode() { m_inStandardsMode = true; }
     bool inStandardsMode() const { return m_inStandardsMode; }
@@ -71,7 +74,8 @@ private:
     BlockLayoutState& m_parentBlockLayoutState;
     InlineLayoutUnit m_clearGapBeforeFirstLine { 0.f };
     InlineLayoutUnit m_clearGapAfterLastLine { 0.f };
-    std::optional<size_t> m_clampedLineIndex { };
+    InlineLayoutUnit m_firstLineStartTrimForInitialLetter { 0.f };
+    std::optional<size_t> m_legacyClampedLineIndex { };
     std::optional<size_t> m_hyphenationLimitLines { };
     size_t m_successiveHyphenatedLineCount { 0 };
     // FIXME: This is required by the integaration codepath.

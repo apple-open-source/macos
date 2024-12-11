@@ -269,9 +269,9 @@ static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n
 #endif
 
         if (g_jscConfig.useFastJITPermissions) {
-            threadSelfRestrictRWXToRW();
+            threadSelfRestrict<MemoryRestriction::kRwxToRw>();
             memcpy(dst, src, n);
-            threadSelfRestrictRWXToRX();
+            threadSelfRestrict<MemoryRestriction::kRwxToRx>();
 #if ENABLE(JIT_SCAN_ASSEMBLER_BUFFER_FOR_ZEROES)
             checkForZeroes();
 #endif

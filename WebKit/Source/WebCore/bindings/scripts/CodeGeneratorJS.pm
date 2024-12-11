@@ -3252,8 +3252,7 @@ sub GenerateHeader
     }
     push(@headerContent, "    }\n\n");
 
-    # Custom pushEventHandlerScope function
-    if ($interface->extendedAttributes->{CustomPushEventHandlerScope}) {
+    if ($codeGenerator->InheritsInterface($interface, "HTMLElement")) {
         push(@headerContent, "    JSC::JSScope* pushEventHandlerScope(JSC::JSGlobalObject*, JSC::JSScope*) const;\n\n");
     }
 
@@ -3744,11 +3743,6 @@ sub AreTypesDistinguishableForOverloadResolution
 {
     my ($typeA, $typeB) = @_;
 
-    my $isCallbackFunctionOrDictionary = sub {
-        my $type = shift;
-        return $codeGenerator->IsCallbackFunction($type) || $codeGenerator->IsDictionaryType($type);
-    };
-
     # Two types are distinguishable for overload resolution if at most one of the two includes a nullable type.
     return 0 if $typeA->isNullable && $typeB->isNullable;
 
@@ -3774,7 +3768,7 @@ sub AreTypesDistinguishableForOverloadResolution
     return 0 if $codeGenerator->IsStringOrEnumType($typeA) && $codeGenerator->IsStringOrEnumType($typeB);
     return 0 if $codeGenerator->IsDictionaryType($typeA) && $codeGenerator->IsDictionaryType($typeB);
     return 0 if $codeGenerator->IsCallbackInterface($typeA) && $codeGenerator->IsCallbackInterface($typeB);
-    return 0 if &$isCallbackFunctionOrDictionary($typeA) && &$isCallbackFunctionOrDictionary($typeB);
+    return 0 if $codeGenerator->IsCallbackFunction($typeA) && $codeGenerator->IsCallbackFunction($typeB);
     return 0 if $codeGenerator->IsSequenceOrFrozenArrayType($typeA) && $codeGenerator->IsSequenceOrFrozenArrayType($typeB);
     # FIXME: return 0 if $typeA and $typeB are both exception types.
     return 1;
@@ -6760,7 +6754,7 @@ sub GenerateCallbackHeaderContent
                 }
             }
 
-            my $nativeReturnType = "CallbackResult<typename " . GetIDLType($interfaceOrCallback, $operation->type) . "::ImplementationType>";
+            my $nativeReturnType = "CallbackResult<typename " . GetIDLType($interfaceOrCallback, $operation->type) . "::CallbackReturnType>";
             
             # FIXME: Change the default name (used for callback functions) to something other than handleEvent. It makes little sense.
             my $functionName = $operation->extendedAttributes->{ImplementedAs} || $operation->name || "handleEvent";
@@ -6884,7 +6878,7 @@ sub GenerateCallbackImplementationContent
         
             AddToIncludesForIDLType($operation->type, $includesRef);
 
-            my $nativeReturnType = "CallbackResult<typename " . GetIDLType($interfaceOrCallback, $operation->type) . "::ImplementationType>";
+            my $nativeReturnType = "CallbackResult<typename " . GetIDLType($interfaceOrCallback, $operation->type) . "::CallbackReturnType>";
             
             # FIXME: Change the default name (used for callback functions) to something other than handleEvent. It makes little sense.
             my $functionName = $operation->name || "handleEvent";
@@ -7380,6 +7374,7 @@ sub GetBaseIDLType
         "Uint16Array" => "IDLUint16Array",
         "Uint32Array" => "IDLUint32Array",
         "Uint8ClampedArray" => "IDLUint8ClampedArray",
+        "Float16Array" => "IDLFloat16Array",
         "Float32Array" => "IDLFloat32Array",
         "Float64Array" => "IDLFloat64Array",
         "BigInt64Array" => "IDLBigInt64Array",

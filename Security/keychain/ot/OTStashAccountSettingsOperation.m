@@ -114,10 +114,10 @@
                 } else {
                     OTAccountSettings* settings = [[OTAccountSettings alloc]init];
                     OTWalrus* walrus = [[OTWalrus alloc]init];
-                    walrus.enabled = selfPeerState.walrus.value ? selfPeerState.walrus.value : false;
+                    walrus.enabled = selfPeerState.walrus != nil ? selfPeerState.walrus.value : false;
                     settings.walrus = walrus;
                     OTWebAccess* webAccess = [[OTWebAccess alloc]init];
-                    webAccess.enabled = selfPeerState.webAccess.value ? selfPeerState.webAccess.value : false;
+                    webAccess.enabled = selfPeerState.webAccess != nil ? selfPeerState.webAccess.value : true;
                     settings.webAccess = webAccess;
                     reply(settings, nil);
                 }

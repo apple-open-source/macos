@@ -29,9 +29,12 @@
 #if ENABLE(ASYNC_SCROLLING)
 
 #include "ScrollingStateTree.h"
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ScrollingStateScrollingNode);
 
 ScrollingStateScrollingNode::ScrollingStateScrollingNode(ScrollingStateTree& stateTree, ScrollingNodeType nodeType, ScrollingNodeID nodeID)
     : ScrollingStateNode(nodeType, stateTree, nodeID)
@@ -68,6 +71,7 @@ ScrollingStateScrollingNode::ScrollingStateScrollingNode(
     ScrollbarHoverState&& scrollbarHoverState,
     ScrollbarEnabledState&& scrollbarEnabledState,
     UserInterfaceLayoutDirection scrollbarLayoutDirection,
+    ScrollbarWidth scrollbarWidth,
     RequestedKeyboardScrollData&& keyboardScrollData
 ) : ScrollingStateNode(nodeType, nodeID, WTFMove(children), changedProperties, layerID)
     , m_scrollableAreaSize(scrollableAreaSize)
@@ -78,10 +82,10 @@ ScrollingStateScrollingNode::ScrollingStateScrollingNode(
     , m_snapOffsetsInfo(WTFMove(snapOffsetsInfo))
     , m_currentHorizontalSnapPointIndex(currentHorizontalSnapPointIndex)
     , m_currentVerticalSnapPointIndex(currentVerticalSnapPointIndex)
-    , m_scrollContainerLayer(scrollContainerLayer.value_or(PlatformLayerIdentifier()))
-    , m_scrolledContentsLayer(scrolledContentsLayer.value_or(PlatformLayerIdentifier()))
-    , m_horizontalScrollbarLayer(horizontalScrollbarLayer.value_or(PlatformLayerIdentifier()))
-    , m_verticalScrollbarLayer(verticalScrollbarLayer.value_or(PlatformLayerIdentifier()))
+    , m_scrollContainerLayer(scrollContainerLayer)
+    , m_scrolledContentsLayer(scrolledContentsLayer)
+    , m_horizontalScrollbarLayer(horizontalScrollbarLayer)
+    , m_verticalScrollbarLayer(verticalScrollbarLayer)
     , m_scrollbarHoverState(WTFMove(scrollbarHoverState))
     , m_mouseLocationState(WTFMove(mouseLocationState))
     , m_scrollbarEnabledState(WTFMove(scrollbarEnabledState))
@@ -92,6 +96,7 @@ ScrollingStateScrollingNode::ScrollingStateScrollingNode(
     , m_synchronousScrollingReasons(synchronousScrollingReasons)
 #endif
     , m_scrollbarLayoutDirection(scrollbarLayoutDirection)
+    , m_scrollbarWidth(scrollbarWidth)
     , m_isMonitoringWheelEvents(isMonitoringWheelEvents)
     , m_mouseIsOverContentArea(mouseIsOverContentArea)
 {
@@ -120,6 +125,7 @@ ScrollingStateScrollingNode::ScrollingStateScrollingNode(const ScrollingStateScr
     , m_synchronousScrollingReasons(stateNode.synchronousScrollingReasons())
 #endif
     , m_scrollbarLayoutDirection(stateNode.scrollbarLayoutDirection())
+    , m_scrollbarWidth(stateNode.scrollbarWidth())
     , m_isMonitoringWheelEvents(stateNode.isMonitoringWheelEvents())
     , m_mouseIsOverContentArea(stateNode.mouseIsOverContentArea())
 {
@@ -383,6 +389,14 @@ void ScrollingStateScrollingNode::setScrollbarLayoutDirection(UserInterfaceLayou
 
     m_scrollbarLayoutDirection = scrollbarLayoutDirection;
     setPropertyChanged(Property::ScrollbarLayoutDirection);
+}
+
+void ScrollingStateScrollingNode::setScrollbarWidth(ScrollbarWidth scrollbarWidth)
+{
+    if (scrollbarWidth == m_scrollbarWidth)
+        return;
+    m_scrollbarWidth = scrollbarWidth;
+    setPropertyChanged(Property::ScrollbarWidth);
 }
 
 void ScrollingStateScrollingNode::dumpProperties(TextStream& ts, OptionSet<ScrollingStateTreeAsTextBehavior> behavior) const

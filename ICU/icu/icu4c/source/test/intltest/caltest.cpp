@@ -26,6 +26,7 @@
 #include "coptccal.h"
 #include "ethpccal.h"
 #include "islamcal.h"
+#include <math.h>
 
 #define mkcstr(U) u_austrcpy(calloc(8, u_strlen(U) + 1), U)
 

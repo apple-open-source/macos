@@ -38,7 +38,6 @@
 #include "CSSMarkup.h"
 #include "CSSParser.h"
 #include "CSSPropertyNames.h"
-#include "CSSPropertyParserWorkerSafe.h"
 #include "CSSStyleImageValue.h"
 #include "CachedImage.h"
 #include "CanvasFilterContextSwitcher.h"
@@ -76,8 +75,8 @@
 #include "TextRun.h"
 #include "WebCodecsVideoFrame.h"
 #include <wtf/CheckedArithmetic.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/TextStream.h>
@@ -86,7 +85,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(CanvasRenderingContext2DBase);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(CanvasRenderingContext2DBase);
 
 static constexpr ImageSmoothingQuality defaultSmoothingQuality = ImageSmoothingQuality::Low;
 
@@ -2116,7 +2115,7 @@ ExceptionOr<Ref<CanvasGradient>> CanvasRenderingContext2DBase::createLinearGradi
     if (!std::isfinite(x0) || !std::isfinite(y0) || !std::isfinite(x1) || !std::isfinite(y1))
         return Exception { ExceptionCode::NotSupportedError };
 
-    return CanvasGradient::create(FloatPoint(x0, y0), FloatPoint(x1, y1), *this);
+    return CanvasGradient::create(FloatPoint(x0, y0), FloatPoint(x1, y1));
 }
 
 ExceptionOr<Ref<CanvasGradient>> CanvasRenderingContext2DBase::createRadialGradient(float x0, float y0, float r0, float x1, float y1, float r1)
@@ -2127,7 +2126,7 @@ ExceptionOr<Ref<CanvasGradient>> CanvasRenderingContext2DBase::createRadialGradi
     if (r0 < 0 || r1 < 0)
         return Exception { ExceptionCode::IndexSizeError };
 
-    return CanvasGradient::create(FloatPoint(x0, y0), r0, FloatPoint(x1, y1), r1, *this);
+    return CanvasGradient::create(FloatPoint(x0, y0), r0, FloatPoint(x1, y1), r1);
 }
 
 ExceptionOr<Ref<CanvasGradient>> CanvasRenderingContext2DBase::createConicGradient(float angleInRadians, float x, float y)
@@ -2137,7 +2136,7 @@ ExceptionOr<Ref<CanvasGradient>> CanvasRenderingContext2DBase::createConicGradie
 
     // Angle starts from x-axis for consistency within canvas methods. See https://html.spec.whatwg.org/multipage/canvas.html#dom-context-2d-createconicgradient
     angleInRadians = normalizeAngleInRadians(angleInRadians) + piOverTwoFloat;
-    return CanvasGradient::create(FloatPoint(x, y), angleInRadians , *this);
+    return CanvasGradient::create(FloatPoint(x, y), angleInRadians);
 }
 
 ExceptionOr<RefPtr<CanvasPattern>> CanvasRenderingContext2DBase::createPattern(CanvasImageSource&& image, const String& repetition)
@@ -2804,12 +2803,14 @@ void CanvasRenderingContext2DBase::drawText(const String& text, double x, double
 
 void CanvasRenderingContext2DBase::drawTextUnchecked(const TextRun& textRun, double x, double y, bool fill, std::optional<double> maxWidth)
 {
-    auto& fontProxy = *this->fontProxy();
-    const auto& fontMetrics = fontProxy.metricsOfPrimaryFont();
+    auto measureTextRun = [&](const TextRun& textRun) -> std::tuple<float, FontMetrics>  {
+        auto& fontProxy = *this->fontProxy();
 
-    // FIXME: Need to turn off font smoothing.
+        // FIXME: Need to turn off font smoothing.
+        return { fontProxy.width(textRun), fontProxy.metricsOfPrimaryFont() };
+    };
 
-    float fontWidth = fontProxy.width(textRun);
+    auto [fontWidth, fontMetrics] = measureTextRun(textRun);
     bool useMaxWidth = maxWidth && maxWidth.value() < fontWidth;
     float width = useMaxWidth ? maxWidth.value() : fontWidth;
     FloatPoint location(x, y);
@@ -2823,7 +2824,10 @@ void CanvasRenderingContext2DBase::drawTextUnchecked(const TextRun& textRun, dou
 
     auto targetSwitcher = CanvasFilterContextSwitcher::create(*this, textRect);
 
+    // FIXME: Need to refetch fontProxy. CanvasFilterContextSwitcher might have called save().
+    // https://bugs.webkit.org/show_bug.cgi?id=193077.
     auto* c = effectiveDrawingContext();
+    auto& fontProxy = *this->fontProxy();
 
 #if USE(CG)
     const CanvasStyle& drawStyle = fill ? state().fillStyle : state().strokeStyle;

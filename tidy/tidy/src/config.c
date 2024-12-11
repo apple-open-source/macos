@@ -437,18 +437,68 @@ static void ReparseTagType( TidyDocImpl* doc, TidyOptionId optId )
     MemFree( dupdecl );
 }
 
-/* Not efficient, but effective */
-static void ReparseTagDecls( TidyDocImpl* doc )
+static Bool OptionValueIdentical( const TidyOptionImpl* option,
+                                  const TidyOptionValue* val1,
+                                  const TidyOptionValue* val2 )
 {
-    TY_(FreeDeclaredTags)( doc, tagtype_null );
-    if ( cfg(doc, TidyInlineTags) )
-        ReparseTagType( doc, TidyInlineTags );
-    if ( cfg(doc, TidyBlockTags) )
-        ReparseTagType( doc, TidyBlockTags );
-    if ( cfg(doc, TidyEmptyTags) )
-        ReparseTagType( doc, TidyEmptyTags );
-    if ( cfg(doc, TidyPreTags) )
-        ReparseTagType( doc, TidyPreTags );
+    if ( option->type == TidyString )
+    {
+        if ( val1->p == val2->p )
+            return yes;
+        if ( !val1->p || !val2->p )
+            return no;
+        return TY_(tmbstrcmp)( val1->p, val2->p ) == 0;
+    }
+    else
+        return val1->v == val2->v;
+}
+
+static Bool NeedReparseTagDecls( TidyDocImpl* doc,
+                                 const TidyOptionValue* current,
+                                 const TidyOptionValue* new,
+                                 uint *changedUserTags )
+{
+    Bool ret = no;
+    uint ixVal;
+    const TidyOptionImpl* option = option_defs;
+    *changedUserTags = tagtype_null;
+
+    for ( ixVal=0; ixVal < N_TIDY_OPTIONS; ++option, ++ixVal )
+    {
+        assert( ixVal == (uint) option->id );
+        switch (option->id)
+        {
+#define TEST_USERTAGS(USERTAGOPTION,USERTAGTYPE) \
+        case USERTAGOPTION: \
+            if (!OptionValueIdentical(option,&current[ixVal],&new[ixVal])) \
+            { \
+                *changedUserTags |= USERTAGTYPE; \
+                ret = yes; \
+            } \
+            break
+            TEST_USERTAGS(TidyInlineTags,tagtype_inline);
+            TEST_USERTAGS(TidyBlockTags,tagtype_block);
+            TEST_USERTAGS(TidyEmptyTags,tagtype_empty);
+            TEST_USERTAGS(TidyPreTags,tagtype_pre);
+        default:
+            break;
+        }
+    }
+    return ret;
+}
+
+static void ReparseTagDecls( TidyDocImpl* doc, uint changedUserTags  )
+{
+#define REPARSE_USERTAGS(USERTAGOPTION,USERTAGTYPE) \
+    if ( changedUserTags & USERTAGTYPE ) \
+    { \
+        TY_(FreeDeclaredTags)( doc, USERTAGTYPE ); \
+        ReparseTagType( doc, USERTAGOPTION ); \
+    }
+    REPARSE_USERTAGS(TidyInlineTags,tagtype_inline);
+    REPARSE_USERTAGS(TidyBlockTags,tagtype_block);
+    REPARSE_USERTAGS(TidyEmptyTags,tagtype_empty);
+    REPARSE_USERTAGS(TidyPreTags,tagtype_pre);
 }
 
 void TY_(ResetConfigToDefault)( TidyDocImpl* doc )
@@ -487,14 +537,17 @@ void TY_(ResetConfigToSnapshot)( TidyDocImpl* doc )
     const TidyOptionImpl* option = option_defs;
     TidyOptionValue* value = &doc->config.value[ 0 ];
     const TidyOptionValue* snap  = &doc->config.snapshot[ 0 ];
+    uint changedUserTags;
+    Bool needReparseTagsDecls = NeedReparseTagDecls( doc, value, snap,
+                                                     &changedUserTags );
 
     for ( ixVal=0; ixVal < N_TIDY_OPTIONS; ++option, ++ixVal )
     {
         assert( ixVal == (uint) option->id );
         CopyOptionValue( option, &value[ixVal], &snap[ixVal] );
     }
-    TY_(FreeDeclaredTags)( doc, tagtype_null );
-    ReparseTagDecls( doc );
+    if ( needReparseTagsDecls )
+        ReparseTagDecls( doc, changedUserTags );
 }
 
 void TY_(CopyConfig)( TidyDocImpl* docTo, TidyDocImpl* docFrom )
@@ -505,6 +558,9 @@ void TY_(CopyConfig)( TidyDocImpl* docTo, TidyDocImpl* docFrom )
         const TidyOptionImpl* option = option_defs;
         const TidyOptionValue* from = &docFrom->config.value[ 0 ];
         TidyOptionValue* to   = &docTo->config.value[ 0 ];
+        uint changedUserTags;
+        Bool needReparseTagsDecls = NeedReparseTagDecls( docTo, to, from,
+                                                         &changedUserTags );
 
         TY_(TakeConfigSnapshot)( docTo );
         for ( ixVal=0; ixVal < N_TIDY_OPTIONS; ++option, ++ixVal )
@@ -512,7 +568,8 @@ void TY_(CopyConfig)( TidyDocImpl* docTo, TidyDocImpl* docFrom )
             assert( ixVal == (uint) option->id );
             CopyOptionValue( option, &to[ixVal], &from[ixVal] );
         }
-        ReparseTagDecls( docTo );
+        if ( needReparseTagsDecls )
+            ReparseTagDecls( docTo, changedUserTags  );
         AdjustConfig( docTo );  /* Make sure it's consistent */
     }
 }

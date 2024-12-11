@@ -115,6 +115,7 @@
 -(void *)getBytesAtOffset:(uint64_t)offsetInDirBlock
 {
     if (offsetInDirBlock >= self.size) {
+        os_log_error(fskit_std_log(), "%s: unexpected offset in dir block (%llu), dir block size %zu", __FUNCTION__, offsetInDirBlock, self.size);
         return NULL;
     }
 	return (void *)((uint8_t *)self.data.bytes + offsetInDirBlock);

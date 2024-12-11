@@ -265,6 +265,7 @@ enum ArrayBufferViewSubtag {
     Float64ArrayTag = 9,
     BigInt64ArrayTag = 10,
     BigUint64ArrayTag = 11,
+    Float16ArrayTag = 12,
 };
 
 static ASCIILiteral name(SerializationTag tag)
@@ -514,6 +515,7 @@ static unsigned typedArrayElementSize(ArrayBufferViewSubtag tag)
         return 1;
     case Int16ArrayTag:
     case Uint16ArrayTag:
+    case Float16ArrayTag:
         return 2;
     case Int32ArrayTag:
     case Uint32ArrayTag:
@@ -1448,6 +1450,8 @@ private:
             write(Int32ArrayTag);
         else if (obj->inherits<JSUint32Array>())
             write(Uint32ArrayTag);
+        else if (obj->inherits<JSFloat16Array>())
+            write(Float16ArrayTag);
         else if (obj->inherits<JSFloat32Array>())
             write(Float32ArrayTag);
         else if (obj->inherits<JSFloat64Array>())
@@ -1881,60 +1885,17 @@ private:
                 return true;
             }
             if (auto* errorInstance = jsDynamicCast<ErrorInstance*>(obj)) {
-                auto& vm = m_lexicalGlobalObject->vm();
-                auto scope = DECLARE_THROW_SCOPE(vm);
-                auto errorTypeValue = errorInstance->get(m_lexicalGlobalObject, vm.propertyNames->name);
-                RETURN_IF_EXCEPTION(scope, false);
-                auto errorTypeString = errorTypeValue.toWTFString(m_lexicalGlobalObject);
-                RETURN_IF_EXCEPTION(scope, false);
-
-                String message;
-                PropertyDescriptor messageDescriptor;
-                if (errorInstance->getOwnPropertyDescriptor(m_lexicalGlobalObject, vm.propertyNames->message, messageDescriptor) && messageDescriptor.isDataDescriptor()) {
-                    EXCEPTION_ASSERT(!scope.exception());
-                    message = messageDescriptor.value().toWTFString(m_lexicalGlobalObject);
-                }
-                RETURN_IF_EXCEPTION(scope, false);
-
-                unsigned line = 0;
-                PropertyDescriptor lineDescriptor;
-                if (errorInstance->getOwnPropertyDescriptor(m_lexicalGlobalObject, vm.propertyNames->line, lineDescriptor) && lineDescriptor.isDataDescriptor()) {
-                    EXCEPTION_ASSERT(!scope.exception());
-                    line = lineDescriptor.value().toNumber(m_lexicalGlobalObject);
-                }
-                RETURN_IF_EXCEPTION(scope, false);
-
-                unsigned column = 0;
-                PropertyDescriptor columnDescriptor;
-                if (errorInstance->getOwnPropertyDescriptor(m_lexicalGlobalObject, vm.propertyNames->column, columnDescriptor) && columnDescriptor.isDataDescriptor()) {
-                    EXCEPTION_ASSERT(!scope.exception());
-                    column = columnDescriptor.value().toNumber(m_lexicalGlobalObject);
-                }
-                RETURN_IF_EXCEPTION(scope, false);
-
-                String sourceURL;
-                PropertyDescriptor sourceURLDescriptor;
-                if (errorInstance->getOwnPropertyDescriptor(m_lexicalGlobalObject, vm.propertyNames->sourceURL, sourceURLDescriptor) && sourceURLDescriptor.isDataDescriptor()) {
-                    EXCEPTION_ASSERT(!scope.exception());
-                    sourceURL = sourceURLDescriptor.value().toWTFString(m_lexicalGlobalObject);
-                }
-                RETURN_IF_EXCEPTION(scope, false);
-
-                String stack;
-                PropertyDescriptor stackDescriptor;
-                if (errorInstance->getOwnPropertyDescriptor(m_lexicalGlobalObject, vm.propertyNames->stack, stackDescriptor) && stackDescriptor.isDataDescriptor()) {
-                    EXCEPTION_ASSERT(!scope.exception());
-                    stack = stackDescriptor.value().toWTFString(m_lexicalGlobalObject);
-                }
-                RETURN_IF_EXCEPTION(scope, false);
+                auto errorInformation = extractErrorInformationFromErrorInstance(m_lexicalGlobalObject, *errorInstance);
+                if (!errorInformation)
+                    return false;
 
                 write(ErrorInstanceTag);
-                write(errorNameToSerializableErrorType(errorTypeString));
-                writeNullableString(message);
-                write(line);
-                write(column);
-                writeNullableString(sourceURL);
-                writeNullableString(stack);
+                write(errorNameToSerializableErrorType(errorInformation->errorTypeString));
+                writeNullableString(errorInformation->message);
+                write(errorInformation->line);
+                write(errorInformation->column);
+                writeNullableString(errorInformation->sourceURL);
+                writeNullableString(errorInformation->stack);
                 return true;
             }
             if (obj->inherits<JSMessagePort>()) {
@@ -2372,7 +2333,14 @@ private:
         write(file.url().string());
         write(file.type());
         write(file.name());
-        write(static_cast<double>(file.lastModifiedOverride().value_or(-1)));
+        if (m_forStorage == SerializationForStorage::No)
+            write(static_cast<double>(file.lastModifiedOverride().value_or(-1)));
+        else {
+            if (auto lastModifiedOverride = file.lastModifiedOverride())
+                write(static_cast<double>(*lastModifiedOverride));
+            else
+                write(static_cast<double>(file.lastModified()));
+        }
     }
 
     void write(PredefinedColorSpace colorSpace)
@@ -2612,7 +2580,7 @@ private:
             switch (key->type()) {
             case CryptoKey::Type::Public: {
                 write(CryptoKeyAsymmetricTypeSubtag::Public);
-                auto result = downcast<CryptoKeyEC>(*key).exportRaw(isUsingCryptoKit());
+                auto result = downcast<CryptoKeyEC>(*key).exportRaw();
                 ASSERT(!result.hasException());
                 write(result.releaseReturnValue());
                 break;
@@ -2620,7 +2588,7 @@ private:
             case CryptoKey::Type::Private: {
                 write(CryptoKeyAsymmetricTypeSubtag::Private);
                 // Use the standard complied method is not very efficient, but simple/reliable.
-                auto result = downcast<CryptoKeyEC>(*key).exportPkcs8(isUsingCryptoKit());
+                auto result = downcast<CryptoKeyEC>(*key).exportPkcs8();
                 ASSERT(!result.hasException());
                 write(result.releaseReturnValue());
                 break;
@@ -2652,11 +2620,6 @@ private:
             write(downcast<CryptoKeyOKP>(*key).platformKey());
             break;
         }
-    }
-
-    UseCryptoKit isUsingCryptoKit()
-    {
-        return executionContext(m_lexicalGlobalObject)->settingsValues().cryptoKitEnabled ? UseCryptoKit::Yes : UseCryptoKit::No;
     }
 
     void write(std::span<const uint8_t> data)
@@ -3307,11 +3270,6 @@ private:
 
     enum class VisitNamedMemberResult : uint8_t { Error, Break, Start, Unknown };
 
-    UseCryptoKit isUsingCryptoKit()
-    {
-        return executionContext(m_lexicalGlobalObject)->settingsValues().cryptoKitEnabled ? UseCryptoKit::Yes : UseCryptoKit::No;
-    }
-
     template<WalkerState endState>
     ALWAYS_INLINE VisitNamedMemberResult startVisitNamedMember(MarkedVector<JSObject*, 32>& outputObjectStack, Vector<Identifier, 16>& propertyNameStack, Vector<WalkerState, 16>& stateStack, JSValue& outValue)
     {
@@ -3800,6 +3758,8 @@ private:
             return makeArrayBufferView(Int32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Uint32ArrayTag:
             return makeArrayBufferView(Uint32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
+        case Float16ArrayTag:
+            return makeArrayBufferView(Float16Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Float32ArrayTag:
             return makeArrayBufferView(Float32Array::wrappedAs(arrayBuffer.releaseNonNull(), byteOffset, length).get());
         case Float64ArrayTag:
@@ -4188,10 +4148,10 @@ private:
 
         switch (type) {
         case CryptoKeyAsymmetricTypeSubtag::Public:
-            result = CryptoKeyEC::importRaw(algorithm, curve->string(), WTFMove(keyData), extractable, usages, isUsingCryptoKit());
+            result = CryptoKeyEC::importRaw(algorithm, curve->string(), WTFMove(keyData), extractable, usages);
             break;
         case CryptoKeyAsymmetricTypeSubtag::Private:
-            result = CryptoKeyEC::importPkcs8(algorithm, curve->string(), WTFMove(keyData), extractable, usages, isUsingCryptoKit());
+            result = CryptoKeyEC::importPkcs8(algorithm, curve->string(), WTFMove(keyData), extractable, usages);
             break;
         }
 
@@ -5186,10 +5146,10 @@ private:
                     fail();
                     return JSValue();
                 }
-                memory = Wasm::Memory::create(contents.releaseNonNull(), WTFMove(handler));
+                memory = Wasm::Memory::create(vm, contents.releaseNonNull(), WTFMove(handler));
             } else {
                 // zero size & max-size.
-                memory = Wasm::Memory::createZeroSized(JSC::MemorySharingMode::Shared, WTFMove(handler));
+                memory = Wasm::Memory::createZeroSized(vm, JSC::MemorySharingMode::Shared, WTFMove(handler));
             }
 
             result->adopt(memory.releaseNonNull());
@@ -6480,6 +6440,59 @@ IDBValue SerializedScriptValue::writeBlobsToDiskForIndexedDBSynchronously()
     semaphore.wait();
 
     return value;
+}
+
+std::optional<ErrorInformation> extractErrorInformationFromErrorInstance(JSC::JSGlobalObject* lexicalGlobalObject, ErrorInstance& errorInstance)
+{
+    ASSERT(lexicalGlobalObject);
+    auto& vm = lexicalGlobalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    auto errorTypeValue = errorInstance.get(lexicalGlobalObject, vm.propertyNames->name);
+    RETURN_IF_EXCEPTION(scope, std::nullopt);
+    String errorTypeString = errorTypeValue.toWTFString(lexicalGlobalObject);
+    RETURN_IF_EXCEPTION(scope, std::nullopt);
+
+    PropertyDescriptor messageDescriptor;
+    String message;
+    if (errorInstance.getOwnPropertyDescriptor(lexicalGlobalObject, vm.propertyNames->message, messageDescriptor) && messageDescriptor.isDataDescriptor()) {
+        EXCEPTION_ASSERT(!scope.exception());
+        message = messageDescriptor.value().toWTFString(lexicalGlobalObject);
+    }
+    RETURN_IF_EXCEPTION(scope, std::nullopt);
+
+    PropertyDescriptor lineDescriptor;
+    unsigned line = 0;
+    if (errorInstance.getOwnPropertyDescriptor(lexicalGlobalObject, vm.propertyNames->line, lineDescriptor) && lineDescriptor.isDataDescriptor()) {
+        EXCEPTION_ASSERT(!scope.exception());
+        line = lineDescriptor.value().toNumber(lexicalGlobalObject);
+    }
+    RETURN_IF_EXCEPTION(scope, std::nullopt);
+
+    PropertyDescriptor columnDescriptor;
+    unsigned column = 0;
+    if (errorInstance.getOwnPropertyDescriptor(lexicalGlobalObject, vm.propertyNames->column, columnDescriptor) && columnDescriptor.isDataDescriptor()) {
+        EXCEPTION_ASSERT(!scope.exception());
+        column = columnDescriptor.value().toNumber(lexicalGlobalObject);
+    }
+    RETURN_IF_EXCEPTION(scope, std::nullopt);
+
+    PropertyDescriptor sourceURLDescriptor;
+    String sourceURL;
+    if (errorInstance.getOwnPropertyDescriptor(lexicalGlobalObject, vm.propertyNames->sourceURL, sourceURLDescriptor) && sourceURLDescriptor.isDataDescriptor()) {
+        EXCEPTION_ASSERT(!scope.exception());
+        sourceURL = sourceURLDescriptor.value().toWTFString(lexicalGlobalObject);
+    }
+    RETURN_IF_EXCEPTION(scope, std::nullopt);
+
+    PropertyDescriptor stackDescriptor;
+    String stack;
+    if (errorInstance.getOwnPropertyDescriptor(lexicalGlobalObject, vm.propertyNames->stack, stackDescriptor) && stackDescriptor.isDataDescriptor()) {
+        EXCEPTION_ASSERT(!scope.exception());
+        stack = stackDescriptor.value().toWTFString(lexicalGlobalObject);
+    }
+    RETURN_IF_EXCEPTION(scope, std::nullopt);
+
+    return { ErrorInformation { errorTypeString, message, line, column, sourceURL, stack } };
 }
 
 } // namespace WebCore

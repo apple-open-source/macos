@@ -27,6 +27,7 @@
 
 #include "ActiveDOMObject.h"
 #include "EventTarget.h"
+#include "GPUBindGroupEntry.h"
 #include "GPUComputePipeline.h"
 #include "GPUDeviceLostInfo.h"
 #include "GPUError.h"
@@ -38,8 +39,8 @@
 #include "ScriptExecutionContext.h"
 #include "WebGPUDevice.h"
 #include <optional>
-#include <wtf/IsoMalloc.h>
 #include <wtf/Ref.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashMap.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/WeakPtr.h>
@@ -78,9 +79,15 @@ class GPUSupportedFeatures;
 class GPUSupportedLimits;
 class GPUTexture;
 struct GPUTextureDescriptor;
+class WebXRSession;
+class XRGPUBinding;
+
+namespace WebGPU {
+class XRBinding;
+}
 
 class GPUDevice : public RefCounted<GPUDevice>, public ActiveDOMObject, public EventTarget {
-    WTF_MAKE_ISO_ALLOCATED(GPUDevice);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(GPUDevice);
 public:
     static Ref<GPUDevice> create(ScriptExecutionContext* scriptExecutionContext, Ref<WebGPU::Device>&& backing, String&& queueLabel)
     {
@@ -103,6 +110,7 @@ public:
 
     void destroy(ScriptExecutionContext&);
 
+    RefPtr<WebGPU::XRBinding> createXRBinding(const WebXRSession&);
     ExceptionOr<Ref<GPUBuffer>> createBuffer(const GPUBufferDescriptor&);
     ExceptionOr<Ref<GPUTexture>> createTexture(const GPUTextureDescriptor&);
     bool isSupportedFormat(GPUTextureFormat) const;
@@ -167,6 +175,8 @@ private:
 #endif
 
     WeakHashMap<HTMLVideoElement, WeakPtr<GPUExternalTexture>> m_videoElementToExternalTextureMap;
+    std::pair<RefPtr<HTMLVideoElement>, RefPtr<GPUExternalTexture>> m_previouslyImportedExternalTexture;
+    std::pair<Vector<GPUBindGroupEntry>, RefPtr<GPUBindGroup>> m_lastCreatedExternalTextureBindGroup;
     bool m_waitingForDeviceLostPromise { false };
 };
 

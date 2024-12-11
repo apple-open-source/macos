@@ -155,17 +155,18 @@ JSObject* constructFunction(JSGlobalObject* globalObject, const ArgList& args, c
     if (UNLIKELY(code.isNull()))
         return nullptr;
 
-    RELEASE_AND_RETURN(scope, constructFunctionSkippingEvalEnabledCheck(globalObject, WTFMove(code), functionName, sourceOrigin, sourceURL, taintedOrigin, position, -1, functionConstructorParametersEndPosition, functionConstructionMode, newTarget));
+    LexicallyScopedFeatures lexicallyScopedFeatures = globalObject->globalScopeExtension() ? TaintedByWithScopeLexicallyScopedFeature : NoLexicallyScopedFeatures;
+    RELEASE_AND_RETURN(scope, constructFunctionSkippingEvalEnabledCheck(globalObject, WTFMove(code), lexicallyScopedFeatures, functionName, sourceOrigin, sourceURL, taintedOrigin, position, -1, functionConstructorParametersEndPosition, functionConstructionMode, newTarget));
 }
 
-JSObject* constructFunctionSkippingEvalEnabledCheck(JSGlobalObject* globalObject, String&& program, const Identifier& functionName, const SourceOrigin& sourceOrigin, const String& sourceURL, SourceTaintedOrigin taintedOrigin, const TextPosition& position, int overrideLineNumber, std::optional<int> functionConstructorParametersEndPosition, FunctionConstructionMode functionConstructionMode, JSValue newTarget)
+JSObject* constructFunctionSkippingEvalEnabledCheck(JSGlobalObject* globalObject, String&& program, LexicallyScopedFeatures lexicallyScopedFeatures, const Identifier& functionName, const SourceOrigin& sourceOrigin, const String& sourceURL, SourceTaintedOrigin taintedOrigin, const TextPosition& position, int overrideLineNumber, std::optional<int> functionConstructorParametersEndPosition, FunctionConstructionMode functionConstructionMode, JSValue newTarget)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     SourceCode source = makeSource(program, sourceOrigin, taintedOrigin, sourceURL, position);
     JSObject* exception = nullptr;
-    FunctionExecutable* function = FunctionExecutable::fromGlobalCode(functionName, globalObject, source, exception, overrideLineNumber, functionConstructorParametersEndPosition);
+    FunctionExecutable* function = FunctionExecutable::fromGlobalCode(functionName, globalObject, source, lexicallyScopedFeatures, exception, overrideLineNumber, functionConstructorParametersEndPosition);
     if (UNLIKELY(!function)) {
         ASSERT(exception);
         throwException(globalObject, scope, exception);
@@ -201,13 +202,13 @@ JSObject* constructFunctionSkippingEvalEnabledCheck(JSGlobalObject* globalObject
 
     switch (functionConstructionMode) {
     case FunctionConstructionMode::Function:
-        return JSFunction::create(vm, function, globalObject->globalScope(), structure);
+        return JSFunction::create(vm, globalObject, function, globalObject->globalScope(), structure);
     case FunctionConstructionMode::Generator:
-        return JSGeneratorFunction::create(vm, function, globalObject->globalScope(), structure);
+        return JSGeneratorFunction::create(vm, globalObject, function, globalObject->globalScope(), structure);
     case FunctionConstructionMode::Async:
-        return JSAsyncFunction::create(vm, function, globalObject->globalScope(), structure);
+        return JSAsyncFunction::create(vm, globalObject, function, globalObject->globalScope(), structure);
     case FunctionConstructionMode::AsyncGenerator:
-        return JSAsyncGeneratorFunction::create(vm, function, globalObject->globalScope(), structure);
+        return JSAsyncGeneratorFunction::create(vm, globalObject, function, globalObject->globalScope(), structure);
     }
 
     ASSERT_NOT_REACHED();

@@ -1662,10 +1662,8 @@ setnoshaping(const char *vname, int value, int s, const struct afswtch *afp)
 {
 	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	ifr.ifr_intval = value;
-#ifdef SIOCSIFNOTRAFFICSHAPING
 	if (ioctl(s, SIOCSIFNOTRAFFICSHAPING, (caddr_t)&ifr) < 0)
 		Perror(vname);
-#endif /* SIOCSIFNOTRAFFICSHAPING */
 }
 
 void
@@ -1673,10 +1671,8 @@ setmanagement(const char *vname, int value, int s, const struct afswtch *afp)
 {
 	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	ifr.ifr_intval = value;
-#ifdef SIOCSIFMANAGEMENT
 	if (ioctl(s, SIOCSIFMANAGEMENT, (caddr_t)&ifr) < 0)
 		Perror(vname);
-#endif /* SIOCSIFMANAGEMENT */
 }
 
 void
@@ -1684,10 +1680,95 @@ setdisableinput(const char *vname, int value, int s, const struct afswtch *afp)
 {
 	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	ifr.ifr_intval = value;
-#ifdef SIOCSIFDISABLEINPUT
 	if (ioctl(s, SIOCSIFDISABLEINPUT, (caddr_t)&ifr) < 0)
 		Perror(vname);
-#endif /* SIOCSIFDISABLEINPUT */
+}
+
+static void
+print_linkqualitymetric(int8_t lqm)
+{
+	printf("\tlink quality: %d ", lqm);
+	if (lqm == IFNET_LQM_THRESH_OFF)
+		printf("(off)");
+	else if (lqm == IFNET_LQM_THRESH_UNKNOWN)
+		printf("(unknown)");
+	else if (lqm > IFNET_LQM_THRESH_UNKNOWN &&
+			 lqm <= IFNET_LQM_THRESH_BAD)
+		printf("(bad)");
+	else if (lqm > IFNET_LQM_THRESH_UNKNOWN &&
+			 lqm <= IFNET_LQM_THRESH_POOR)
+		printf("(poor)");
+	else if (lqm > IFNET_LQM_THRESH_POOR &&
+			 lqm <= IFNET_LQM_THRESH_GOOD)
+		printf("(good)");
+	else
+		printf("(?)");
+}
+
+void
+setlinkqualitymetric(const char *val, int dummy __unused, int s,
+    const struct afswtch *afp)
+{
+	long lqm;
+	char *endptr = NULL;
+
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+
+	if (val == NULL) {
+		if (ioctl(s, SIOCGIFLINKQUALITYMETRIC, &ifr) != -1) {
+			print_linkqualitymetric(ifr.ifr_link_quality_metric);
+			printf("\n");
+			return;
+		}
+	}
+
+	lqm = strtol(val, &endptr, 0);
+	if (*endptr == 0) {
+		switch (lqm) {
+			case IFNET_LQM_THRESH_OFF:
+				fprintf(stderr, "# lqm value '%s' (off) cannot be set\n", val);
+				exit(EX_USAGE);
+			case IFNET_LQM_THRESH_UNKNOWN:
+				fprintf(stderr, "# lqm value '%s' (unknown) cannot be set\n", val);
+				exit(EX_USAGE);
+			case IFNET_LQM_THRESH_ABORT:
+			case IFNET_LQM_THRESH_MINIMALLY_VIABLE:
+			case IFNET_LQM_THRESH_POOR:
+			case IFNET_LQM_THRESH_GOOD:
+				break;
+			default:
+				fprintf(stderr, "# lqm value '%s' is invalid\n", val);
+				exit(EX_USAGE);
+		}
+	} else {
+		if (strcasecmp(val, "off") == 0) {
+				fprintf(stderr, "# lqm value '%s' cannot be set\n", val);
+				exit(EX_USAGE);
+		} else if (strcasecmp(val, "unknown") == 0) {
+				fprintf(stderr, "# lqm value '%s' cannot be set\n", val);
+				exit(EX_USAGE);
+		} else if (strcasecmp(val, "abort") == 0) {
+			lqm = IFNET_LQM_THRESH_ABORT;
+		} else if (strcasecmp(val, "bad") == 0) {
+			lqm = IFNET_LQM_THRESH_ABORT;
+		} else if (strcasecmp(val, "MINIMALLY_VIABLE") == 0) {
+			lqm = IFNET_LQM_THRESH_MINIMALLY_VIABLE;
+		} else if (strcasecmp(val, "poor") == 0) {
+			lqm = IFNET_LQM_THRESH_POOR;
+		} else if (strcasecmp(val, "good") == 0) {
+			lqm = IFNET_LQM_THRESH_GOOD;
+		} else {
+				fprintf(stderr, "# lqm value '%s' is invalid\n", val);
+				exit(EX_USAGE);
+		}
+	}
+
+	ifr.ifr_interface_state.valid_bitmask = IF_INTERFACE_STATE_LQM_STATE_VALID;
+	ifr.ifr_interface_state.lqm_state = (int8_t)lqm;
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+
+	if (ioctl(s, SIOCSIFINTERFACESTATE, (caddr_t)&ifr) < 0)
+		Perror("ioctl SIOCSIFINTERFACESTATE");
 }
 
 struct str2num {
@@ -1833,7 +1914,6 @@ done:
 	}
 }
 
-
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
@@ -1858,6 +1938,7 @@ done:
 
 #define	IFRLOGF_BITS \
 "\020\1DLIL\21FAMILY\31DRIVER\35FIRMWARE"
+
 
 /*
  * Print the status of the interface.  If an address family was
@@ -2047,37 +2128,8 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	}
 
 	if (ioctl(s, SIOCGIFLINKQUALITYMETRIC, &ifr) != -1) {
-		int lqm = ifr.ifr_link_quality_metric;
-		if (verbose > 1) {
-			printf("\tlink quality: %d ", lqm);
-			if (lqm == IFNET_LQM_THRESH_OFF)
-				printf("(off)");
-			else if (lqm == IFNET_LQM_THRESH_UNKNOWN)
-				printf("(unknown)");
-			else if (lqm > IFNET_LQM_THRESH_UNKNOWN &&
-				 lqm <= IFNET_LQM_THRESH_BAD)
-				printf("(bad)");
-			else if (lqm > IFNET_LQM_THRESH_UNKNOWN &&
-				 lqm <= IFNET_LQM_THRESH_POOR)
-				printf("(poor)");
-			else if (lqm > IFNET_LQM_THRESH_POOR &&
-			    lqm <= IFNET_LQM_THRESH_GOOD)
-				printf("(good)");
-			else
-				printf("(?)");
-			printf("\n");
-		} else if (lqm > IFNET_LQM_THRESH_UNKNOWN) {
-			printf("\tlink quality: %d ", lqm);
-			if (lqm <= IFNET_LQM_THRESH_BAD)
-				printf("(bad)");
-			else if (lqm <= IFNET_LQM_THRESH_POOR)
-				printf("(poor)");
-			else if (lqm <= IFNET_LQM_THRESH_GOOD)
-				printf("(good)");
-			else
-				printf("(?)");
-			printf("\n");
-		}
+		print_linkqualitymetric(ifr.ifr_link_quality_metric);
+		printf("\n");
 	}
 
 	{
@@ -2113,21 +2165,8 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			    ifr.ifr_interface_state.valid_bitmask &
 			    IF_INTERFACE_STATE_LQM_STATE_VALID) {
 				int8_t lqm = ifr.ifr_interface_state.lqm_state;
-				
-				printf(" lqm: %d", lqm);
-				
-				if (lqm == IFNET_LQM_THRESH_OFF)
-					printf("(off)");
-				else if (lqm == IFNET_LQM_THRESH_UNKNOWN)
-					printf("(unknown)");
-				else if (lqm == IFNET_LQM_THRESH_BAD)
-					printf("(bad)");
-				else if (lqm == IFNET_LQM_THRESH_POOR)
-					printf("(poor)");
-				else if (lqm == IFNET_LQM_THRESH_GOOD)
-					printf("(good)");
-				else
-					printf("(?)");
+
+				print_linkqualitymetric(lqm);
 			}
 		}
 		printf("\n");
@@ -2650,6 +2689,7 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-management", 0,      setmanagement),
 	DEF_CMD("disableinput", 1,      setdisableinput),
 	DEF_CMD("-disableinput", 0,      setdisableinput),
+	DEF_CMD_OPTARG("lqm", setlinkqualitymetric),
 };
 
 static __constructor void

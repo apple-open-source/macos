@@ -35,11 +35,14 @@
 #include "Settings.h"
 #include <JavaScriptCore/InspectorAgentBase.h>
 #include <wtf/MainThread.h>
+#include <wtf/TZoneMallocInlines.h>
+
 
 namespace WebCore {
 
 using namespace Inspector;
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PageDebuggable);
 Ref<PageDebuggable> PageDebuggable::create(Page& page)
 {
     return adoptRef(*new PageDebuggable(page));
@@ -117,7 +120,7 @@ void PageDebuggable::disconnect(FrontendChannel& channel)
 
 void PageDebuggable::dispatchMessageFromRemote(String&& message)
 {
-    callOnMainThreadAndWait([this, protectedThis = Ref { *this }, message = WTFMove(message).isolatedCopy()] {
+    callOnMainThreadAndWait([this, protectedThis = Ref { *this }, message = WTFMove(message).isolatedCopy()]() mutable {
         if (m_page)
             m_page->inspectorController().dispatchMessageFromFrontend(WTFMove(message));
     });

@@ -42,12 +42,12 @@
 #include "ScriptableDocumentParser.h"
 #include "Settings.h"
 #include "TrustedType.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLIFrameElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLIFrameElement);
 
 using namespace HTMLNames;
 
@@ -56,6 +56,8 @@ inline HTMLIFrameElement::HTMLIFrameElement(const QualifiedName& tagName, Docume
 {
     ASSERT(hasTagName(iframeTag));
 }
+
+HTMLIFrameElement::~HTMLIFrameElement() = default;
 
 Ref<HTMLIFrameElement> HTMLIFrameElement::create(const QualifiedName& tagName, Document& document)
 {
@@ -124,7 +126,7 @@ void HTMLIFrameElement::attributeChanged(const QualifiedName& name, const AtomSt
             m_sandbox->associatedAttributeValueChanged();
 
         String invalidTokens;
-        setSandboxFlags(newValue.isNull() ? SandboxNone : SecurityContext::parseSandboxPolicy(newValue, invalidTokens));
+        setSandboxFlags(newValue.isNull() ? SandboxFlags { } : SecurityContext::parseSandboxPolicy(newValue, invalidTokens));
         if (!invalidTokens.isNull())
             document().addConsoleMessage(MessageSource::Other, MessageLevel::Error, makeString("Error while parsing the 'sandbox' attribute: "_s, invalidTokens));
         break;

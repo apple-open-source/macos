@@ -15,9 +15,42 @@
 #endif
 #endif // !defined(NS_ENUM)
 
+typedef NS_ENUM(int32_t, SECSFAProductName) {
+    SECSFAProductName_macOS = 1,
+    SECSFAProductName_iphoneOS = 2,
+    SECSFAProductName_xrOS = 3,
+    SECSFAProductName_watchOS = 4,
+    SECSFAProductName_tvOS = 5,
+};
+#ifdef __OBJC__
+NS_INLINE NSString *SECSFAProductNameAsString(SECSFAProductName value)
+{
+    switch (value)
+    {
+        case SECSFAProductName_macOS: return @"macOS";
+        case SECSFAProductName_iphoneOS: return @"iphoneOS";
+        case SECSFAProductName_xrOS: return @"xrOS";
+        case SECSFAProductName_watchOS: return @"watchOS";
+        case SECSFAProductName_tvOS: return @"tvOS";
+        default: return [NSString stringWithFormat:@"(unknown: %i)", value];
+    }
+}
+#endif /* __OBJC__ */
+#ifdef __OBJC__
+NS_INLINE SECSFAProductName StringAsSECSFAProductName(NSString *value)
+{
+    if ([value isEqualToString:@"macOS"]) return SECSFAProductName_macOS;
+    if ([value isEqualToString:@"iphoneOS"]) return SECSFAProductName_iphoneOS;
+    if ([value isEqualToString:@"xrOS"]) return SECSFAProductName_xrOS;
+    if ([value isEqualToString:@"watchOS"]) return SECSFAProductName_watchOS;
+    if ([value isEqualToString:@"tvOS"]) return SECSFAProductName_tvOS;
+    return SECSFAProductName_macOS;
+}
+#endif /* __OBJC__ */
 /**
- * Structured so the sane behavior with minimal encoding is do for newer clients
- * so if you have older clients for this event type, your match better match only errors
+ * Structured minimal encoding is do for newer clients we do matching for errors only since
+ * this is the most common option clients want, so if you have older clients for this event type,
+ * your match better match only errors
  * but that would be true regardless of the value of eventclass.
  *
  * 0 - new: only errors, older clients: all events

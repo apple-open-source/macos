@@ -219,6 +219,8 @@ $(OBJROOT)/$(PROJECT)::
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-regexec-fix-underflow.patch) && \
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-rootless-check-fd.patch) && \
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/ff1f9f59360afeebd6f75ca1502f5c3ebf077da3.patch)
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/0001-Apply-upstream-patch-73bc3211d5e683f5027b335f232795c0fabde31b.patch) && \
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/0002-Apply-upstream-c58b55d0c22c86ec015e694450585b0c23c4750c.patch)
 
 
 

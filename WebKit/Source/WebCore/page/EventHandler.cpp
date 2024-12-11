@@ -133,8 +133,10 @@
 #include "WindowsKeyboardCodes.h"
 #include <wtf/Assertions.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/Scope.h>
 #include <wtf/SetForScope.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(IOS_TOUCH_EVENTS)
 #include "PlatformTouchEventIOS.h"
@@ -162,6 +164,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(EventHandler);
 
 using namespace HTMLNames;
 
@@ -1126,7 +1130,7 @@ bool EventHandler::handleMouseUp(const MouseEventWithHitTestResults& event)
     // in a window, we just don't acceptFirstMouse, and the whole down-drag-up sequence gets
     // ignored upstream of this layer.
     return eventActivatedView(event.event());
-}    
+}
 
 bool EventHandler::handleMouseReleaseEvent(const MouseEventWithHitTestResults& event)
 {
@@ -1992,7 +1996,7 @@ bool EventHandler::handleMouseDoubleClickEvent(const PlatformMouseEvent& platfor
 
     m_clickCount = platformMouseEvent.clickCount();
     bool swallowMouseUpEvent = !dispatchMouseEvent(eventNames().mouseupEvent, mouseEvent.protectedTargetNode().get(), m_clickCount, platformMouseEvent, FireMouseOverOut::No);
-    bool swallowClickEvent = platformMouseEvent.button() != MouseButton::Right && mouseEvent.targetNode() == m_clickNode && !dispatchMouseEvent(eventNames().clickEvent, mouseEvent.protectedTargetNode().get(), m_clickCount, platformMouseEvent, FireMouseOverOut::Yes);
+    bool swallowClickEvent = swallowAnyClickEvent(platformMouseEvent, mouseEvent, IgnoreAncestorNodesForClickEvent::Yes);
 
     if (m_lastScrollbarUnderMouse)
         swallowMouseUpEvent = m_lastScrollbarUnderMouse->mouseUp(platformMouseEvent);
@@ -2198,7 +2202,7 @@ HandleUserInputEventResult EventHandler::handleMouseMoveEvent(const PlatformMous
     if (localSubframe) {
         // Update over/out state before passing the event to the subframe.
         updateMouseEventTargetNode(eventNames().mousemoveEvent, mouseEvent.protectedTargetNode().get(), platformMouseEvent, FireMouseOverOut::Yes);
-        
+
         // Event dispatch in updateMouseEventTargetNode may have caused the subframe of the target
         // node to be detached from its FrameView, in which case the event should not be passed.
         if (localSubframe->view())
@@ -2214,7 +2218,7 @@ HandleUserInputEventResult EventHandler::handleMouseMoveEvent(const PlatformMous
 
     if (swallowEvent)
         return true;
-    
+
     swallowEvent = !dispatchMouseEvent(eventNames().mousemoveEvent, mouseEvent.protectedTargetNode().get(), 0, platformMouseEvent, FireMouseOverOut::Yes);
 
 #if ENABLE(DRAG_SUPPORT)
@@ -2264,6 +2268,38 @@ static RefPtr<Node> targetNodeForClickEvent(Node* mousePressNode, Node* mouseRel
     return nullptr;
 }
 
+bool EventHandler::swallowAnyClickEvent(const PlatformMouseEvent& platformMouseEvent, const MouseEventWithHitTestResults& mouseEvent, IgnoreAncestorNodesForClickEvent ignoreAncestorNodesForClickEvent)
+{
+    if (!m_clickCount)
+        return false;
+
+    auto nodeToClick = [&] -> RefPtr<Node> {
+        if (ignoreAncestorNodesForClickEvent == IgnoreAncestorNodesForClickEvent::Yes) {
+            if (mouseEvent.targetNode() != m_clickNode)
+                return nullptr;
+
+            return m_clickNode;
+        }
+
+        return targetNodeForClickEvent(RefPtr { m_clickNode }.get(), mouseEvent.protectedTargetNode().get());
+    }();
+
+    if (!nodeToClick)
+        return false;
+
+    bool isPrimaryPointerButton = platformMouseEvent.button() == MouseButton::Left;
+    if (!isPrimaryPointerButton && !protectedFrame()->settings().auxclickEventEnabled())
+        return false;
+
+    // The auxclick event should only be fired for the non-primary pointer buttons.
+    // In the case of right button, the auxclick event is dispatched after any contextmenu event.
+    //
+    // The click event should only be fired for the primary pointer button.
+
+    auto& eventName = isPrimaryPointerButton ? eventNames().clickEvent : eventNames().auxclickEvent;
+    return !dispatchMouseEvent(eventName, nodeToClick.get(), m_clickCount, platformMouseEvent, FireMouseOverOut::Yes);
+}
+
 HandleUserInputEventResult EventHandler::handleMouseReleaseEvent(const PlatformMouseEvent& platformMouseEvent)
 {
     Ref frame = m_frame.get();
@@ -2307,8 +2343,11 @@ HandleUserInputEventResult EventHandler::handleMouseReleaseEvent(const PlatformM
 
     // If an immediate action began or was completed using this series of mouse events, then we should send mouseup to
     // the DOM and return now so that we don't perform our own default behaviors.
-    if (m_immediateActionStage == ImmediateActionStage::ActionCompleted || m_immediateActionStage == ImmediateActionStage::ActionUpdated || m_immediateActionStage == ImmediateActionStage::ActionCancelledAfterUpdate) {
-        m_immediateActionStage = ImmediateActionStage::None;
+    if (immediateActionBeganOrWasCompleted(m_immediateActionStage)) {
+        // We reset the immediate action stage after event dispatch, and not before, so that DOM event handling can query for the stage if needed.
+        auto resetImmediateActionStageAfterMouseEventDispatch = makeScopeExit([&] {
+            m_immediateActionStage = ImmediateActionStage::None;
+        });
         return !dispatchMouseEvent(eventNames().mouseupEvent, m_lastElementUnderMouse.get(), m_clickCount, platformMouseEvent, FireMouseOverOut::No);
     }
     m_immediateActionStage = ImmediateActionStage::None;
@@ -2333,10 +2372,8 @@ HandleUserInputEventResult EventHandler::handleMouseReleaseEvent(const PlatformM
         return true;
 
     bool swallowMouseUpEvent = !dispatchMouseEvent(eventNames().mouseupEvent, mouseEvent.protectedTargetNode().get(), m_clickCount, platformMouseEvent, FireMouseOverOut::No);
-    bool contextMenuEvent = platformMouseEvent.button() == MouseButton::Right;
 
-    auto nodeToClick = targetNodeForClickEvent(RefPtr { m_clickNode }.get(), mouseEvent.protectedTargetNode().get());
-    bool swallowClickEvent = m_clickCount > 0 && !contextMenuEvent && nodeToClick && !dispatchMouseEvent(eventNames().clickEvent, nodeToClick.get(), m_clickCount, platformMouseEvent, FireMouseOverOut::Yes);
+    bool swallowClickEvent = swallowAnyClickEvent(platformMouseEvent, mouseEvent, IgnoreAncestorNodesForClickEvent::No);
 
     if (m_resizeLayer) {
         m_resizeLayer->setInResizeMode(false);
@@ -4558,9 +4595,9 @@ void EventHandler::defaultBackspaceEventHandler(KeyboardEvent& event)
     bool handledEvent = false;
 
     if (event.shiftKey())
-        handledEvent = page->backForward().goForward();
+        handledEvent = page->checkedBackForward()->goForward();
     else
-        handledEvent = page->backForward().goBack();
+        handledEvent = page->checkedBackForward()->goBack();
 
     if (handledEvent)
         event.setDefaultHandled();

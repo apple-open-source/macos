@@ -549,28 +549,28 @@ Ref<ValidationBubble> PageClientImpl::createValidationBubble(const String& messa
     return ValidationBubble::create(m_view, message, settings);
 }
 
-void PageClientImpl::showSafeBrowsingWarning(const SafeBrowsingWarning& warning, CompletionHandler<void(std::variant<WebKit::ContinueUnsafeLoad, URL>&&)>&& completionHandler)
+void PageClientImpl::showBrowsingWarning(const BrowsingWarning& warning, CompletionHandler<void(std::variant<WebKit::ContinueUnsafeLoad, URL>&&)>&& completionHandler)
 {
     if (!m_impl)
         return completionHandler(ContinueUnsafeLoad::Yes);
-    m_impl->showSafeBrowsingWarning(warning, WTFMove(completionHandler));
+    m_impl->showWarningView(warning, WTFMove(completionHandler));
 }
 
-bool PageClientImpl::hasSafeBrowsingWarning() const
+bool PageClientImpl::hasBrowsingWarning() const
 {
     if (!m_impl)
         return false;
-    return !!m_impl->safeBrowsingWarning();
+    return !!m_impl->warningView();
 }
 
-void PageClientImpl::clearSafeBrowsingWarning()
+void PageClientImpl::clearBrowsingWarning()
 {
-    m_impl->clearSafeBrowsingWarning();
+    m_impl->clearWarningView();
 }
 
-void PageClientImpl::clearSafeBrowsingWarningIfForMainFrameNavigation()
+void PageClientImpl::clearBrowsingWarningIfForMainFrameNavigation()
 {
-    m_impl->clearSafeBrowsingWarningIfForMainFrameNavigation();
+    m_impl->clearWarningViewIfForMainFrameNavigation();
 }
 
 void PageClientImpl::setTextIndicator(Ref<TextIndicator> textIndicator, WebCore::TextIndicatorLifetime lifetime)
@@ -645,6 +645,11 @@ CALayer *PageClientImpl::footerBannerLayer() const
 RefPtr<ViewSnapshot> PageClientImpl::takeViewSnapshot(std::optional<WebCore::IntRect>&&)
 {
     return m_impl->takeViewSnapshot();
+}
+
+RefPtr<ViewSnapshot> PageClientImpl::takeViewSnapshot(std::optional<WebCore::IntRect>&&, ForceSoftwareCapturingViewportSnapshot forceSoftwareCapturing)
+{
+    return m_impl->takeViewSnapshot(forceSoftwareCapturing);
 }
 
 void PageClientImpl::selectionDidChange()
@@ -978,11 +983,6 @@ void PageClientImpl::startWindowDrag()
     m_impl->startWindowDrag();
 }
 
-NSWindow *PageClientImpl::platformWindow()
-{
-    return m_impl->window();
-}
-
 #if ENABLE(DRAG_SUPPORT)
 
 void PageClientImpl::didPerformDragOperation(bool handled)
@@ -1114,7 +1114,9 @@ bool PageClientImpl::canHandleContextMenuWritingTools() const
 void PageClientImpl::handleContextMenuWritingTools(WebCore::WritingTools::RequestedTool tool, WebCore::IntRect selectionRect)
 {
     RetainPtr webView = this->webView();
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[PAL::getWTWritingToolsClass() sharedInstance] showTool:WebKit::convertToPlatformRequestedTool(tool) forSelectionRect:selectionRect ofView:m_view forDelegate:webView.get() smartReplyConfiguration:nil];
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 #endif

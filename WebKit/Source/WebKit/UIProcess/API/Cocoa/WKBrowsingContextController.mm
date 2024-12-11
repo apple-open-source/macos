@@ -142,7 +142,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)loadRequest:(NSURLRequest *)request userData:(id)userData
 {
     ASSERT(!userData);
-    _page->loadRequest(request, WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow, { });
+    _page->loadRequest(request, WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow);
 }
 
 - (void)loadFileURL:(NSURL *)URL restrictToFilesWithin:(NSURL *)allowedDirectory
@@ -168,7 +168,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     ASSERT(!userData);
     NSData *data = [HTMLString dataUsingEncoding:NSUTF8StringEncoding];
-    _page->loadData(span(data), "text/html"_s, "UTF-8"_s, bytesAsString(bridge_cast(baseURL)), { });
+    _page->loadData(WebCore::SharedBuffer::create(data), "text/html"_s, "UTF-8"_s, bytesAsString(bridge_cast(baseURL)), { });
 }
 
 - (void)loadAlternateHTMLString:(NSString *)string baseURL:(NSURL *)baseURL forUnreachableURL:(NSURL *)unreachableURL
@@ -185,7 +185,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)loadData:(NSData *)data MIMEType:(NSString *)MIMEType textEncodingName:(NSString *)encodingName baseURL:(NSURL *)baseURL userData:(id)userData
 {
     ASSERT(!userData);
-    _page->loadData(span(data), MIMEType, encodingName, bytesAsString(bridge_cast(baseURL)), { });
+    _page->loadData(WebCore::SharedBuffer::create(data), MIMEType, encodingName, bytesAsString(bridge_cast(baseURL)), { });
 }
 
 - (void)stopLoading

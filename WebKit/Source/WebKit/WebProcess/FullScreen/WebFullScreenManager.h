@@ -64,7 +64,7 @@ public:
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
-    bool supportsFullScreen(bool withKeyboard);
+    bool supportsFullScreenForElement(const WebCore::Element&, bool withKeyboard);
     void enterFullScreenForElement(WebCore::Element*, WebCore::HTMLMediaElementEnums::VideoFullscreenMode);
     void exitFullScreenForElement(WebCore::Element*);
 
@@ -122,15 +122,19 @@ private:
 #endif
 
 #if ENABLE(VIDEO)
+#if ENABLE(IMAGE_ANALYSIS)
     void scheduleTextRecognitionForMainVideo();
     void endTextRecognitionForMainVideoIfNeeded();
     void mainVideoElementTextRecognitionTimerFired();
+#endif
     void updateMainVideoElement();
     void setMainVideoElement(RefPtr<WebCore::HTMLVideoElement>&&);
 
     WeakPtr<WebCore::HTMLVideoElement> m_mainVideoElement;
+#if ENABLE(IMAGE_ANALYSIS)
     RunLoop::Timer m_mainVideoElementTextRecognitionTimer;
     bool m_isPerformingTextRecognitionInMainVideo { false };
+#endif
 #endif // ENABLE(VIDEO)
 
 #if ENABLE(QUICKLOOK_FULLSCREEN)

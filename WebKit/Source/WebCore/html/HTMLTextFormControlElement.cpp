@@ -35,6 +35,7 @@
 #include "Editor.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementInlines.h"
+#include "ElementTextDirection.h"
 #include "Event.h"
 #include "EventLoop.h"
 #include "EventNames.h"
@@ -62,13 +63,13 @@
 #include "ShadowRoot.h"
 #include "Text.h"
 #include "TextControlInnerElements.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLTextFormControlElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLTextFormControlElement);
 
 using namespace HTMLNames;
 
@@ -871,7 +872,7 @@ String HTMLTextFormControlElement::directionForFormData() const
             if (equalLettersIgnoringASCIICase(value, "ltr"_s))
                 return TextDirection::LTR;
             if (equalLettersIgnoringASCIICase(value, "auto"_s))
-                return element.directionalityIfDirIsAuto().value_or(TextDirection::LTR);
+                return computeAutoDirectionality(element).value_or(TextDirection::LTR);
         }
         return TextDirection::LTR;
     }();

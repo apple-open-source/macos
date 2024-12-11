@@ -31,11 +31,15 @@
 #include "ArgumentCoders.h"
 #include "RemoteRenderingBackend.h"
 #include "RemoteResourceCache.h"
+#include "ShapeDetectionObjectHeap.h"
 #include <WebCore/BarcodeDetectorInterface.h>
 #include <WebCore/DetectedBarcodeInterface.h>
 #include <WebCore/ImageBuffer.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteBarcodeDetector);
 
 RemoteBarcodeDetector::RemoteBarcodeDetector(Ref<WebCore::ShapeDetection::BarcodeDetector>&& barcodeDetector, ShapeDetection::ObjectHeap& objectHeap, RemoteRenderingBackend& backend, ShapeDetectionIdentifier identifier, WebCore::ProcessIdentifier webProcessIdentifier)
     : m_backing(WTFMove(barcodeDetector))
@@ -47,6 +51,11 @@ RemoteBarcodeDetector::RemoteBarcodeDetector(Ref<WebCore::ShapeDetection::Barcod
 }
 
 RemoteBarcodeDetector::~RemoteBarcodeDetector() = default;
+
+const SharedPreferencesForWebProcess& RemoteBarcodeDetector::sharedPreferencesForWebProcess() const
+{
+    return m_backend->sharedPreferencesForWebProcess();
+}
 
 Ref<WebCore::ShapeDetection::BarcodeDetector> RemoteBarcodeDetector::protectedBacking()
 {

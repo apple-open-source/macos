@@ -74,8 +74,8 @@
 #include "WebCoreOpaqueRoot.h"
 #include <JavaScriptCore/JSCInlines.h>
 #include <math.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/RAMSize.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringBuilder.h>
 
 #if ENABLE(MEDIA_STREAM)
@@ -112,7 +112,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLCanvasElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLCanvasElement);
 
 using namespace HTMLNames;
 
@@ -122,7 +122,7 @@ const int defaultHeight = 150;
 
 HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document& document)
     : HTMLElement(tagName, document, TypeFlag::HasDidMoveToNewDocument)
-    , CanvasBase(IntSize(defaultWidth, defaultHeight), document.noiseInjectionHashSalt())
+    , CanvasBase(IntSize(defaultWidth, defaultHeight), document)
     , ActiveDOMObject(document)
 {
     ASSERT(hasTagName(canvasTag));
@@ -359,7 +359,7 @@ CanvasRenderingContext2D* HTMLCanvasElement::createContext2d(const String& type,
 
     m_context = CanvasRenderingContext2D::create(*this, WTFMove(settings), document().inQuirksMode());
 
-#if USE(IOSURFACE_CANVAS_BACKING_STORE) || USE(SKIA)
+#if USE(CA) || USE(SKIA)
     // Need to make sure a RenderLayer and compositing layer get created for the Canvas.
     invalidateStyleAndLayerComposition();
 #endif
@@ -496,7 +496,7 @@ ImageBitmapRenderingContext* HTMLCanvasElement::createContextBitmapRenderer(cons
     m_context = WTFMove(context);
     weakContext->transferFromImageBitmap(nullptr);
 
-#if USE(IOSURFACE_CANVAS_BACKING_STORE) || USE(SKIA)
+#if USE(CA) || USE(SKIA)
     // Need to make sure a RenderLayer and compositing layer get created for the Canvas.
     invalidateStyleAndLayerComposition();
 #endif
@@ -602,7 +602,7 @@ void HTMLCanvasElement::reset()
     setSurfaceSize(newSize);
 
     if (m_context) {
-        if (auto* context = dynamicDowncast<GPUBasedCanvasRenderingContext>(*m_context))
+        if (RefPtr context = dynamicDowncast<GPUBasedCanvasRenderingContext>(*m_context))
             context->reshape();
     }
 
@@ -863,7 +863,7 @@ void HTMLCanvasElement::createImageBuffer() const
     m_didClearImageBuffer = true;
     setImageBuffer(allocateImageBuffer());
 
-#if USE(IOSURFACE_CANVAS_BACKING_STORE) || USE(SKIA)
+#if USE(CA) || USE(SKIA)
     if (m_context && m_context->is2d()) {
         // Recalculate compositing requirements if acceleration state changed.
         const_cast<HTMLCanvasElement*>(this)->invalidateStyleAndLayerComposition();

@@ -46,9 +46,11 @@
 #include <WebCore/StoredCredentialsPolicy.h>
 #include <pal/SessionID.h>
 #include <wtf/CheckedPtr.h>
+#include <wtf/Deque.h>
 #include <wtf/HashSet.h>
 #include <wtf/Ref.h>
 #include <wtf/Seconds.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeWeakHashSet.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakPtr.h>
@@ -102,7 +104,7 @@ class Cache;
 }
 
 class NetworkSession : public WebCore::SWServerDelegate, public CanMakeCheckedPtr<NetworkSession> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(NetworkSession);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NetworkSession);
 public:
     static std::unique_ptr<NetworkSession> create(NetworkProcess&, const NetworkSessionCreationParameters&);
@@ -130,9 +132,8 @@ public:
     WebResourceLoadStatisticsStore* resourceLoadStatistics() const { return m_resourceLoadStatistics.get(); }
     void setTrackingPreventionEnabled(bool);
     bool isTrackingPreventionEnabled() const;
-    void notifyResourceLoadStatisticsProcessed();
-    void deleteAndRestrictWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType>, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&&, bool shouldNotifyPage, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
-    void registrableDomainsWithWebsiteData(OptionSet<WebsiteDataType>, bool shouldNotifyPage, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
+    void deleteAndRestrictWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType>, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&&, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
+    void registrableDomainsWithWebsiteData(OptionSet<WebsiteDataType>, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
     bool enableResourceLoadStatisticsLogTestingEvent() const { return m_enableResourceLoadStatisticsLogTestingEvent; }
     void setResourceLoadStatisticsLogTestingEvent(bool log) { m_enableResourceLoadStatisticsLogTestingEvent = log; }
     virtual bool hasIsolatedSession(const WebCore::RegistrableDomain&) const { return false; }
@@ -269,6 +270,10 @@ public:
 #endif
 
     void setInspectionForServiceWorkersAllowed(bool);
+    void setPersistedDomains(HashSet<WebCore::RegistrableDomain>&&);
+
+    void recordHTTPSConnectionTiming(const WebCore::NetworkLoadMetrics&);
+    double currentHTTPSConnectionAverageTiming() const { return m_recentHTTPSConnectionTiming.currentMovingAverage; }
                                     
 protected:
     NetworkSession(NetworkProcess&, const NetworkSessionCreationParameters&);
@@ -301,6 +306,7 @@ protected:
     WebCore::SameSiteStrictEnforcementEnabled m_sameSiteStrictEnforcementEnabled { WebCore::SameSiteStrictEnforcementEnabled::No };
     WebCore::FirstPartyWebsiteDataRemovalMode m_firstPartyWebsiteDataRemovalMode { WebCore::FirstPartyWebsiteDataRemovalMode::AllButCookies };
     WebCore::RegistrableDomain m_standaloneApplicationDomain;
+    HashSet<WebCore::RegistrableDomain> m_persistedDomains;
     HashMap<String, WebCore::RegistrableDomain> m_firstPartyHostCNAMEDomains;
     HashMap<String, WebCore::IPAddress> m_firstPartyHostIPAddresses;
     std::optional<WebCore::RegistrableDomain> m_thirdPartyCNAMEDomainForTesting;
@@ -313,7 +319,7 @@ protected:
     HashSet<Ref<NetworkResourceLoader>> m_keptAliveLoads;
 
     class CachedNetworkResourceLoader {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED(CachedNetworkResourceLoader);
     public:
         explicit CachedNetworkResourceLoader(Ref<NetworkResourceLoader>&&);
         RefPtr<NetworkResourceLoader> takeLoader();
@@ -350,6 +356,12 @@ protected:
     RefPtr<BackgroundFetchStoreImpl> m_backgroundFetchStore;
     bool m_inspectionForServiceWorkersAllowed { true };
     std::unique_ptr<WebSharedWorkerServer> m_sharedWorkerServer;
+
+    struct RecentHTTPSConnectionTiming {
+        static constexpr unsigned maxEntries { 25 };
+        Deque<Seconds, maxEntries> recentConnectionTimings;
+        double currentMovingAverage { 0 };
+    } m_recentHTTPSConnectionTiming;
 
     Ref<NetworkStorageManager> m_storageManager;
     String m_cacheStorageDirectory;

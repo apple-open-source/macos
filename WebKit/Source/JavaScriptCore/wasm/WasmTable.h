@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,7 +42,6 @@ class JSWebAssemblyTable;
 
 namespace Wasm {
 
-class Instance;
 class FuncRefTable;
 
 class Table : public ThreadSafeRefCounted<Table> {
@@ -105,8 +104,8 @@ protected:
     JSWebAssemblyTable* m_owner;
 };
 
-class ExternRefTable final : public Table {
-    WTF_MAKE_TZONE_ALLOCATED(ExternRefTable);
+class ExternOrAnyRefTable final : public Table {
+    WTF_MAKE_TZONE_ALLOCATED(ExternOrAnyRefTable);
 public:
     friend class Table;
 
@@ -115,7 +114,7 @@ public:
     JSValue get(uint32_t index) const { return m_jsValues.get()[index].get(); }
 
 private:
-    ExternRefTable(uint32_t initial, std::optional<uint32_t> maximum, Type wasmType);
+    ExternOrAnyRefTable(uint32_t initial, std::optional<uint32_t> maximum, Type wasmType);
 
     MallocPtr<WriteBarrier<Unknown>, VMMalloc> m_jsValues;
 };
@@ -127,10 +126,10 @@ public:
 
     JS_EXPORT_PRIVATE ~FuncRefTable();
 
-    // call_indirect needs to do an Instance check to potentially context switch when calling a function to another instance. We can hold raw pointers to Instance here because the js ensures that Table keeps all the instances alive. We couldn't hold a Ref here because it would cause cycles.
+    // call_indirect needs to do an Instance check to potentially context switch when calling a function to another instance. We can hold raw pointers to JSWebAssemblyInstance here because the js ensures that Table keeps all the instances alive.
     struct Function {
         WasmToWasmImportableFunction m_function;
-        Instance* m_instance { nullptr };
+        JSWebAssemblyInstance* m_instance { nullptr };
         WriteBarrier<Unknown> m_value { NullWriteBarrierTag };
 
         static constexpr ptrdiff_t offsetOfFunction() { return OBJECT_OFFSETOF(Function, m_function); }
@@ -138,7 +137,7 @@ public:
         static constexpr ptrdiff_t offsetOfValue() { return OBJECT_OFFSETOF(Function, m_value); }
     };
 
-    void setFunction(uint32_t, JSObject*, WasmToWasmImportableFunction, Instance*);
+    void setFunction(uint32_t, WebAssemblyFunctionBase*);
     const Function& function(uint32_t) const;
     void copyFunction(const FuncRefTable* srcTable, uint32_t dstIndex, uint32_t srcIndex);
 

@@ -137,9 +137,7 @@ public:
 #endif
     ResourceLoaderIdentifier loadResourceSynchronously(const ResourceRequest&, ClientCredentialPolicy, const FetchOptions&, const HTTPHeaderMap&, ResourceError&, ResourceResponse&, RefPtr<SharedBuffer>& data);
 
-    bool shouldUpgradeRequestforHTTPSOnly(const URL& originalURL, ResourceRequest&) const;
-    bool upgradeRequestforHTTPSOnlyIfNeeded(const URL&, ResourceRequest&) const;
-    WEBCORE_EXPORT void changeLocation(const URL&, const AtomString& target, Event*, const ReferrerPolicy&, ShouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> = std::nullopt, const AtomString& downloadAttribute = nullAtom(), std::optional<PrivateClickMeasurement>&& = std::nullopt);
+    WEBCORE_EXPORT void changeLocation(const URL&, const AtomString& target, Event*, const ReferrerPolicy&, ShouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> = std::nullopt, const AtomString& downloadAttribute = nullAtom(), std::optional<PrivateClickMeasurement>&& = std::nullopt, NavigationHistoryBehavior = NavigationHistoryBehavior::Push);
     void changeLocation(FrameLoadRequest&&, Event* = nullptr, std::optional<PrivateClickMeasurement>&& = std::nullopt);
     void submitForm(Ref<FormSubmission>&&);
 
@@ -229,7 +227,7 @@ public:
     void detachViewsAndDocumentLoader();
 
     static void addHTTPOriginIfNeeded(ResourceRequest&, const String& origin);
-    static void addSameSiteInfoToRequestIfNeeded(ResourceRequest&, const Document* initiator = nullptr, const Page* = nullptr);
+    static void addSameSiteInfoToRequestIfNeeded(ResourceRequest&, const Document* initiator = nullptr);
 
     const LocalFrameLoaderClient& client() const { return m_client.get(); }
     LocalFrameLoaderClient& client() { return m_client.get(); }
@@ -256,7 +254,7 @@ public:
 
     // The following sandbox flags will be forced, regardless of changes to
     // the sandbox attribute of any parent frames.
-    void forceSandboxFlags(SandboxFlags flags) { m_forcedSandboxFlags |= flags; }
+    void forceSandboxFlags(SandboxFlags flags) { m_forcedSandboxFlags.add(flags); }
     WEBCORE_EXPORT SandboxFlags effectiveSandboxFlags() const;
 
     bool checkIfFormActionAllowedByCSP(const URL&, bool didReceiveRedirectResponse, const URL& preRedirectURL) const;
@@ -317,6 +315,8 @@ public:
     bool isHTTPFallbackInProgress() const { return m_isHTTPFallbackInProgress; }
     void setHTTPFallbackInProgress(bool value) { m_isHTTPFallbackInProgress = value; }
 
+    bool shouldSkipHTTPSUpgradeForSameSiteNavigation() const { return m_shouldSkipHTTPSUpgradeForSameSiteNavigation; }
+
     WEBCORE_EXPORT void completePageTransitionIfNeeded();
 
     void setOverrideCachePolicyForTesting(ResourceRequestCachePolicy policy) { m_overrideCachePolicyForTesting = policy; }
@@ -351,6 +351,8 @@ public:
     // HistoryController specific.
     void loadItem(HistoryItem&, HistoryItem* fromItem, FrameLoadType, ShouldTreatAsContinuingLoad);
     HistoryItem* requestedHistoryItem() const { return m_requestedHistoryItem.get(); }
+
+    void updateURLAndHistory(const URL&, RefPtr<SerializedScriptValue>&& stateObject, NavigationHistoryBehavior = NavigationHistoryBehavior::Replace);
 
 private:
     enum FormSubmissionCacheLoadPolicy {
@@ -534,6 +536,7 @@ private:
 
     bool m_inStopForBackForwardCache { false };
     bool m_isHTTPFallbackInProgress { false };
+    bool m_shouldSkipHTTPSUpgradeForSameSiteNavigation { false };
     bool m_shouldRestoreScrollPositionAndViewState { false };
 
     bool m_errorOccurredInLoading { false };
@@ -546,6 +549,6 @@ private:
 //
 // FIXME: Consider making this function part of an appropriate class (not FrameLoader)
 // and moving it to a more appropriate location.
-RefPtr<Frame> createWindow(LocalFrame& openerFrame, LocalFrame& lookupFrame, FrameLoadRequest&&, WindowFeatures&, bool& created);
+RefPtr<Frame> createWindow(LocalFrame& openerFrame, FrameLoadRequest&&, WindowFeatures&, bool& created);
 
 } // namespace WebCore

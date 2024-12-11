@@ -49,6 +49,7 @@
 #include "StyleTreeResolver.h"
 #include "WindowEventLoop.h"
 #include <wtf/RefCountedLeakCounter.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 
 #if PLATFORM(IOS_FAMILY) || ENABLE(TOUCH_EVENTS)
@@ -57,6 +58,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CachedFrame);
 
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, cachedFrameCounter, ("CachedFrame"));
 
@@ -212,7 +215,7 @@ CachedFrame::CachedFrame(Frame& frame)
     // 1 - We reuse the main frame, so when it navigates to a new page load it needs to start with a blank FrameTree.
     // 2 - It's much easier to destroy a CachedFrame while it resides in the BackForwardCache if it is disconnected from its parent.
     Vector<Ref<Frame>> children;
-    for (auto* child = frame.tree().firstChild(); child; child = child->tree().nextSibling())
+    for (RefPtr child = frame.tree().firstChild(); child; child = child->tree().nextSibling())
         children.append(*child);
     for (auto& child : children)
         frame.tree().removeChild(child);

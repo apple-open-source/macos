@@ -1163,21 +1163,27 @@ if test "$enable_perlinterp" = "yes" -o "$enable_perlinterp" = "dynamic"; then
       dnl Remove "-fno-something", it breaks using cproto.
       dnl Remove "-fdebug-prefix-map", it isn't supported by clang.
       dnl Remove "FORTIFY_SOURCE", it will be defined twice.
-      dnl remove -pipe and -Wxxx, it confuses cproto
+      dnl Remove -pipe and -Wxxx, it confuses cproto
+      dnl Remove -flto[=auto], it causes link failures for clang
       perlcppflags=`$vi_cv_path_perl -Mlib=$srcdir -MExtUtils::Embed \
 		-e 'ccflags;perl_inc;print"\n"' | sed -e 's/-fno[[^ ]]*//' \
 		-e 's/-fdebug-prefix-map[[^ ]]*//g' \
 		-e 's/-pipe //' \
+		-e 's/-flto\(=auto\)\? //' \
 		-e 's/-W[[^ ]]*//g' \
 		-e 's/-D_FORTIFY_SOURCE=.//g'`
       dnl Remove "-lc", it breaks on FreeBSD when using "-pthread".
+      dnl Remove -specs=<file-path>, the hardened flags cause relocation errors
       perllibs=`cd $srcdir; $vi_cv_path_perl -MExtUtils::Embed -e 'ldopts' | \
 		sed -e '/Warning/d' -e '/Note (probably harmless)/d' \
+			-e 's/-specs=[[^ ]*]//g' \
 			-e 's/-bE:perl.exp//' -e 's/-lc //'`
       dnl Don't add perl lib to $LIBS: if it's not in LD_LIBRARY_PATH
       dnl a test in configure may fail because of that.
+      dnl Remove -specs=<file-path>, the hardened flags cause relocation errors
       perlldflags=`cd $srcdir; $vi_cv_path_perl -MExtUtils::Embed \
-		-e 'ccdlflags' | sed -e 's/-bE:perl.exp//'`
+		-e 'ccdlflags' | sed -e 's/-bE:perl.exp//' \
+		-e 's/-specs=[[^ ]*]//g' `
 
       dnl check that compiling a simple program still works with the flags
       dnl added for Perl.
@@ -1533,11 +1539,18 @@ if test "$enable_python3interp" = "yes" -o "$enable_python3interp" = "dynamic"; 
       AC_MSG_RESULT(yep)
 
       dnl -- get the stable ABI version if passed in
+      python3_stable_abi_default=3.8
       AC_MSG_CHECKING(--with-python3-stable-abi argument)
       AC_SUBST(vi_cv_var_python3_stable_abi)
-      AC_ARG_WITH(python3-stable-abi, [  --with-python3-stable-abi=VERSION  stable ABI version to target (e.g. 3.8)],
-        vi_cv_var_python3_stable_abi="$withval"; AC_MSG_RESULT($vi_cv_var_python3_stable_abi),
-        AC_MSG_RESULT(no))
+      AC_ARG_WITH(python3-stable-abi, [  --with-python3-stable-abi=VERSION  stable ABI version to target (default: 3.8)],
+        [
+     if test "X$withval" = "Xyes"; then
+       vi_cv_var_python3_stable_abi=$python3_stable_abi_default
+     else
+       vi_cv_var_python3_stable_abi="$withval"
+     fi
+     AC_MSG_RESULT($vi_cv_var_python3_stable_abi)],
+     AC_MSG_RESULT(no))
       if test "X$vi_cv_var_python3_stable_abi" != "X"; then
         AC_CACHE_VAL(vi_cv_var_python3_stable_abi_hex,
         [
@@ -2700,8 +2713,11 @@ system ("touch conf.gtktest");
 tmp_version = g_strdup("$min_gtk_version");
 if (sscanf(tmp_version, "%d.%d.%d", &major, &minor, &micro) != 3) {
    printf("%s, bad version string\n", "$min_gtk_version");
+   g_free(tmp_version);
    exit(1);
  }
+
+g_free(tmp_version);
 
 if ((gtk_major_version > major) ||
     ((gtk_major_version == major) && (gtk_minor_version > minor)) ||
@@ -3297,13 +3313,6 @@ AC_MSG_CHECKING(whether __attribute__((unused)) is allowed)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <stdio.h>], [int x __attribute__((unused));])],
 	AC_MSG_RESULT(yes); AC_DEFINE(HAVE_ATTRIBUTE_UNUSED),
 	AC_MSG_RESULT(no))
-
-dnl Checks for header files.
-AC_CHECK_HEADER(elf.h, HAS_ELF=1)
-dnl AC_CHECK_HEADER(dwarf.h, SVR4=1)
-if test "$HAS_ELF" = 1; then
-  AC_CHECK_LIB(elf, main)
-fi
 
 AC_HEADER_DIRENT
 
@@ -4495,6 +4504,12 @@ if test "$enable_nls" = "yes"; then
       AC_SUBST(MAKEMO)
       dnl this was added in GNU gettext 0.10.36
       AC_CHECK_FUNCS(bind_textdomain_codeset)
+      AC_MSG_CHECKING([for dgettext])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM(
+		[#include <libintl.h>],
+		[dgettext("Test", "Test");])],
+		AC_MSG_RESULT([yes]); AC_DEFINE(HAVE_DGETTEXT),
+		AC_MSG_RESULT([no]))
       dnl _nl_msg_cat_cntr is required for GNU gettext
       AC_MSG_CHECKING([for _nl_msg_cat_cntr])
       AC_LINK_IFELSE([AC_LANG_PROGRAM(
@@ -4518,6 +4533,15 @@ if test "$enable_nls" = "yes"; then
 	AC_MSG_RESULT([no])
       fi
       AC_SUBST(MSGFMT_DESKTOP)
+      AC_MSG_CHECKING([if $MSGFMT supports --no-convert])
+      if "$MSGFMT" --help | grep -q --  '--no-convert' >/dev/null; then
+        AC_MSG_RESULT([yes])
+        MSGFMTCMD="OLD_PO_FILE_INPUT=yes $MSGFMT --no-convert -v"
+      else
+        AC_MSG_RESULT([no])
+        MSGFMTCMD="OLD_PO_FILE_INPUT=yes $MSGFMT -v"
+      fi
+      AC_SUBST(MSGFMTCMD)
     fi
   else
     AC_MSG_RESULT([no "po/Makefile" - disabled]);

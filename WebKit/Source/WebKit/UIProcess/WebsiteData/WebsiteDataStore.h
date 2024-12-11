@@ -235,7 +235,6 @@ public:
     void statisticsDatabaseHasAllTables(CompletionHandler<void(bool)>&&);
     void mergeStatisticForTesting(const URL&, const URL& topFrameUrl1, const URL& topFrameUrl2, Seconds lastSeen, bool hadUserInteraction, Seconds mostRecentUserInteraction, bool isGrandfathered, bool isPrevalent, bool isVeryPrevalent, unsigned dataRecordsRemoved, CompletionHandler<void()>&&);
     void insertExpiredStatisticForTesting(const URL&, unsigned numberOfOperatingDaysPassed, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&&);
-    void setNotifyPagesWhenDataRecordsWereScanned(bool, CompletionHandler<void()>&&);
     void setResourceLoadStatisticsTimeAdvanceForTesting(Seconds, CompletionHandler<void()>&&);
     void setStorageAccessPromptQuirkForTesting(String&& topFrameDomain, Vector<String>&& subFrameDomains, Vector<String>&& triggerPages, CompletionHandler<void()>&&);
     void grantStorageAccessForTesting(String&& topFrameDomain, Vector<String>&& subFrameDomains, CompletionHandler<void()>&&);
@@ -472,6 +471,11 @@ public:
     bool operator==(const WebsiteDataStore& other) const { return (m_sessionID == other.sessionID()); }
     void resolveDirectoriesAsynchronously();
 
+    const HashSet<URL>& persistedSiteURLs() const { return m_persistedSiteURLs; }
+    void setPersistedSiteURLs(HashSet<URL>&&);
+
+    void getAppBadgeForTesting(CompletionHandler<void(std::optional<uint64_t>)>&&);
+
 private:
     enum class ForceReinitialization : bool { No, Yes };
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -557,7 +561,6 @@ private:
 
 #if PLATFORM(COCOA)
     Vector<uint8_t> m_uiProcessCookieStorageIdentifier;
-    RetainPtr<CFHTTPCookieStorageRef> m_cfCookieStorage;
 #endif
 
 #if USE(CURL)
@@ -611,6 +614,7 @@ private:
     std::optional<Vector<std::pair<Vector<uint8_t>, WTF::UUID>>> m_proxyConfigData;
 #endif
     bool m_storageSiteValidationEnabled { false };
+    HashSet<URL> m_persistedSiteURLs;
 };
 
 }

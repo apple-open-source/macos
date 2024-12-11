@@ -32,6 +32,7 @@
 #import <wtf/HashMap.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/Vector.h>
 #import <wtf/WeakPtr.h>
 
@@ -75,7 +76,7 @@ class TextureView;
 
 // https://gpuweb.github.io/gpuweb/#gpurenderbundleencoder
 class RenderBundleEncoder : public WGPURenderBundleEncoderImpl, public RefCounted<RenderBundleEncoder>, public CommandsMixin {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RenderBundleEncoder);
 public:
     static Ref<RenderBundleEncoder> create(MTLIndirectCommandBufferDescriptor *indirectCommandBufferDescriptor, const WGPURenderBundleEncoderDescriptor& descriptor, Device& device)
     {
@@ -121,11 +122,11 @@ private:
     id<MTLIndirectRenderCommand> currentRenderCommand();
 
     void makeInvalid(NSString* = nil);
-    bool executePreDrawCommands();
+    bool executePreDrawCommands(bool passWasSplit);
     void endCurrentICB();
-    void addResource(RenderBundle::ResourcesContainer*, id<MTLResource>, ResourceUsageAndRenderStage*);
-    void addResource(RenderBundle::ResourcesContainer*, id<MTLResource>, MTLRenderStages, const BindGroupEntryUsageData::Resource&);
-    void addResource(RenderBundle::ResourcesContainer*, id<MTLResource>, MTLRenderStages);
+    bool addResource(RenderBundle::ResourcesContainer*, id<MTLResource>, ResourceUsageAndRenderStage*);
+    bool addResource(RenderBundle::ResourcesContainer*, id<MTLResource>, MTLRenderStages, const BindGroupEntryUsageData::Resource&);
+    bool addResource(RenderBundle::ResourcesContainer*, id<MTLResource>, MTLRenderStages);
     bool icbNeedsToBeSplit(const RenderPipeline& a, const RenderPipeline& b);
     FinalizeRenderCommand finalizeRenderCommand(MTLIndirectCommandType);
     FinalizeRenderCommand finalizeRenderCommand();
@@ -194,7 +195,6 @@ private:
     Vector<WGPUTextureFormat> m_descriptorColorFormats;
     NSString* m_lastErrorString { nil };
     bool m_requiresCommandReplay { false };
-    bool m_requiresMetalWorkaround { true };
     bool m_finished { false };
     uint32_t m_sampleMask { defaultSampleMask };
 };

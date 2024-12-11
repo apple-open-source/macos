@@ -32,6 +32,7 @@
 #include "CSSFontStyleWithAngleValue.h"
 #include "CSSParser.h"
 #include "CSSParserIdioms.h"
+#include "CSSPropertyParserConsumer+Font.h"
 #include "CSSPropertyParserHelpers.h"
 #include "CSSRuleList.h"
 #include "CSSStyleRule.h"
@@ -62,6 +63,7 @@
 #include "StyleRule.h"
 #include "StyledElement.h"
 #include "VisibleUnits.h"
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
@@ -157,10 +159,10 @@ template<typename T> CSSValueID identifierForStyleProperty(T& style, CSSProperty
     auto value = extractPropertyValue(style, propertyID);
     if (auto fontStyleValue = dynamicDowncast<CSSFontStyleWithAngleValue>(value.get())) {
         ASSERT(propertyID == CSSPropertyFontStyle);
-        return fontStyleValue->obliqueAngle().doubleValue(CSSUnitType::CSS_DEG) >= italicThreshold() ? CSSValueItalic : CSSValueNormal;
+        return fontStyleValue->obliqueAngle().resolveAsAngleDeprecated() >= italicThreshold() ? CSSValueItalic : CSSValueNormal;
     }
     if (RefPtr primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value.get())) {
-        if (propertyID == CSSPropertyFontWeight && primitiveValue->doubleValue(CSSUnitType::CSS_NUMBER) >= boldThreshold())
+        if (propertyID == CSSPropertyFontWeight && primitiveValue->isNumber() && primitiveValue->resolveAsNumberDeprecated() >= boldThreshold())
             return CSSValueBold;
         auto identifier = primitiveValue->valueID();
         if (identifier == CSSValueOblique) {
@@ -179,7 +181,7 @@ static bool hasTransparentBackgroundColor(StyleProperties*);
 static RefPtr<CSSValue> backgroundColorInEffect(Node*);
 
 class HTMLElementEquivalent {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(HTMLElementEquivalent);
 public:
     HTMLElementEquivalent(CSSPropertyID, CSSValueID primitiveValue, const QualifiedName& tagName);
     virtual ~HTMLElementEquivalent() = default;
@@ -297,7 +299,7 @@ static bool fontWeightValueIsBold(CSSValue& fontWeight)
         return false;
 
     ASSERT(primitiveValue->isNumber());
-    return primitiveValue->floatValue() >= static_cast<float>(boldThreshold());
+    return primitiveValue->resolveAsNumberDeprecated<float>() >= static_cast<float>(boldThreshold());
 }
 
 class HTMLFontWeightEquivalent : public HTMLElementEquivalent {
@@ -574,7 +576,7 @@ void EditingStyle::removeTextFillAndStrokeColorsIfNeeded(const RenderStyle* rend
         m_mutableStyle->removeProperty(CSSPropertyWebkitTextStrokeColor);
 }
 
-void EditingStyle::setProperty(CSSPropertyID propertyID, const String& value, bool important)
+void EditingStyle::setProperty(CSSPropertyID propertyID, const String& value, IsImportant important)
 {
     if (!m_mutableStyle)
         m_mutableStyle = MutableStyleProperties::create();
@@ -603,7 +605,7 @@ void EditingStyle::extractFontSizeDelta()
     if (!primitiveValue->isPx())
         return;
 
-    m_fontSizeDelta = primitiveValue->floatValue();
+    m_fontSizeDelta = primitiveValue->resolveAsLengthDeprecated<float>();
     m_mutableStyle->removeProperty(CSSPropertyWebkitFontSizeDelta);
 }
 
@@ -776,9 +778,9 @@ Ref<EditingStyle> EditingStyle::extractAndRemoveTextDirection()
 {
     auto textDirection = EditingStyle::create();
     textDirection->m_mutableStyle = MutableStyleProperties::create();
-    textDirection->m_mutableStyle->setProperty(CSSPropertyUnicodeBidi, CSSValueEmbed, m_mutableStyle->propertyIsImportant(CSSPropertyUnicodeBidi));
+    textDirection->m_mutableStyle->setProperty(CSSPropertyUnicodeBidi, CSSValueEmbed, m_mutableStyle->propertyIsImportant(CSSPropertyUnicodeBidi) ? IsImportant::Yes : IsImportant::No);
     textDirection->m_mutableStyle->setProperty(CSSPropertyDirection, m_mutableStyle->getPropertyValue(CSSPropertyDirection),
-        m_mutableStyle->propertyIsImportant(CSSPropertyDirection));
+        static_cast<IsImportant>(m_mutableStyle->propertyIsImportant(CSSPropertyDirection)));
 
     m_mutableStyle->removeProperty(CSSPropertyUnicodeBidi);
     m_mutableStyle->removeProperty(CSSPropertyDirection);
@@ -827,7 +829,7 @@ void EditingStyle::collapseTextDecorationProperties()
         return;
 
     if (textDecorationsInEffect->isValueList())
-        m_mutableStyle->setProperty(CSSPropertyTextDecorationLine, textDecorationsInEffect->cssText(), m_mutableStyle->propertyIsImportant(CSSPropertyTextDecorationLine));
+        m_mutableStyle->setProperty(CSSPropertyTextDecorationLine, textDecorationsInEffect->cssText(), m_mutableStyle->propertyIsImportant(CSSPropertyTextDecorationLine) ? IsImportant::Yes : IsImportant::No);
     else
         m_mutableStyle->removeProperty(CSSPropertyTextDecorationLine);
     m_mutableStyle->removeProperty(CSSPropertyWebkitTextDecorationsInEffect);
@@ -944,7 +946,7 @@ bool EditingStyle::conflictsWithInlineStyleOfElement(StyledElement& element, Ref
                 else
                     newInlineStyle->setProperty(CSSPropertyTextDecorationLine, CSSValueList::createSpaceSeparated(WTFMove(newValueList)));
                 if (extractedStyle) {
-                    bool isImportant = inlineStyle->propertyIsImportant(CSSPropertyTextDecorationLine);
+                    auto isImportant = inlineStyle->propertyIsImportant(CSSPropertyTextDecorationLine) ? IsImportant::Yes : IsImportant::No;
                     extractedStyle->setProperty(CSSPropertyTextDecorationLine, CSSValueList::createSpaceSeparated(extractedValueList)->cssText(), isImportant);
                 }
             }
@@ -966,8 +968,10 @@ bool EditingStyle::conflictsWithInlineStyleOfElement(StyledElement& element, Ref
                 return true;
             conflicts = true;
             newInlineStyle->removeProperty(CSSPropertyTextDecorationLine);
-            if (extractedStyle)
-                extractedStyle->setProperty(CSSPropertyTextDecorationLine, inlineStyle->getPropertyValue(CSSPropertyTextDecorationLine), inlineStyle->propertyIsImportant(CSSPropertyTextDecorationLine));
+            if (extractedStyle) {
+                auto isImportant = inlineStyle->propertyIsImportant(CSSPropertyTextDecorationLine) ? IsImportant::Yes : IsImportant::No;
+                extractedStyle->setProperty(CSSPropertyTextDecorationLine, inlineStyle->getPropertyValue(CSSPropertyTextDecorationLine), isImportant);
+            }
         }
 
         if (!inlineStyle->getPropertyCSSValue(propertyID))
@@ -978,8 +982,10 @@ bool EditingStyle::conflictsWithInlineStyleOfElement(StyledElement& element, Ref
                 return true;
             conflicts = true;
             newInlineStyle->removeProperty(CSSPropertyDirection);
-            if (extractedStyle)
-                extractedStyle->setProperty(propertyID, inlineStyle->getPropertyValue(propertyID), inlineStyle->propertyIsImportant(propertyID));
+            if (extractedStyle) {
+                auto isImportant = inlineStyle->propertyIsImportant(propertyID) ? IsImportant::Yes : IsImportant::No;
+                extractedStyle->setProperty(propertyID, inlineStyle->getPropertyValue(propertyID), isImportant);
+            }
         }
 
         if (!newInlineStyle)
@@ -987,8 +993,10 @@ bool EditingStyle::conflictsWithInlineStyleOfElement(StyledElement& element, Ref
 
         conflicts = true;
         newInlineStyle->removeProperty(propertyID);
-        if (extractedStyle)
-            extractedStyle->setProperty(propertyID, inlineStyle->getPropertyValue(propertyID), inlineStyle->propertyIsImportant(propertyID));
+        if (extractedStyle) {
+            auto isImportant = inlineStyle->propertyIsImportant(propertyID) ? IsImportant::Yes : IsImportant::No;
+            extractedStyle->setProperty(propertyID, inlineStyle->getPropertyValue(propertyID), isImportant);
+        }
     }
 
     return conflicts;
@@ -1331,7 +1339,7 @@ void EditingStyle::mergeStyle(const StyleProperties* style, CSSPropertyOverrideM
                 if (auto* valueList = dynamicDowncast<CSSValueList>(*value)) {
                     auto newValue = valueList->copyValues();
                     mergeTextDecorationValues(newValue, *propertyValueList);
-                    m_mutableStyle->setProperty(property.id(), CSSValueList::createSpaceSeparated(WTFMove(newValue)), property.isImportant());
+                    m_mutableStyle->setProperty(property.id(), CSSValueList::createSpaceSeparated(WTFMove(newValue)), property.isImportant() ? IsImportant::Yes : IsImportant::No);
                     continue;
                 }
                 value = nullptr; // text-decoration: none is equivalent to not having the property.
@@ -1339,7 +1347,7 @@ void EditingStyle::mergeStyle(const StyleProperties* style, CSSPropertyOverrideM
         }
 
         if (mode == OverrideValues || (mode == DoNotOverrideValues && !value))
-            m_mutableStyle->setProperty(property.id(), property.value(), property.isImportant());
+            m_mutableStyle->setProperty(property.id(), property.value(), property.isImportant() ? IsImportant::Yes : IsImportant::No);
     }
 
     int oldFontSizeDelta = m_fontSizeDelta;
@@ -1518,8 +1526,7 @@ void EditingStyle::forceInline()
 {
     if (!m_mutableStyle)
         m_mutableStyle = MutableStyleProperties::create();
-    const bool propertyIsImportant = true;
-    m_mutableStyle->setProperty(CSSPropertyDisplay, CSSValueInline, propertyIsImportant);
+    m_mutableStyle->setProperty(CSSPropertyDisplay, CSSValueInline, IsImportant::Yes);
 }
 
 void EditingStyle::addDisplayContents()
@@ -1536,12 +1543,12 @@ bool EditingStyle::convertPositionStyle()
 
     RefPtr<CSSPrimitiveValue> sticky = CSSPrimitiveValue::create(CSSValueSticky);
     if (m_mutableStyle->propertyMatches(CSSPropertyPosition, sticky.get())) {
-        m_mutableStyle->setProperty(CSSPropertyPosition, CSSPrimitiveValue::create(CSSValueStatic), m_mutableStyle->propertyIsImportant(CSSPropertyPosition));
+        m_mutableStyle->setProperty(CSSPropertyPosition, CSSPrimitiveValue::create(CSSValueStatic), m_mutableStyle->propertyIsImportant(CSSPropertyPosition) ? IsImportant::Yes : IsImportant::No);
         return false;
     }
     RefPtr<CSSPrimitiveValue> fixed = CSSPrimitiveValue::create(CSSValueFixed);
     if (m_mutableStyle->propertyMatches(CSSPropertyPosition, fixed.get())) {
-        m_mutableStyle->setProperty(CSSPropertyPosition, CSSPrimitiveValue::create(CSSValueAbsolute), m_mutableStyle->propertyIsImportant(CSSPropertyPosition));
+        m_mutableStyle->setProperty(CSSPropertyPosition, CSSPrimitiveValue::create(CSSValueAbsolute), m_mutableStyle->propertyIsImportant(CSSPropertyPosition) ? IsImportant::Yes : IsImportant::No);
         return true;
     }
     RefPtr<CSSPrimitiveValue> absolute = CSSPrimitiveValue::create(CSSValueAbsolute);
@@ -1831,7 +1838,7 @@ bool StyleChange::operator==(const StyleChange& other)
 static void setTextDecorationProperty(MutableStyleProperties& style, const CSSValueList& newTextDecoration, CSSPropertyID propertyID)
 {
     if (newTextDecoration.length())
-        style.setProperty(propertyID, newTextDecoration.cssText(), style.propertyIsImportant(propertyID));
+        style.setProperty(propertyID, newTextDecoration.cssText(), style.propertyIsImportant(propertyID) ? IsImportant::Yes : IsImportant::No);
     else {
         // text-decoration: none is redundant since it does not remove any text decorations.
         style.removeProperty(propertyID);
@@ -1962,7 +1969,7 @@ static bool isCSSValueLength(CSSPrimitiveValue* value)
 int legacyFontSizeFromCSSValue(Document& document, CSSPrimitiveValue* value, bool shouldUseFixedFontDefaultSize, LegacyFontSizeMode mode)
 {
     if (isCSSValueLength(value)) {
-        int pixelFontSize = value->intValue(CSSUnitType::CSS_PX);
+        int pixelFontSize = value->resolveAsLengthDeprecated<int>();
         int legacyFontSize = Style::legacyFontSizeForPixelSize(pixelFontSize, shouldUseFixedFontDefaultSize, document);
         // Use legacy font size only if pixel value matches exactly to that of legacy font size.
         int cssPrimitiveEquivalent = legacyFontSize - 1 + CSSValueXSmall;

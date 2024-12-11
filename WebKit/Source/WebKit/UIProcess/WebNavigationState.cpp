@@ -29,9 +29,12 @@
 #include "APINavigation.h"
 #include "WebPageProxy.h"
 #include <WebCore/ResourceRequest.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebNavigationState);
 
 WebNavigationState::WebNavigationState()
 {
@@ -88,13 +91,11 @@ Ref<API::Navigation> WebNavigationState::createSimulatedLoadWithDataNavigation(W
 
 API::Navigation* WebNavigationState::navigation(WebCore::NavigationIdentifier navigationID)
 {
-    RELEASE_ASSERT(navigationID);
     return m_navigations.get(navigationID);
 }
 
 RefPtr<API::Navigation> WebNavigationState::takeNavigation(WebCore::NavigationIdentifier navigationID)
 {
-    RELEASE_ASSERT(navigationID);
     ASSERT(m_navigations.contains(navigationID));
     
     return m_navigations.take(navigationID);
@@ -102,7 +103,6 @@ RefPtr<API::Navigation> WebNavigationState::takeNavigation(WebCore::NavigationId
 
 void WebNavigationState::didDestroyNavigation(WebCore::ProcessIdentifier processID, WebCore::NavigationIdentifier navigationID)
 {
-    RELEASE_ASSERT(navigationID);
     auto it = m_navigations.find(navigationID);
     if (it != m_navigations.end() && (*it).value->processID() == processID)
         m_navigations.remove(it);

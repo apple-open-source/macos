@@ -170,7 +170,7 @@ void JIT::compileCallDirectEval(const OpCallDirectEval& bytecode)
 
     emitGetVirtualRegister(bytecode.m_thisValue, thisValueJSR);
     emitGetVirtualRegisterPayload(bytecode.m_scope, scopeGPR);
-    callOperation(bytecode.m_ecmaMode.isStrict() ? operationCallDirectEvalStrict : operationCallDirectEvalSloppy, calleeFrameGPR, scopeGPR, thisValueJSR);
+    callOperation(selectCallDirectEvalOperation(bytecode.m_lexicallyScopedFeatures), calleeFrameGPR, scopeGPR, thisValueJSR);
     addSlowCase(branchIfEmpty(returnValueJSR));
 
     setFastPathResumePoint();
@@ -352,6 +352,11 @@ void JIT::emit_op_iterator_open(const JSInstruction* instruction)
         default: RELEASE_ASSERT_NOT_REACHED();
         }
     })();
+    GetByIdModeMetadata modeMetadata = bytecode.metadata(m_profiledCodeBlock).m_modeMetadata;
+
+    CacheType cacheType = CacheType::GetByIdSelf;
+    if (modeMetadata.mode == GetByIdMode::ProtoLoad)
+        cacheType = CacheType::GetByIdPrototype;
 
     JITSlowPathCall slowPathCall(this, tryFastFunction);
     slowPathCall.call();
@@ -378,9 +383,9 @@ void JIT::emit_op_iterator_open(const JSInstruction* instruction)
 
     JITGetByIdGenerator gen(
         nullptr, stubInfo, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(BytecodeIndex(m_bytecodeIndex.offset())), RegisterSetBuilder::stubUnavailableRegisters(),
-        CacheableIdentifier::createFromImmortalIdentifier(ident->impl()), baseJSR, resultJSR, stubInfoGPR, AccessType::GetById);
+        CacheableIdentifier::createFromImmortalIdentifier(ident->impl()), baseJSR, resultJSR, stubInfoGPR, AccessType::GetById, cacheType);
 
-    gen.generateBaselineDataICFastPath(*this);
+    gen.generateDataICFastPath(*this);
     resetSP(); // We might OSR exit here, so we need to conservatively reset SP
     addSlowCase();
     m_getByIds.append(gen);
@@ -470,9 +475,9 @@ void JIT::emit_op_iterator_next(const JSInstruction* instruction)
 
         JITGetByIdGenerator gen(
             nullptr, stubInfo, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(BytecodeIndex(m_bytecodeIndex.offset())), RegisterSetBuilder::stubUnavailableRegisters(),
-            CacheableIdentifier::createFromImmortalIdentifier(vm().propertyNames->done.impl()), baseJSR, resultJSR, stubInfoGPR, AccessType::GetById);
+            CacheableIdentifier::createFromImmortalIdentifier(vm().propertyNames->done.impl()), baseJSR, resultJSR, stubInfoGPR, AccessType::GetById, CacheType::GetByIdSelf);
 
-        gen.generateBaselineDataICFastPath(*this);
+        gen.generateDataICFastPath(*this);
         resetSP(); // We might OSR exit here, so we need to conservatively reset SP
         addSlowCase();
         m_getByIds.append(gen);
@@ -497,9 +502,9 @@ void JIT::emit_op_iterator_next(const JSInstruction* instruction)
 
         JITGetByIdGenerator gen(
             nullptr, stubInfo, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(BytecodeIndex(m_bytecodeIndex.offset())), RegisterSetBuilder::stubUnavailableRegisters(),
-            CacheableIdentifier::createFromImmortalIdentifier(vm().propertyNames->value.impl()), baseJSR, resultJSR, stubInfoGPR, AccessType::GetById);
+            CacheableIdentifier::createFromImmortalIdentifier(vm().propertyNames->value.impl()), baseJSR, resultJSR, stubInfoGPR, AccessType::GetById, CacheType::GetByIdSelf);
 
-        gen.generateBaselineDataICFastPath(*this);
+        gen.generateDataICFastPath(*this);
         resetSP(); // We might OSR exit here, so we need to conservatively reset SP
         addSlowCase();
         m_getByIds.append(gen);

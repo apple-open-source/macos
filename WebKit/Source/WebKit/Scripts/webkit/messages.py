@@ -456,6 +456,7 @@ def types_that_cannot_be_forward_declared():
         'WebCore::DictationContext',
         'WebCore::DragApplicationFlags',
         'WebCore::FrameIdentifier',
+        'WebCore::FloatBoxExtent',
         'WebCore::GraphicsContextGL::ExternalImageSource',
         'WebCore::GraphicsContextGL::ExternalSyncSource',
         'WebCore::GraphicsContextGLAttributes',
@@ -655,6 +656,20 @@ def handler_function(receiver, message):
     return '%s::%s' % (receiver.name, message.name[0].lower() + message.name[1:])
 
 
+def generate_enabled_by(receiver, enabled_by, enabled_by_conjunction):
+    conjunction = ' %s ' % (enabled_by_conjunction or '&&')
+    return conjunction.join(['sharedPreferences.' + preference[0].lower() + preference[1:] for preference in enabled_by])
+
+
+def generate_runtime_enablement(receiver, message):
+    if not message.enabled_by:
+        return message.enabled_if
+    runtime_enablement = generate_enabled_by(receiver, message.enabled_by, message.enabled_by_conjunction)
+    if len(message.enabled_by) > 1:
+        return '(%s)' % runtime_enablement
+    return runtime_enablement
+
+
 def async_message_statement(receiver, message):
     if receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE) and message.reply_parameters is not None and not message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
         dispatch_function_args = ['decoder', 'WTFMove(replyHandler)', 'this', '&%s' % handler_function(receiver, message)]
@@ -676,8 +691,9 @@ def async_message_statement(receiver, message):
         connection = ''
 
     result = []
-    if message.runtime_enablement:
-        result.append('    if (decoder.messageName() == Messages::%s::%s::name() && %s)\n' % (receiver.name, message.name, message.runtime_enablement))
+    runtime_enablement = generate_runtime_enablement(receiver, message)
+    if runtime_enablement:
+        result.append('    if (decoder.messageName() == Messages::%s::%s::name() && %s)\n' % (receiver.name, message.name, runtime_enablement))
     else:
         result.append('    if (decoder.messageName() == Messages::%s::%s::name())\n' % (receiver.name, message.name))
     result.append('        return IPC::%s<Messages::%s::%s>(%s%s);\n' % (dispatch_function, receiver.name, message.name, connection, ', '.join(dispatch_function_args)))
@@ -698,8 +714,9 @@ def sync_message_statement(receiver, message):
         maybe_reply_encoder = ', replyEncoder'
 
     result = []
-    if message.runtime_enablement:
-        result.append('    if (decoder.messageName() == Messages::%s::%s::name() && %s)\n' % (receiver.name, message.name, message.runtime_enablement))
+    runtime_enablement = generate_runtime_enablement(receiver, message)
+    if runtime_enablement:
+        result.append('    if (decoder.messageName() == Messages::%s::%s::name() && %s)\n' % (receiver.name, message.name, runtime_enablement))
     else:
         result.append('    if (decoder.messageName() == Messages::%s::%s::name())\n' % (receiver.name, message.name))
     result.append('        return IPC::%s<Messages::%s::%s>(connection, decoder%s, this, &%s);\n' % (dispatch_function, receiver.name, message.name, maybe_reply_encoder, handler_function(receiver, message)))
@@ -805,6 +822,7 @@ def headers_for_type(type):
         'PlatformXR::FrameData': ['<WebCore/PlatformXR.h>'],
         'PlatformXR::Layout': ['<WebCore/PlatformXR.h>'],
         'PlatformXR::ReferenceSpaceType': ['<WebCore/PlatformXR.h>'],
+        'PlatformXR::RequestData': ['<WebCore/PlatformXR.h>'],
         'PlatformXR::SessionFeature': ['<WebCore/PlatformXR.h>'],
         'PlatformXR::SessionMode': ['<WebCore/PlatformXR.h>'],
         'PlatformXR::VisibilityState': ['<WebCore/PlatformXR.h>'],
@@ -838,7 +856,6 @@ def headers_for_type(type):
         'WebCore::ColorSchemePreference': ['<WebCore/DocumentLoader.h>'],
         'WebCore::CompositeMode': ['<WebCore/GraphicsTypes.h>'],
         'WebCore::CompositeOperator': ['<WebCore/GraphicsTypes.h>'],
-        'WebCore::Cookie': ['<WebCore/Cookie.h>'],
         'WebCore::COOPDisposition': ['<WebCore/CrossOriginOpenerPolicy.h>'],
         'WebCore::CreateNewGroupForHighlight': ['<WebCore/AppHighlight.h>'],
         'WebCore::CrossOriginOpenerPolicyValue': ['<WebCore/CrossOriginOpenerPolicy.h>'],
@@ -870,6 +887,7 @@ def headers_for_type(type):
         'WebCore::FragmentedSharedBuffer': ['<WebCore/SharedBuffer.h>'],
         'WebCore::FrameIdentifierID': ['"GeneratedSerializers.h"'],
         'WebCore::FrameLoadType': ['<WebCore/FrameLoaderTypes.h>'],
+        'WebCore::FloatBoxExtent': ['"PageClient.h"'],
         'WebCore::FromDownloadAttribute': ['<WebCore/LocalFrameLoaderClient.h>'],
         'WebCore::GenericCueData': ['<WebCore/InbandGenericCue.h>'],
         'WebCore::GrammarDetail': ['<WebCore/TextCheckerClient.h>'],
@@ -890,6 +908,7 @@ def headers_for_type(type):
         'WebCore::InputMode': ['<WebCore/InputMode.h>'],
         'WebCore::InspectorClientDeveloperPreference': ['<WebCore/InspectorClient.h>'],
         'WebCore::InspectorOverlayHighlight': ['<WebCore/InspectorOverlay.h>'],
+        'WebCore::IsLoggedIn': ['<WebCore/IsLoggedIn.h>'],
         'WebCore::ISOWebVTTCue': ['<WebCore/ISOVTTCue.h>'],
         'WebCore::KeyframeValueList': ['<WebCore/GraphicsLayer.h>'],
         'WebCore::KeypressCommand': ['<WebCore/KeyboardEvent.h>'],
@@ -1072,6 +1091,7 @@ def headers_for_type(type):
         'WebCore::WebGPU::TextureViewDimension': ['<WebCore/WebGPUTextureViewDimension.h>'],
         'WebCore::WebGPU::VertexFormat': ['<WebCore/WebGPUVertexFormat.h>'],
         'WebCore::WebGPU::VertexStepMode': ['<WebCore/WebGPUVertexStepMode.h>'],
+        'WebCore::WebGPU::XREye': ['<WebCore/WebGPUXREye.h>'],
         'WebCore::WebLockIdentifierID': ['"GeneratedSerializers.h"'],
         'WebCore::WheelEventProcessingSteps': ['<WebCore/ScrollingCoordinatorTypes.h>'],
         'WebCore::WheelEventTestMonitorDeferReason': ['<WebCore/WheelEventTestMonitor.h>'],
@@ -1094,6 +1114,7 @@ def headers_for_type(type):
         'WebKit::FindOptions': ['"WebFindOptions.h"'],
         'WebKit::GestureRecognizerState': ['"GestureTypes.h"'],
         'WebKit::GestureType': ['"GestureTypes.h"'],
+        'WebKit::SnapshotOption': ['"ImageOptions.h"'],
         'WebKit::LastNavigationWasAppInitiated': ['"AppPrivacyReport.h"'],
         'WebKit::LayerHostingContextID': ['"LayerHostingContext.h"'],
         'WebKit::LayerHostingMode': ['"LayerTreeContext.h"'],
@@ -1104,6 +1125,7 @@ def headers_for_type(type):
         'WebKit::PaymentSetupFeatures': ['"ApplePayPaymentSetupFeaturesWebKit.h"'],
         'WebKit::ImageBufferSetPrepareBufferForDisplayInputData': ['"PrepareBackingStoreBuffersData.h"'],
         'WebKit::ImageBufferSetPrepareBufferForDisplayOutputData': ['"PrepareBackingStoreBuffersData.h"'],
+        'WebKit::RTC::Network::EcnMarking': ['"RTCNetwork.h"'],
         'WebKit::RTC::Network::IPAddress': ['"RTCNetwork.h"'],
         'WebKit::RTC::Network::SocketAddress': ['"RTCNetwork.h"'],
         'WebKit::RemoteVideoFrameReadReference': ['"RemoteVideoFrameIdentifier.h"'],
@@ -1188,6 +1210,7 @@ def headers_for_type(type):
         'WebKit::WebGPU::VertexAttribute': ['"WebGPUVertexAttribute.h"'],
         'WebKit::WebGPU::VertexBufferLayout': ['"WebGPUVertexBufferLayout.h"'],
         'WebKit::WebGPU::VertexState': ['"WebGPUVertexState.h"'],
+        'WebKit::WebGPU::XREye': ['"WebGPUXREye.h"'],
         'WebKit::WebPushD::PushMessageForTesting': ['"PushMessageForTesting.h"'],
         'WebKit::WebPushD::WebPushDaemonConnectionConfiguration': ['"WebPushDaemonConnectionConfiguration.h"'],
         'WebKit::WebScriptMessageHandlerData': ['"WebUserContentControllerDataTypes.h"'],
@@ -1232,6 +1255,9 @@ def collect_header_conditions_for_receiver(receiver, header_conditions):
         if not parameter.condition in type_conditions[parameter.type]:
             type_conditions[parameter.type].append(parameter.condition)
 
+    if receiver.receiver_enabled_by:
+        header_conditions['"SharedPreferencesForWebProcess.h"'] = [None]
+
     for parameter in receiver.iterparameters():
         type = parameter.type
         conditions = type_conditions[type]
@@ -1250,6 +1276,8 @@ def collect_header_conditions_for_receiver(receiver, header_conditions):
             header_conditions[header].extend(conditions)
 
     for message in receiver.messages:
+        if message.enabled_by:
+            header_conditions['"SharedPreferencesForWebProcess.h"'] = [None]
         if message.reply_parameters is not None:
             for reply_parameter in message.reply_parameters:
                 type = reply_parameter.type
@@ -1280,6 +1308,31 @@ def generate_header_includes_from_conditions(header_conditions):
         else:
             result += ['#include %s // NOLINT\n' % header]
     return result
+
+
+def generate_enabled_by_for_receiver(receiver, messages, ignore_invalid_message_for_testing, return_value=None):
+    enabled_by = receiver.receiver_enabled_by
+    enabled_by_conjunction = receiver.receiver_enabled_by_conjunction
+    shared_preferences_retrieval = [
+        '    auto& sharedPreferences = sharedPreferencesForWebProcess(%s);\n' % ('connection' if receiver.shared_preferences_needs_connection else ''),
+        '    UNUSED_VARIABLE(sharedPreferences);\n'
+    ]
+    if not enabled_by:
+        if any([message.enabled_by for message in messages]):
+            return shared_preferences_retrieval
+        return []
+    runtime_enablement = generate_enabled_by(receiver, enabled_by, enabled_by_conjunction)
+    return_statement_line = 'return %s' % return_value if return_value else 'return'
+    return shared_preferences_retrieval + [
+        '    if (!%s) {\n' % ('(%s)' % runtime_enablement if len(enabled_by) > 1 else runtime_enablement),
+        '#if ENABLE(IPC_TESTING_API)\n',
+        '        if (%s)\n' % ignore_invalid_message_for_testing,
+        '            %s;\n' % return_statement_line,
+        '#endif // ENABLE(IPC_TESTING_API)\n',
+        '        ASSERT_NOT_REACHED_WITH_MESSAGE("Message received by a disabled message receiver %s");\n' % receiver.name,
+        '        %s;\n' % return_statement_line,
+        '    }\n',
+    ]
 
 
 def generate_message_handler(receiver):
@@ -1334,6 +1387,7 @@ def generate_message_handler(receiver):
     if receiver.has_attribute(STREAM_ATTRIBUTE):
         result.append('void %s::didReceiveStreamMessage(IPC::StreamServerConnection& connection, IPC::Decoder& decoder)\n' % (receiver.name))
         result.append('{\n')
+        result += generate_enabled_by_for_receiver(receiver, receiver.messages, 'connection.protectedConnection()->ignoreInvalidMessageForTesting()')
         assert(receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE))
         assert(not receiver.has_attribute(WANTS_DISPATCH_MESSAGE_ATTRIBUTE))
         assert(not receiver.has_attribute(WANTS_ASYNC_DISPATCH_MESSAGE_ATTRIBUTE))
@@ -1357,6 +1411,7 @@ def generate_message_handler(receiver):
         else:
             result.append('void %s::didReceive%sMessage(IPC::Connection& connection, IPC::Decoder& decoder)\n' % (receiver.name, receive_variant))
         result.append('{\n')
+        result += generate_enabled_by_for_receiver(receiver, async_messages, 'connection.ignoreInvalidMessageForTesting()')
         if not (receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE) or receiver.has_attribute(STREAM_ATTRIBUTE)):
             result.append('    Ref protectedThis { *this };\n')
         result += async_message_statements
@@ -1381,6 +1436,7 @@ def generate_message_handler(receiver):
         result.append('\n')
         result.append('bool %s::didReceiveSync%sMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& replyEncoder)\n' % (receiver.name, receiver.name if receiver.has_attribute(LEGACY_RECEIVER_ATTRIBUTE) else ''))
         result.append('{\n')
+        result += generate_enabled_by_for_receiver(receiver, sync_messages, 'connection.ignoreInvalidMessageForTesting()', 'false')
         if not receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE):
             result.append('    Ref protectedThis { *this };\n')
         result += sync_message_statements

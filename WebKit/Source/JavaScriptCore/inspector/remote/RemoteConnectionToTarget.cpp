@@ -59,13 +59,13 @@ bool RemoteConnectionToTarget::setup(bool isAutomaticInspection, bool automatica
         RemoteInspector::singleton().setupFailed(targetIdentifier);
         Locker locker { m_targetMutex };
         m_target = nullptr;
-    } else if (auto* target = dynamicDowncast<RemoteInspectionTarget>(*target) {
-        target->connect(*this, isAutomaticInspection, automaticallyPause);
+    } else if (auto* inspectionTarget = dynamicDowncast<RemoteInspectionTarget>(*target)) {
+        inspectionTarget->connect(*this, isAutomaticInspection, automaticallyPause);
         m_connected = true;
 
         RemoteInspector::singleton().updateTargetListing(targetIdentifier);
-    } else if (auto* target = dynamicDowncast<RemoteAutomationTarget>(*target)) {
-        target->connect(*this);
+    } else if (auto* inspectionTarget = dynamicDowncast<RemoteAutomationTarget>(*target)) {
+        inspectionTarget->connect(*this);
         m_connected = true;
 
         RemoteInspector::singleton().updateTargetListing(targetIdentifier);
@@ -121,12 +121,12 @@ void RemoteConnectionToTarget::sendMessageToFrontend(const String& message)
     std::optional<TargetID> targetIdentifier;
     {
         Locker locker { m_targetMutex };
-        RefPtr target = m_target.get()
+        RefPtr target = m_target.get();
         if (!target)
             return;
         targetIdentifier = target->targetIdentifier();
     }
-    RemoteInspector::singleton().sendMessageToRemote(targetIdentifier, message);
+    RemoteInspector::singleton().sendMessageToRemote(*targetIdentifier, message);
 }
 
 } // namespace Inspector

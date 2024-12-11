@@ -36,6 +36,7 @@
 #include "AudioUtilities.h"
 #include <wtf/Algorithms.h>
 #include <wtf/MathExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if USE(ACCELERATE)
 #include <Accelerate/Accelerate.h>
@@ -116,6 +117,8 @@
 // note: we're glossing over how the sub-sample handling works with m_virtualSourceIndex, etc.
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SincResampler);
 
 constexpr unsigned kernelSize { 32 };
 constexpr unsigned numberOfKernelOffsets { 32 };
@@ -209,7 +212,7 @@ void SincResampler::processBuffer(std::span<const float> source, std::span<float
         size_t framesToCopy = std::min(source.size(), framesToProcess);
 
         IGNORE_WARNINGS_BEGIN("restrict")
-        memcpySpan(buffer.first(framesToCopy), source.first(framesToCopy));
+        memcpySpan(buffer, source.first(framesToCopy));
         IGNORE_WARNINGS_END
 
         // Zero-pad if necessary.
@@ -278,7 +281,7 @@ void SincResampler::process(std::span<float> destination, size_t framesToProcess
 
         // Step (3) Copy r3 to r1.
         // This wraps the last input frames back to the start of the buffer.
-        memcpySpan(m_r1.first(kernelSize), m_r3.first(kernelSize));
+        memcpySpan(m_r1, m_r3.first(kernelSize));
 
         // Step (4) -- Reinitialize regions if necessary.
         if (m_r0.data() == m_r2.data())

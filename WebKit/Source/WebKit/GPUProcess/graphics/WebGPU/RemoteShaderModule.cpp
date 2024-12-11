@@ -34,13 +34,17 @@
 #include <WebCore/WebGPUCompilationInfo.h>
 #include <WebCore/WebGPUCompilationMessage.h>
 #include <WebCore/WebGPUShaderModule.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
-RemoteShaderModule::RemoteShaderModule(WebCore::WebGPU::ShaderModule& shaderModule, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteShaderModule);
+
+RemoteShaderModule::RemoteShaderModule(WebCore::WebGPU::ShaderModule& shaderModule, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     : m_backing(shaderModule)
     , m_objectHeap(objectHeap)
     , m_streamConnection(WTFMove(streamConnection))
+    , m_gpu(gpu)
     , m_identifier(identifier)
 {
     m_streamConnection->startReceivingMessages(*this, Messages::RemoteShaderModule::messageReceiverName(), m_identifier.toUInt64());
@@ -50,7 +54,7 @@ RemoteShaderModule::~RemoteShaderModule() = default;
 
 void RemoteShaderModule::destruct()
 {
-    m_objectHeap->removeObject(m_identifier);
+    protectedObjectHeap()->removeObject(m_identifier);
 }
 
 void RemoteShaderModule::stopListeningForIPC()

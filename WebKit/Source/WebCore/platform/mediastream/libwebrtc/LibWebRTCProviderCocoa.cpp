@@ -32,20 +32,25 @@
 #include "MediaCapabilitiesInfo.h"
 #include "VP9UtilitiesCocoa.h"
 
+#include <webrtc/api/create_peerconnection_factory.h>
+
 ALLOW_UNUSED_PARAMETERS_BEGIN
 ALLOW_COMMA_BEGIN
-#include <webrtc/sdk/WebKit/WebKitDecoder.h>
-#include <webrtc/sdk/WebKit/WebKitEncoder.h>
+#include <webrtc/webkit_sdk/WebKit/WebKitDecoder.h>
+#include <webrtc/webkit_sdk/WebKit/WebKitEncoder.h>
 ALLOW_UNUSED_PARAMETERS_END
 ALLOW_COMMA_END
-#include <webrtc/sdk/WebKit/WebKitVP8Decoder.h>
-#include <webrtc/sdk/WebKit/WebKitVP9Decoder.h>
+#include <webrtc/webkit_sdk/WebKit/WebKitVP8Decoder.h>
+#include <webrtc/webkit_sdk/WebKit/WebKitVP9Decoder.h>
 #include <wtf/MainThread.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/darwin/WeakLinking.h>
 
-WTF_WEAK_LINK_FORCE_IMPORT(webrtc::setApplicationStatus);
+WTF_WEAK_LINK_FORCE_IMPORT(webrtc::CreatePeerConnectionFactory);
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCProviderCocoa);
 
 UniqueRef<WebRTCProvider> WebRTCProvider::create()
 {
@@ -81,7 +86,7 @@ std::unique_ptr<webrtc::VideoEncoderFactory> LibWebRTCProviderCocoa::createEncod
         return nullptr;
 
     auto vp9Support = isSupportingVP9Profile2() ? webrtc::WebKitVP9::Profile0And2 : isSupportingVP9Profile0() ? webrtc::WebKitVP9::Profile0 : webrtc::WebKitVP9::Off;
-    return webrtc::createWebKitEncoderFactory(isSupportingH265() ? webrtc::WebKitH265::On : webrtc::WebKitH265::Off, vp9Support, DeprecatedGlobalSettings::webRTCH264LowLatencyEncoderEnabled() ? webrtc::WebKitH264LowLatency::On : webrtc::WebKitH264LowLatency::Off, isSupportingAV1() ? webrtc::WebKitAv1::On : webrtc::WebKitAv1::Off);
+    return webrtc::createWebKitEncoderFactory(isSupportingH265() ? webrtc::WebKitH265::On : webrtc::WebKitH265::Off, vp9Support, isSupportingAV1() ? webrtc::WebKitAv1::On : webrtc::WebKitAv1::Off);
 }
 
 std::optional<MediaCapabilitiesInfo> LibWebRTCProviderCocoa::computeVPParameters(const VideoConfiguration& configuration)
@@ -94,19 +99,13 @@ bool LibWebRTCProviderCocoa::isVPSoftwareDecoderSmooth(const VideoConfiguration&
     return WebCore::isVPSoftwareDecoderSmooth(configuration);
 }
 
-void LibWebRTCProviderCocoa::setActive(bool value)
-{
-    if (webRTCAvailable())
-        webrtc::setApplicationStatus(value);
-}
-
 bool WebRTCProvider::webRTCAvailable()
 {
 #if PLATFORM(IOS) || PLATFORM(VISION)
-    ASSERT_WITH_MESSAGE(!!webrtc::setApplicationStatus, "Failed to find or load libwebrtc");
+    ASSERT_WITH_MESSAGE(!!webrtc::CreatePeerConnectionFactory, "Failed to find or load libwebrtc");
     return true;
 #else
-    return !!webrtc::setApplicationStatus;
+    return !!webrtc::CreatePeerConnectionFactory;
 #endif
 }
 

@@ -33,13 +33,17 @@
 #include "RemoteLegacyCDM.h"
 #include "RemoteLegacyCDMFactoryProxyMessages.h"
 #include "RemoteLegacyCDMSession.h"
+#include "RemoteLegacyCDMSessionMessages.h"
 #include "WebProcess.h"
 #include <WebCore/LegacyCDM.h>
 #include <WebCore/Settings.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLegacyCDMFactory);
 
 RemoteLegacyCDMFactory::RemoteLegacyCDMFactory(WebProcess&)
 {
@@ -124,13 +128,20 @@ void RemoteLegacyCDMFactory::addSession(RemoteLegacyCDMSessionIdentifier identif
 {
     ASSERT(!m_sessions.contains(identifier));
     m_sessions.set(identifier, WeakPtr { session });
+
+    gpuProcessConnection().messageReceiverMap().addMessageReceiver(Messages::RemoteLegacyCDMSession::messageReceiverName(), identifier.toUInt64(), session);
 }
 
 void RemoteLegacyCDMFactory::removeSession(RemoteLegacyCDMSessionIdentifier identifier)
 {
     ASSERT(m_sessions.contains(identifier));
-    m_sessions.remove(identifier);
-    gpuProcessConnection().connection().send(Messages::RemoteLegacyCDMFactoryProxy::RemoveSession(identifier), { });
+    gpuProcessConnection().connection().sendWithAsyncReply(Messages::RemoteLegacyCDMFactoryProxy::RemoveSession(identifier), [weakThis = WeakPtr { *this }, identifier] {
+        if (!weakThis)
+            return;
+        ASSERT(weakThis->m_sessions.contains(identifier));
+        weakThis->m_sessions.remove(identifier);
+        weakThis->gpuProcessConnection().messageReceiverMap().removeMessageReceiver(Messages::RemoteLegacyCDMSession::messageReceiverName(), identifier.toUInt64());
+    }, { });
 }
 
 RemoteLegacyCDM* RemoteLegacyCDMFactory::findCDM(CDMPrivateInterface* privateInterface) const

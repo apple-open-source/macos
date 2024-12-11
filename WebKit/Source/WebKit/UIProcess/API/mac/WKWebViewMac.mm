@@ -29,11 +29,9 @@
 #if PLATFORM(MAC)
 
 #import "AppKitSPI.h"
-#import "WKSafeBrowsingWarning.h"
 #import "WKTextAnimationType.h"
 #import "WKTextFinderClient.h"
 #import "WKWebViewConfigurationPrivate.h"
-#import <WebKit/WKUIDelegatePrivate.h>
 #import "WebBackForwardList.h"
 #import "WebFrameProxy.h"
 #import "WebPageProxy.h"
@@ -41,6 +39,9 @@
 #import "WebViewImpl.h"
 #import "_WKFrameHandleInternal.h"
 #import "_WKHitTestResultInternal.h"
+#import "_WKWarningView.h"
+#import <WebCore/CGWindowUtilities.h>
+#import <WebKit/WKUIDelegatePrivate.h>
 #import <pal/spi/mac/NSTextFinderSPI.h>
 #import <pal/spi/mac/NSTextInputContextSPI.h>
 #import <pal/spi/mac/NSViewSPI.h>
@@ -171,7 +172,7 @@ std::optional<WebCore::ScrollbarOverlayStyle> toCoreScrollbarStyle(_WKOverlayScr
     BOOL didCreateWindowSnapshotReadinessHandler = [self _holdWindowResizeSnapshotIfNeeded];
 
     [super setFrameSize:size];
-    [_safeBrowsingWarning setFrame:self.bounds];
+    [_warningView setFrame:self.bounds];
     if (_impl)
         _impl->setFrameSize(NSSizeToCGSize(size));
 
@@ -1255,6 +1256,29 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
 }
 
+- (BOOL)_web_hasActiveIntelligenceTextEffects
+{
+#if ENABLE(WRITING_TOOLS)
+    return [_intelligenceTextEffectCoordinator hasActiveEffects];
+#else
+    return NO;
+#endif
+}
+
+- (void)_web_suppressContentRelativeChildViews
+{
+#if ENABLE(WRITING_TOOLS)
+    [_intelligenceTextEffectCoordinator hideEffectsWithCompletion:^{ }];
+#endif
+}
+
+- (void)_web_restoreContentRelativeChildViews
+{
+#if ENABLE(WRITING_TOOLS)
+    [_intelligenceTextEffectCoordinator showEffectsWithCompletion:^{ }];
+#endif
+}
+
 #if ENABLE(DRAG_SUPPORT)
 
 - (WKDragDestinationAction)_web_dragDestinationActionForDraggingInfo:(id <NSDraggingInfo>)draggingInfo
@@ -1375,7 +1399,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (NSView *)_safeBrowsingWarning
 {
-    return _impl->safeBrowsingWarning();
+    return _impl->warningView();
 }
 
 - (_WKRectEdge)_pinnedState
@@ -1782,6 +1806,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return _impl->mouseMoved(event);
 }
 
+- (void)_simulateMouseEnter:(NSEvent *)event
+{
+    _impl->mouseEntered(event);
+}
+
 - (void)_setFont:(NSFont *)font sender:(id)sender
 {
     _impl->setFontForWebView(font, sender);
@@ -1795,5 +1824,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 @end // WKWebView (WKPrivateMac)
+
+@implementation WKWebView (WKWindowSnapshot)
+- (NSImage *)_windowSnapshotInRect:(CGRect)rect withOptions:(CGWindowImageOption)options
+{
+    RetainPtr snapshot = WebCore::cgWindowListCreateImage(rect, kCGWindowListOptionIncludingWindow, (CGSWindowID)[[self window] windowNumber], options);
+    if (!snapshot)
+        return nil;
+
+    return [[NSImage alloc] initWithCGImage:snapshot.get() size:NSZeroSize];
+}
+@end
 
 #endif // PLATFORM(MAC)

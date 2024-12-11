@@ -187,14 +187,11 @@ NS_ASSUME_NONNULL_BEGIN
  @param startOffset The offset in file to start fetching the extents from.
  @param endOffset The offset in file to stop fetching the extents at.
     (we stop fetching extents when we reach this limit, even if we haven't got to endOffset).
- @param lastValidOffset maximal offset for which we return "data-fill" extents.
-    Beyond that offset, we start returning "zero-fill" extents.
  @param packer The extent packer block
  @param reply In case of an error, calling reply(error, nil, 0). In case of success, calling reply(nil, extentsData, numOfExtentsFetched).
  */
 -(void)fetchFileExtentsFrom:(uint64_t)startOffset
                          to:(uint64_t)endOffset
-            lastValidOffset:(uint64_t)lastValidOffset
                 usingBlocks:(FSExtentPacker)packer
                replyHandler:(nonnull void (^)(NSError * _Nullable error))reply;
 

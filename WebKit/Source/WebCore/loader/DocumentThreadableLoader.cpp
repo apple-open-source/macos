@@ -122,7 +122,7 @@ DocumentThreadableLoader::DocumentThreadableLoader(Document& document, Threadabl
     , m_options(options)
     , m_origin(WTFMove(origin))
     , m_referrer(WTFMove(referrer))
-    , m_sameOriginRequest(securityOrigin().canRequest(request.url(), OriginAccessPatternsForWebProcess::singleton()))
+    , m_sameOriginRequest(protectedSecurityOrigin()->canRequest(request.url(), OriginAccessPatternsForWebProcess::singleton()))
     , m_simpleRequest(true)
     , m_async(blockingBehavior == LoadAsynchronously)
     , m_delayCallbacksForIntegrityCheck(!m_options.integrity.isEmpty())
@@ -618,16 +618,18 @@ void DocumentThreadableLoader::loadRequest(ResourceRequest&& request, SecurityCh
     loadTiming.markStartTime();
 
     // FIXME: ThreadableLoaderOptions.sniffContent is not supported for synchronous requests.
+    RefPtr frame = m_document->frame();
+    if (!frame)
+        return;
+
+    if (MixedContentChecker::shouldBlockRequestForRunnableContent(*frame, m_document->protectedSecurityOrigin(), requestURL, MixedContentChecker::ShouldLogWarning::Yes))
+        return;
+
     RefPtr<SharedBuffer> data;
     ResourceError error;
     ResourceResponse response;
-    auto identifier = AtomicObjectIdentifier<ResourceLoader> { std::numeric_limits<uint64_t>::max() };
-    if (RefPtr frame = m_document->frame()) {
-        if (MixedContentChecker::shouldBlockRequestForRunnableContent(*frame, m_document->protectedSecurityOrigin(), requestURL, MixedContentChecker::ShouldLogWarning::Yes))
-            return;
-        CheckedRef frameLoader = frame->loader();
-        identifier = frameLoader->loadResourceSynchronously(request, m_options.clientCredentialPolicy, m_options, *m_originalHeaders, error, response, data);
-    }
+    CheckedRef frameLoader = frame->loader();
+    auto identifier = frameLoader->loadResourceSynchronously(request, m_options.clientCredentialPolicy, m_options, *m_originalHeaders, error, response, data);
 
     loadTiming.markEndTime();
 

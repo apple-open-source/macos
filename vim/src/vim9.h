@@ -168,7 +168,6 @@ typedef enum {
     ISN_COMPAREDICT,
     ISN_COMPAREFUNC,
     ISN_COMPAREANY,
-    ISN_COMPARECLASS,
     ISN_COMPAREOBJECT,
 
     // expression operations
@@ -239,8 +238,9 @@ typedef struct {
 // arguments to ISN_METHODCALL
 typedef struct {
     class_T *cmf_itf;	    // interface used
-    int	    cmf_idx;	    // index in "def_functions" for ISN_DCALL
+    int	    cmf_idx;	    // index in "def_functions" for ISN_METHODCALL
     int	    cmf_argcount;   // number of arguments on top of stack
+    int	    cmf_is_super;   // doing "super.Func", use cmf_itf, not cmf_idx
 } cmfunc_T;
 
 // arguments to ISN_PCALL
@@ -461,7 +461,7 @@ typedef struct {
 // arguments to ISN_2STRING and ISN_2STRING_ANY
 typedef struct {
     int		offset;
-    int		tolerant;
+    int		flags;
 } tostring_T;
 
 // arguments to ISN_2BOOL
@@ -781,6 +781,7 @@ typedef enum {
     dest_vimvar,
     dest_class_member,
     dest_script,
+    dest_script_v9,
     dest_reg,
     dest_expr,
 } assign_dest_T;
@@ -881,3 +882,10 @@ typedef enum {
 
 // flags for call_def_function()
 #define DEF_USE_PT_ARGV	    1	// use the partial arguments
+
+// Flag used for conversion to string by may_generate_2STRING()
+#define TOSTRING_NONE		0x0
+// Convert a List to series of values separated by newline
+#define TOSTRING_INTERPOLATE	0x1
+// Convert a List to a textual representation of the list "[...]"
+#define TOSTRING_TOLERANT	0x2

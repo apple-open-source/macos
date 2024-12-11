@@ -63,7 +63,7 @@ void ServiceWorkerNotificationHandler::showNotification(IPC::Connection& connect
     dataStore->showPersistentNotification(&connection, data);
 }
 
-void ServiceWorkerNotificationHandler::cancelNotification(const WTF::UUID& notificationID)
+void ServiceWorkerNotificationHandler::cancelNotification(WebCore::SecurityOriginData&&, const WTF::UUID& notificationID)
 {
     if (auto* dataStore = dataStoreForNotificationID(notificationID))
         dataStore->cancelServiceWorkerNotification(notificationID);
@@ -81,6 +81,21 @@ void ServiceWorkerNotificationHandler::didDestroyNotification(const WTF::UUID& n
 {
     if (auto* dataStore = dataStoreForNotificationID(notificationID))
         dataStore->didDestroyServiceWorkerNotification(notificationID);
+}
+
+void ServiceWorkerNotificationHandler::requestPermission(WebCore::SecurityOriginData&&, CompletionHandler<void(bool)>&&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+void ServiceWorkerNotificationHandler::getPermissionState(WebCore::SecurityOriginData&&, CompletionHandler<void(WebCore::PushPermissionState)>&&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+void ServiceWorkerNotificationHandler::getPermissionStateSync(WebCore::SecurityOriginData&&, CompletionHandler<void(WebCore::PushPermissionState)>&&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 } // namespace WebKit

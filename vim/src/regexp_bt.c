@@ -1652,7 +1652,7 @@ regatom(int *flagp)
 				  n = n * 10 + (c - '0');
 				  c = getchr();
 			      }
-			      if (c == '\'' && n == 0)
+			      if (no_Magic(c) == '\'' && n == 0)
 			      {
 				  // "\%'m", "\%<'m" and "\%>'m": Mark
 				  c = getchr();
@@ -2575,14 +2575,22 @@ bt_regcomp(char_u *expr, int re_flags)
 	if ((flags & SPSTART || OP(scan) == BOW || OP(scan) == EOW)
 							  && !(flags & HASNL))
 	{
+	    size_t  scanlen;
+
 	    longest = NULL;
 	    len = 0;
 	    for (; scan != NULL; scan = regnext(scan))
-		if (OP(scan) == EXACTLY && STRLEN(OPERAND(scan)) >= (size_t)len)
+	    {
+		if (OP(scan) == EXACTLY)
 		{
-		    longest = OPERAND(scan);
-		    len = (int)STRLEN(OPERAND(scan));
+		    scanlen = STRLEN(OPERAND(scan));
+		    if (scanlen >= (size_t)len)
+		    {
+			longest = OPERAND(scan);
+			len = (int)scanlen;
+		    }
 		}
+	    }
 	    r->regmust = longest;
 	    r->regmlen = len;
 	}
@@ -3417,8 +3425,7 @@ regmatch(
 		{
 		    colnr_T pos_col = pos->lnum == rex.lnum + rex.reg_firstlnum
 							  && pos->col == MAXCOL
-				      ? (colnr_T)STRLEN(reg_getline(
-						pos->lnum - rex.reg_firstlnum))
+				      ? reg_getline_len(pos->lnum - rex.reg_firstlnum)
 				      : pos->col;
 
 		    if ((pos->lnum == rex.lnum + rex.reg_firstlnum
@@ -3754,13 +3761,38 @@ regmatch(
 
 	  case ANYOF:
 	  case ANYBUT:
-	    if (c == NUL)
-		status = RA_NOMATCH;
-	    else if ((cstrchr(OPERAND(scan), c) == NULL) == (op == ANYOF))
-		status = RA_NOMATCH;
-	    else
-		ADVANCE_REGINPUT();
-	    break;
+	    {
+		char_u  *q = OPERAND(scan);
+
+		if (c == NUL)
+		    status = RA_NOMATCH;
+		else if ((cstrchr(q, c) == NULL) == (op == ANYOF))
+		    status = RA_NOMATCH;
+		else
+		{
+		    // Check following combining characters
+		    int	len = 0;
+		    int i;
+
+		    if (enc_utf8)
+			len = utfc_ptr2len(q) - utf_ptr2len(q);
+
+		    MB_CPTR_ADV(rex.input);
+		    MB_CPTR_ADV(q);
+
+		    if (!enc_utf8 || len == 0)
+			break;
+
+		    for (i = 0; i < len; ++i)
+			if (q[i] != rex.input[i])
+			{
+			    status = RA_NOMATCH;
+			    break;
+			}
+		    rex.input += len;
+		}
+		break;
+	    }
 
 	  case MULTIBYTECODE:
 	    if (has_mbyte)
@@ -3800,6 +3832,14 @@ regmatch(
 			    status = RA_MATCH;
 			    break;
 			}
+		    }
+		}
+		else if (enc_utf8)
+		{
+		    if (cstrncmp(opnd, rex.input, &len) != 0)
+		    {
+			status = RA_NOMATCH;
+			break;
 		    }
 		}
 		else
@@ -4681,7 +4721,7 @@ regmatch(
 				// right.
 				if (rex.line == NULL)
 				    break;
-				rex.input = rex.line + STRLEN(rex.line);
+				rex.input = rex.line + reg_getline_len(rex.lnum);
 				fast_breakcheck();
 			    }
 			    else
@@ -5235,8 +5275,10 @@ regprop(char_u *op)
 {
     char	    *p;
     static char	    buf[50];
+    static size_t   buflen = 0;
 
     STRCPY(buf, ":");
+    buflen = 1;
 
     switch ((int) OP(op))
     {
@@ -5477,7 +5519,7 @@ regprop(char_u *op)
       case MOPEN + 7:
       case MOPEN + 8:
       case MOPEN + 9:
-	sprintf(buf + STRLEN(buf), "MOPEN%d", OP(op) - MOPEN);
+	buflen += sprintf(buf + buflen, "MOPEN%d", OP(op) - MOPEN);
 	p = NULL;
 	break;
       case MCLOSE + 0:
@@ -5492,7 +5534,7 @@ regprop(char_u *op)
       case MCLOSE + 7:
       case MCLOSE + 8:
       case MCLOSE + 9:
-	sprintf(buf + STRLEN(buf), "MCLOSE%d", OP(op) - MCLOSE);
+	buflen += sprintf(buf + buflen, "MCLOSE%d", OP(op) - MCLOSE);
 	p = NULL;
 	break;
       case BACKREF + 1:
@@ -5504,7 +5546,7 @@ regprop(char_u *op)
       case BACKREF + 7:
       case BACKREF + 8:
       case BACKREF + 9:
-	sprintf(buf + STRLEN(buf), "BACKREF%d", OP(op) - BACKREF);
+	buflen += sprintf(buf + buflen, "BACKREF%d", OP(op) - BACKREF);
 	p = NULL;
 	break;
       case NOPEN:
@@ -5523,7 +5565,7 @@ regprop(char_u *op)
       case ZOPEN + 7:
       case ZOPEN + 8:
       case ZOPEN + 9:
-	sprintf(buf + STRLEN(buf), "ZOPEN%d", OP(op) - ZOPEN);
+	buflen += sprintf(buf + buflen, "ZOPEN%d", OP(op) - ZOPEN);
 	p = NULL;
 	break;
       case ZCLOSE + 1:
@@ -5535,7 +5577,7 @@ regprop(char_u *op)
       case ZCLOSE + 7:
       case ZCLOSE + 8:
       case ZCLOSE + 9:
-	sprintf(buf + STRLEN(buf), "ZCLOSE%d", OP(op) - ZCLOSE);
+	buflen += sprintf(buf + buflen, "ZCLOSE%d", OP(op) - ZCLOSE);
 	p = NULL;
 	break;
       case ZREF + 1:
@@ -5547,7 +5589,7 @@ regprop(char_u *op)
       case ZREF + 7:
       case ZREF + 8:
       case ZREF + 9:
-	sprintf(buf + STRLEN(buf), "ZREF%d", OP(op) - ZREF);
+	buflen += sprintf(buf + buflen, "ZREF%d", OP(op) - ZREF);
 	p = NULL;
 	break;
 #endif
@@ -5588,7 +5630,7 @@ regprop(char_u *op)
       case BRACE_COMPLEX + 7:
       case BRACE_COMPLEX + 8:
       case BRACE_COMPLEX + 9:
-	sprintf(buf + STRLEN(buf), "BRACE_COMPLEX%d", OP(op) - BRACE_COMPLEX);
+	buflen += sprintf(buf + buflen, "BRACE_COMPLEX%d", OP(op) - BRACE_COMPLEX);
 	p = NULL;
 	break;
       case MULTIBYTECODE:
@@ -5598,12 +5640,12 @@ regprop(char_u *op)
 	p = "NEWL";
 	break;
       default:
-	sprintf(buf + STRLEN(buf), "corrupt %d", OP(op));
+	buflen += sprintf(buf + buflen, "corrupt %d", OP(op));
 	p = NULL;
 	break;
     }
     if (p != NULL)
-	STRCAT(buf, p);
+	STRCPY(buf + buflen, p);
     return (char_u *)buf;
 }
 #endif	    // DEBUG

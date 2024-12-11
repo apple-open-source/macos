@@ -1129,7 +1129,7 @@ do_mousescroll(cmdarg_T *cap)
 	if (!(State & MODE_INSERT) && (mouse_vert_step < 0 || shift_or_ctrl))
 	{
 	    // whole page up or down
-	    onepage(cap->arg == MSCR_UP ? FORWARD : BACKWARD, 1L);
+	    pagescroll(cap->arg == MSCR_UP ? FORWARD : BACKWARD, 1L, FALSE);
 	}
 	else
 	{
@@ -1696,7 +1696,7 @@ retnomove:
 	}
 #if defined(FEAT_CLIPBOARD)
 	// Continue a modeless selection in another window.
-	if (cmdwin_type != 0 && row < curwin->w_winrow)
+	if (cmdwin_type != 0 && row < cmdwin_win->w_winrow)
 	    return IN_OTHER_WIN;
 #endif
 #ifdef FEAT_PROP_POPUP
@@ -1824,7 +1824,7 @@ retnomove:
 # ifdef FEAT_RIGHTLEFT
 			    wp->w_p_rl ? col < wp->w_width - wp->w_p_fdc :
 # endif
-			    col >= wp->w_p_fdc + (cmdwin_type == 0 && wp == curwin ? 0 : 1)
+			    col >= wp->w_p_fdc + (wp != cmdwin_win ? 0 : 1)
 			    )
 #endif
 			&& (flags & MOUSE_MAY_STOP_VIS))))
@@ -1832,7 +1832,7 @@ retnomove:
 	    end_visual_mode_keep_button();
 	    redraw_curbuf_later(UPD_INVERTED);	// delete the inversion
 	}
-	if (cmdwin_type != 0 && wp != curwin)
+	if (cmdwin_type != 0 && wp != cmdwin_win)
 	{
 	    // A click outside the command-line window: Use modeless
 	    // selection if possible.  Allow dragging the status lines.
@@ -1844,7 +1844,7 @@ retnomove:
 #else
 	    row = 0;
 	    col += wp->w_wincol;
-	    wp = curwin;
+	    wp = cmdwin_win;
 #endif
 	}
 #if defined(FEAT_PROP_POPUP) && defined(FEAT_TERMINAL)
@@ -1937,7 +1937,7 @@ retnomove:
 
 #if defined(FEAT_CLIPBOARD)
 	// Continue a modeless selection in another window.
-	if (cmdwin_type != 0 && row < curwin->w_winrow)
+	if (cmdwin_type != 0 && row < cmdwin_win->w_winrow)
 	    return IN_OTHER_WIN;
 #endif
 #ifdef FEAT_PROP_POPUP
@@ -2050,7 +2050,9 @@ retnomove:
 	}
     }
 
-    if (prev_row >= 0 && prev_row < Rows && prev_col >= 0 && prev_col <= Columns
+    if (prev_row >= W_WINROW(curwin)
+	&& prev_row < W_WINROW(curwin) + curwin->w_height
+	&& prev_col >= curwin->w_wincol && prev_col < W_ENDCOL(curwin)
 						       && ScreenLines != NULL)
     {
 	int off = LineOffset[prev_row] + prev_col;
@@ -2073,7 +2075,7 @@ retnomove:
 # ifdef FEAT_RIGHTLEFT
 	    curwin->w_p_rl ? col < curwin->w_width - curwin->w_p_fdc :
 # endif
-	    col >= curwin->w_p_fdc + (cmdwin_type == 0 ? 0 : 1)
+	    col >= curwin->w_p_fdc + (cmdwin_win != curwin ? 0 : 1)
        )
 	mouse_char = ' ';
 #endif
@@ -2096,35 +2098,7 @@ retnomove:
 	    redraw_cmdline = TRUE;	// show visual mode later
     }
 
-    if (col_from_screen == MAXCOL)
-    {
-	// When clicking after end of line, still need to set correct curswant
-	int off_l = LineOffset[prev_row] + curwin->w_wincol;
-	if (ScreenCols[off_l] < MAXCOL)
-	{
-	    // Binary search to find last char in line
-	    int off_r = LineOffset[prev_row] + prev_col;
-	    int off_click = off_r;
-	    while (off_l < off_r)
-	    {
-		int off_m = (off_l + off_r + 1) / 2;
-		if (ScreenCols[off_m] < MAXCOL)
-		    off_l = off_m;
-		else
-		    off_r = off_m - 1;
-	    }
-	    colnr_T eol_vcol = ScreenCols[off_r];
-	    if (eol_vcol < 0)
-		// Empty line or whole line before w_leftcol,
-		// with columns before buffer text
-		eol_vcol = curwin->w_leftcol - 1;
-	    col = eol_vcol + (off_click - off_r);
-	}
-	else
-	    // Empty line or whole line before w_leftcol
-	    col = prev_col - curwin->w_wincol + curwin->w_leftcol;
-    }
-    else if (col_from_screen >= 0)
+    if (col_from_screen >= 0)
     {
 	// Use the virtual column from ScreenCols[], it is accurate also after
 	// concealed characters.
@@ -2222,10 +2196,6 @@ nv_mousescroll(cmdarg_T *cap)
     // Call the common mouse scroll function shared with other modes.
     do_mousescroll(cap);
 
-#ifdef FEAT_SYN_HL
-    if (curwin != old_curwin && curwin->w_p_cul)
-	redraw_for_cursorline(curwin);
-#endif
     curwin->w_redr_status = TRUE;
     curwin = old_curwin;
     curbuf = curwin->w_buffer;
@@ -3059,16 +3029,22 @@ mouse_comp_pos(
 
 	if (win->w_skipcol > 0 && lnum == win->w_topline)
 	{
-	    // Adjust for 'smoothscroll' clipping the top screen lines.
-	    // A similar formula is used in curs_columns().
 	    int width1 = win->w_width - win_col_off(win);
-	    int skip_lines = 0;
-	    if (win->w_skipcol > width1)
-		skip_lines = (win->w_skipcol - width1)
+
+	    if (width1 > 0)
+	    {
+		int skip_lines = 0;
+
+		// Adjust for 'smoothscroll' clipping the top screen lines.
+		// A similar formula is used in curs_columns().
+		if (win->w_skipcol > width1)
+		    skip_lines = (win->w_skipcol - width1)
 					    / (width1 + win_col_off2(win)) + 1;
-	    else if (win->w_skipcol > 0)
-		skip_lines = 1;
-	    count -= skip_lines;
+		else if (win->w_skipcol > 0)
+		    skip_lines = 1;
+
+		count -= skip_lines;
+	    }
 	}
 
 	if (count > row)

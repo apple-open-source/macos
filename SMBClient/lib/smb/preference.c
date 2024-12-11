@@ -196,7 +196,7 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
         rc_getint(rcfile, sname, "signing_alg_map", &prefs->signing_algorithm_map);
         if (prefs->signing_algorithm_map == 0) {
             /* 0 is invalid so turn on all algorithms */
-            prefs->signing_algorithm_map = 0xf;
+            prefs->signing_algorithm_map = 0x3;
         }
 
         /* Check for which versions of SMB require signing */

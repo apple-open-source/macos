@@ -28,12 +28,26 @@ NS_ASSUME_NONNULL_BEGIN
     return sharedObject;
 }
 
+/*
+ * This method should not be called after metaRW is enabled, as it performs
+ * syncRead instead of syncMetaRead, which could lead us to read old data from
+ * disk.  Moving to use syncMetaRead wouldn't solve the issue either, because
+ * we don't read from the root dir using dir blocks (when called from probe
+ * we don't have the tools yet to use dir blocks), so we would read from the
+ * kernel's buf cache with mismatched offsets and lengths, which is forbidden.
+ */
 +(NSString*)getVolumeName:(FSBlockDeviceResource *)device
                       bps:(uint16_t)bps
                       spc:(uint8_t)spc
                bootsector:(union bootsector *)bootSector
                     flags:(uint8_t)flags
 {
+    Utilities *sharedUtilities = [self sharedUtilities];
+    if (sharedUtilities.useMetaRW) {
+        os_log_error(fskit_std_log(), "%s: This method should not be called after metaRW is enabled.", __func__);
+        return nil;
+    }
+
     struct byte_bpb710 *b710 = (struct byte_bpb710 *)bootSector->bs710.bsBPB;
     struct byte_bpb33 *b33 = (struct byte_bpb33 *)bootSector->bs33.bsBPB;
     struct byte_bpb50 *b50 = (struct byte_bpb50 *)bootSector->bs50.bsBPB;
@@ -399,25 +413,23 @@ uint16_t dos2unicodeConv[32] = {
                                startingAt:(off_t)offset
                                    length:(size_t)nbyte
 {
-    __block NSError *error = nil;
+    NSError *error = nil;
+    size_t actuallyRead = [device readInto:buffer
+                                startingAt:offset
+                                    length:nbyte
+                                     error:&error];
 
-    [device synchronousReadInto:buffer
-                     startingAt:offset
-                         length:nbyte
-                   replyHandler:^(size_t actuallyRead, NSError * _Nullable innerError) {
-        if (innerError) {
-            os_log_error(fskit_std_log(), "%s: Failed to read, error %@", __FUNCTION__, innerError);
-            error = innerError;
-        } else if (actuallyRead != nbyte) {
-            os_log_error(fskit_std_log(), "%s: Expected to read %lu bytes, read %lu", __FUNCTION__, nbyte, actuallyRead);
-            /*
-             * Setting to EIO for now. pread's manpage lists it as a possible
-             * errno value:
-             * An I/O error occurred while reading from the file system.
-             */
-            error = fs_errorForPOSIXError(EIO);
-        }
-    }];
+    if (error) {
+        os_log_error(fskit_std_log(), "%s: Failed to read, error %@", __FUNCTION__, error);
+    } else if (actuallyRead != nbyte) {
+        os_log_error(fskit_std_log(), "%s: Expected to read %lu bytes, read %lu", __FUNCTION__, nbyte, actuallyRead);
+        /*
+         * Setting to EIO for now. pread's manpage lists it as a possible
+         * errno value:
+         * An I/O error occurred while reading from the file system.
+         */
+        error = fs_errorForPOSIXError(EIO);
+    }
     return error;
 }
 
@@ -429,15 +441,12 @@ uint16_t dos2unicodeConv[32] = {
     __block NSError *error = nil;
     Utilities *sharedUtilities = [self sharedUtilities];
     if (sharedUtilities.useMetaRW) {
-        [device synchronousMetadataReadInto:buffer
-                             startingAt:offset
-                                 length:nbyte
-                           replyHandler:^(NSError * _Nullable innerError) {
-            if (innerError) {
-                error = innerError;
-                os_log_error(fskit_std_log(), "%s: Failed to meta read, error %@", __FUNCTION__, error);
-            }
-        }];
+        error = [device metadataReadInto:buffer
+                              startingAt:offset
+                                  length:nbyte];
+        if (error) {
+            os_log_error(fskit_std_log(), "%s: Failed to meta read, error %@", __FUNCTION__, error);
+        }
     } else {
         error = [Utilities syncReadFromDevice:device
                                          into:buffer
@@ -456,29 +465,22 @@ uint16_t dos2unicodeConv[32] = {
                              startingAt:(off_t)offset
                                  length:(size_t)nbyte
 {
-    __block NSError *error = nil;
+    NSError *error = nil;
 #if DEBUG
-    [device synchronousMetadataWriteFrom:buffer
-                          startingAt:offset
-                              length:nbyte
-                        replyHandler:^(NSError * _Nullable innerError) {
+    error = [device metadataWriteFrom:buffer
+                           startingAt:offset
+                               length:nbyte];
 #else
-#if TARGET_OS_OSX
-    [device delayedMetadataWriteFrom:buffer
+    #if TARGET_OS_OSX
+    error = [device delayedMetadataWriteFrom:buffer
+                                  startingAt:offset
+                                      length:nbyte];
+    #else
+    error = [device metadataWriteFrom:buffer
                           startingAt:offset
-                              length:nbyte
-                        replyHandler:^(NSError * _Nullable innerError) {
-#else
-    [device synchronousMetadataWriteFrom:buffer
-                          startingAt:offset
-                              length:nbyte
-                        replyHandler:^(NSError * _Nullable innerError) {
+                               length:nbyte];
+    #endif
 #endif
-#endif
-        if (innerError) {
-            error = innerError;
-        }
-    }];
 
     if (error) {
         /*
@@ -489,18 +491,16 @@ uint16_t dos2unicodeConv[32] = {
          */
         Utilities *sharedUtilities = [self sharedUtilities];
         if (sharedUtilities.useMetaRW == false) {
-            [device synchronousWriteFrom:buffer
-                              startingAt:offset
-                                  length:nbyte
-                            replyHandler:^(size_t actuallyWrote, NSError * _Nullable innerError) {
-                if (innerError) {
-                    os_log_error(fskit_std_log(), "%s: Failed to write, error %@", __FUNCTION__, innerError);
-                    error = innerError;
-                } else if (actuallyWrote != nbyte) {
-                    os_log_error(fskit_std_log(), "%s: Expected to write %lu bytes, wrote %lu", __FUNCTION__, nbyte, actuallyWrote);
-                    error = fs_errorForPOSIXError(EIO);
-                }
-            }];
+            size_t actuallyWrote = [device writeFrom:buffer
+                                          startingAt:offset
+                                              length:nbyte
+                                               error:&error];
+            if (error) {
+                os_log_error(fskit_std_log(), "%s: Failed to write, error %@", __FUNCTION__, error);
+            } else if (actuallyWrote != nbyte) {
+                os_log_error(fskit_std_log(), "%s: Expected to write %lu bytes, wrote %lu", __FUNCTION__, nbyte, actuallyWrote);
+                error = fs_errorForPOSIXError(EIO);
+            }
         } else {
             os_log_error(fskit_std_log(), "%s: Failed to meta write, offset %lld, length %zu, error %@",
                          __FUNCTION__, offset, nbyte, error);
@@ -510,35 +510,23 @@ uint16_t dos2unicodeConv[32] = {
 }
 
 +(NSError * _Nullable)syncMetaClearToDevice:(FSBlockDeviceResource *)device
-							  rangesToClear:(NSArray<FSMetadataBlockRange *> *)rangesToClear
+                              rangesToClear:(NSArray<FSMetadataBlockRange *> *)rangesToClear
 {
-    __block NSError *error = nil;
-
-    [device synchronousMetadataClear:rangesToClear
-                            wait:false // check iOS
-                    replyHandler:^(NSError * _Nullable innerError) {
-        if (innerError) {
-            os_log_error(fskit_std_log(), "%s: Failed to meta clear, error %@", __FUNCTION__, innerError);
-            error = innerError;
-        }
-    }];
-
+    NSError *error = [device metadataClear:rangesToClear
+                                      wait:false]; // check iOS
+    if (error) {
+        os_log_error(fskit_std_log(), "%s: Failed to meta clear, error %@", __FUNCTION__, error);
+    }
     return error;
 }
 
 +(NSError * _Nullable)syncMetaPurgeToDevice:(FSBlockDeviceResource *)device
                               rangesToPurge:(NSArray<FSMetadataBlockRange *> *)rangesToPurge
 {
-    __block NSError *error = nil;
-
-    [device synchronousMetadataPurge:rangesToPurge
-                    replyHandler:^(NSError * _Nullable innerError) {
-        if (innerError) {
-            os_log_error(fskit_std_log(), "%s: Failed to meta purge, error %@", __FUNCTION__, innerError);
-            error = innerError;
-        }
-    }];
-
+    NSError *error = [device metadataPurge:rangesToPurge];
+    if (error) {
+        os_log_error(fskit_std_log(), "%s: Failed to meta purge, error %@", __FUNCTION__, error);
+    }
     return error;
 }
 
@@ -584,6 +572,15 @@ uint16_t dos2unicodeConv[32] = {
     os_log_debug(fskit_std_log(), "%s: start", __FUNCTION__);
     [Utilities sharedUtilities].useMetaRW = true;
 }
+
+#if DEBUG
+/* For testing use only. */
++(void)disableMetaRW
+{
+    os_log_debug(fskit_std_log(), "%s: start", __FUNCTION__);
+    [Utilities sharedUtilities].useMetaRW = false;
+}
+#endif
 
 extern int32_t msdos_secondsWest;    /* In msdosfs_conv.c */
 

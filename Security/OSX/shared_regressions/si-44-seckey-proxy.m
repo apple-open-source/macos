@@ -230,6 +230,54 @@ static void test_key_proxy_connection_handlers(void) {
 }
 static const int TestKeyProxyConnectionHandlersCount = 11;
 
+static void test_key_proxy_connection_handlers_concurent(void) {
+    NSError *error;
+    id serverKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @(256), (id)kSecUseDataProtectionKeychain: @YES}, (void *)&error));
+    ok(serverKey != NULL, "generated local ec256 keypair: %@", error);
+    SecKeyProxy *keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
+    
+    dispatch_semaphore_t semaphore1 = dispatch_semaphore_create(0);
+    dispatch_semaphore_t semaphore2 = dispatch_semaphore_create(0);
+    dispatch_semaphore_t semaphore3 = dispatch_semaphore_create(0);
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        for (int i = 0; i < 1000000; ++i) {
+            keyProxy.clientConnectionHandler = ^(BOOL firstClientConnected) {
+            };
+            keyProxy.clientConnectionHandler = nil;
+        }
+        dispatch_semaphore_signal(semaphore1);
+    });
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        for (int i = 0; i < 1000000; ++i) {
+            keyProxy.clientDisconnectionHandler = ^(BOOL lastClientDisconnected) {
+            };
+            keyProxy.clientDisconnectionHandler = nil;
+        }
+        dispatch_semaphore_signal(semaphore2);
+    });
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        for (int i = 0; i < 1000; ++i) {
+            @autoreleasepool {
+                NSError *error;
+                id localKey1 = CFBridgingRelease([SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error]);
+                if (localKey1 != nil) {
+                    localKey1 = nil;
+                }
+            }
+        }
+        dispatch_semaphore_signal(semaphore3);
+    });
+
+    dispatch_semaphore_wait(semaphore1, DISPATCH_TIME_FOREVER);
+    dispatch_semaphore_wait(semaphore2, DISPATCH_TIME_FOREVER);
+    dispatch_semaphore_wait(semaphore3, DISPATCH_TIME_FOREVER);
+
+    keyProxy = nil;
+}
+static const int TestKeyProxyConnectionHandlersConcurentCount = 1;
+
 /*
  Bag Attributes
  friendlyName: uranusLeaf
@@ -546,6 +594,7 @@ TestKeyProxySimpleOpsCount +
 TestKeyCryptoOpsRSACount +
 TestKeyCryptoOpsECCount +
 TestKeyProxyConnectionHandlersCount +
+TestKeyProxyConnectionHandlersConcurentCount +
 TestKeyProxyIdentityCount +
 TestKeyProxyAccCount;
 
@@ -558,6 +607,7 @@ int si_44_seckey_proxy(int argc, char *const *argv) {
         test_key_proxy_crypto_ops_RSA();
         test_key_proxy_crypto_ops_EC();
         test_key_proxy_connection_handlers();
+        test_key_proxy_connection_handlers_concurent();
         test_key_proxy_identity();
         test_key_proxy_acc();
     }

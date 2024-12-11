@@ -117,6 +117,8 @@ bool SecRevocationDbUpdate(CFErrorRef *error);
 
 bool SecRevocationDbRemoveAllEntries(CFErrorRef *error);
 
+bool SecRevocationDbFullReset(CFErrorRef *error);
+
 /*!
 	@function SecRevocationDbCopyMatching
 	@abstract Returns a SecValidInfo reference if matching revocation (or allow list) info was found.

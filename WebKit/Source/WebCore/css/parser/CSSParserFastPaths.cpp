@@ -603,7 +603,7 @@ template<typename CharacterType> static std::optional<SRGBA<uint8_t>> parseLegac
     if (characters.empty() || characters.front() != ')')
         return std::nullopt;
 
-    auto parsedColor = CSSColorParseType<HSLFunctionLegacy>(AngleRaw { angleUnit, hue }, PercentRaw { *saturation }, PercentRaw { *lightness }, NumberRaw { alpha });
+    auto parsedColor = CSSColorParseType<HSLFunctionLegacy>(AngleRaw { angleUnit, hue }, PercentageRaw { *saturation }, PercentageRaw { *lightness }, NumberRaw { alpha });
     auto typedColor = convertToTypedColor<HSLFunctionLegacy>(parsedColor, 1.0);
     auto resultColor = convertToColor<HSLFunctionLegacy, CSSColorFunctionForm::Absolute>(typedColor, 0);
     return resultColor.tryGetAsSRGBABytes();
@@ -1092,10 +1092,6 @@ RefPtr<CSSValue> CSSParserFastPaths::maybeParseValue(CSSPropertyID propertyID, S
 
     auto valueRange = ValueRange::All;
     if (CSSParserFastPaths::isSimpleLengthPropertyID(propertyID, valueRange)) {
-        // In @viewport, width and height are shorthands, not simple length values.
-        if (isCSSViewportParsingEnabledForMode(context.mode))
-            return nullptr;
-
         auto result = parseSimpleLengthValue(string, context.mode, valueRange);
         if (result)
             return result;

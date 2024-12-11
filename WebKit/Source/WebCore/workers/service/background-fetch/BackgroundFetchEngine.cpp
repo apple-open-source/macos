@@ -33,8 +33,11 @@
 #include "RetrieveRecordsOptions.h"
 #include "SWServerRegistration.h"
 #include "SWServerToContextConnection.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BackgroundFetchEngine);
 
 BackgroundFetchEngine::BackgroundFetchEngine(SWServer& server)
     : m_server(server)
@@ -60,7 +63,7 @@ void BackgroundFetchEngine::startBackgroundFetch(SWServerRegistration& registrat
         return;
     }
 
-    auto result = iterator->value.ensure(backgroundFetchIdentifier, [&]() mutable {
+    auto result = iterator->value.ensure(backgroundFetchIdentifier, [&]() {
         return makeUnique<BackgroundFetch>(registration, backgroundFetchIdentifier, WTFMove(requests), WTFMove(options), Ref { m_store }, [weakThis = WeakPtr { *this }](auto& fetch) {
             if (weakThis)
                 weakThis->notifyBackgroundFetchUpdate(fetch);
@@ -90,7 +93,7 @@ void BackgroundFetchEngine::startBackgroundFetch(SWServerRegistration& registrat
                     return server ? server->createBackgroundFetchRecordLoader(client, request, responseDataSize, origin) : nullptr;
                 });
             }
-            callback(fetch->information());
+            callback(std::optional { fetch->information() });
             break;
         };
     });
@@ -139,10 +142,10 @@ void BackgroundFetchEngine::backgroundFetchInformation(SWServerRegistration& reg
     auto& map = iterator->value;
     auto fetchIterator = map.find(backgroundFetchIdentifier);
     if (fetchIterator == map.end()) {
-        callback(BackgroundFetchInformation { });
+        callback(std::optional<BackgroundFetchInformation> { });
         return;
     }
-    callback(fetchIterator->value->information());
+    callback(std::optional { fetchIterator->value->information() });
 }
 
 // https://wicg.github.io/background-fetch/#dom-backgroundfetchmanager-getids

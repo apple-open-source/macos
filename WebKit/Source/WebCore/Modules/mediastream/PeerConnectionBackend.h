@@ -128,7 +128,8 @@ public:
     virtual ExceptionOr<Ref<RTCRtpSender>> addTrack(MediaStreamTrack&, FixedVector<String>&&);
     virtual void removeTrack(RTCRtpSender&) { }
 
-    virtual ExceptionOr<Ref<RTCRtpTransceiver>> addTransceiver(const String&, const RTCRtpTransceiverInit&);
+    enum class IgnoreNegotiationNeededFlag : bool { No, Yes };
+    virtual ExceptionOr<Ref<RTCRtpTransceiver>> addTransceiver(const String&, const RTCRtpTransceiverInit&, IgnoreNegotiationNeededFlag);
     virtual ExceptionOr<Ref<RTCRtpTransceiver>> addTransceiver(Ref<MediaStreamTrack>&&, const RTCRtpTransceiverInit&);
 
     void markAsNeedingNegotiation(uint32_t);
@@ -240,16 +241,6 @@ protected:
 
     void validateSDP(const String&) const;
 
-    struct PendingTrackEvent {
-        Ref<RTCRtpReceiver> receiver;
-        Ref<MediaStreamTrack> track;
-        Vector<Ref<MediaStream>> streams;
-        RefPtr<RTCRtpTransceiver> transceiver;
-    };
-    void addPendingTrackEvent(PendingTrackEvent&&);
-
-    void dispatchTrackEvent(PendingTrackEvent&);
-
 private:
     virtual void doCreateOffer(RTCOfferOptions&&) = 0;
     virtual void doCreateAnswer(RTCAnswerOptions&&) = 0;
@@ -266,8 +257,6 @@ private:
     Function<void(ExceptionOr<void>&&)> m_setDescriptionCallback;
 
     bool m_shouldFilterICECandidates { true };
-
-    Vector<PendingTrackEvent> m_pendingTrackEvents;
 
 #if !RELEASE_LOG_DISABLED
     Ref<const Logger> m_logger;

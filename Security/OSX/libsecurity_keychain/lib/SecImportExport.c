@@ -205,6 +205,33 @@ static CF_RETURNS_RETAINED CFDataRef SecKeyCopyLegacyKeychainCompatibleExternalR
     return result;
 }
 
+static _Nullable SecKeyRef copyPrivateKeyForPublicKeyDigest(CFDataRef keyID, SecKeychainRef importKeychain)
+{
+    SecKeyRef privateKey = NULL;
+    CFTypeRef result = NULL;
+    if (keyID == NULL) { return NULL; }
+
+    CFMutableDictionaryRef pkquery = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryAddValue(pkquery, kSecClass, kSecClassKey);
+    CFDictionaryAddValue(pkquery, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+    CFDictionaryAddValue(pkquery, kSecAttrApplicationLabel, keyID);
+    if (importKeychain) {
+        CFMutableArrayRef searchlist = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+        CFArrayAppendValue(searchlist, importKeychain);
+        CFDictionaryAddValue(pkquery, kSecMatchSearchList, searchlist);
+        CFReleaseNull(searchlist);
+    }
+    CFDictionaryAddValue(pkquery, kSecReturnRef, kCFBooleanTrue);
+    OSStatus status = SecItemCopyMatching(pkquery, &result);
+    if (status == errSecSuccess && CFGetTypeID(result) == SecKeyGetTypeID()) {
+        CFAssignRetained(privateKey, (SecKeyRef)result);
+        result = NULL;
+    }
+    CFReleaseNull(result);
+    CFReleaseNull(pkquery);
+    return privateKey;
+}
+
 static OSStatus importPkcs12KeyToLegacyKeychain(SecIdentityRef identity, SecKeychainRef importKeychain, SecAccessRef importAccess, SecKeyRef * CF_RETURNS_RETAINED outKey)
 {
     SecKeyRef privateKey = NULL;
@@ -220,6 +247,14 @@ static OSStatus importPkcs12KeyToLegacyKeychain(SecIdentityRef identity, SecKeyc
     keyID = SecKeyCopyPublicKeyHash(privateKey);
     keyData = SecKeyCopyLegacyKeychainCompatibleExternalRepresentation(privateKey, &error);
     require_action(error == NULL, errOut, status = (OSStatus)CFErrorGetCode(error););
+
+    // before we attempt to import this key, has it already been imported to this keychain?
+    SecKeyRef existingKey = copyPrivateKeyForPublicKeyDigest(keyID, importKeychain);
+    if (existingKey) {
+        CFReleaseNull(privateKey);
+        CFAssignRetained(privateKey, existingKey);
+        goto errOut;
+    }
 
     SecExternalFormat inputFormat = kSecFormatOpenSSL;
     SecExternalItemType itemType = kSecItemTypePrivateKey;
@@ -240,17 +275,10 @@ static OSStatus importPkcs12KeyToLegacyKeychain(SecIdentityRef identity, SecKeyc
         }
     } else if (status == errSecDuplicateItem && keyID != NULL) {
         // we can look up the private key given the digest of its public key
-        CFMutableDictionaryRef pkquery = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-        CFTypeRef result = NULL;
-        CFDictionaryAddValue(pkquery, kSecClass, kSecClassKey);
-        CFDictionaryAddValue(pkquery, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
-        CFDictionaryAddValue(pkquery, kSecAttrApplicationLabel, keyID);
-        CFDictionaryAddValue(pkquery, kSecReturnRef, kCFBooleanTrue);
-        status = SecItemCopyMatching(pkquery, &result);
-        if (status == errSecSuccess && CFGetTypeID(result) == SecKeyGetTypeID()) {
-            CFAssignRetained(privateKey, (SecKeyRef)result);
+        SecKeyRef foundKey = copyPrivateKeyForPublicKeyDigest(keyID, importKeychain);
+        if (foundKey) {
+            CFAssignRetained(privateKey, foundKey);
         }
-        CFReleaseNull(pkquery);
     }
     CFReleaseNull(impItems);
 

@@ -3,8 +3,8 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2005 Allan Sandfeld Jensen (kde@carewolf.com)
  *           (C) 2005, 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2013 Apple Inc. All rights reserved.
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2005-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,6 +29,7 @@
 #include "BitmapImage.h"
 #include "BorderEdge.h"
 #include "BorderPainter.h"
+#include "BorderShape.h"
 #include "CachedImage.h"
 #include "ColorBlending.h"
 #include "Document.h"
@@ -66,11 +67,11 @@
 #include "Styleable.h"
 #include "TextBoxPainter.h"
 #include "TransformState.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 #if ASSERT_ENABLED
 #include <wtf/SetForScope.h>
 #endif
+#include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(IOS_FAMILY)
 #include "RuntimeApplicationChecks.h"
@@ -80,7 +81,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderBoxModelObject);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderBoxModelObject);
 
 // The HashMap for storing continuation pointers.
 // An inline can be split with blocks occuring in between the inline content.
@@ -270,16 +271,16 @@ RenderBlock* RenderBoxModelObject::containingBlockForAutoHeightDetection(Length 
     return cb;
 }
     
-bool RenderBoxModelObject::hasAutoHeightOrContainingBlockWithAutoHeight() const
+bool RenderBoxModelObject::hasAutoHeightOrContainingBlockWithAutoHeight(UpdatePercentageHeightDescendants updatePercentageDescendants) const
 {
     auto* thisBox = dynamicDowncast<RenderBox>(this);
     Length logicalHeightLength = style().logicalHeight();
     auto* cb = containingBlockForAutoHeightDetection(logicalHeightLength);
     
-    if (logicalHeightLength.isPercentOrCalculated() && cb && thisBox)
+    if (updatePercentageDescendants == UpdatePercentageHeightDescendants::Yes && logicalHeightLength.isPercentOrCalculated() && cb && thisBox)
         cb->addPercentHeightDescendant(*const_cast<RenderBox*>(thisBox));
 
-    if (thisBox && thisBox->isFlexItem() && downcast<RenderFlexibleBox>(*parent()).usedChildOverridingLogicalHeightForPercentageResolution(*thisBox))
+    if (thisBox && thisBox->isFlexItem() && downcast<RenderFlexibleBox>(*parent()).usedFlexItemOverridingLogicalHeightForPercentageResolution(*thisBox))
         return false;
     
     if (thisBox && thisBox->isGridItem()) {
@@ -697,14 +698,11 @@ InterpolationQuality RenderBoxModelObject::chooseInterpolationQuality(GraphicsCo
     return view().imageQualityController().chooseInterpolationQuality(context, const_cast<RenderBoxModelObject*>(this), image, layer, size);
 }
 
-void RenderBoxModelObject::paintMaskForTextFillBox(ImageBuffer* maskImage, const FloatRect& maskRect, const InlineIterator::InlineBoxIterator& inlineBox, const LayoutRect& scrolledPaintRect)
+void RenderBoxModelObject::paintMaskForTextFillBox(GraphicsContext& context, const FloatRect& paintRect, const InlineIterator::InlineBoxIterator& inlineBox, const LayoutRect& scrolledPaintRect)
 {
-    GraphicsContext& maskImageContext = maskImage->context();
-    maskImageContext.translate(-maskRect.location());
-
     // Now add the text to the clip. We do this by painting using a special paint phase that signals to
     // the painter it should just modify the clip.
-    PaintInfo maskInfo(maskImageContext, LayoutRect { maskRect }, PaintPhase::TextClip, PaintBehavior::ForceBlackText);
+    PaintInfo maskInfo(context, LayoutRect { paintRect }, PaintPhase::TextClip, PaintBehavior::ForceBlackText);
     if (inlineBox) {
         auto paintOffset = scrolledPaintRect.location() - toLayoutSize(LayoutPoint(inlineBox->visualRectIgnoringBlockDirection().location()));
 
@@ -867,14 +865,19 @@ bool RenderBoxModelObject::borderObscuresBackground() const
     return true;
 }
 
-RoundedRect RenderBoxModelObject::roundedContentBoxRect(const LayoutRect& borderBoxRect, bool includeLeftEdge, bool includeRightEdge) const
+BorderShape RenderBoxModelObject::borderShapeForContentClipping(const LayoutRect& borderBoxRect, bool includeLeftEdge, bool includeRightEdge) const
 {
     auto borderWidths = this->borderWidths();
     auto padding = this->padding();
-    return style().getRoundedInnerBorderFor(borderBoxRect,
-        borderWidths.top() + padding.top(), borderWidths.bottom() + padding.bottom(),
-        borderWidths.left() + padding.left(), borderWidths.right() + padding.right(),
-        includeLeftEdge, includeRightEdge);
+
+    auto contentBoxInsets = RectEdges<LayoutUnit> {
+        borderWidths.top() + padding.top(),
+        borderWidths.right() + padding.right(),
+        borderWidths.bottom() + padding.bottom(),
+        borderWidths.left() + padding.left(),
+    };
+
+    return BorderShape::shapeForBorderRect(style(), borderBoxRect, contentBoxInsets, includeLeftEdge, includeRightEdge);
 }
 
 LayoutUnit RenderBoxModelObject::containingBlockLogicalWidthForContent() const

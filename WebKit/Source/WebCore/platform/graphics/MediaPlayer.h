@@ -49,6 +49,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/Logger.h>
 #include <wtf/MediaTime.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/URL.h>
 #include <wtf/WallTime.h>
@@ -223,6 +224,9 @@ public:
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     virtual RefPtr<ArrayBuffer> mediaPlayerCachedKeyForKeyId(const String&) const = 0;
     virtual void mediaPlayerKeyNeeded(const SharedBuffer&) { }
+#endif
+
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
     virtual String mediaPlayerMediaKeysStorageDirectory() const { return emptyString(); }
 #endif
 
@@ -248,7 +252,7 @@ public:
     virtual bool mediaPlayerPlatformVolumeConfigurationRequired() const { return false; }
     virtual bool mediaPlayerIsLooping() const { return false; }
     virtual CachedResourceLoader* mediaPlayerCachedResourceLoader() { return nullptr; }
-    virtual RefPtr<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() = 0;
+    virtual Ref<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() = 0;
     virtual bool doesHaveAttribute(const AtomString&, AtomString* = nullptr) const { return false; }
     virtual bool mediaPlayerShouldUsePersistentCache() const { return true; }
     virtual const String& mediaPlayerMediaCacheDirectory() const { return emptyString(); }
@@ -319,7 +323,7 @@ public:
 
     virtual PlatformVideoTarget mediaPlayerVideoTarget() const { return nullptr; }
 
-    virtual MediaPlayerClientIdentifier mediaPlayerClientIdentifier() const { return { WTF::HashTableDeletedValue }; }
+    virtual MediaPlayerClientIdentifier mediaPlayerClientIdentifier() const { return { }; }
 
 #if !RELEASE_LOG_DISABLED
     virtual const void* mediaPlayerLogIdentifier() { return nullptr; }
@@ -332,7 +336,8 @@ public:
 };
 
 class WEBCORE_EXPORT MediaPlayer : public MediaPlayerEnums, public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaPlayer, WTF::DestructionThread::Main> {
-    WTF_MAKE_NONCOPYABLE(MediaPlayer); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(MediaPlayer);
+    WTF_MAKE_NONCOPYABLE(MediaPlayer);
 public:
     static Ref<MediaPlayer> create(MediaPlayerClient&);
     static Ref<MediaPlayer> create(MediaPlayerClient&, MediaPlayerEnums::MediaEngineIdentifier);
@@ -626,7 +631,7 @@ public:
     String elementId() const;
 
     CachedResourceLoader* cachedResourceLoader();
-    RefPtr<PlatformMediaResourceLoader> createResourceLoader();
+    Ref<PlatformMediaResourceLoader> createResourceLoader();
 
     void addAudioTrack(AudioTrackPrivate&);
     void addTextTrack(InbandTextTrackPrivate&);
@@ -842,7 +847,7 @@ private:
 };
 
 class MediaPlayerFactory : public CanMakeWeakPtr<MediaPlayerFactory> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(MediaPlayerFactory, WEBCORE_EXPORT);
 public:
     MediaPlayerFactory() = default;
     virtual ~MediaPlayerFactory() = default;

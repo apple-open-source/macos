@@ -71,6 +71,7 @@
 #include "JSBigInt.h"
 #include "JSGlobalObject.h"
 #include "JSImmutableButterflyInlines.h"
+#include "JSIterator.h"
 #include "JSLock.h"
 #include "JSMap.h"
 #include "JSMicrotask.h"
@@ -111,6 +112,7 @@
 #include "StructureChainInlines.h"
 #include "StructureInlines.h"
 #include "StructureStubInfo.h"
+#include "SubspaceInlines.h"
 #include "SymbolInlines.h"
 #include "SymbolTableInlines.h"
 #include "TestRunnerUtils.h"
@@ -127,7 +129,6 @@
 #include "VMInspector.h"
 #include "VariableEnvironment.h"
 #include "WaiterListManager.h"
-#include "WasmInstance.h"
 #include "WasmWorklist.h"
 #include "Watchdog.h"
 #include "WeakGCMapInlines.h"
@@ -152,6 +153,10 @@
 
 #if ENABLE(REGEXP_TRACING)
 #include "RegExp.h"
+#endif
+
+#if ENABLE(WEBASSEMBLY)
+#include "JSWebAssemblyInstance.h"
 #endif
 
 namespace JSC {
@@ -236,7 +241,7 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     if (UNLIKELY(vmCreationShouldCrash || g_jscConfig.vmCreationDisallowed))
         CRASH_WITH_EXTRA_SECURITY_IMPLICATION_AND_INFO(VMCreationDisallowed, "VM creation disallowed"_s, 0x4242424220202020, 0xbadbeef0badbeef, 0x1234123412341234, 0x1337133713371337);
 
-    VMInspector::instance().add(this);
+    VMInspector::singleton().add(this);
 
     // Set up lazy initializers.
     {
@@ -447,7 +452,7 @@ VM::~VM()
 {
     Locker destructionLocker { s_destructionLock.read() };
 
-    if (Options::useAtomicsWaitAsync() && vmType == Default)
+    if (vmType == Default)
         WaiterListManager::singleton().unregister(this);
 
     Gigacage::removePrimitiveDisableCallback(primitiveGigacageDisabledCallback, this);
@@ -492,7 +497,7 @@ VM::~VM()
 
     JSRunLoopTimer::Manager::shared().unregisterVM(*this);
 
-    VMInspector::instance().remove(this);
+    VMInspector::singleton().remove(this);
 
     delete emptyList;
 
@@ -680,12 +685,10 @@ static ThunkGenerator thunkGeneratorForIntrinsic(Intrinsic intrinsic)
     case ObjectIsIntrinsic:
         return objectIsThunkGenerator;
 #endif
-#if !OS(WINDOWS)
     case BoundFunctionCallIntrinsic:
         return boundFunctionCallGenerator;
     case RemoteFunctionCallIntrinsic:
         return remoteFunctionCallGenerator;
-#endif
     case NumberConstructorIntrinsic:
         return numberConstructorCallThunkGenerator;
     case StringConstructorIntrinsic:
@@ -780,11 +783,8 @@ NativeExecutable* VM::getRemoteFunction(bool isJSFunction)
             return cached;
 
         Intrinsic intrinsic = NoIntrinsic;
-        if (!slowCase) {
-#if !(OS(WINDOWS) && CPU(X86_64))
+        if (!slowCase)
             intrinsic = RemoteFunctionCallIntrinsic;
-#endif
-        }
 
         NativeExecutable* result = getHostFunction(
             slowCase ? remoteFunctionCallGeneric : remoteFunctionCallForJSFunction,
@@ -1066,8 +1066,12 @@ void VM::updateStackLimits()
         preCommitStackMemory(m_softStackLimit);
 #endif
 #if ENABLE(WEBASSEMBLY)
-        for (auto& instance : m_wasmInstances.values())
-            instance->updateSoftStackLimit(m_softStackLimit);
+        if (heap.m_webAssemblyInstanceSpace) {
+            heap.m_webAssemblyInstanceSpace->forEachLiveCell([&] (HeapCell* cell, HeapCell::Kind kind) {
+                ASSERT_UNUSED(kind, kind == HeapCell::JSCell);
+                static_cast<JSWebAssemblyInstance*>(cell)->updateSoftStackLimit(m_softStackLimit);
+            });
+        }
 #endif
     }
 }
@@ -1481,7 +1485,6 @@ bool VM::isScratchBuffer(void* ptr)
 
 Ref<Waiter> VM::syncWaiter()
 {
-    m_syncWaiter->setVM(this);
     return m_syncWaiter;
 }
 
@@ -1623,6 +1626,9 @@ void VM::visitAggregateImpl(Visitor& visitor)
     m_builtinExecutables->visitAggregate(visitor);
     m_regExpCache->visitAggregate(visitor);
 
+    if (heap.collectionScope() != CollectionScope::Full)
+        stringReplaceCache.visitAggregate(visitor);
+
     visitor.append(structureStructure);
     visitor.append(structureRareDataStructure);
     visitor.append(stringStructure);
@@ -1693,8 +1699,8 @@ void VM::performOpportunisticallyScheduledTasks(MonotonicTime deadline, OptionSe
 
     dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] QUERY", " signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
     JSLockHolder locker { *this };
-    if (deferredWorkTimer->hasAnyPendingWork()) {
-        dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] GaveUp: No pending tasks", " signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
+    if (deferredWorkTimer->hasImminentlyScheduledWork()) {
+        dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] GaveUp: DeferredWorkTimer hasImminentlyScheduledWork signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
         return;
     }
 
@@ -1725,17 +1731,17 @@ void VM::performOpportunisticallyScheduledTasks(MonotonicTime deadline, OptionSe
         }
 
         auto timeSinceLastGC = secondsSinceEpoch - std::max(heap.m_lastGCEndTime, heap.m_currentGCStartTime).secondsSinceEpoch();
-        if (timeSinceLastGC > minimumDelayBeforeOpportunisticEdenGC && heap.m_bytesAllocatedThisCycle && heap.m_bytesAllocatedBeforeLastEdenCollect) {
-            auto estimatedGCDuration = (heap.lastEdenGCLength() * heap.m_bytesAllocatedThisCycle) / heap.m_bytesAllocatedBeforeLastEdenCollect;
+        if (timeSinceLastGC > minimumDelayBeforeOpportunisticEdenGC && heap.totalBytesAllocatedThisCycle() && heap.m_bytesAllocatedBeforeLastEdenCollect) {
+            auto estimatedGCDuration = (heap.lastEdenGCLength() * heap.totalBytesAllocatedThisCycle()) / heap.m_bytesAllocatedBeforeLastEdenCollect;
             if (estimatedGCDuration + extraDurationToAvoidExceedingDeadlineDuringEdenGC < remainingTime) {
-                dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] EDEN: ", timeSinceFinishingLastFullGC, " ", timeSinceLastGC, " ", heap.m_shouldDoOpportunisticFullCollection, " ", heap.m_totalBytesVisitedAfterLastFullCollect, " ", heap.m_bytesAllocatedThisCycle, " ", heap.m_bytesAllocatedBeforeLastEdenCollect, " ", heap.m_lastGCEndTime, " ", heap.m_currentGCStartTime, " ", (heap.lastFullGCLength() * heap.m_totalBytesVisited) / heap.m_totalBytesVisitedAfterLastFullCollect, " ", remainingTime, " ", (heap.lastEdenGCLength() * heap.m_bytesAllocatedThisCycle) / heap.m_bytesAllocatedBeforeLastEdenCollect, " signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
+                dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] EDEN: ", timeSinceFinishingLastFullGC, " ", timeSinceLastGC, " ", heap.m_shouldDoOpportunisticFullCollection, " ", heap.m_totalBytesVisitedAfterLastFullCollect, " ", heap.totalBytesAllocatedThisCycle(), " ", heap.m_bytesAllocatedBeforeLastEdenCollect, " ", heap.m_lastGCEndTime, " ", heap.m_currentGCStartTime, " ", (heap.lastFullGCLength() * heap.m_totalBytesVisited) / heap.m_totalBytesVisitedAfterLastFullCollect, " ", remainingTime, " ", (heap.lastEdenGCLength() * heap.totalBytesAllocatedThisCycle()) / heap.m_bytesAllocatedBeforeLastEdenCollect, " signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
                 heap.collectSync(CollectionScope::Eden);
                 heap.m_shouldDoOpportunisticFullCollection = false;
                 return;
             }
         }
 
-        dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] GaveUp: nothing met. ", timeSinceFinishingLastFullGC, " ", timeSinceLastGC, " ", heap.m_shouldDoOpportunisticFullCollection, " ", heap.m_totalBytesVisitedAfterLastFullCollect, " ", heap.m_bytesAllocatedThisCycle, " ", heap.m_bytesAllocatedBeforeLastEdenCollect, " ", heap.m_lastGCEndTime, " ", heap.m_currentGCStartTime, " ", (heap.lastFullGCLength() * heap.m_totalBytesVisited) / heap.m_totalBytesVisitedAfterLastFullCollect, " ", remainingTime, " ", (heap.lastEdenGCLength() * heap.m_bytesAllocatedThisCycle) / heap.m_bytesAllocatedBeforeLastEdenCollect, " signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
+        dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] GaveUp: nothing met. ", timeSinceFinishingLastFullGC, " ", timeSinceLastGC, " ", heap.m_shouldDoOpportunisticFullCollection, " ", heap.m_totalBytesVisitedAfterLastFullCollect, " ", heap.totalBytesAllocatedThisCycle(), " ", heap.m_bytesAllocatedBeforeLastEdenCollect, " ", heap.m_lastGCEndTime, " ", heap.m_currentGCStartTime, " ", (heap.lastFullGCLength() * heap.m_totalBytesVisited) / heap.m_totalBytesVisitedAfterLastFullCollect, " ", remainingTime, " ", (heap.lastEdenGCLength() * heap.totalBytesAllocatedThisCycle()) / heap.m_bytesAllocatedBeforeLastEdenCollect, " signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
     }();
 
     heap.sweeper().doWorkUntil(*this, deadline);
@@ -1775,14 +1781,6 @@ void VM::invalidateStructureChainIntegrity(StructureChainIntegrityEvent)
     if (auto* megamorphicCache = this->megamorphicCache())
         megamorphicCache->bumpEpoch();
 }
-
-#if ENABLE(WEBASSEMBLY)
-void VM::registerWasmInstance(Wasm::Instance& instance)
-{
-    m_wasmInstances.add(instance);
-}
-#endif
-
 
 VM::DrainMicrotaskDelayScope::DrainMicrotaskDelayScope(VM& vm)
     : m_vm(&vm)

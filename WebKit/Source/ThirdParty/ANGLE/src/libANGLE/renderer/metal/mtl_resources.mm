@@ -168,11 +168,12 @@ angle::Result Texture::Make2DTexture(ContextMtl *context,
 }
 
 /** static */
-angle::Result Texture::MakeMemoryLess2DTexture(ContextMtl *context,
-                                               const Format &format,
-                                               uint32_t width,
-                                               uint32_t height,
-                                               TextureRef *refOut)
+angle::Result Texture::MakeMemoryLess2DMSTexture(ContextMtl *context,
+                                                 const Format &format,
+                                                 uint32_t width,
+                                                 uint32_t height,
+                                                 uint32_t samples,
+                                                 TextureRef *refOut)
 {
     ANGLE_MTL_OBJC_SCOPE
     {
@@ -181,8 +182,11 @@ angle::Result Texture::MakeMemoryLess2DTexture(ContextMtl *context,
                                                                width:width
                                                               height:height
                                                            mipmapped:NO];
+        desc.textureType = MTLTextureType2DMultisample;
+        desc.sampleCount = samples;
 
-        return MakeTexture(context, format, desc, 1, true, false, true, refOut);
+        return MakeTexture(context, format, desc, 1, /*renderTargetOnly=*/true,
+                           /*allowFormatView=*/false, /*memoryLess=*/true, refOut);
     }  // ANGLE_MTL_OBJC_SCOPE
 }
 /** static */
@@ -426,11 +430,18 @@ Texture::Texture(ContextMtl *context,
 
         if (memoryLess)
         {
-#if (TARGET_OS_IOS || TARGET_OS_TV) && !TARGET_OS_MACCATALYST
-            desc.resourceOptions = MTLResourceStorageModeMemoryless;
-#else
-            desc.resourceOptions = MTLResourceStorageModePrivate;
-#endif
+            if (context->getDisplay()->supportsAppleGPUFamily(1))
+            {
+                desc.resourceOptions = MTLResourceStorageModeMemoryless;
+            }
+            else
+            {
+                desc.resourceOptions = MTLResourceStorageModePrivate;
+            }
+
+            // Regardless of whether MTLResourceStorageModeMemoryless is used or not, we disable
+            // Load/Store on this texture.
+            mShouldNotLoadStore = true;
         }
         else if (context->getNativeFormatCaps(desc.pixelFormat).depthRenderable ||
                  desc.textureType == MTLTextureType2DMultisample)
@@ -449,12 +460,12 @@ Texture::Texture(ContextMtl *context,
         }
         if (desc.pixelFormat == MTLPixelFormatDepth32Float_Stencil8)
         {
-            ASSERT(allowFormatView);
+            ASSERT(allowFormatView || memoryLess);
         }
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
         if (desc.pixelFormat == MTLPixelFormatDepth24Unorm_Stencil8)
         {
-            ASSERT(allowFormatView);
+            ASSERT(allowFormatView || memoryLess);
         }
 #endif
 
@@ -488,10 +499,10 @@ Texture::Texture(ContextMtl *context,
             desc.usage |= MTLTextureUsageRenderTarget;
         }
 
-#if (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_WATCH) && !TARGET_OS_MACCATALYST
-        desc.resourceOptions = MTLResourceStorageModeShared;
-#else
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
         desc.resourceOptions = MTLResourceStorageModeManaged;
+#else
+        desc.resourceOptions = MTLResourceStorageModeShared;
 #endif
 
         if (!renderTargetOnly)
@@ -546,11 +557,10 @@ Texture::Texture(Texture *original,
                  MTLTextureType textureType,
                  NSRange levels,
                  NSRange slices,
-                 const TextureSwizzleChannels &swizzle)
+                 const MTLTextureSwizzleChannels &swizzle)
     : Resource(original),
       mColorWritableMask(original->mColorWritableMask)  // Share color write mask property
 {
-#if ANGLE_MTL_SWIZZLE_AVAILABLE
     ANGLE_MTL_OBJC_SCOPE
     {
         auto view = [original->get() newTextureViewWithPixelFormat:pixelFormat
@@ -563,9 +573,6 @@ Texture::Texture(Texture *original,
         // Texture views consume no additional memory
         mEstimatedByteSize = 0;
     }
-#else
-    UNREACHABLE();
-#endif
 }
 
 void Texture::syncContent(ContextMtl *context, mtl::BlitCommandEncoder *blitEncoder)
@@ -774,16 +781,10 @@ TextureRef Texture::createViewWithCompatibleFormat(MTLPixelFormat format)
 TextureRef Texture::createMipsSwizzleView(const MipmapNativeLevel &baseLevel,
                                           uint32_t levels,
                                           MTLPixelFormat format,
-                                          const TextureSwizzleChannels &swizzle)
+                                          const MTLTextureSwizzleChannels &swizzle)
 {
-#if ANGLE_MTL_SWIZZLE_AVAILABLE
     return TextureRef(new Texture(this, format, textureType(), NSMakeRange(baseLevel.get(), levels),
                                   NSMakeRange(0, cubeFacesOrArrayLength()), swizzle));
-#else
-    WARN() << "Texture swizzle is not supported on pre iOS 13.0 and macOS 15.0";
-    UNIMPLEMENTED();
-    return createMipsView(baseLevel, levels);
-#endif
 }
 
 MTLPixelFormat Texture::pixelFormat() const

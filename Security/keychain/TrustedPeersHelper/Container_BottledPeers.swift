@@ -122,4 +122,29 @@ extension Container {
         let policy = try self.syncingPolicyFor(modelID: egoPermanentInfo.modelID, stableInfo: sponsorPeerStableInfo)
         return (bottleMO, sponsorPeer.peerID, policy)
     }
+
+    func octagonPeerID(for bottleID: String, reply: @escaping (String?, Error?) -> Void) {
+        let reply: (String?, Error?) -> Void = {
+            let logType: OSLogType = $1 == nil ? .info : .error
+            logger.log(level: logType, "octagonPeerID complete: \(traceError($1), privacy: .public)")
+            reply($0, $1)
+        }
+
+        self.moc.performAndWait {
+            do {
+                let bottleMO = try self.onMOCQueueFindBottle(bottleID: bottleID)
+
+                guard let peer = try self.model.peer(withID: bottleMO.peerID ?? "") else {
+                    logger.warning("octagonPeerID Unable to finding peer with peerID \(bottleMO.peerID ?? "no peer ID given", privacy: .public)")
+                    reply(nil, ContainerError.bottleCreatingPeerNotFound)
+                    return
+                }
+
+                reply(peer.peerID, nil)
+            } catch {
+                logger.warning("octagonPeerID Error finding peer with bottleID \(bottleID), privacy: .public): \(String(describing: error), privacy: .public)")
+                reply(nil, error)
+            }
+        }
+    }
 }

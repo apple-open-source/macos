@@ -146,11 +146,12 @@ class Texture final : public Resource,
                                        TextureRef *refOut);
 
     // On macOS, memory will still be allocated for this texture.
-    static angle::Result MakeMemoryLess2DTexture(ContextMtl *context,
-                                                 const Format &format,
-                                                 uint32_t width,
-                                                 uint32_t height,
-                                                 TextureRef *refOut);
+    static angle::Result MakeMemoryLess2DMSTexture(ContextMtl *context,
+                                                   const Format &format,
+                                                   uint32_t width,
+                                                   uint32_t height,
+                                                   uint32_t samples,
+                                                   TextureRef *refOut);
 
     static angle::Result MakeCubeTexture(ContextMtl *context,
                                          const Format &format,
@@ -249,7 +250,7 @@ class Texture final : public Resource,
     TextureRef createMipsSwizzleView(const MipmapNativeLevel &baseLevel,
                                      uint32_t levels,
                                      MTLPixelFormat format,
-                                     const TextureSwizzleChannels &swizzle);
+                                     const MTLTextureSwizzleChannels &swizzle);
 
     MTLTextureType textureType() const;
     MTLPixelFormat pixelFormat() const;
@@ -278,7 +279,9 @@ class Texture final : public Resource,
 
     angle::Result resize(ContextMtl *context, uint32_t width, uint32_t height);
 
-    // For render target
+    // Get the color write mask to restrict writing to certain color channels in this texture. It's
+    // used for textures having emulated mtl::Format such as RGB which should always have alpha
+    // value being one.
     MTLColorWriteMask getColorWritableMask() const { return *mColorWritableMask; }
     void setColorWritableMask(MTLColorWriteMask mask) { *mColorWritableMask = mask; }
 
@@ -313,6 +316,11 @@ class Texture final : public Resource,
     void setEstimatedByteSize(size_t bytes) { mEstimatedByteSize = bytes; }
     size_t estimatedByteSize() const override { return mEstimatedByteSize; }
     id getID() const override { return get(); }
+
+    // Should we disable MTLLoadActionLoad & MTLStoreActionStore when using this texture
+    // as render pass' attachment. This is usually used for memoryless textures and
+    // EXT_multisampled_render_to_texture.
+    bool shouldNotLoadStore() const { return mShouldNotLoadStore; }
 
   private:
     using ParentClass = WrappedObject<id<MTLTexture>>;
@@ -380,7 +388,7 @@ class Texture final : public Resource,
             MTLTextureType textureType,
             NSRange levels,
             NSRange slices,
-            const TextureSwizzleChannels &swizzle);
+            const MTLTextureSwizzleChannels &swizzle);
 
     void syncContentIfNeeded(ContextMtl *context);
 
@@ -399,6 +407,8 @@ class Texture final : public Resource,
     TextureRef mParentTexture;
 
     size_t mEstimatedByteSize = 0;
+
+    bool mShouldNotLoadStore = false;
 };
 
 class Buffer final : public Resource, public WrappedObject<id<MTLBuffer>>

@@ -1324,7 +1324,6 @@ pcap_read_bpf(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 			pcap_read_bpf_header(p, bp, &pkthdr);
 
 			if (p->compression_mode == 1) {
-#ifdef HAS_BPF_HDR_COMP
 				uint8_t complen;
 
 				if (p->extendedhdr != 0) {
@@ -1367,7 +1366,6 @@ pcap_read_bpf(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 				p->prev_datap = datap;
 				p->prev_caplen = caplen + complen;
 			} else if (p->compression_mode == 2) {
-#endif /* HAS_BPF_HDR_COMP */
 				if (p->prev_datap != NULL) {
 					uint8_t common_prefix_size = get_common_prefix_size(datap, p->prev_datap, MIN(caplen, p->prev_caplen));
 					if (common_prefix_size > 0) {
@@ -1949,7 +1947,6 @@ pcap_activate_bpf(pcap_t *p)
 		goto bad;
 	}
 
-#ifdef HAS_BPF_HDR_COMP
 	v = p->compression_mode;
 	if (v == 1) {
 		if (ioctl(p->fd, BIOCSHDRCOMP, &v) != 0) {
@@ -1984,7 +1981,6 @@ pcap_activate_bpf(pcap_t *p)
 		}
 #endif /* BIOCSHDRCOMPON */
 	}
-#endif /* HAS_BPF_HDR_COMP */
 	if (p->head_drop != 0) {
 		v = 1;
 		if (ioctl(p->fd, BIOCSHEADDROP, &v) != 0) {

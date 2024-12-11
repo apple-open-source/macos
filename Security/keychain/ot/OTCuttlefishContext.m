@@ -116,9 +116,9 @@
 #import "utilities/SecFileLocations.h"
 #import "utilities/SecTapToRadar.h"
 
-#import "keychain/analytics/SecurityAnalyticsConstants.h"
-#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
-#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #if TARGET_OS_WATCH
 #import "keychain/otpaird/OTPairingClient.h"
@@ -128,6 +128,7 @@ NSString* OTCuttlefishContextErrorDomain = @"otcuttlefish";
 static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 static dispatch_time_t OctagonStateTransitionTimeoutForTests = 20*NSEC_PER_SEC;
 static dispatch_time_t OctagonStateTransitionTimeoutForLongOps = 120*NSEC_PER_SEC;
+static dispatch_time_t OctagonStateTransitionTimeoutForLongOpsSlowDevices = 240*NSEC_PER_SEC;
 static dispatch_time_t OctagonNFSOneHour = 3600*NSEC_PER_SEC;
 static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 
@@ -340,6 +341,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
             secnotice("octagon-metrics", "Added check-on-metrics flag to the state machine");
             [self.stateMachine handleFlag:OctagonFlagCheckOnRTCMetrics];
         }];
+
     }
     return self;
 }
@@ -384,6 +386,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 
     if (newState.trustState == OTAccountMetadataClassC_TrustState_TRUSTED && oldState.trustState != OTAccountMetadataClassC_TrustState_TRUSTED) {
         [self.launchSequence addEvent:@"Trusted"];
+        [self notifyTrustChanged:newState.trustState];
     }
     if (newState.trustState != OTAccountMetadataClassC_TrustState_TRUSTED && oldState.trustState == OTAccountMetadataClassC_TrustState_TRUSTED) {
         [self.launchSequence addEvent:@"Untrusted"];
@@ -742,7 +745,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                                            path:path
                                           reply:reply];
 }
-- (void)performCKServerUnreadableDataRemoval:(void (^)(NSError* _Nullable error))reply
+- (void)performCKServerUnreadableDataRemoval:(NSString*)altDSID reply:(void (^)(NSError* _Nullable error))reply
 {
     NSError* accountError = [self errorIfNoCKAccount:nil];
     if (accountError != nil) {
@@ -751,7 +754,35 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
         return;
     }
 
+    if (altDSID == nil) {
+        AKAccountManager *accountManager = [AKAccountManager sharedInstance];
+        if (accountManager) {
+            ACAccount* acAccount = [accountManager primaryAuthKitAccount];
+            if (acAccount) {
+                altDSID = acAccount.aa_altDSID;
+            } else {
+                secerror("octagon-perform-ckserver-unreadable-data-removal, Primary Authkit Account is nil");
+                reply([NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorAuthKitNoPrimaryAccount description:@"Primary Authkit Account is nil"]);
+                return;
+            }
+        } else {
+            secerror("octagon-perform-ckserver-unreadable-data-removal, AuthKit Account Manager is nil");
+            reply([NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorAuthKitNoAccountManager description:@"AuthKit Account Manager is nil"]);
+            return;
+        }
+    }
+
+    NSError* localError = nil;
+    BOOL isAccountDemo = [self.authKitAdapter accountIsDemoAccountByAltDSID:altDSID error:&localError];
+    if (localError) {
+        secerror("octagon-perform-ckserver-unreadable-data-removal: failed to fetch demo account flag: %@", localError);
+    }
+
+    BOOL internal = SecIsInternalRelease();
+
     [self.cuttlefishXPCWrapper performCKServerUnreadableDataRemovalWithSpecificUser:self.activeAccount
+                                                                    internalAccount:internal
+                                                                        demoAccount:isAccountDemo
                                                                               reply:^(NSError * _Nullable removeError) {
         if (removeError) {
             secerror("octagon-perform-ckserver-unreadable-data-removal: failed with error: %@", removeError);
@@ -2662,7 +2693,6 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                             suggestTLKUpload:self.suggestTLKUploadNotifier
                           requestPolicyCheck:self.requestPolicyCheckNotifier];
         }
-        [self notifyTrustChanged:OTAccountMetadataClassC_TrustState_TRUSTED];
 
         op.nextState = op.intendedState;
 
@@ -3176,9 +3206,9 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
         timeOut = config.timeout;
     } else if(isSlowerDevice){
         // Non-iphone non-mac platforms can be slow; heuristically slow them down
-        timeOut = 60 * NSEC_PER_SEC;
+        timeOut = OctagonStateTransitionTimeoutForLongOpsSlowDevices;
     } else {
-        timeOut = 10 * NSEC_PER_SEC;
+        timeOut = OctagonStateTransitionTimeoutForLongOps;
     }
 
     OctagonStateTransitionRequest<OTPrepareOperation*>* request = [[OctagonStateTransitionRequest alloc] init:@"prepareForApplicant"
@@ -3665,7 +3695,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     reply(peerID, localError);
 }
 
-- (void)rpcFetchPeerAttributes:(NSString*)attribute includeSelf:(BOOL)includeSelf reply:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
+- (void)fetchTrustedDeviceNamesByPeerID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
 {
     NSError* accountError = [self errorIfNoCKAccount:nil];
     if (accountError != nil) {
@@ -3675,63 +3705,16 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     }
 
     // As this isn't a state-modifying operation, we don't need to go through the state machine.
-    [self.cuttlefishXPCWrapper dumpWithSpecificUser:self.activeAccount
-                                              reply:^(NSDictionary * _Nullable dump, NSError * _Nullable dumpError) {
-            // Pull out our peers
-            if(dumpError) {
-                secnotice("octagon", "Unable to dump info: %@", dumpError);
-                reply(nil, dumpError);
-                return;
-            }
+    [self.cuttlefishXPCWrapper trustedDeviceNamesByPeerIDWithSpecificUser:self.activeAccount
+                                             reply:^(NSDictionary * _Nullable namesByPeerID, NSError * _Nullable fetchError) {
+        if(fetchError) {
+            secnotice("octagon", "Unable to fetch names by peerID: %@", fetchError);
+            reply(nil, fetchError);
+            return;
+        }
 
-            NSMutableDictionary<NSString*, NSString*>* peerMap = [NSMutableDictionary dictionary];
-
-            NSDictionary* selfInfo = dump[@"self"];
-
-            if ([attribute isEqualToString:@"bottleID"]) {
-                NSArray<NSDictionary*>*bottles = dump[@"bottles"];
-                for(NSDictionary *bottle in bottles) {
-                    peerMap[bottle[@"peerID"]] = bottle[@"bottleID"];
-                }
-                reply(peerMap, nil);
-                return;
-            }
-
-            NSArray* peers = dump[@"peers"];
-            NSArray* trustedPeerIDs = selfInfo[@"dynamicInfo"][@"included"];
-
-
-            for(NSString* peerID in trustedPeerIDs) {
-                NSDictionary* peerMatchingID = nil;
-
-                for(NSDictionary* peer in peers) {
-                    if([peer[@"peerID"] isEqualToString:peerID]) {
-                        peerMatchingID = peer;
-                        break;
-                    }
-                }
-
-                if(!peerMatchingID) {
-                    secerror("octagon: have a trusted peer ID without peer information: %@", peerID);
-                    continue;
-                }
-
-                peerMap[peerID] = peerMatchingID[@"stableInfo"][attribute];
-            }
-
-            reply(peerMap, nil);
-        }];
-}
-
-- (void)rpcFetchDeviceNamesByPeerID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
-{
-    [self rpcFetchPeerAttributes:@"device_name" includeSelf:NO reply:reply];
-}
-
-
-- (void)rpcFetchPeerIDByBottleID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply
-{
-    [self rpcFetchPeerAttributes:@"bottleID" includeSelf:YES reply:reply];
+        reply(namesByPeerID, fetchError);
+    }];
 }
 
 - (void)rpcSetRecoveryKey:(NSString*)recoveryKey reply:(void (^)(NSError * _Nullable error))reply
@@ -4680,17 +4663,25 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     }
 }
 
-- (void)octagonPeerIDGivenBottleID:(NSString*)bottleID reply:(void (^)(NSString *peerID))reply
+- (void)octagonPeerIDGivenBottleID:(NSString*)bottleID reply:(void (^)(NSString *peerID, NSError* error))reply
 {
-    [self rpcFetchPeerIDByBottleID:^(NSDictionary<NSString *,NSString *> *peers, NSError * error) {
-        __block NSString* peerID = nil;
-        [peers enumerateKeysAndObjectsUsingBlock:^(NSString *fetchedPeerID, NSString *bottleID, BOOL *stop) {
-            if ([bottleID isEqualToString:bottleID]) {
-                peerID = fetchedPeerID;
-                *stop = true;
-            }
-        }];
-        reply(peerID);
+    NSError* accountError = [self errorIfNoCKAccount:nil];
+    if (accountError != nil) {
+        secnotice("octagon", "No cloudkit account present: %@", accountError);
+        reply(nil, accountError);
+        return;
+    }
+
+    [self.cuttlefishXPCWrapper octagonPeerIDGivenBottleIDWithSpecificUser:self.activeAccount
+                                                                 bottleID:bottleID
+                                                                    reply:^(NSString * _Nullable peerID, NSError * _Nullable fetchError) {
+        if(fetchError) {
+            secnotice("octagon", "Unable to find bottleID: %@", fetchError);
+            reply(nil, fetchError);
+            return;
+        }
+
+        reply(peerID, fetchError);
     }];
 }
 
@@ -4710,10 +4701,13 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                 reply(nil, [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRecordNotViable userInfo:@{NSLocalizedDescriptionKey : @"Record's bottleID is not valid in cuttlefish"}]);
             } else {
                 //fetch the Octagon peer matching the escrow record's serial
-                [self octagonPeerIDGivenBottleID:otRecord.escrowInformationMetadata.bottleId reply:^(NSString *peerID) {
+                [self octagonPeerIDGivenBottleID:otRecord.escrowInformationMetadata.bottleId reply:^(NSString *peerID, NSError* error) {
                     if (!peerID) {
-                        secnotice("octagon-tlk-recoverability", "Octagon peerID not trusted for record %@", otRecord);
-                        reply(nil, [NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorRecordNotViable userInfo:@{NSLocalizedDescriptionKey : @"Octagon peerID not trusted for record"}]);
+                        secnotice("octagon-tlk-recoverability", "Octagon peerID not trusted for record %@: %@", otRecord, error);
+                        reply(nil, [NSError errorWithDomain:OctagonErrorDomain
+                                                       code:OctagonErrorRecordNotViable
+                                                description:@"Octagon peerID not trusted for record"
+                                                 underlying:error]);
                         return;
                     } else {
                         NSError *localError = nil;
@@ -5160,21 +5154,19 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 }
 
 
-- (NSNumber* _Nullable)currentlyEnforcingIDMSTDL:(NSError**)error
+- (NSNumber* _Nullable)currentlyEnforcingIDMSTDL_testOnly:(NSError**)error
 {
     // As this isn't a state-modifying operation, we don't need to go through the state machine.
     __block BOOL enforcing = NO;
     __block NSError* reterror = nil;
 
-    [self.cuttlefishXPCWrapper dumpWithSpecificUser:self.activeAccount
-                                              reply:^(NSDictionary * _Nullable dump, NSError * _Nullable dumpError) {
-        if (dumpError) {
-            secnotice("octagon", "Unable to dump info: %@", dumpError);
-            reterror = dumpError;
+    [self.cuttlefishXPCWrapper honorIDMSListChangesForSpecificUser:self.activeAccount reply:^(NSString * _Nullable value, NSError * _Nullable honorError) {
+        if (honorError) {
+            secnotice("octagon", "Unable to get honorIDMSListChanges: %@", honorError);
+            reterror = honorError;
             return;
         }
 
-        NSString* value = dump[@"honorIDMSListChanges"];
         if ([value isEqualToString:@"YES"]) {
             enforcing = YES;
         }

@@ -30,6 +30,7 @@
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "AudioTrackPrivateGStreamer.h"
+#include "GLVideoSinkGStreamer.h"
 #include "GStreamerAudioMixer.h"
 #include "GStreamerCommon.h"
 #include "GStreamerQuirks.h"
@@ -92,6 +93,7 @@
 #include <wtf/Scope.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/StringPrintStream.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/UniStdExtras.h>
 #include <wtf/WallTime.h>
@@ -108,15 +110,11 @@
 #undef GST_USE_UNSTABLE_API
 #endif // ENABLE(VIDEO) && USE(GSTREAMER_MPEGTS)
 
-#if USE(GSTREAMER_GL)
-#include "GLVideoSinkGStreamer.h"
-#endif // USE(GSTREAMER_GL)
-
 #if USE(TEXTURE_MAPPER)
 #include "BitmapTexture.h"
 #include "BitmapTexturePool.h"
-#include "GStreamerVideoFrameHolder.h"
-#include "TextureMapperPlatformLayerBuffer.h"
+#include "CoordinatedPlatformLayerBufferHolePunch.h"
+#include "CoordinatedPlatformLayerBufferVideo.h"
 #include "TextureMapperPlatformLayerProxyGL.h"
 #endif // USE(TEXTURE_MAPPER)
 
@@ -137,6 +135,8 @@ GST_DEBUG_CATEGORY(webkit_media_player_debug);
 
 namespace WebCore {
 using namespace std;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerPrivateGStreamer);
 
 static const FloatSize s_holePunchDefaultFrameSize(1280, 720);
 
@@ -170,9 +170,6 @@ MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
     , m_maxTimeLoadedAtLastDidLoadingProgress(MediaTime::zeroTime())
     , m_drawTimer(RunLoop::main(), this, &MediaPlayerPrivateGStreamer::repaint)
     , m_pausedTimerHandler(RunLoop::main(), this, &MediaPlayerPrivateGStreamer::pausedTimerFired)
-#if USE(TEXTURE_MAPPER) && !USE(NICOSIA)
-    , m_platformLayerProxy(adoptRef(new TextureMapperPlatformLayerProxyGL(TextureMapperPlatformLayerProxy::ContentType::Video)))
-#endif
 #if !RELEASE_LOG_DISABLED
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
@@ -202,18 +199,15 @@ MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
         m_quirksManagerForTesting->setHolePunchEnabledForTesting(true);
     }
 
-#if USE(TEXTURE_MAPPER) && USE(NICOSIA)
-    m_nicosiaLayer = Nicosia::ContentLayer::create(*this,
-        [&]() -> Ref<TextureMapperPlatformLayerProxy> {
-            if (isHolePunchRenderingEnabled())
-                return adoptRef(*new TextureMapperPlatformLayerProxyGL(TextureMapperPlatformLayerProxy::ContentType::HolePunch));
-
+#if USE(TEXTURE_MAPPER)
+    if (isHolePunchRenderingEnabled())
+        m_platformLayer = TextureMapperPlatformLayerProxyGL::create(TextureMapperPlatformLayerProxy::ContentType::HolePunch);
 #if USE(TEXTURE_MAPPER_DMABUF)
-            if (webKitDMABufVideoSinkIsEnabled() && webKitDMABufVideoSinkProbePlatform())
-                return adoptRef(*new TextureMapperPlatformLayerProxyDMABuf(TextureMapperPlatformLayerProxy::ContentType::Video));
+    else if (webKitDMABufVideoSinkIsEnabled() && webKitDMABufVideoSinkProbePlatform())
+        m_platformLayer = TextureMapperPlatformLayerProxyDMABuf::create(TextureMapperPlatformLayerProxy::ContentType::Video);
 #endif
-            return adoptRef(*new TextureMapperPlatformLayerProxyGL(TextureMapperPlatformLayerProxy::ContentType::Video));
-        }());
+    else
+        m_platformLayer = TextureMapperPlatformLayerProxyGL::create(TextureMapperPlatformLayerProxy::ContentType::Video);
 #endif
 
     ensureGStreamerInitialized();
@@ -253,13 +247,8 @@ void MediaPlayerPrivateGStreamer::tearDown(bool clearMediaPlayer)
         g_signal_handlers_disconnect_matched(videoSinkPad.get(), G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, this);
     }
 
-#if USE(GSTREAMER_GL)
     if (m_videoDecoderPlatform == GstVideoDecoderPlatform::Video4Linux)
         flushCurrentBuffer();
-#endif
-#if USE(TEXTURE_MAPPER) && USE(NICOSIA)
-    m_nicosiaLayer->invalidateClient();
-#endif
 
     if (m_videoSink)
         g_signal_handlers_disconnect_matched(m_videoSink.get(), G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, this);
@@ -528,7 +517,7 @@ bool MediaPlayerPrivateGStreamer::paused() const
     // For debug mode (either GStreamer of WebKit) we make some extra check to ensure there is no desynchronization
     // between pipeline and player. In the case of media stream, we just return the result of the pipeline as there are
     // nuances regarding the prerolling creating some regressions in the tests.
-#if !defined(GST_DISABLE_GST_DEBUG) || !defined(NDEBUG) || (defined(ENABLE_MEDIA_STREAM) && ENABLE_MEDIA_STREAM)
+#if !defined(GST_DISABLE_GST_DEBUG) || !defined(NDEBUG) || ENABLE(MEDIA_STREAM)
     GstState state, pending;
     auto stateChange = gst_element_get_state(m_pipeline.get(), &state, &pending, 0);
     bool isPipelinePaused = state <= GST_STATE_PAUSED;
@@ -861,12 +850,14 @@ const PlatformTimeRanges& MediaPlayerPrivateGStreamer::buffered() const
 
 MediaTime MediaPlayerPrivateGStreamer::maxTimeSeekable() const
 {
-    GST_TRACE_OBJECT(pipeline(), "errorOccured: %s, isLiveStream: %s", boolForPrinting(m_didErrorOccur), boolForPrinting(m_isLiveStream));
+    GST_TRACE_OBJECT(pipeline(), "errorOccured: %s", boolForPrinting(m_didErrorOccur));
     if (m_didErrorOccur)
         return MediaTime::zeroTime();
 
-    if (m_isLiveStream.value_or(false))
-        return MediaTime::zeroTime();
+    bool isLiveStream = m_isLiveStream.value_or(false);
+    GST_TRACE_OBJECT(pipeline(), "isLiveStream: %s", boolForPrinting(isLiveStream));
+    if (isLiveStream)
+        return MediaTime::positiveInfiniteTime();
 
     if (isMediaStreamPlayer())
         return MediaTime::zeroTime();
@@ -1725,7 +1716,7 @@ bool MediaPlayerPrivateGStreamer::handleNeedContextMessage(GstMessage* message)
         auto context = adoptGRef(gst_context_new(WEBKIT_WEB_SRC_RESOURCE_LOADER_CONTEXT_TYPE_NAME, FALSE));
         GstStructure* contextStructure = gst_context_writable_structure(context.get());
 
-        gst_structure_set(contextStructure, "loader", G_TYPE_POINTER, m_loader.get(), nullptr);
+        gst_structure_set(contextStructure, "loader", G_TYPE_POINTER, m_loader.ptr(), nullptr);
         gst_element_set_context(GST_ELEMENT(GST_MESSAGE_SRC(message)), context.get());
         return true;
     }
@@ -1776,7 +1767,7 @@ void MediaPlayerPrivateGStreamer::configureMediaStreamAudioTracks()
 {
 #if ENABLE(MEDIA_STREAM)
     if (WEBKIT_IS_MEDIA_STREAM_SRC(m_source.get()))
-        webkitMediaStreamSrcConfigureAudioTracks(WEBKIT_MEDIA_STREAM_SRC(m_source.get()), volume(), isMuted(), !m_isPaused);
+        webkitMediaStreamSrcConfigureAudioTracks(WEBKIT_MEDIA_STREAM_SRC(m_source.get()), volume(), isMuted(), !paused());
 #endif
 }
 
@@ -1890,11 +1881,11 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
     m_canFallBackToLastFinishedSeekPosition = false;
 
     if (structure) {
-        const gchar* messageTypeName = gst_structure_get_name(structure);
+        auto messageTypeName = gstStructureGetName(structure);
 
         // Redirect messages are sent from elements, like qtdemux, to
         // notify of the new location(s) of the media.
-        if (!g_strcmp0(messageTypeName, "redirect")) {
+        if (messageTypeName == "redirect"_s) {
             mediaLocationChanged(message);
             return;
         }
@@ -1911,7 +1902,7 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
         gst_message_parse_error(message, &err.outPtr(), &debug.outPtr());
         GST_ERROR_OBJECT(pipeline(), "%s (url=%s) (code=%d)", err->message, m_url.string().utf8().data(), err->code);
 
-        if (m_shouldResetPipeline || m_didErrorOccur)
+        if (m_shouldResetPipeline || m_didErrorOccur || m_ignoreErrors)
             break;
 
         m_errorMessage = String::fromLatin1(err->message);
@@ -2094,8 +2085,8 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
 #endif
         if (gst_structure_has_name(structure, "http-headers")) {
             GST_DEBUG_OBJECT(pipeline(), "Processing HTTP headers: %" GST_PTR_FORMAT, structure);
-            if (const char* uri = gst_structure_get_string(structure, "uri")) {
-                URL url { String::fromLatin1(uri) };
+            if (auto uri = gstStructureGetString(structure, "uri"_s)) {
+                URL url { makeString(uri) };
 
                 if (url != m_url) {
                     GST_DEBUG_OBJECT(pipeline(), "Ignoring HTTP response headers for non-main URI.");
@@ -2113,17 +2104,18 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
             GUniqueOutPtr<GstStructure> responseHeaders;
             if (gst_structure_get(structure, "response-headers", GST_TYPE_STRUCTURE, &responseHeaders.outPtr(), nullptr)) {
                 auto contentLengthHeaderName = httpHeaderNameString(HTTPHeaderName::ContentLength);
+                auto contentLengthFromResponse = gstStructureGet<uint64_t>(responseHeaders.get(), contentLengthHeaderName);
                 uint64_t contentLength = 0;
-                if (!gst_structure_get_uint64(responseHeaders.get(), contentLengthHeaderName.characters(), &contentLength)) {
+                if (!contentLengthFromResponse) {
                     // souphttpsrc sets a string for Content-Length, so
                     // handle it here, until we remove the webkit+ protocol
                     // prefix from webkitwebsrc.
-                    if (const char* contentLengthAsString = gst_structure_get_string(responseHeaders.get(), contentLengthHeaderName.characters())) {
-                        contentLength = g_ascii_strtoull(contentLengthAsString, nullptr, 10);
-                        if (contentLength == G_MAXUINT64)
-                            contentLength = 0;
+                    if (auto contentLengthValue = gstStructureGetString(responseHeaders.get(), contentLengthHeaderName)) {
+                        if (auto parsedContentLength = parseInteger<uint64_t>(contentLengthValue))
+                            contentLength = *parsedContentLength;
                     }
-                }
+                } else
+                    contentLength = *contentLengthFromResponse;
                 if (!isRangeRequest) {
                     m_isLiveStream = !contentLength;
                     GST_INFO_OBJECT(pipeline(), "%s stream detected", m_isLiveStream.value_or(false) ? "Live" : "Non-live");
@@ -2532,7 +2524,6 @@ void MediaPlayerPrivateGStreamer::updateStates()
 
     MediaPlayer::NetworkState oldNetworkState = m_networkState;
     MediaPlayer::ReadyState oldReadyState = m_readyState;
-    bool oldIsPaused = m_isPaused;
     GstState pending, state;
     bool stateReallyChanged = false;
     RefPtr player = m_player.get();
@@ -2721,9 +2712,6 @@ void MediaPlayerPrivateGStreamer::updateStates()
         } else if (m_isSeeking && !(state == GST_STATE_PLAYING && pending == GST_STATE_PAUSED))
             finishSeek();
     }
-
-    if (oldIsPaused != m_isPaused)
-        configureMediaStreamAudioTracks();
 }
 
 void MediaPlayerPrivateGStreamer::mediaLocationChanged(GstMessage* message)
@@ -2750,11 +2738,11 @@ bool MediaPlayerPrivateGStreamer::loadNextLocation()
         return false;
 
     const GValue* locations = gst_structure_get_value(m_mediaLocations.get(), "locations");
-    const char* newLocation = nullptr;
+    StringView newLocation;
 
     if (!locations) {
         // Fallback on new-location string.
-        newLocation = gst_structure_get_string(m_mediaLocations.get(), "new-location");
+        newLocation = gstStructureGetString(m_mediaLocations.get(), "new-location"_s);
         if (!newLocation)
             return false;
     }
@@ -2773,32 +2761,33 @@ bool MediaPlayerPrivateGStreamer::loadNextLocation()
             return false;
         }
 
-        newLocation = gst_structure_get_string(structure, "new-location");
+        newLocation = gstStructureGetString(structure, "new-location"_s);
     }
 
     if (newLocation) {
         // Found a candidate. new-location is not always an absolute url
         // though. We need to take the base of the current url and
         // append the value of new-location to it.
-        URL baseUrl = gst_uri_is_valid(newLocation) ? URL() : m_url;
-        URL newUrl = URL(baseUrl, String::fromLatin1(newLocation));
+        auto locationString = makeString(newLocation);
+        URL baseURL = gst_uri_is_valid(locationString.utf8().data()) ? URL() : m_url;
+        URL newURL = URL(baseURL, WTFMove(locationString));
 
-        GUniqueOutPtr<gchar> playbinUrlStr;
-        g_object_get(m_pipeline.get(), "current-uri", &playbinUrlStr.outPtr(), nullptr);
-        URL playbinUrl { String::fromLatin1(playbinUrlStr.get()) };
+        GUniqueOutPtr<gchar> playbinURLStr;
+        g_object_get(m_pipeline.get(), "current-uri", &playbinURLStr.outPtr(), nullptr);
+        URL playbinURL { String::fromLatin1(playbinURLStr.get()) };
 
-        if (playbinUrl == newUrl) {
+        if (playbinURL == newURL) {
             GST_DEBUG_OBJECT(pipeline(), "Playbin already handled redirection.");
 
-            m_url = playbinUrl;
+            m_url = playbinURL;
 
             return true;
         }
 
         changePipelineState(GST_STATE_READY);
         auto securityOrigin = SecurityOrigin::create(m_url);
-        if (securityOrigin->canRequest(newUrl, originAccessPatternsForWebProcessOrEmpty())) {
-            GST_INFO_OBJECT(pipeline(), "New media url: %s", newUrl.string().utf8().data());
+        if (securityOrigin->canRequest(newURL, originAccessPatternsForWebProcessOrEmpty())) {
+            GST_INFO_OBJECT(pipeline(), "New media url: %s", newURL.string().utf8().data());
 
             RefPtr player = m_player.get();
 
@@ -2817,12 +2806,12 @@ bool MediaPlayerPrivateGStreamer::loadNextLocation()
             gst_element_get_state(m_pipeline.get(), &state, nullptr, 0);
             if (state <= GST_STATE_READY) {
                 // Set the new uri and start playing.
-                setPlaybinURL(newUrl);
+                setPlaybinURL(newURL);
                 changePipelineState(GST_STATE_PLAYING);
                 return true;
             }
         } else
-            GST_INFO_OBJECT(pipeline(), "Not allowed to load new media location: %s", newUrl.string().utf8().data());
+            GST_INFO_OBJECT(pipeline(), "Not allowed to load new media location: %s", newURL.string().utf8().data());
     }
     m_mediaLocationCurrentIndex--;
     return false;
@@ -3324,29 +3313,8 @@ void MediaPlayerPrivateGStreamer::isLoopingChanged()
 #if USE(TEXTURE_MAPPER)
 PlatformLayer* MediaPlayerPrivateGStreamer::platformLayer() const
 {
-#if USE(NICOSIA)
-    return m_nicosiaLayer.get();
-#else
-    return const_cast<MediaPlayerPrivateGStreamer*>(this);
-#endif
+    return m_platformLayer.get();
 }
-
-#if USE(NICOSIA)
-void MediaPlayerPrivateGStreamer::swapBuffersIfNeeded()
-{
-}
-#else
-RefPtr<TextureMapperPlatformLayerProxy> MediaPlayerPrivateGStreamer::proxy() const
-{
-    return m_platformLayerProxy.copyRef();
-}
-
-void MediaPlayerPrivateGStreamer::swapBuffersIfNeeded()
-{
-    if (isHolePunchRenderingEnabled())
-        pushNextHolePunchBuffer();
-}
-#endif
 
 void MediaPlayerPrivateGStreamer::pushTextureToCompositor()
 {
@@ -3356,54 +3324,18 @@ void MediaPlayerPrivateGStreamer::pushTextureToCompositor()
 
     ++m_sampleCount;
 
-    auto internalCompositingOperation = [this](TextureMapperPlatformLayerProxyGL& proxy, std::unique_ptr<GstVideoFrameHolder>&& frameHolder) {
-        std::unique_ptr<TextureMapperPlatformLayerBuffer> layerBuffer;
-        if (frameHolder->hasMappedTextures()) {
-            layerBuffer = frameHolder->platformLayerBuffer();
-            if (!layerBuffer)
-                return;
-            layerBuffer->setUnmanagedBufferDataHolder(WTFMove(frameHolder));
-        } else {
-            layerBuffer = proxy.getAvailableBuffer(frameHolder->size(), GL_DONT_CARE);
-            if (UNLIKELY(!layerBuffer)) {
-                OptionSet<BitmapTexture::Flags> flags;
-                if (frameHolder->hasAlphaChannel())
-                    flags.add(BitmapTexture::Flags::SupportsAlpha);
-                auto texture = BitmapTexture::create(frameHolder->size(), flags);
-                layerBuffer = makeUnique<TextureMapperPlatformLayerBuffer>(WTFMove(texture));
-            }
-            frameHolder->updateTexture(layerBuffer->texture());
-            auto extraFlags = m_textureMapperFlags;
-            if (frameHolder->hasAlphaChannel())
-                extraFlags.add({ TextureMapperFlags::ShouldBlend, TextureMapperFlags::ShouldPremultiply });
-            layerBuffer->setExtraFlags(extraFlags);
-        }
-        proxy.pushNextBuffer(WTFMove(layerBuffer));
-    };
+    ASSERT(is<TextureMapperPlatformLayerProxyGL>(*m_platformLayer));
+    auto& proxy = downcast<TextureMapperPlatformLayerProxyGL>(*m_platformLayer);
+    Locker locker { proxy.lock() };
+    if (!proxy.isActive()) {
+        GST_ERROR_OBJECT(pipeline(), "TextureMapperPlatformLayerProxyGL is inactive");
+        textureMapperPlatformLayerProxyWasInvalidated();
+        return;
+    }
 
-    auto proxyOperation =
-        [this, internalCompositingOperation](TextureMapperPlatformLayerProxyGL& proxy)
-        {
-            Locker locker { proxy.lock() };
-
-            if (!proxy.isActive()) {
-                GST_ERROR_OBJECT(pipeline(), "TextureMapperPlatformLayerProxyGL is inactive");
-                textureMapperPlatformLayerProxyWasInvalidated();
-                return;
-            }
-
-            auto frameHolder = makeUnique<GstVideoFrameHolder>(m_sample.get(), m_videoDecoderPlatform, m_textureMapperFlags, !m_isUsingFallbackVideoSink);
-            internalCompositingOperation(proxy, WTFMove(frameHolder));
-            m_hasFirstVideoSampleBeenRendered = true;
-        };
-
-#if USE(NICOSIA)
-    auto& proxy = m_nicosiaLayer->proxy();
-    ASSERT(is<TextureMapperPlatformLayerProxyGL>(proxy));
-    proxyOperation(downcast<TextureMapperPlatformLayerProxyGL>(proxy));
-#else
-    proxyOperation(*m_platformLayerProxy);
-#endif
+    auto layerBuffer = CoordinatedPlatformLayerBufferVideo::create(m_sample.get(), m_videoDecoderPlatform, !m_isUsingFallbackVideoSink, m_textureMapperFlags);
+    proxy.pushNextBuffer(WTFMove(layerBuffer));
+    m_hasFirstVideoSampleBeenRendered = true;
 }
 #endif // USE(TEXTURE_MAPPER)
 
@@ -3458,11 +3390,10 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
 
     ++m_sampleCount;
 
-    auto& proxy = m_nicosiaLayer->proxy();
-    ASSERT(is<TextureMapperPlatformLayerProxyDMABuf>(proxy));
+    ASSERT(is<TextureMapperPlatformLayerProxyDMABuf>(*m_platformLayer));
 
-    Locker locker { proxy.lock() };
-    if (!proxy.isActive()) {
+    Locker locker { m_platformLayer->lock() };
+    if (!m_platformLayer->isActive()) {
         GST_ERROR_OBJECT(pipeline(), "TextureMapperPlatformLayerProxyDMABuf is inactive");
         textureMapperPlatformLayerProxyWasInvalidated();
         return;
@@ -3481,7 +3412,7 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
 
         // Provide the DMABufObject with a relevant handle (memory address). When provided for the first time,
         // the lambda will be invoked and all dmabuf data is filled in.
-        downcast<TextureMapperPlatformLayerProxyDMABuf>(proxy).pushDMABuf(
+        downcast<TextureMapperPlatformLayerProxyDMABuf>(*m_platformLayer).pushDMABuf(
             DMABufObject(reinterpret_cast<uintptr_t>(memory.get())),
             [&](auto&& object) {
                 bool infoHasDrmFormat = false;
@@ -3583,7 +3514,7 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
     // When the buffer is pushed for the first time, the lambda will be invoked to retrieve a more complete DMABufObject for the
     // given GBMBufferSwapchain::Buffer object.
     GST_TRACE_OBJECT(pipeline(), "Pushing DMABuf object to TextureMapper");
-    downcast<TextureMapperPlatformLayerProxyDMABuf>(proxy).pushDMABuf(
+    downcast<TextureMapperPlatformLayerProxyDMABuf>(*m_platformLayer).pushDMABuf(
         DMABufObject(reinterpret_cast<uintptr_t>(m_swapchain.get()) + swapchainBuffer->handle()),
         [&](auto&& initialObject) {
             auto object = swapchainBuffer->createDMABufObject(initialObject.handle);
@@ -3842,34 +3773,13 @@ void MediaPlayerPrivateGStreamer::triggerRepaint(GRefPtr<GstSample>&& sample)
     }
 
 #if USE(TEXTURE_MAPPER)
-    if (m_isUsingFallbackVideoSink) {
-        Locker locker { m_drawLock };
-        auto proxyOperation =
-            [this](TextureMapperPlatformLayerProxyGL& proxy)
-            {
-                return proxy.scheduleUpdateOnCompositorThread([this] { this->pushTextureToCompositor(); });
-            };
-#if USE(NICOSIA)
-        auto& proxy = m_nicosiaLayer->proxy();
-        ASSERT(is<TextureMapperPlatformLayerProxyGL>(proxy));
-        if (!proxyOperation(downcast<TextureMapperPlatformLayerProxyGL>(proxy)))
-            return;
-#else
-        if (!proxyOperation(*m_platformLayerProxy))
-            return;
-#endif
-        m_drawTimer.startOneShot(0_s);
-        m_drawCondition.wait(m_drawLock);
-    } else {
-#if USE(NICOSIA) && USE(TEXTURE_MAPPER_DMABUF)
-        if (is<TextureMapperPlatformLayerProxyDMABuf>(m_nicosiaLayer->proxy())) {
-            pushDMABufToCompositor();
-            return;
-        }
-#endif
-
-        pushTextureToCompositor();
+#if USE(TEXTURE_MAPPER_DMABUF)
+    if (is<TextureMapperPlatformLayerProxyDMABuf>(*m_platformLayer)) {
+        pushDMABufToCompositor();
+        return;
     }
+#endif
+    pushTextureToCompositor();
 #endif // USE(TEXTURE_MAPPER)
 }
 
@@ -3896,7 +3806,6 @@ void MediaPlayerPrivateGStreamer::repaintCancelledCallback(MediaPlayerPrivateGSt
     player->cancelRepaint();
 }
 
-#if USE(GSTREAMER_GL)
 void MediaPlayerPrivateGStreamer::flushCurrentBuffer()
 {
     Locker sampleLocker { m_sampleMutex };
@@ -3912,28 +3821,14 @@ void MediaPlayerPrivateGStreamer::flushCurrentBuffer()
             gst_sample_get_segment(m_sample.get()), info ? gst_structure_copy(info) : nullptr));
     }
 
-    bool shouldWait = m_videoDecoderPlatform == GstVideoDecoderPlatform::Video4Linux;
-    auto proxyOperation = [shouldWait, pipeline = pipeline()](TextureMapperPlatformLayerProxyGL& proxy) {
-        GST_DEBUG_OBJECT(pipeline, "Flushing video sample %s", shouldWait ? "synchronously" : "");
-        if (shouldWait) {
-            if (proxy.isActive())
-                proxy.dropCurrentBufferWhilePreservingTexture(shouldWait);
-        } else {
-            Locker locker { proxy.lock() };
-            if (proxy.isActive())
-                proxy.dropCurrentBufferWhilePreservingTexture(shouldWait);
-        }
-    };
+    if (!is<TextureMapperPlatformLayerProxyGL>(*m_platformLayer))
+        return;
 
-#if USE(NICOSIA)
-    auto& proxy = m_nicosiaLayer->proxy();
-    if (is<TextureMapperPlatformLayerProxyGL>(proxy))
-        proxyOperation(downcast<TextureMapperPlatformLayerProxyGL>(proxy));
-#else
-    proxyOperation(*m_platformLayerProxy);
-#endif
+    bool shouldWait = m_videoDecoderPlatform == GstVideoDecoderPlatform::Video4Linux;
+    GST_DEBUG_OBJECT(pipeline(), "Flushing video sample %s", shouldWait ? "synchronously" : "");
+    auto& proxy = downcast<TextureMapperPlatformLayerProxyGL>(*m_platformLayer);
+    proxy.dropCurrentBufferWhilePreservingTexture(shouldWait);
 }
-#endif
 
 void MediaPlayerPrivateGStreamer::setVisibleInViewport(bool isVisible)
 {
@@ -4083,7 +3978,6 @@ GstElement* MediaPlayerPrivateGStreamer::createVideoSinkDMABuf()
 }
 #endif
 
-#if USE(GSTREAMER_GL)
 GstElement* MediaPlayerPrivateGStreamer::createVideoSinkGL()
 {
     const char* disableGLSink = g_getenv("WEBKIT_GST_DISABLE_GL_SINK");
@@ -4107,32 +4001,6 @@ GstElement* MediaPlayerPrivateGStreamer::createVideoSinkGL()
 
     return sink;
 }
-#endif // USE(GSTREAMER_GL)
-
-class GStreamerHolePunchClient : public TextureMapperPlatformLayerBuffer::HolePunchClient {
-public:
-    GStreamerHolePunchClient(GRefPtr<GstElement>&& videoSink, RefPtr<GStreamerQuirksManager>&& quirksManagerForTesting)
-        : m_videoSink(WTFMove(videoSink))
-        , m_quirksManagerForTesting(WTFMove(quirksManagerForTesting))
-    { };
-    void setVideoRectangle(const IntRect& rect) final
-    {
-        if (!m_videoSink)
-            return;
-
-        if (m_quirksManagerForTesting) {
-            m_quirksManagerForTesting->setHolePunchVideoRectangle(m_videoSink.get(), rect);
-            return;
-        }
-
-        auto& quirksManager = GStreamerQuirksManager::singleton();
-        quirksManager.setHolePunchVideoRectangle(m_videoSink.get(), rect);
-    }
-
-private:
-    GRefPtr<GstElement> m_videoSink;
-    RefPtr<GStreamerQuirksManager> m_quirksManagerForTesting;
-};
 
 bool MediaPlayerPrivateGStreamer::isHolePunchRenderingEnabled() const
 {
@@ -4166,24 +4034,12 @@ GstElement* MediaPlayerPrivateGStreamer::createHolePunchVideoSink()
 
 void MediaPlayerPrivateGStreamer::pushNextHolePunchBuffer()
 {
-    auto proxyOperation =
-        [this](TextureMapperPlatformLayerProxyGL& proxy)
-        {
-            Locker locker { proxy.lock() };
-            std::unique_ptr<TextureMapperPlatformLayerBuffer> layerBuffer = makeUnique<TextureMapperPlatformLayerBuffer>(0, m_size, TextureMapperFlags::ShouldNotBlend, GL_DONT_CARE);
-            std::unique_ptr<GStreamerHolePunchClient> holePunchClient = makeUnique<GStreamerHolePunchClient>(m_videoSink.get(), RefPtr { m_quirksManagerForTesting });
-            layerBuffer->setHolePunchClient(WTFMove(holePunchClient));
-            proxy.pushNextBuffer(WTFMove(layerBuffer));
-        };
-
     ASSERT(isHolePunchRenderingEnabled());
-#if USE(NICOSIA)
-    auto& proxy = m_nicosiaLayer->proxy();
-    ASSERT(is<TextureMapperPlatformLayerProxyGL>(proxy));
-    proxyOperation(downcast<TextureMapperPlatformLayerProxyGL>(proxy));
-#else
-    proxyOperation(*m_platformLayerProxy);
-#endif
+    ASSERT(is<TextureMapperPlatformLayerProxyGL>(*m_platformLayer));
+    auto& proxy = downcast<TextureMapperPlatformLayerProxyGL>(*m_platformLayer);
+    Locker locker { proxy.lock() };
+    auto layerBuffer = CoordinatedPlatformLayerBufferHolePunch::create(m_size, m_videoSink.get(), m_quirksManagerForTesting ? m_quirksManagerForTesting.copyRef() : RefPtr { &GStreamerQuirksManager::singleton() });
+    proxy.pushNextBuffer(WTFMove(layerBuffer));
 }
 
 bool MediaPlayerPrivateGStreamer::shouldIgnoreIntrinsicSize()
@@ -4244,10 +4100,9 @@ GstElement* MediaPlayerPrivateGStreamer::createVideoSink()
     if (!m_videoSink && m_canRenderingBeAccelerated)
         m_videoSink = createVideoSinkDMABuf();
 #endif
-#if USE(GSTREAMER_GL)
+
     if (!m_videoSink && m_canRenderingBeAccelerated)
         m_videoSink = createVideoSinkGL();
-#endif
 
     if (!m_videoSink) {
         m_isUsingFallbackVideoSink = true;
@@ -4291,22 +4146,19 @@ bool MediaPlayerPrivateGStreamer::updateVideoSinkStatistics()
     if (!m_videoSink)
         return false;
 
-    uint64_t totalVideoFrames = 0;
-    uint64_t droppedVideoFrames = 0;
     GUniqueOutPtr<GstStructure> stats;
     g_object_get(m_videoSink.get(), "stats", &stats.outPtr(), nullptr);
+    auto totalVideoFrames = gstStructureGet<uint64_t>(stats.get(), "rendered"_s);
+    auto droppedVideoFrames = gstStructureGet<uint64_t>(stats.get(), "dropped"_s);
 
-    if (!gst_structure_get_uint64(stats.get(), "rendered", &totalVideoFrames))
-        return false;
-
-    if (!gst_structure_get_uint64(stats.get(), "dropped", &droppedVideoFrames))
+    if (!totalVideoFrames || !droppedVideoFrames)
         return false;
 
     // Caching is required so that metrics queries performed after EOS still return valid values.
-    if (totalVideoFrames)
-        m_totalVideoFrames = totalVideoFrames;
-    if (droppedVideoFrames)
-        m_droppedVideoFrames = droppedVideoFrames;
+    if (*totalVideoFrames)
+        m_totalVideoFrames = *totalVideoFrames;
+    if (*droppedVideoFrames)
+        m_droppedVideoFrames = *droppedVideoFrames;
     return true;
 }
 

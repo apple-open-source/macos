@@ -526,6 +526,7 @@
 
     // Check if we posess the keys in the keychain
     [suggestedTLK ensureKeyLoadedForContextID:contextID
+                                        cache:nil
                                         error:&localerror];
     if(localerror && [lockStateTracker isLockedError:localerror]) {
         ckkserror("ckksdevice", viewState, "Device is locked; couldn't read TLK from keychain. Assuming it is present and continuing; error was %@", localerror);
@@ -536,6 +537,7 @@
     }
 
     [suggestedClassAKey ensureKeyLoadedForContextID:contextID
+                                              cache:nil
                                               error:&localerror];
     if(localerror && [lockStateTracker isLockedError:localerror]) {
         ckkserror("ckksdevice", viewState, "Device is locked; couldn't read ClassA key from keychain. Assuming it is present and continuing; error was %@", localerror);
@@ -546,6 +548,7 @@
     }
 
     [suggestedClassCKey ensureKeyLoadedForContextID:contextID
+                                              cache:nil
                                               error:&localerror];
     // class C keys are stored class C, so uh, don't check lock state.
     if(localerror) {

@@ -87,6 +87,7 @@
 #include <JavaScriptCore/HeapInlines.h>
 #include <pal/SessionID.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(CONTENT_EXTENSIONS)
 #include "CompiledContentExtension.h"
@@ -101,6 +102,9 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(EmptyChromeClient);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(EmptyCryptoClient);
 
 class UserMessageHandlerDescriptor;
 
@@ -117,7 +121,7 @@ class EmptyBackForwardClient final : public BackForwardClient {
 #if ENABLE(CONTEXT_MENUS)
 
 class EmptyContextMenuClient final : public ContextMenuClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(EmptyContextMenuClient);
 
     void downloadURL(const URL&) final { }
     void searchWithGoogle(const LocalFrame*) final { }
@@ -226,7 +230,7 @@ class EmptyDatabaseProvider final : public DatabaseProvider {
 };
 
 class EmptyDiagnosticLoggingClient final : public DiagnosticLoggingClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(EmptyDiagnosticLoggingClient);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(EmptyDiagnosticLoggingClient);
 
     void logDiagnosticMessage(const String&, const String&, ShouldSample) final { }
@@ -249,7 +253,7 @@ class EmptyDragClient final : public DragClient {
 #endif // ENABLE(DRAG_SUPPORT)
 
 class EmptyEditorClient final : public EditorClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(EmptyEditorClient);
 
 public:
     EmptyEditorClient() = default;
@@ -407,7 +411,7 @@ private:
 };
 
 class EmptyInspectorClient final : public InspectorClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(EmptyInspectorClient);
     void inspectedPageDestroyed() final { }
     Inspector::FrontendChannel* openLocalFrontend(InspectorController*) final { return nullptr; }
     void bringFrontendToFront() final { }
@@ -418,7 +422,7 @@ class EmptyInspectorClient final : public InspectorClient {
 #if ENABLE(APPLE_PAY)
 
 class EmptyPaymentCoordinatorClient final : public PaymentCoordinatorClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(EmptyPaymentCoordinatorClient);
     std::optional<String> validatedPaymentNetwork(const String&) const final { return std::nullopt; }
     bool canMakePayments() final { return false; }
     void canMakePaymentsWithActiveCard(const String&, const String&, CompletionHandler<void(bool)>&& completionHandler) final { callOnMainThread([completionHandler = WTFMove(completionHandler)]() mutable { completionHandler(false); }); }
@@ -592,7 +596,7 @@ void EmptyFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Naviga
 {
 }
 
-void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse&, FormState*, const String&, NavigationIdentifier, std::optional<HitTestResult>&&, bool, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&&)
+void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse&, FormState*, const String&, std::optional<NavigationIdentifier>, std::optional<HitTestResult>&&, bool, IsPerformingHTTPFallback, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&&)
 {
 }
 
@@ -1160,6 +1164,7 @@ class EmptyStorageSessionProvider final : public StorageSessionProvider {
 };
 
 class EmptyMediaRecorderProvider final : public MediaRecorderProvider {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(EmptyMediaRecorderProvider);
 public:
     EmptyMediaRecorderProvider() = default;
 private:

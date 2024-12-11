@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		08F68BBF217048C700E21C99 /* trampoline.S in Sources */ = {isa = PBXBuildFile; fileRef = 08F68BBD217048BE00E21C99 /* trampoline.S */; };
-		3F019B23216AA009005A24AF /* module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 3F019B1B216A9E16005A24AF /* module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		3F05B40D26898C950030C85F /* tramp.h in Headers */ = {isa = PBXBuildFile; fileRef = 3F05B40C26898C8B0030C85F /* tramp.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3F05B40E26898C9B0030C85F /* fficonfig_arm64e.h in Headers */ = {isa = PBXBuildFile; fileRef = 3F05B40B26898C8B0030C85F /* fficonfig_arm64e.h */; };
 		3F1289A326899BB1008B6A83 /* tramp.c in Sources */ = {isa = PBXBuildFile; fileRef = 3F1289A226899BB1008B6A83 /* tramp.c */; };
@@ -58,6 +57,7 @@
 		3FE7577A2150E1420090CC13 /* ffi_prep_cif_var.3 in Install Man Pages */ = {isa = PBXBuildFile; fileRef = 3FE756792150D7A20090CC13 /* ffi_prep_cif_var.3 */; };
 		3FE7577B2150E1420090CC13 /* ffi_prep_cif.3 in Install Man Pages */ = {isa = PBXBuildFile; fileRef = 3FE7567A2150D7A20090CC13 /* ffi_prep_cif.3 */; };
 		3FE7577C2150E1420090CC13 /* ffi.3 in Install Man Pages */ = {isa = PBXBuildFile; fileRef = 3FE7567B2150D7A20090CC13 /* ffi.3 */; };
+		8495D6B72C06A95E00BCCAF9 /* ffi.modulemap in Copy Module Maps */ = {isa = PBXBuildFile; fileRef = 8495D6B62C06A93C00BCCAF9 /* ffi.modulemap */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +85,17 @@
 			name = "Install Man Pages";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		8495D6B52C06A89800BCCAF9 /* Copy Module Maps */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(COPY_FILES_BASE_DIR)$(PUBLIC_HEADERS_FOLDER_PATH)/..";
+			dstSubfolderSpec = 0;
+			files = (
+				8495D6B72C06A95E00BCCAF9 /* ffi.modulemap in Copy Module Maps */,
+			);
+			name = "Copy Module Maps";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FDB52FE11F6156E000AA92E6 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -99,7 +110,6 @@
 /* Begin PBXFileReference section */
 		08F68BBC2170489100E21C99 /* libffi-trampolines.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = "libffi-trampolines.dylib"; sourceTree = BUILT_PRODUCTS_DIR; };
 		08F68BBD217048BE00E21C99 /* trampoline.S */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = trampoline.S; sourceTree = "<group>"; };
-		3F019B1B216A9E16005A24AF /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		3F05B40B26898C8B0030C85F /* fficonfig_arm64e.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fficonfig_arm64e.h; sourceTree = "<group>"; };
 		3F05B40C26898C8B0030C85F /* tramp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tramp.h; sourceTree = "<group>"; };
 		3F1289A226899BB1008B6A83 /* tramp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tramp.c; path = src/tramp.c; sourceTree = SOURCE_ROOT; };
@@ -236,6 +246,7 @@
 		3FE7574E2150DBA60090CC13 /* ffitarget.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ffitarget.h; sourceTree = "<group>"; };
 		3FE7574F2150DBA60090CC13 /* sysv.S */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = sysv.S; sourceTree = "<group>"; };
 		3FE757502150DBA60090CC13 /* ffi.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ffi.c; sourceTree = "<group>"; };
+		8495D6B62C06A93C00BCCAF9 /* ffi.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = ffi.modulemap; sourceTree = "<group>"; };
 		DB13B1911849DF510010F42D /* libffi.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libffi.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		DBFA7162187F1D9B00A76262 /* fficonfig_arm64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fficonfig_arm64.h; sourceTree = "<group>"; };
 		DBFA7163187F1D9B00A76262 /* fficonfig_armv7.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fficonfig_armv7.h; sourceTree = "<group>"; };
@@ -675,7 +686,7 @@
 		DBFA713D187F1D8600A76262 /* include */ = {
 			isa = PBXGroup;
 			children = (
-				3F019B1B216A9E16005A24AF /* module.modulemap */,
+				8495D6B62C06A93C00BCCAF9 /* ffi.modulemap */,
 				3FE756852150D9230090CC13 /* ffi.h */,
 				3FE756862150D9230090CC13 /* fficonfig.h */,
 				DBFA7162187F1D9B00A76262 /* fficonfig_arm64.h */,
@@ -704,7 +715,6 @@
 				3FE757712150E1000090CC13 /* fficonfig_armv7.h in Headers */,
 				3FE757732150E1000090CC13 /* fficonfig_x86_64.h in Headers */,
 				3FE757762150E1000090CC13 /* ffitarget_x86.h in Headers */,
-				3F019B23216AA009005A24AF /* module.modulemap in Headers */,
 				3FE756892150D9240090CC13 /* fficonfig.h in Headers */,
 				3FE757722150E1000090CC13 /* fficonfig_i386.h in Headers */,
 				3FE757742150E1000090CC13 /* ffitarget_arm64.h in Headers */,
@@ -739,9 +749,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = DB13B1B01849DF520010F42D /* Build configuration list for PBXNativeTarget "libffi" */;
 			buildPhases = (
+				DB13B18F1849DF510010F42D /* Headers */,
+				8495D6B52C06A89800BCCAF9 /* Copy Module Maps */,
 				DB13B18D1849DF510010F42D /* Sources */,
 				08F68BC22170494F00E21C99 /* Frameworks */,
-				DB13B18F1849DF510010F42D /* Headers */,
 				3FE757782150E12D0090CC13 /* Install Man Pages */,
 			);
 			buildRules = (
@@ -1083,6 +1094,8 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_FILES_BASE_DIR = "$(COPY_FILES_BASE_DIR__$(DEPLOYMENT_LOCATION:default=NO))";
+				COPY_FILES_BASE_DIR__NO = "$(TARGET_BUILD_DIR)";
 				COPY_PHASE_STRIP = NO;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -1102,6 +1115,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib;
 				IS_ZIPPERED = YES;
 				MAN_PAGES_INSTALL_PATH = /usr/local/share/man;
@@ -1109,8 +1123,8 @@
 				MODULEMAP_FILE = "$(SRCROOT)/darwin/include/module.modulemap";
 				OTHER_TAPI_FLAGS = "-exclude-public-header **/module.modulemap";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/ffi;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=macosx*]" = /usr/include/ffi;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_PREFIX)/usr/local/include/ffi";
+				"PUBLIC_HEADERS_FOLDER_PATH[sdk=macosx*]" = "$(SYSTEM_PREFIX)/usr/include/ffi";
 				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos watchos watchsimulator appletv appletvsimulator";
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;
@@ -1133,6 +1147,8 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_FILES_BASE_DIR = "$(COPY_FILES_BASE_DIR__$(DEPLOYMENT_LOCATION:default=NO))";
+				COPY_FILES_BASE_DIR__NO = "$(TARGET_BUILD_DIR)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
@@ -1147,6 +1163,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib;
 				IS_ZIPPERED = YES;
 				MAN_PAGES_INSTALL_PATH = /usr/local/share/man;
@@ -1154,8 +1171,8 @@
 				MODULEMAP_FILE = "$(SRCROOT)/darwin/include/module.modulemap";
 				OTHER_TAPI_FLAGS = "-exclude-public-header **/module.modulemap";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/ffi;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=macosx*]" = /usr/include/ffi;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_PREFIX)/usr/local/include/ffi";
+				"PUBLIC_HEADERS_FOLDER_PATH[sdk=macosx*]" = "$(SYSTEM_PREFIX)/usr/include/ffi";
 				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos watchos watchsimulator appletv appletvsimulator";
 				SUPPORTS_TEXT_BASED_API = YES;
 				TAPI_VERIFY_MODE = Pedantic;

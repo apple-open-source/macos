@@ -704,6 +704,7 @@ do_execreg(
 		return FAIL;
 	}
 	reg_executing = regname == 0 ? '"' : regname; // disable "q" command
+	pending_end_reg_executing = FALSE;
     }
     return retval;
 }
@@ -828,9 +829,23 @@ insert_reg(
 	    {
 		if (regname == '-')
 		{
+		    int dir = BACKWARD;
+		    if ((State & REPLACE_FLAG) != 0)
+		    {
+			pos_T curpos;
+			if (u_save_cursor() == FAIL)
+			    return FAIL;
+			del_chars((long)mb_charlen(y_current->y_array[0]), TRUE);
+			curpos = curwin->w_cursor;
+			if (oneright() == FAIL)
+			    // hit end of line, need to put forward (after the current position)
+			    dir = FORWARD;
+			curwin->w_cursor = curpos;
+		    }
+
 		    AppendCharToRedobuff(Ctrl_R);
 		    AppendCharToRedobuff(regname);
-		    do_put(regname, NULL, BACKWARD, 1L, PUT_CURSEND);
+		    do_put(regname, NULL, dir, 1L, PUT_CURSEND);
 		}
 		else
 		    stuffescaped(y_current->y_array[i], literally);
@@ -1132,7 +1147,6 @@ op_yank(oparg_T *oap, int deleting, int mess)
     int			yanktype = oap->motion_type;
     long		yanklines = oap->line_count;
     linenr_T		yankendlnum = oap->end.lnum;
-    char_u		*p;
     char_u		*pnew;
     struct block_def	bd;
 #if defined(FEAT_CLIPBOARD) && defined(FEAT_X11)
@@ -1225,70 +1239,7 @@ op_yank(oparg_T *oap, int deleting, int mess)
 
 	    case MCHAR:
 		{
-		    colnr_T startcol = 0, endcol = MAXCOL;
-		    int	    is_oneChar = FALSE;
-		    colnr_T cs, ce;
-
-		    p = ml_get(lnum);
-		    bd.startspaces = 0;
-		    bd.endspaces = 0;
-
-		    if (lnum == oap->start.lnum)
-		    {
-			startcol = oap->start.col;
-			if (virtual_op)
-			{
-			    getvcol(curwin, &oap->start, &cs, NULL, &ce);
-			    if (ce != cs && oap->start.coladd > 0)
-			    {
-				// Part of a tab selected -- but don't
-				// double-count it.
-				bd.startspaces = (ce - cs + 1)
-							  - oap->start.coladd;
-				if (bd.startspaces < 0)
-				    bd.startspaces = 0;
-				startcol++;
-			    }
-			}
-		    }
-
-		    if (lnum == oap->end.lnum)
-		    {
-			endcol = oap->end.col;
-			if (virtual_op)
-			{
-			    getvcol(curwin, &oap->end, &cs, NULL, &ce);
-			    if (p[endcol] == NUL || (cs + oap->end.coladd < ce
-					// Don't add space for double-wide
-					// char; endcol will be on last byte
-					// of multi-byte char.
-					&& (*mb_head_off)(p, p + endcol) == 0))
-			    {
-				if (oap->start.lnum == oap->end.lnum
-					    && oap->start.col == oap->end.col)
-				{
-				    // Special case: inside a single char
-				    is_oneChar = TRUE;
-				    bd.startspaces = oap->end.coladd
-					 - oap->start.coladd + oap->inclusive;
-				    endcol = startcol;
-				}
-				else
-				{
-				    bd.endspaces = oap->end.coladd
-							     + oap->inclusive;
-				    endcol -= oap->inclusive;
-				}
-			    }
-			}
-		    }
-		    if (endcol == MAXCOL)
-			endcol = (colnr_T)STRLEN(p);
-		    if (startcol > endcol || is_oneChar)
-			bd.textlen = 0;
-		    else
-			bd.textlen = endcol - startcol + oap->inclusive;
-		    bd.textstart = p + startcol;
+		    charwise_block_prep(oap->start, oap->end, &bd, lnum, oap->inclusive);
 		    if (yank_copy_line(&bd, y_idx, FALSE) == FAIL)
 			goto fail;
 		    break;
@@ -1845,7 +1796,7 @@ do_put(
 	    }
 	    // get the old line and advance to the position to insert at
 	    oldp = ml_get_curline();
-	    oldlen = (int)STRLEN(oldp);
+	    oldlen = ml_get_curline_len();
 	    init_chartabsize_arg(&cts, curwin, curwin->w_cursor.lnum, 0,
 								  oldp, oldp);
 
@@ -1891,10 +1842,10 @@ do_put(
 		spaces = y_width + 1;
 		init_chartabsize_arg(&cts, curwin, 0, 0,
 						      y_array[i], y_array[i]);
-		for (j = 0; j < yanklen; j++)
+
+		while (*cts.cts_ptr != NUL)
 		{
-		    spaces -= lbr_chartabsize(&cts);
-		    ++cts.cts_ptr;
+		    spaces -= lbr_chartabsize_adv(&cts);
 		    cts.cts_vcol = 0;
 		}
 		clear_chartabsize_arg(&cts);
@@ -1976,7 +1927,7 @@ do_put(
 	    curwin->w_cursor.col++;
 
 	    // in Insert mode we might be after the NUL, correct for that
-	    len = (colnr_T)STRLEN(ml_get_curline());
+	    len = ml_get_curline_len();
 	    if (curwin->w_cursor.col > len)
 		curwin->w_cursor.col = len;
 	}
@@ -2060,7 +2011,7 @@ do_put(
 		totlen = count * yanklen;
 		do {
 		    oldp = ml_get(lnum);
-		    oldlen = (int)STRLEN(oldp);
+		    oldlen = ml_get_len(lnum);
 		    if (lnum > start_lnum)
 		    {
 			pos_T   pos;
@@ -2140,7 +2091,7 @@ do_put(
 		    lnum = new_cursor.lnum;
 		    ptr = ml_get(lnum) + col;
 		    totlen = (int)STRLEN(y_array[y_size - 1]);
-		    newp = alloc(STRLEN(ptr) + totlen + 1);
+		    newp = alloc(ml_get_len(lnum) - col + totlen + 1);
 		    if (newp == NULL)
 			goto error;
 		    STRCPY(newp, y_array[y_size - 1]);
@@ -2181,7 +2132,7 @@ do_put(
 			curwin->w_cursor.lnum = lnum;
 			ptr = ml_get(lnum);
 			if (cnt == count && i == y_size - 1)
-			    lendiff = (int)STRLEN(ptr);
+			    lendiff = ml_get_len(lnum);
 			if (*ptr == '#' && preprocs_left())
 			    indent = 0;     // Leave # lines at start
 			else
@@ -2199,7 +2150,7 @@ do_put(
 			curwin->w_cursor = old_pos;
 			// remember how many chars were removed
 			if (cnt == count && i == y_size - 1)
-			    lendiff -= (int)STRLEN(ml_get(lnum));
+			    lendiff -= ml_get_len(lnum);
 		    }
 		}
 		if (cnt == 1)
@@ -2297,7 +2248,7 @@ error:
     curwin->w_set_curswant = TRUE;
 
     // Make sure the cursor is not after the NUL.
-    int len = (int)STRLEN(ml_get_curline());
+    int len = ml_get_curline_len();
     if (curwin->w_cursor.col > len)
     {
 	if (cur_ve_flags == VE_ALL)

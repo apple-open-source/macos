@@ -27,7 +27,8 @@
 
 #include "Event.h"
 #include <optional>
-#include <wtf/WeakPtr.h>
+#include <wtf/Forward.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -49,7 +50,8 @@ enum class IsSyntheticClick : bool;
 enum class StorageAccessWasGranted : uint8_t;
 
 class Quirks {
-    WTF_MAKE_NONCOPYABLE(Quirks); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(Quirks);
+    WTF_MAKE_NONCOPYABLE(Quirks);
 public:
     Quirks(Document&);
     ~Quirks();
@@ -68,7 +70,6 @@ public:
     bool shouldDispatchSimulatedMouseEvents(const EventTarget*) const;
     bool shouldDispatchedSimulatedMouseEventsAssumeDefaultPrevented(EventTarget*) const;
     std::optional<Event::IsCancelable> simulatedMouseEventTypeForTarget(EventTarget*) const;
-    bool shouldMakeTouchEventNonCancelableForTarget(EventTarget*) const;
     bool shouldPreventPointerMediaQueryFromEvaluatingToCoarse() const;
     bool shouldPreventDispatchOfTouchEvent(const AtomString&, EventTarget*) const;
 #endif
@@ -77,11 +78,13 @@ public:
 #endif
     bool shouldDisablePointerEventsQuirk() const;
     bool needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommand() const;
-    bool shouldTooltipPreventFromProceedingWithClick(const Element&) const;
     bool shouldHideSearchFieldResultsButton() const;
     bool shouldExposeShowModalDialog() const;
     bool shouldNavigatorPluginsBeEmpty() const;
     bool shouldDisableNavigatorStandaloneQuirk() const;
+
+    bool shouldPreventOrientationMediaQueryFromEvaluatingToLandscape() const;
+    bool shouldFlipScreenDimensions() const;
 
     WEBCORE_EXPORT bool shouldDispatchSyntheticMouseEventsWhenModifyingSelection() const;
     WEBCORE_EXPORT bool shouldSuppressAutocorrectionAndAutocapitalizationInHiddenEditableAreas() const;
@@ -97,7 +100,6 @@ public:
 
     WEBCORE_EXPORT bool needsYouTubeMouseOutQuirk() const;
 
-    WEBCORE_EXPORT bool shouldAvoidUsingIOS13ForGmail() const;
     WEBCORE_EXPORT bool shouldDisableWritingSuggestionsByDefault() const;
 
     WEBCORE_EXPORT static void updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain, String>&&);
@@ -106,11 +108,17 @@ public:
     WEBCORE_EXPORT static bool needsIPhoneUserAgent(const URL&);
     WEBCORE_EXPORT static bool needsDesktopUserAgent(const URL&);
 
+    WEBCORE_EXPORT static std::optional<Vector<HashSet<String>>> defaultVisibilityAdjustmentSelectors(const URL&);
+
     bool needsGMailOverflowScrollQuirk() const;
+    bool needsIPadSkypeOverflowScrollQuirk() const;
     bool needsYouTubeOverflowScrollQuirk() const;
     bool needsFullscreenDisplayNoneQuirk() const;
     bool needsFullscreenObjectFitQuirk() const;
     bool needsWeChatScrollingQuirk() const;
+
+    bool needsScrollbarWidthThinDisabledQuirk() const;
+    bool needsBodyScrollbarWidthNoneDisabledQuirk() const;
 
     bool shouldOpenAsAboutBlank(const String&) const;
 
@@ -199,6 +207,12 @@ public:
     bool needsRelaxedCorsMixedContentCheckQuirk() const;
     bool needsLaxSameSiteCookieQuirk(const URL&) const;
 
+    String scriptToEvaluateBeforeRunningScriptFromURL(const URL&);
+
+    bool shouldHideCoarsePointerCharacteristics() const;
+
+    bool needsZeroMaxTouchPointsQuirk() const;
+
 private:
     bool needsQuirks() const;
     bool isDomain(const String&) const;
@@ -218,6 +232,7 @@ private:
     mutable std::optional<bool> m_needsFullWidthHeightFullscreenStyleQuirk;
 #if PLATFORM(IOS_FAMILY)
     mutable std::optional<bool> m_needsGMailOverflowScrollQuirk;
+    mutable std::optional<bool> m_needsIPadSkypeOverflowScrollQuirk;
     mutable std::optional<bool> m_needsYouTubeOverflowScrollQuirk;
     mutable std::optional<bool> m_needsPreloadAutoQuirk;
     mutable std::optional<bool> m_needsFullscreenDisplayNoneQuirk;
@@ -271,7 +286,11 @@ private:
     mutable std::optional<bool> m_shouldDisableElementFullscreen;
     mutable std::optional<bool> m_shouldIgnorePlaysInlineRequirementQuirk;
     mutable std::optional<bool> m_needsRelaxedCorsMixedContentCheckQuirk;
-
+    mutable std::optional<bool> m_needsScrollbarWidthThinDisabledQuirk;
+    mutable std::optional<bool> m_needsBodyScrollbarWidthNoneDisabledQuirk;
+#if ENABLE(DESKTOP_CONTENT_MODE_QUIRKS)
+    mutable std::optional<bool> m_needsZeroMaxTouchPointsQuirk;
+#endif
     Vector<RegistrableDomain> m_subFrameDomainsForStorageAccessQuirk;
 };
 

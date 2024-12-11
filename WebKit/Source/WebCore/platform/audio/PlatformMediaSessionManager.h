@@ -32,6 +32,7 @@
 #include "Timer.h"
 #include <wtf/AggregateLogger.h>
 #include <wtf/CancellableTask.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/WeakPtr.h>
@@ -48,7 +49,7 @@ class PlatformMediaSessionManager
     : private LoggerHelper
 #endif
 {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(PlatformMediaSessionManager);
 public:
     WEBCORE_EXPORT static PlatformMediaSessionManager* sharedManagerIfExists();
     WEBCORE_EXPORT static PlatformMediaSessionManager& sharedManager();
@@ -59,8 +60,6 @@ public:
     WEBCORE_EXPORT static void setShouldDeactivateAudioSession(bool);
     WEBCORE_EXPORT static bool shouldDeactivateAudioSession();
 
-    WEBCORE_EXPORT static void setWebMFormatReaderEnabled(bool);
-    WEBCORE_EXPORT static bool webMFormatReaderEnabled();
     WEBCORE_EXPORT static void setVorbisDecoderEnabled(bool);
     WEBCORE_EXPORT static bool vorbisDecoderEnabled();
     WEBCORE_EXPORT static void setOpusDecoderEnabled(bool);
@@ -173,6 +172,7 @@ public:
 
     WEBCORE_EXPORT void addAudioCaptureSource(AudioCaptureSource&);
     WEBCORE_EXPORT void removeAudioCaptureSource(AudioCaptureSource&);
+    void audioCaptureSourceStateChanged() { updateSessionState(); }
     bool hasAudioCaptureSource(AudioCaptureSource& source) const { return m_audioCaptureSources.contains(source); }
 
     WEBCORE_EXPORT void processDidReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType, const PlatformMediaSession::RemoteCommandArgument&);
@@ -264,9 +264,6 @@ private:
     WeakHashSet<NowPlayingMetadataObserver> m_nowPlayingMetadataObservers;
     TaskCancellationGroup m_taskGroup;
 
-#if ENABLE(WEBM_FORMAT_READER)
-    static bool m_webMFormatReaderEnabled;
-#endif
 #if ENABLE(VORBIS)
     static bool m_vorbisDecoderEnabled;
 #endif

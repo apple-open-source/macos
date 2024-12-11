@@ -1,4 +1,4 @@
-*tagsrch.txt*   For Vim version 9.0.  Last change: 2023 Feb 13
+*tagsrch.txt*   For Vim version 9.1.  Last change: 2024 Aug 01
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -407,19 +407,24 @@ the pattern.
 							*tag-!*
 If the tag is in the current file this will always work.  Otherwise the
 performed actions depend on whether the current file was changed, whether a !
-is added to the command and on the 'autowrite' option:
+is added to the command and on the 'autowrite' and 'winfixbuf' options:
 
-  tag in       file	   autowrite			~
-current file  changed	!   option	  action	~
------------------------------------------------------------------------------
-    yes		 x	x     x	  goto tag
-    no		 no	x     x	  read other file, goto tag
-    no		yes    yes    x   abandon current file, read other file, goto
-				  tag
-    no		yes	no    on  write current file, read other file, goto
-				  tag
-    no		yes	no   off  fail
------------------------------------------------------------------------------
+  tag in       file	    winfixbuf	autowrite		~
+current file  changed	!   option	option	      action	~
+ -----------------------------------------------------------------------------
+    yes		x	x      off	  x	    goto tag
+    no		no	x      off	  x	    read other file, goto tag
+    no		yes	yes    off	  x	    abandon current file,
+						    read other file, goto tag
+    no		yes	no     off	  on	    write current file,
+						    read other file, goto tag
+    no		yes	no     off	  off	    fail
+    yes		x	yes    x	  x	    goto tag
+    no		no	no     on	  x	    fail
+    no		yes	no     on	  x	    fail
+    no		yes	no     on	  on	    fail
+    no		yes	no     on	  off	    fail
+ -----------------------------------------------------------------------------
 
 - If the tag is in the current file, the command will always work.
 - If the tag is in another file and the current file was not changed, the
@@ -435,6 +440,8 @@ current file  changed	!   option	  action	~
   the changes, use the ":w" command and then use ":tag" without an argument.
   This works because the tag is put on the stack anyway.  If you want to lose
   the changes you can use the ":tag!" command.
+- If the tag is in another file and the window includes 'winfixbuf', the
+  command will fail. If the tag is in the same file then it may succeed.
 
 							*tag-security*
 Note that Vim forbids some commands, for security reasons.  This works like
@@ -539,7 +546,8 @@ JTags			For Java, in Java.  It can be found at
 			http://www.fleiner.com/jtags/.
 ptags.py		For Python, in Python.  Found in your Python source
 			directory at Tools/scripts/ptags.py.
-ptags			For Perl, in Perl.  It can be found at
+ptags			For Perl, in Perl.  It can be found at (link seems
+			dead):
 			http://www.eleves.ens.fr:8080/home/nthiery/Tags/.
 gnatxref		For Ada.  See http://www.gnuada.org/.  gnatxref is
 			part of the gnat package.
@@ -580,12 +588,12 @@ ctags).
 {term}		;" The two characters semicolon and double quote.  This is
 		interpreted by Vi as the start of a comment, which makes the
 		following be ignored.  This is for backwards compatibility
-		with Vi, it ignores the following fields. Example:
+		with Vi, it ignores the following fields. Example: >
 			APP	file	/^static int APP;$/;"	v
-		When {tagaddress} is not a line number or search pattern, then
+<		When {tagaddress} is not a line number or search pattern, then
 		{term} must be |;".  Here the bar ends the command (excluding
 		the bar) and ;" is used to have Vi ignore the rest of the
-		line.  Example:
+		line.  Example: >
 			APP	file.c	call cursor(3, 4)|;"	v
 
 {field} ..	A list of optional fields.  Each field has the form:
@@ -603,7 +611,9 @@ ctags).
 
 		There is one field that doesn't have a ':'.  This is the kind
 		of the tag.  It is handled like it was preceded with "kind:".
-		See the documentation of ctags for the kinds it produces.
+		In the above example, this was "kind:v" (typically variable).
+		See the documentation of ctags for the kinds it produces, with
+		ctags you can use `ctags --list-kinds` .
 
 		The only other field currently recognized by Vim is "file:"
 		(with an empty value).  It is used for a static tag.
@@ -648,14 +658,14 @@ If the command is a normal search command (it starts and ends with "/" or
   The direction of the search is forward for "/", backward for "?".
   Note that 'wrapscan' does not matter, the whole file is always searched.
 - If the search fails, another try is done ignoring case.  If that fails too,
-  a search is done for:
+  a search is done for: >
 	"^tagname[ \t]*("
-  (the tag with '^' prepended and "[ \t]*(" appended).  When using function
+<  (the tag with '^' prepended and "[ \t]*(" appended).  When using function
   names, this will find the function name when it is in column 0.  This will
   help when the arguments to the function have changed since the tags file was
-  made.  If this search also fails another search is done with:
+  made.  If this search also fails another search is done with: >
 	"^[#a-zA-Z_].*\<tagname[ \t]*("
-  This means: A line starting with '#' or an identifier and containing the tag
+<  This means: A line starting with '#' or an identifier and containing the tag
   followed by white space and a '('.  This will find macro names and function
   names with a type prepended.
 

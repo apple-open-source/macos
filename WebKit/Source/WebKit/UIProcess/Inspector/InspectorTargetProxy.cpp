@@ -33,10 +33,13 @@
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
 using namespace Inspector;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(InspectorTargetProxy);
 
 std::unique_ptr<InspectorTargetProxy> InspectorTargetProxy::create(WebPageProxy& page, const String& targetId, Inspector::InspectorTargetType type)
 {
@@ -65,8 +68,8 @@ void InspectorTargetProxy::connect(Inspector::FrontendChannel::ConnectionType co
         return;
     }
 
-    if (m_page.hasRunningProcess())
-        m_page.legacyMainFrameProcess().send(Messages::WebPage::ConnectInspector(identifier(), connectionType), m_page.webPageIDInMainFrameProcess());
+    if (m_page->hasRunningProcess())
+        m_page->legacyMainFrameProcess().send(Messages::WebPage::ConnectInspector(identifier(), connectionType), m_page->webPageIDInMainFrameProcess());
 }
 
 void InspectorTargetProxy::disconnect()
@@ -79,8 +82,8 @@ void InspectorTargetProxy::disconnect()
         return;
     }
 
-    if (m_page.hasRunningProcess())
-        m_page.legacyMainFrameProcess().send(Messages::WebPage::DisconnectInspector(identifier()), m_page.webPageIDInMainFrameProcess());
+    if (m_page->hasRunningProcess())
+        m_page->legacyMainFrameProcess().send(Messages::WebPage::DisconnectInspector(identifier()), m_page->webPageIDInMainFrameProcess());
 }
 
 void InspectorTargetProxy::sendMessageToTargetBackend(const String& message)
@@ -90,8 +93,8 @@ void InspectorTargetProxy::sendMessageToTargetBackend(const String& message)
         return;
     }
 
-    if (m_page.hasRunningProcess())
-        m_page.legacyMainFrameProcess().send(Messages::WebPage::SendMessageToTargetBackend(identifier(), message), m_page.webPageIDInMainFrameProcess());
+    if (m_page->hasRunningProcess())
+        m_page->legacyMainFrameProcess().send(Messages::WebPage::SendMessageToTargetBackend(identifier(), message), m_page->webPageIDInMainFrameProcess());
 }
 
 void InspectorTargetProxy::didCommitProvisionalTarget()

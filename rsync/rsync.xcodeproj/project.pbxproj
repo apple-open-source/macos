@@ -94,6 +94,9 @@
 		2A23205B2B7F2C9200366342 /* libresolv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A23205A2B7F2C9200366342 /* libresolv.tbd */; };
 		2A23205D2B7F2C9800366342 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A23205C2B7F2C9800366342 /* libutil.tbd */; };
 		2A3B7C6D2C1961DD0038D486 /* test52_version_output.test in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A3B7C6C2C1961D60038D486 /* test52_version_output.test */; };
+		2A4018F52C8AC1B200BEBD25 /* fmap.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A4018F42C8AC1B200BEBD25 /* fmap.c */; };
+		2A4018F82C8AC3C800BEBD25 /* test71_same_time.test in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A4018F62C8AC3AC00BEBD25 /* test71_same_time.test */; };
+		2A4018F92C8AC3CD00BEBD25 /* test72_mmap_trunc.test in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A4018F72C8AC3AC00BEBD25 /* test72_mmap_trunc.test */; };
 		2A485F502B58E221009D80F8 /* cleanup.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A485F4F2B58E221009D80F8 /* cleanup.c */; };
 		2A485F622B59E981009D80F8 /* test21_delopts.test in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A485F5F2B59E940009D80F8 /* test21_delopts.test */; };
 		2A485F632B59E981009D80F8 /* test22_inplace.test in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2A485F5E2B59E940009D80F8 /* test22_inplace.test */; };
@@ -451,7 +454,6 @@
 			dstPath = /AppleInternal/Tests/rsync/openrsync;
 			dstSubfolderSpec = 0;
 			files = (
-				96CAB6E12C3F51C5001DCCC1 /* test63_relative.test in Copy Test Files */,
 				96A9A4A42BA3BBAA00F4703A /* test35_checksum_seed.test in Copy Test Files */,
 				96A9A4A52BA3BBAA00F4703A /* test36_block_size.test in Copy Test Files */,
 				96A9A4A62BA3BBAA00F4703A /* test37_chmod.test in Copy Test Files */,
@@ -461,6 +463,9 @@
 				96A9A4AA2BA3BBAA00F4703A /* test41_backup_dir.test in Copy Test Files */,
 				96A9A4AB2BA3BBAA00F4703A /* test42_copy_dest.test in Copy Test Files */,
 				96A9A4AC2BA3BBAA00F4703A /* test43_whole_file.test in Copy Test Files */,
+				96CAB6E12C3F51C5001DCCC1 /* test63_relative.test in Copy Test Files */,
+				2A4018F82C8AC3C800BEBD25 /* test71_same_time.test in Copy Test Files */,
+				2A4018F92C8AC3CD00BEBD25 /* test72_mmap_trunc.test in Copy Test Files */,
 				2A54661F2AFECB32005C5CBB /* conf.sh in Copy Test Files */,
 				2A5466202AFECB32005C5CBB /* lib.sh in Copy Test Files */,
 				2A9E2A552B14033100F5F14D /* test0_noslash.test in Copy Test Files */,
@@ -665,6 +670,9 @@
 		2A23205A2B7F2C9200366342 /* libresolv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libresolv.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.4.Internal.sdk/usr/lib/libresolv.tbd; sourceTree = DEVELOPER_DIR; };
 		2A23205C2B7F2C9800366342 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.4.Internal.sdk/usr/lib/libutil.tbd; sourceTree = DEVELOPER_DIR; };
 		2A3B7C6C2C1961D60038D486 /* test52_version_output.test */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = test52_version_output.test; path = tests/openrsync/test52_version_output.test; sourceTree = "<group>"; };
+		2A4018F42C8AC1B200BEBD25 /* fmap.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fmap.c; sourceTree = "<group>"; };
+		2A4018F62C8AC3AC00BEBD25 /* test71_same_time.test */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = test71_same_time.test; path = tests/openrsync/test71_same_time.test; sourceTree = "<group>"; };
+		2A4018F72C8AC3AC00BEBD25 /* test72_mmap_trunc.test */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = test72_mmap_trunc.test; path = tests/openrsync/test72_mmap_trunc.test; sourceTree = "<group>"; };
 		2A485F4F2B58E221009D80F8 /* cleanup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cleanup.c; sourceTree = "<group>"; };
 		2A485F512B59E940009D80F8 /* test26_update.test */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = test26_update.test; path = tests/openrsync/test26_update.test; sourceTree = "<group>"; };
 		2A485F522B59E940009D80F8 /* test25_filter_merge_cvs.test */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = test25_filter_merge_cvs.test; path = tests/openrsync/test25_filter_merge_cvs.test; sourceTree = "<group>"; };
@@ -1038,7 +1046,6 @@
 		2A5465F52AFEC976005C5CBB /* tests */ = {
 			isa = PBXGroup;
 			children = (
-				96CAB6DD2C3F51B4001DCCC1 /* test63_relative.test */,
 				96A9A49B2BA3BA2100F4703A /* test35_checksum_seed.test */,
 				96A9A4A32BA3BA2100F4703A /* test36_block_size.test */,
 				96A9A49C2BA3BA2100F4703A /* test37_chmod.test */,
@@ -1048,6 +1055,9 @@
 				96A9A4A02BA3BA2100F4703A /* test41_backup_dir.test */,
 				96A9A49D2BA3BA2100F4703A /* test42_copy_dest.test */,
 				96A9A4A12BA3BA2100F4703A /* test43_whole_file.test */,
+				96CAB6DD2C3F51B4001DCCC1 /* test63_relative.test */,
+				2A4018F62C8AC3AC00BEBD25 /* test71_same_time.test */,
+				2A4018F72C8AC3AC00BEBD25 /* test72_mmap_trunc.test */,
 				2A5465FB2AFECAFC005C5CBB /* conf.sh */,
 				2A5465FC2AFECB06005C5CBB /* lib.sh */,
 				2A5465F62AFECA11005C5CBB /* sparseme.c */,
@@ -1149,6 +1159,7 @@
 				2A96BF2D29A3267200F1705B /* downloader.c */,
 				2A96BF3329A3267300F1705B /* fargs.c */,
 				2A96BF2F29A3267300F1705B /* flist.c */,
+				2A4018F42C8AC1B200BEBD25 /* fmap.c */,
 				2A5465E82AFEC6C0005C5CBB /* hardlinks.c */,
 				2A96BF3129A3267300F1705B /* hash.c */,
 				2A96BF3429A3267300F1705B /* ids.c */,
@@ -1695,6 +1706,7 @@
 				2A2320512B7F2B1200366342 /* daemon.c in Sources */,
 				2A96BF6629A326E900F1705B /* copy.c in Sources */,
 				2A96BF6729A326E900F1705B /* downloader.c in Sources */,
+				2A4018F52C8AC1B200BEBD25 /* fmap.c in Sources */,
 				D3F672DC2BA4D3C700662817 /* adler32.c in Sources */,
 				2A96BF6829A326F700F1705B /* fargs.c in Sources */,
 				2A96BF6929A326F700F1705B /* flist.c in Sources */,

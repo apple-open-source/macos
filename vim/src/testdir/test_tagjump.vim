@@ -900,18 +900,33 @@ func Test_tag_stack()
   endfor
   call writefile(l, 'Xfoo', 'D')
 
-  " Jump to a tag when the tag stack is full. Oldest entry should be removed.
   enew
+  " Jump to a tag when the tag stack is full. Oldest entry should be removed.
   for i in range(10, 30)
     exe "tag var" .. i
   endfor
-  let l = gettagstack()
-  call assert_equal(20, l.length)
-  call assert_equal('var11', l.items[0].tagname)
+  let t = gettagstack()
+  call assert_equal(20, t.length)
+  call assert_equal('var11', t.items[0].tagname)
+  let full = deepcopy(t.items)
   tag var31
-  let l = gettagstack()
-  call assert_equal('var12', l.items[0].tagname)
-  call assert_equal('var31', l.items[19].tagname)
+  let t = gettagstack()
+  call assert_equal('var12', t.items[0].tagname)
+  call assert_equal('var31', t.items[19].tagname)
+
+  " Jump to a tag when the tag stack is full, but with user data this time.
+  call foreach(full, {i, item -> extend(item, {'user_data': $'udata{i}'})})
+  call settagstack(0, {'items': full})
+  let t = gettagstack()
+  call assert_equal(20, t.length)
+  call assert_equal('var11', t.items[0].tagname)
+  call assert_equal('udata0', t.items[0].user_data)
+  tag var31
+  let t = gettagstack()
+  call assert_equal('var12', t.items[0].tagname)
+  call assert_equal('udata1', t.items[0].user_data)
+  call assert_equal('var31', t.items[19].tagname)
+  call assert_false(has_key(t.items[19], 'user_data'))
 
   " Use tnext with a single match
   call assert_fails('tnext', 'E427:')
@@ -943,8 +958,63 @@ func Test_tag_stack()
   call settagstack(1, {'items' : []})
   call assert_fails('pop', 'E73:')
 
+  " References to wiped buffer are deleted.
+  for i in range(10, 20)
+    edit Xtest
+    exe "tag var" .. i
+  endfor
+  edit Xtest
+
+  let t = gettagstack()
+  call assert_equal(11, t.length)
+  call assert_equal(12, t.curidx)
+
+  bwipe!
+
+  let t = gettagstack()
+  call assert_equal(0, t.length)
+  call assert_equal(1, t.curidx)
+
+  " References to wiped buffer are deleted with multiple tabpages.
+  let w1 = win_getid()
+  call settagstack(1, {'items' : []})
+  for i in range(10, 20) | edit Xtest | exe "tag var" .. i | endfor
+  enew
+
+  new
+  let w2 = win_getid()
+  call settagstack(1, {'items' : []})
+  for i in range(10, 20) | edit Xtest | exe "tag var" .. i | endfor
+  enew
+
+  tabnew
+  let w3 = win_getid()
+  call settagstack(1, {'items' : []})
+  for i in range(10, 20) | edit Xtest | exe "tag var" .. i | endfor
+  enew
+
+  new
+  let w4 = win_getid()
+  call settagstack(1, {'items' : []})
+  for i in range(10, 20) | edit Xtest | exe "tag var" .. i | endfor
+  enew
+
+  for w in [w1, w2, w3, w4]
+    let t = gettagstack(w)
+    call assert_equal(11, t.length)
+    call assert_equal(12, t.curidx)
+  endfor
+
+  bwipe! Xtest
+
+  for w in [w1, w2, w3, w4]
+    let t = gettagstack(w)
+    call assert_equal(0, t.length)
+    call assert_equal(1, t.curidx)
+  endfor
+
+  %bwipe!
   set tags&
-  %bwipe
 endfunc
 
 " Test for browsing multiple matching tags
@@ -1543,6 +1613,24 @@ func Test_tagbsearch()
   call assert_fails('tag bbb', 'E426:')
 
   set tags& tagbsearch&
+endfunc
+
+" Test tag guessing with very short names
+func Test_tag_guess_short()
+  call writefile(["!_TAG_FILE_ENCODING\tutf-8\t//",
+        \ "y\tXf\t/^y()/"],
+        \ 'Xt', 'D')
+  set tags=Xt cpoptions+=t
+  call writefile(['', 'int * y () {}', ''], 'Xf', 'D')
+
+  let v:statusmsg = ''
+  let @/ = ''
+  ta y
+  call assert_match('E435:', v:statusmsg)
+  call assert_equal(2, line('.'))
+  call assert_match('<y', @/)
+
+  set tags& cpoptions-=t
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

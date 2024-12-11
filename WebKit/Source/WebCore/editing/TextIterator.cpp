@@ -67,6 +67,7 @@
 #include "VisibleUnits.h"
 #include <unicode/unorm2.h>
 #include <wtf/Function.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -80,6 +81,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(TextIterator);
 
 using namespace WTF::Unicode;
 using namespace HTMLNames;
@@ -1157,8 +1160,10 @@ void TextIterator::emitText(Text& textNode, RenderText& renderer, int textStartO
     ASSERT(textEndOffset >= 0);
     ASSERT(textStartOffset <= textEndOffset);
 
+    bool shouldIgnoreFullSizeKana = m_behaviors.contains(TextIteratorBehavior::IgnoresFullSizeKana) && renderer.style().textTransform().contains(TextTransform::FullSizeKana);
+
     // FIXME: This probably yields the wrong offsets when text-transform: lowercase turns a single character into two characters.
-    String string = m_behaviors.contains(TextIteratorBehavior::EmitsOriginalText) ? renderer.originalText()
+    String string = m_behaviors.contains(TextIteratorBehavior::EmitsOriginalText) || shouldIgnoreFullSizeKana ? renderer.originalText()
         : (m_behaviors.contains(TextIteratorBehavior::EmitsTextsWithoutTranscoding) ? renderer.textWithoutConvertingBackslashToYenSymbol() : renderer.text());
 
     ASSERT(m_behaviors.contains(TextIteratorBehavior::EmitsOriginalText) || string.length() >= static_cast<unsigned>(textEndOffset));

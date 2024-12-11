@@ -27,16 +27,17 @@
 
 #pragma once
 
+#include "AnchorPositionEvaluator.h"
 #include "LayoutSize.h"
 #include "StyleScopeOrdinal.h"
 #include "Timer.h"
 #include <memory>
 #include <wtf/CheckedPtr.h>
-#include <wtf/FastMalloc.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakHashMap.h>
@@ -69,7 +70,7 @@ class RuleSet;
 struct MatchResult;
 
 class Scope final : public CanMakeWeakPtr<Scope>, public CanMakeCheckedPtr<Scope> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(Scope);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Scope);
 public:
     explicit Scope(Document&);
@@ -159,6 +160,11 @@ public:
     const CSSCounterStyleRegistry& counterStyleRegistry() const { return m_counterStyleRegistry.get(); }
     CSSCounterStyleRegistry& counterStyleRegistry() { return m_counterStyleRegistry.get(); }
 
+    WeakHashSet<Element, WeakPtrImplWithEventTargetData>& anchorElements() { return m_anchorElements; }
+    AnchorPositionedStates& anchorPositionedStates() { return m_anchorPositionedStates; }
+    AnchorsForAnchorName& anchorsForAnchorName() { return m_anchorsForAnchorName; }
+    void clearAnchorPositioningState();
+
 private:
     Scope& documentScope();
     bool isForUserAgentShadowTree() const;
@@ -211,7 +217,7 @@ private:
     using MediaQueryViewportState = std::tuple<IntSize, float, bool>;
     static MediaQueryViewportState mediaQueryViewportStateForDocument(const Document&);
 
-    Document& m_document; // FIXME: Use a smart pointer.
+    CheckedRef<Document> m_document;
     ShadowRoot* m_shadowRoot { nullptr };
 
     RefPtr<Resolver> m_resolver;
@@ -253,6 +259,10 @@ private:
 
     // FIXME: These (and some things above) are only relevant for the root scope.
     HashMap<ResolverSharingKey, Ref<Resolver>> m_sharedShadowTreeResolvers;
+
+    WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_anchorElements;
+    AnchorsForAnchorName m_anchorsForAnchorName;
+    AnchorPositionedStates m_anchorPositionedStates;
 };
 
 HTMLSlotElement* assignedSlotForScopeOrdinal(const Element&, ScopeOrdinal);

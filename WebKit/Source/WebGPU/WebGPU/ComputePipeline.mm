@@ -38,6 +38,10 @@ namespace WebGPU {
 static id<MTLComputePipelineState> createComputePipelineState(id<MTLDevice> device, id<MTLFunction> function, const PipelineLayout& pipelineLayout, const MTLSize& size, NSString *label)
 {
     auto computePipelineDescriptor = [MTLComputePipelineDescriptor new];
+#if ENABLE(WEBGPU_BY_DEFAULT)
+    computePipelineDescriptor.shaderValidation = MTLShaderValidationEnabled;
+#endif
+
     computePipelineDescriptor.computeFunction = function;
     computePipelineDescriptor.maxTotalThreadsPerThreadgroup = size.width * size.height * size.depth;
     for (size_t i = 0; i < pipelineLayout.numberOfBindGroupLayouts(); ++i)
@@ -78,7 +82,7 @@ std::pair<Ref<ComputePipeline>, NSString*> Device::createComputePipeline(const W
         return returnInvalidComputePipeline(*this, isAsync);
 
     ShaderModule& shaderModule = WebGPU::fromAPI(descriptor.compute.module);
-    if (!shaderModule.isValid() || &shaderModule.device() != this)
+    if (!shaderModule.isValid() || &shaderModule.device() != this || !descriptor.layout)
         return returnInvalidComputePipeline(*this, isAsync);
 
     PipelineLayout& pipelineLayout = WebGPU::fromAPI(descriptor.layout);
@@ -132,10 +136,15 @@ std::pair<Ref<ComputePipeline>, NSString*> Device::createComputePipeline(const W
 void Device::createComputePipelineAsync(const WGPUComputePipelineDescriptor& descriptor, CompletionHandler<void(WGPUCreatePipelineAsyncStatus, Ref<ComputePipeline>&&, String&& message)>&& callback)
 {
     auto pipelineAndError = createComputePipeline(descriptor, true);
-    instance().scheduleWork([pipeline = WTFMove(pipelineAndError.first), callback = WTFMove(callback), protectedThis = Ref { *this }, error = WTFMove(pipelineAndError.second)]() mutable {
-        callback((pipeline->isValid() || protectedThis->isDestroyed()) ? WGPUCreatePipelineAsyncStatus_Success : WGPUCreatePipelineAsyncStatus_ValidationError, WTFMove(pipeline), WTFMove(error));
-    });
+    if (auto inst = instance(); inst.get()) {
+        inst->scheduleWork([pipeline = WTFMove(pipelineAndError.first), callback = WTFMove(callback), protectedThis = Ref { *this }, error = WTFMove(pipelineAndError.second)]() mutable {
+            callback((pipeline->isValid() || protectedThis->isDestroyed()) ? WGPUCreatePipelineAsyncStatus_Success : WGPUCreatePipelineAsyncStatus_ValidationError, WTFMove(pipeline), WTFMove(error));
+        });
+    } else
+        callback(WGPUCreatePipelineAsyncStatus_ValidationError, WTFMove(pipelineAndError.first), WTFMove(pipelineAndError.second));
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ComputePipeline);
 
 ComputePipeline::ComputePipeline(id<MTLComputePipelineState> computePipelineState, Ref<PipelineLayout>&& pipelineLayout, MTLSize threadsPerThreadgroup, BufferBindingSizesForPipeline&& minimumBufferSizes, Device& device)
     : m_computePipelineState(computePipelineState)

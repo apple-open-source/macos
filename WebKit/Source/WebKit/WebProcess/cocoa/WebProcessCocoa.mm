@@ -161,9 +161,7 @@
 #if PLATFORM(MAC)
 #import "AppKitSPI.h"
 #import "WKAccessibilityWebPageObjectMac.h"
-#import "WebSwitchingGPUClient.h"
 #import <Security/SecStaticCode.h>
-#import <WebCore/DisplayConfigurationMonitor.h>
 #import <WebCore/ScrollbarThemeMac.h>
 #import <pal/spi/cf/CoreTextSPI.h>
 #import <pal/spi/mac/NSScrollerImpSPI.h>
@@ -421,8 +419,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     WebCore::FontCache::setFontAllowlist(parameters.fontAllowList);
 #endif
 
-    m_compositingRenderServerPort = WTFMove(parameters.acceleratedCompositingPort);
-
     WebCore::registerMemoryReleaseNotifyCallbacks();
     MemoryPressureHandler::ReliefLogger::setLoggingEnabled(parameters.shouldEnableMemoryPressureReliefLogging);
 
@@ -492,10 +488,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 #if TARGET_OS_IPHONE
     // Priority decay on iOS 9 is impacting page load time so we fix the priority of the WebProcess' main thread (rdar://problem/22003112).
     pthread_set_fixedpriority_self();
-#endif
-
-#if ENABLE(WEBM_FORMAT_READER)
-    PlatformMediaSessionManager::setWebMFormatReaderEnabled(DeprecatedGlobalSettings::webMFormatReaderEnabled());
 #endif
 
 #if ENABLE(VORBIS)
@@ -905,7 +897,6 @@ void WebProcess::platformInitializeProcess(const AuxiliaryProcessInitializationP
     auto retval = CGSSetDenyWindowServerConnections(true);
     RELEASE_ASSERT(retval == kCGErrorSuccess);
 
-    SwitchingGPUClient::setSingleton(WebSwitchingGPUClient::singleton());
     MainThreadSharedTimer::shouldSetupPowerObserver() = false;
 #endif // PLATFORM(MAC)
 
@@ -1193,10 +1184,6 @@ void WebProcess::scrollerStylePreferenceChanged(bool useOverlayScrollbars)
     [NSScrollerImpPair _updateAllScrollerImpPairsForNewRecommendedScrollerStyle:style];
 }
 
-void WebProcess::displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags flags)
-{
-    DisplayConfigurationMonitor::singleton().dispatchDisplayWasReconfigured(flags);
-}
 #endif
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)

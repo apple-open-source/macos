@@ -38,6 +38,7 @@
 #include <wtf/Deque.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 struct DisplayUpdate;
@@ -49,7 +50,7 @@ namespace WebKit {
 
 class MomentumEventDispatcher {
     WTF_MAKE_NONCOPYABLE(MomentumEventDispatcher);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(MomentumEventDispatcher);
 public:
     class Client {
     friend class MomentumEventDispatcher;
@@ -148,7 +149,7 @@ private:
     struct {
         bool active { false };
 
-        WebCore::PageIdentifier pageIdentifier;
+        Markable<WebCore::PageIdentifier> pageIdentifier;
         std::optional<ScrollingAccelerationCurve> accelerationCurve;
         std::optional<WebWheelEvent> initiatingEvent;
 

@@ -225,7 +225,7 @@ readfile(
     int		may_need_lseek = FALSE;
 #endif
 
-    au_did_filetype = FALSE; // reset before triggering any autocommands
+    curbuf->b_au_did_filetype = FALSE; // reset before triggering any autocommands
 
     curbuf->b_no_eol_lnum = 0;	// in case it was set by the previous read
 
@@ -1246,7 +1246,7 @@ retry:
 			for (;;)
 			{
 			    p = ml_get(read_buf_lnum) + read_buf_col;
-			    n = (int)STRLEN(p);
+			    n = ml_get_len(read_buf_lnum) - read_buf_col;
 			    if ((int)tlen + n + 1 > size)
 			    {
 				// Filled up to "size", append partial line.
@@ -2707,7 +2707,7 @@ failed:
 	{
 	    apply_autocmds_exarg(EVENT_BUFREADPOST, NULL, sfname,
 							  FALSE, curbuf, eap);
-	    if (!au_did_filetype && *curbuf->b_p_ft != NUL)
+	    if (!curbuf->b_au_did_filetype && *curbuf->b_p_ft != NUL)
 		/*
 		 * EVENT_FILETYPE was not triggered but the buffer already has a
 		 * filetype. Trigger EVENT_FILETYPE using the existing filetype.
@@ -3781,19 +3781,12 @@ vim_fgets(char_u *buf, int size, FILE *fp)
     int
 vim_rename(char_u *from, char_u *to)
 {
-    int		fd_in;
-    int		fd_out;
     int		n;
-    char	*errmsg = NULL;
-    char	*buffer;
+    int		ret;
 #ifdef AMIGA
     BPTR	flock;
 #endif
     stat_T	st;
-    long	perm;
-#ifdef HAVE_ACL
-    vim_acl_T	acl;		// ACL from original file
-#endif
     int		use_tmp_file = FALSE;
 
     /*
@@ -3914,6 +3907,61 @@ vim_rename(char_u *from, char_u *to)
     /*
      * Rename() failed, try copying the file.
      */
+    ret = vim_copyfile(from, to);
+    if (ret != OK)
+	return -1;
+
+    /*
+     * Remove copied original file
+     */
+    if (mch_stat((char *)from, &st) >= 0)
+	mch_remove(from);
+
+    return 0;
+}
+
+
+/*
+ * Create the new file with same permissions as the original.
+ * Return FAIL for failure, OK for success.
+ */
+    int
+vim_copyfile(char_u *from, char_u *to)
+{
+    int		fd_in;
+    int		fd_out;
+    int		n;
+    char	*errmsg = NULL;
+    char	*buffer;
+    long	perm;
+#ifdef HAVE_ACL
+    vim_acl_T	acl;		// ACL from original file
+#endif
+
+#ifdef HAVE_READLINK
+    int		ret;
+    int		len;
+    stat_T	st;
+    char	linkbuf[MAXPATHL + 1];
+
+    ret = mch_lstat((char *)from, &st);
+    if (ret >= 0 && S_ISLNK(st.st_mode))
+    {
+	ret = -1;
+
+	len = readlink((char *)from, linkbuf, MAXPATHL);
+	if (len > 0)
+	{
+	    linkbuf[len] = NUL;
+
+	    // Create link
+	    ret = symlink(linkbuf, (char *)to);
+	}
+
+	return ret == 0 ? OK : FAIL;
+    }
+#endif
+
     perm = mch_getperm(from);
 #ifdef HAVE_ACL
     // For systems that support ACL: get the ACL from the original file.
@@ -3925,7 +3973,7 @@ vim_rename(char_u *from, char_u *to)
 #ifdef HAVE_ACL
 	mch_free_acl(acl);
 #endif
-	return -1;
+	return FAIL;
     }
 
     // Create the new file with same permissions as the original.
@@ -3937,7 +3985,7 @@ vim_rename(char_u *from, char_u *to)
 #ifdef HAVE_ACL
 	mch_free_acl(acl);
 #endif
-	return -1;
+	return FAIL;
     }
 
     buffer = alloc(WRITEBUFSIZE);
@@ -3948,7 +3996,7 @@ vim_rename(char_u *from, char_u *to)
 #ifdef HAVE_ACL
 	mch_free_acl(acl);
 #endif
-	return -1;
+	return FAIL;
     }
 
     while ((n = read_eintr(fd_in, buffer, WRITEBUFSIZE)) > 0)
@@ -3980,10 +4028,9 @@ vim_rename(char_u *from, char_u *to)
     if (errmsg != NULL)
     {
 	semsg(errmsg, to);
-	return -1;
+	return FAIL;
     }
-    mch_remove(from);
-    return 0;
+    return OK;
 }
 
 static int already_warned = FALSE;
@@ -4500,8 +4547,14 @@ buf_reload(buf_T *buf, int orig_mode, int reload_options)
 
 	if (saved == OK)
 	{
+	    int old_msg_silent = msg_silent;
+
 	    curbuf->b_flags |= BF_CHECK_RO;	// check for RO again
-	    keep_filetype = TRUE;		// don't detect 'filetype'
+	    curbuf->b_keep_filetype = TRUE;	// don't detect 'filetype'
+
+	    if (shortmess(SHM_FILEINFO))
+		msg_silent = 1;
+
 	    if (readfile(buf->b_ffname, buf->b_fname, (linenr_T)0,
 			(linenr_T)0,
 			(linenr_T)MAXLNUM, &ea, flags) != OK)
@@ -4525,16 +4578,15 @@ buf_reload(buf_T *buf, int orig_mode, int reload_options)
 		// Mark the buffer as unmodified and free undo info.
 		unchanged(buf, TRUE, TRUE);
 		if ((flags & READ_KEEP_UNDO) == 0)
-		{
-		    u_blockfree(buf);
-		    u_clearall(buf);
-		}
+		    u_clearallandblockfree(buf);
 		else
 		{
 		    // Mark all undo states as changed.
 		    u_unchanged(curbuf);
 		}
 	    }
+
+	    msg_silent = old_msg_silent;
 	}
 	vim_free(ea.cmd);
 
@@ -4555,7 +4607,7 @@ buf_reload(buf_T *buf, int orig_mode, int reload_options)
 	curwin->w_cursor = old_cursor;
 	check_cursor();
 	update_topline();
-	keep_filetype = FALSE;
+	curbuf->b_keep_filetype = FALSE;
 #ifdef FEAT_FOLDING
 	{
 	    win_T	*wp;
@@ -5673,6 +5725,8 @@ file_pat_to_reg_pat(
 				)
 			    *allow_dirs = TRUE;
 			reg_pat[i++] = '\\';
+			if (enc_dbcs != 0 && (*mb_ptr2len)(p) > 1)
+			    reg_pat[i++] = *p++;
 			reg_pat[i++] = *p;
 		    }
 		break;

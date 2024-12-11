@@ -68,6 +68,7 @@
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/VoidCallback.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/cf/VectorCF.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/MakeString.h>
@@ -77,6 +78,8 @@
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PDFPluginBase);
 
 PluginInfo PDFPluginBase::pluginInfo()
 {
@@ -153,6 +156,9 @@ void PDFPluginBase::teardown()
         existingCompletionHandler({ }, WTFMove(frameInfo), { }, { });
     }
 #endif // ENABLE(PDF_HUD)
+
+    if (isLocked())
+        teardownPasswordEntryForm();
 }
 
 Page* PDFPluginBase::page() const
@@ -767,6 +773,26 @@ ScrollPosition PDFPluginBase::maximumScrollPosition() const
     return maximumOffset;
 }
 
+IntSize PDFPluginBase::overhangAmount() const
+{
+    IntSize stretch;
+
+    // ScrollableArea's maximumScrollOffset() doesn't handle being zoomed below 1.
+    auto maximumScrollOffset = scrollOffsetFromPosition(maximumScrollPosition());
+    auto scrollOffset = this->scrollOffset();
+    if (scrollOffset.y() < 0)
+        stretch.setHeight(scrollOffset.y());
+    else if (scrollOffset.y() > maximumScrollOffset.y())
+        stretch.setHeight(scrollOffset.y() - maximumScrollOffset.y());
+
+    if (scrollOffset.x() < 0)
+        stretch.setWidth(scrollOffset.x());
+    else if (scrollOffset.x() > maximumScrollOffset.x())
+        stretch.setWidth(scrollOffset.x() - maximumScrollOffset.x());
+
+    return stretch;
+}
+
 float PDFPluginBase::deviceScaleFactor() const
 {
     if (RefPtr page = this->page())
@@ -958,6 +984,24 @@ void PDFPluginBase::destroyScrollbar(ScrollbarOrientation orientation)
     scrollbar = nullptr;
 }
 
+void PDFPluginBase::wantsWheelEventsChanged()
+{
+    if (!m_element)
+        return;
+
+    if (!m_frame || !m_frame->coreLocalFrame())
+        return;
+
+    RefPtr document = m_frame->coreLocalFrame()->document();
+    if (!document)
+        return;
+
+    if (wantsWheelEvents())
+        document->didAddWheelEventHandler(*m_element);
+    else
+        document->didRemoveWheelEventHandler(*m_element, EventHandlerRemoval::All);
+}
+
 void PDFPluginBase::print()
 {
     if (RefPtr page = this->page())
@@ -1062,7 +1106,7 @@ void PDFPluginBase::notifyCursorChanged(WebCore::PlatformCursorType cursorType)
     m_frame->protectedPage()->send(Messages::WebPageProxy::SetCursor(WebCore::Cursor::fromType(cursorType)));
 }
 
-bool PDFPluginBase::supportsForms()
+bool PDFPluginBase::supportsForms() const
 {
     // FIXME: We support forms for full-main-frame and <iframe> PDFs, but not <embed> or <object>, because those cases do not have their own Document into which to inject form elements.
     return isFullFramePlugin();
@@ -1091,50 +1135,6 @@ bool PDFPluginBase::performImmediateActionHitTestAtLocation(const WebCore::Float
     return true;
 }
 
-DictionaryPopupInfo PDFPluginBase::dictionaryPopupInfoForSelection(PDFSelection *selection, WebCore::TextIndicatorPresentationTransition presentationTransition)
-{
-    DictionaryPopupInfo dictionaryPopupInfo;
-    if (!selection.string.length)
-        return dictionaryPopupInfo;
-
-#if PLATFORM(MAC)
-    NSRect rangeRect = rectForSelectionInRootView(selection);
-    NSAttributedString *nsAttributedString = selection.attributedString;
-    RetainPtr scaledNSAttributedString = adoptNS([[NSMutableAttributedString alloc] initWithString:[nsAttributedString string]]);
-    NSFontManager *fontManager = [NSFontManager sharedFontManager];
-    auto scaleFactor = contentScaleFactor();
-
-    [nsAttributedString enumerateAttributesInRange:NSMakeRange(0, [nsAttributedString length]) options:0 usingBlock:^(NSDictionary *attributes, NSRange range, BOOL *stop) {
-        RetainPtr<NSMutableDictionary> scaledAttributes = adoptNS([attributes mutableCopy]);
-
-        NSFont *font = [scaledAttributes objectForKey:NSFontAttributeName];
-        if (font) {
-            font = [fontManager convertFont:font toSize:font.pointSize * scaleFactor];
-            [scaledAttributes setObject:font forKey:NSFontAttributeName];
-        }
-
-        [scaledNSAttributedString addAttributes:scaledAttributes.get() range:range];
-    }];
-
-    rangeRect.size.height = nsAttributedString.size.height * scaleFactor;
-    rangeRect.size.width = nsAttributedString.size.width * scaleFactor;
-
-    TextIndicatorData dataForSelection;
-    dataForSelection.selectionRectInRootViewCoordinates = rangeRect;
-    dataForSelection.textBoundingRectInRootViewCoordinates = rangeRect;
-    dataForSelection.contentImageScaleFactor = scaleFactor;
-    dataForSelection.presentationTransition = presentationTransition;
-
-    dictionaryPopupInfo.origin = rangeRect.origin;
-    dictionaryPopupInfo.textIndicator = dataForSelection;
-    dictionaryPopupInfo.platformData.attributedString = WebCore::AttributedString::fromNSAttributedString(scaledNSAttributedString);
-#else
-    UNUSED_PARAM(presentationTransition);
-#endif
-
-    return dictionaryPopupInfo;
-}
-
 WebCore::AXObjectCache* PDFPluginBase::axObjectCache() const
 {
     ASSERT(isMainRunLoop());
@@ -1161,7 +1161,7 @@ void PDFPluginBase::navigateToURL(const URL& url)
 
     RefPtr<Event> coreEvent;
     if (m_lastMouseEvent)
-        coreEvent = MouseEvent::create(eventNames().clickEvent, &frame->windowProxy(), platform(*m_lastMouseEvent), 0, 0);
+        coreEvent = MouseEvent::create(eventNames().clickEvent, &frame->windowProxy(), platform(*m_lastMouseEvent), { }, { }, 0, 0);
 
     frame->loader().changeLocation(url, emptyAtom(), coreEvent.get(), ReferrerPolicy::NoReferrer, ShouldOpenExternalURLsPolicy::ShouldAllow);
 }
@@ -1245,6 +1245,106 @@ void PDFPluginBase::registerPDFTest(RefPtr<WebCore::VoidCallback>&& callback)
 FrameIdentifier PDFPluginBase::rootFrameID() const
 {
     return m_view->frame()->rootFrame().frameID();
+}
+
+// FIXME: Share more of the style sheet between the embed/non-embed case.
+String PDFPluginBase::annotationStyle() const
+{
+    if (!supportsForms()) {
+        return
+        "#annotationContainer {"
+        "    overflow: hidden;"
+        "    position: relative;"
+        "    pointer-events: none;"
+        "    display: flex;"
+        "    place-content: center;"
+        "    place-items: center;"
+        "}"
+        ""
+        ".annotation {"
+        "    position: absolute;"
+        "    pointer-events: auto;"
+        "}"
+        ""
+        ".lock-icon {"
+        "    width: 64px;"
+        "    height: 64px;"
+        "    margin-bottom: 12px;"
+        "}"
+        ""
+        ".password-form {"
+        "    position: static;"
+        "    display: block;"
+        "    text-align: center;"
+        "    font-family: system-ui;"
+        "    font-size: 15px;"
+        "}"
+        ""
+        ".password-form p {"
+        "    margin: 4pt;"
+        "}"
+        ""
+        ".password-form .subtitle {"
+        "    font-size: 12px;"
+        "}"_s;
+    }
+
+    return
+    "#annotationContainer {"
+    "    overflow: hidden;"
+    "    position: absolute;"
+    "    pointer-events: none;"
+    "    top: 0;"
+    "    left: 0;"
+    "    right: 0;"
+    "    bottom: 0;"
+    "    display: flex;"
+    "    flex-direction: column;"
+    "    justify-content: center;"
+    "    align-items: center;"
+    "}"
+    ""
+    ".annotation {"
+    "    position: absolute;"
+    "    pointer-events: auto;"
+    "}"
+    ""
+    "textarea.annotation { "
+    "    resize: none;"
+    "}"
+    ""
+    "input.annotation[type='password'] {"
+    "    position: static;"
+    "    width: 238px;"
+    "    margin-top: 110px;"
+    "    font-size: 15px;"
+    "}"
+    ""
+    ".lock-icon {"
+    "    width: 64px;"
+    "    height: 64px;"
+    "    margin-bottom: 12px;"
+    "}"
+    ""
+    ".password-form {"
+    "    position: static;"
+    "    display: block;"
+    "    text-align: center;"
+    "    font-family: system-ui;"
+    "    font-size: 15px;"
+    "}"
+    ""
+    ".password-form p {"
+    "    margin: 4pt;"
+    "}"
+    ""
+    ".password-form .subtitle {"
+    "    font-size: 12px;"
+    "}"
+    ""
+    ".password-form + input.annotation[type='password'] {"
+    "    margin-top: 16px;"
+    "}"_s;
 }
 
 } // namespace WebKit

@@ -57,6 +57,7 @@
 #include <glib/gi18n-lib.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
@@ -115,7 +116,7 @@ WEBKIT_DEFINE_FINAL_TYPE(WebKitWebPage, webkit_web_page, G_TYPE_OBJECT, GObject)
 static void webFrameDestroyed(WebFrame*);
 
 class WebKitFrameWrapper final: public FrameDestructionObserver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(WebKitFrameWrapper);
 public:
     WebKitFrameWrapper(WebFrame& webFrame)
         : FrameDestructionObserver(webFrame.coreLocalFrame())
@@ -875,6 +876,7 @@ const gchar* webkit_web_page_get_uri(WebKitWebPage* webPage)
  * Returns: (transfer none): the #WebKitFrame that is the main frame of @web_page
  *
  * Since: 2.2
+ * Deprecated: 2.48
  */
 WebKitFrame* webkit_web_page_get_main_frame(WebKitWebPage* webPage)
 {

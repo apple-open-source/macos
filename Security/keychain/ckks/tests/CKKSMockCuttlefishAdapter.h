@@ -20,9 +20,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nullable) NSMutableDictionary<CKRecordZoneID*, FakeCKZone*>* fakeCKZones;
 @property (nullable) NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>* zoneKeys;
+@property (nullable) NSString* peerID;
 
 - (instancetype)init:(NSMutableDictionary<CKRecordZoneID*, FakeCKZone*>*)fakeCKZones
-            zoneKeys:(NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>*)zoneKeys;
+            zoneKeys:(NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>*)zoneKeys
+              peerID:(NSString*)peerID;
 @end
 
 NS_ASSUME_NONNULL_END

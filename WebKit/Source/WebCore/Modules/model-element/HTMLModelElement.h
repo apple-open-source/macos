@@ -45,6 +45,7 @@
 namespace WebCore {
 
 class DOMMatrixReadOnly;
+class DOMPointReadOnly;
 class Event;
 class LayoutSize;
 class Model;
@@ -55,7 +56,8 @@ template<typename IDLType> class DOMPromiseDeferred;
 template<typename IDLType> class DOMPromiseProxyWithResolveCallback;
 
 class HTMLModelElement final : public HTMLElement, private CachedRawResourceClient, public ModelPlayerClient, public ActiveDOMObject {
-    WTF_MAKE_ISO_ALLOCATED(HTMLModelElement);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(HTMLModelElement);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLModelElement);
 public:
     using HTMLElement::weakPtrFactory;
     using HTMLElement::WeakValueType;
@@ -89,6 +91,9 @@ public:
 #if ENABLE(MODEL_PROCESS)
     const DOMMatrixReadOnly& entityTransform() const;
     ExceptionOr<void> setEntityTransform(const DOMMatrixReadOnly&);
+
+    const DOMPointReadOnly& boundingBoxCenter() const;
+    const DOMPointReadOnly& boundingBoxExtents() const;
 #endif
 
     void enterFullscreen();
@@ -169,8 +174,9 @@ private:
     void didFailLoading(ModelPlayer&, const ResourceError&) final;
 #if ENABLE(MODEL_PROCESS)
     void didUpdateEntityTransform(ModelPlayer&, const TransformationMatrix&) final;
+    void didUpdateBoundingBox(ModelPlayer&, const FloatPoint3D&, const FloatPoint3D&) final;
 #endif
-    PlatformLayerIdentifier platformLayerID() final;
+    std::optional<PlatformLayerIdentifier> platformLayerID() final;
 
     void defaultEventHandler(Event&) final;
     void dragDidStart(MouseEvent&);
@@ -195,6 +201,8 @@ private:
     RefPtr<ModelPlayer> m_modelPlayer;
 #if ENABLE(MODEL_PROCESS)
     Ref<DOMMatrixReadOnly> m_entityTransform;
+    Ref<DOMPointReadOnly> m_boundingBoxCenter;
+    Ref<DOMPointReadOnly> m_boundingBoxExtents;
 #endif
 };
 

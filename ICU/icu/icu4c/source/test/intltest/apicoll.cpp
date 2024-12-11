@@ -280,7 +280,7 @@ CollationAPITest::TestRuleBasedColl()
     Locale locale("aa", "AA");
     col3 = dynamic_cast<RuleBasedCollator*>(Collator::createInstance(locale, status));
     if (U_FAILURE(status)) {
-        errln("Fallback Collator creation failed.: %s\n");
+        errln("Fallback Collator creation failed.: %s\n", u_errorName(status));
         return;
     }
     else {
@@ -291,7 +291,7 @@ CollationAPITest::TestRuleBasedColl()
     status = U_ZERO_ERROR;
     col3 = dynamic_cast<RuleBasedCollator*>(Collator::createInstance(status));
     if (U_FAILURE(status)) {
-        errln("Default Collator creation failed.: %s\n");
+        errln("Default Collator creation failed.: %s\n", u_errorName(status));
         return;
     }
     else {

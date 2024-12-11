@@ -344,7 +344,7 @@ bool AXObjectCache::modalElementHasAccessibleContent(Element& element)
     while (!nodeStack.isEmpty()) {
         for (auto* node = nodeStack.takeLast(); node; node = node->nextSibling()) {
             if (auto* axObject = getOrCreate(*node)) {
-                if (!axObject->computeAccessibilityIsIgnored())
+                if (!axObject->computeIsIgnored())
                     return true;
 
 #if USE(ATSPI)
@@ -380,10 +380,11 @@ void AXObjectCache::updateCurrentModalNode(WillRecomputeFocus willRecomputeFocus
 
         SetForScope retrievingCurrentModalNode(m_isRetrievingCurrentModalNode, true);
         // If any of the modal nodes contains the keyboard focus, we want to pick that one.
-        // If not, we want to pick the last visible dialog in the DOM.
+        // If multiple contain the keyboard focus, we want the deepest.
+        // If no modal contains focus, we want to pick the last visible dialog in the DOM.
         RefPtr<Element> focusedElement = document().focusedElement();
-        bool focusedElementIsOutsideModals = focusedElement;
-        RefPtr<Element> lastVisible;
+        RefPtr<Element> modalElementToReturn;
+        bool foundModalWithFocusInside = false;
         for (auto& element : m_modalElements) {
             // Elements in m_modalElementsSet may have become un-modal since we added them, but not yet removed
             // as part of the asynchronous m_deferredModalChangedList handling. Skip these.
@@ -394,18 +395,29 @@ void AXObjectCache::updateCurrentModalNode(WillRecomputeFocus willRecomputeFocus
             if (!isNodeVisible(element.get()) || !modalElementHasAccessibleContent(*element))
                 continue;
 
-            lastVisible = element.get();
-            if (focusedElement && focusedElement->isDescendantOf(*element)) {
-                focusedElementIsOutsideModals = false;
-                break;
-            }
+            bool focusIsInsideElement = focusedElement && focusedElement->isDescendantOf(*element);
+
+            // If the modal we found previously is a descendant of this one, prefer the descendant and skip this one.
+            if (modalElementToReturn && foundModalWithFocusInside && modalElementToReturn->isDescendantOf(*element))
+                continue;
+
+            // If we already found a modal that focus is inside, and this one doesn't have focus inside, skip in favor of the one with focus inside.
+            if (modalElementToReturn && foundModalWithFocusInside && !focusIsInsideElement)
+                continue;
+
+            modalElementToReturn = element.get();
+            if (focusIsInsideElement)
+                foundModalWithFocusInside = true;
         }
+
+        bool focusedElementIsOutsideModals = focusedElement && !foundModalWithFocusInside;
 
         // If there is a focused element, and it's not inside any of the modals, we should
         // consider all modals inactive to allow the user to freely navigate.
         if (focusedElementIsOutsideModals && willRecomputeFocus == WillRecomputeFocus::No)
             return nullptr;
-        return lastVisible.get();
+
+        return modalElementToReturn.get();
     };
 
     auto* previousModal = m_currentModalElement.get();
@@ -527,7 +539,7 @@ AccessibilityObject* AXObjectCache::focusedObjectForNode(Node* focusedNode)
             return dynamicDowncast<AccessibilityObject>(descendant);
     }
 
-    if (focus->accessibilityIsIgnored())
+    if (focus->isIgnored())
         return focus->parentObjectUnignored();
     return focus;
 }
@@ -902,7 +914,7 @@ AccessibilityObject* AXObjectCache::getOrCreate(Node& node, IsPartOfRelation isP
     cacheAndInitializeWrapper(*newObject, &node);
     // Compute the object's initial ignored status.
     newObject->recomputeIsIgnored();
-    // Sometimes asking accessibilityIsIgnored() will cause the newObject to be deallocated, and then
+    // Sometimes asking isIgnored() will cause the newObject to be deallocated, and then
     // it will disappear when this function is finished, leading to a use-after-free.
     if (newObject->isDetached())
         return nullptr;
@@ -926,7 +938,7 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject& renderer)
     cacheAndInitializeWrapper(object.get(), &renderer);
     // Compute the object's initial ignored status.
     object->recomputeIsIgnored();
-    // Sometimes asking accessibilityIsIgnored() will cause the newObject to be deallocated, and then
+    // Sometimes asking isIgnored() will cause the newObject to be deallocated, and then
     // it will disappear when this function is finished, leading to a use-after-free.
     if (object->isDetached())
         return nullptr;
@@ -2079,7 +2091,7 @@ void AXObjectCache::postTextStateChangeNotification(const Position& position, co
 
 #if PLATFORM(COCOA) || USE(ATSPI)
     AccessibilityObject* object = getOrCreate(*node);
-    if (object && object->accessibilityIsIgnored()) {
+    if (object && object->isIgnored()) {
 #if PLATFORM(COCOA)
         if (position.atLastEditingPositionForNode()) {
             if (AccessibilityObject* nextSibling = object->nextSiblingUnignored(1))
@@ -2705,8 +2717,14 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
     }
     else if (attrName == aria_invalidAttr)
         postNotification(element, AXInvalidStatusChanged);
-    else if (attrName == aria_modalAttr)
+    else if (attrName == aria_modalAttr) {
+        // aria-modal changed, so the element may have become modal or un-modal.
+        if (isModalElement(*element))
+            m_modalElements.appendIfNotContains(element);
+        else
+            m_modalElements.removeAll(element);
         deferModalChange(*element);
+    }
     else if (attrName == aria_currentAttr)
         postNotification(element, AXCurrentStateChanged);
     else if (attrName == aria_disabledAttr)
@@ -2785,7 +2803,7 @@ void AXObjectCache::dirtyIsolatedTreeRelations()
 #endif
 }
 
-void AXObjectCache::recomputeIsIgnored(RenderObject* renderer)
+void AXObjectCache::recomputeIsIgnored(RenderObject& renderer)
 {
     if (auto* object = get(renderer))
         object->recomputeIsIgnored();
@@ -2874,7 +2892,7 @@ CharacterOffset AXObjectCache::traverseToOffsetInRange(const SimpleRange& range,
         behaviors.add(TextIteratorBehavior::EntersTextControls);
     TextIterator iterator(range, behaviors);
     
-    // Enable the cache here for accessibilityIsIgnored calls in replacedNodeNeedsCharacter
+    // Enable the cache here for isIgnored calls in replacedNodeNeedsCharacter.
     AXAttributeCacheEnabler enableCache(this);
 
     // When the range has zero length, there might be replaced node or brTag that we need to increment the characterOffset.
@@ -2882,7 +2900,7 @@ CharacterOffset AXObjectCache::traverseToOffsetInRange(const SimpleRange& range,
         currentNode = range.start.container.ptr();
         lastStartOffset = range.start.offset;
         if (offset > 0 || toNodeEnd) {
-            if (AccessibilityObject::replacedNodeNeedsCharacter(currentNode) || (currentNode->renderer() && currentNode->renderer()->isBR()))
+            if (AccessibilityObject::replacedNodeNeedsCharacter(*currentNode) || (currentNode->renderer() && currentNode->renderer()->isBR()))
                 cumulativeOffset++;
             lastLength = cumulativeOffset;
             
@@ -2910,7 +2928,7 @@ CharacterOffset AXObjectCache::traverseToOffsetInRange(const SimpleRange& range,
         // If not, we skip the node with no length.
         if (!currentLength) {
             Node* childNode = iterator.node();
-            if (AccessibilityObject::replacedNodeNeedsCharacter(childNode)) {
+            if (AccessibilityObject::replacedNodeNeedsCharacter(*childNode)) {
                 cumulativeOffset++;
                 currentLength++;
                 currentNode = childNode;
@@ -2989,7 +3007,7 @@ unsigned AXObjectCache::lengthForRange(const SimpleRange& range)
         if (it.text().length())
             length += it.text().length();
         else {
-            if (AccessibilityObject::replacedNodeNeedsCharacter(it.node()))
+            if (AccessibilityObject::replacedNodeNeedsCharacter(*it.node()))
                 ++length;
         }
     }
@@ -2998,7 +3016,7 @@ unsigned AXObjectCache::lengthForRange(const SimpleRange& range)
 
 SimpleRange AXObjectCache::rangeForNodeContents(Node& node)
 {
-    if (AccessibilityObject::replacedNodeNeedsCharacter(&node)) {
+    if (AccessibilityObject::replacedNodeNeedsCharacter(node)) {
         // For replaced nodes without children, the node itself is included in the range.
         if (auto range = makeRangeSelectingNode(node))
             return *range;
@@ -3034,9 +3052,9 @@ std::optional<SimpleRange> AXObjectCache::rangeMatchesTextNearRange(const Simple
     return findClosestPlainText(*searchRange, matchText, { }, targetOffset);
 }
 
-static bool isReplacedNodeOrBR(Node* node)
+static bool isReplacedNodeOrBR(Node& node)
 {
-    return node && (AccessibilityObject::replacedNodeNeedsCharacter(node) || node->hasTagName(brTag));
+    return AccessibilityObject::replacedNodeNeedsCharacter(node) || node.hasTagName(brTag);
 }
 
 static bool characterOffsetsInOrder(const CharacterOffset& characterOffset1, const CharacterOffset& characterOffset2)
@@ -3052,9 +3070,9 @@ static bool characterOffsetsInOrder(const CharacterOffset& characterOffset1, con
     
     RefPtr node1 = characterOffset1.node;
     RefPtr node2 = characterOffset2.node;
-    if (!node1->isCharacterDataNode() && !isReplacedNodeOrBR(node1.get()) && node1->hasChildNodes())
+    if (!node1->isCharacterDataNode() && !isReplacedNodeOrBR(*node1) && node1->hasChildNodes())
         node1 = node1->traverseToChildAt(characterOffset1.offset);
-    if (!node2->isCharacterDataNode() && !isReplacedNodeOrBR(node2.get()) && node2->hasChildNodes())
+    if (!node2->isCharacterDataNode() && !isReplacedNodeOrBR(*node2) && node2->hasChildNodes())
         node2 = node2->traverseToChildAt(characterOffset2.offset);
     if (!node1 || !node2)
         return false;
@@ -3079,9 +3097,9 @@ static std::optional<BoundaryPoint> boundaryPoint(const CharacterOffset& charact
         return std::nullopt;
 
     int offset = characterOffset.startIndex + characterOffset.offset;
+    // Guaranteed to be non-null by checking CharacterOffset::isNull.
     RefPtr node = characterOffset.node;
-    ASSERT(node);
-    if (isReplacedNodeOrBR(node.get()))
+    if (isReplacedNodeOrBR(*node))
         node = resetNodeAndOffsetForReplacedNode(*node, offset, characterOffset.offset);
 
     if (!node)
@@ -3433,7 +3451,7 @@ CharacterOffset AXObjectCache::nextCharacterOffset(const CharacterOffset& charac
     
     // To be consistent with VisiblePosition, we should consider the case that current node end to next node start counts 1 offset.
     RefPtr nextNode = next.node;
-    if (!ignoreNextNodeStart && !next.isNull() && !isReplacedNodeOrBR(nextNode.get()) && nextNode != node) {
+    if (!ignoreNextNodeStart && !next.isNull() && !isReplacedNodeOrBR(*nextNode) && nextNode != node) {
         if (auto range = rangeForUnorderedCharacterOffsets(characterOffset, next)) {
             auto length = characterCount(*range);
             if (length > nextOffset - characterOffset.offset)
@@ -3685,11 +3703,12 @@ CharacterOffset AXObjectCache::previousBoundary(const CharacterOffset& character
     auto& node = (it.atEnd() ? searchRange : it.range()).start.container.get();
 
     // SimplifiedBackwardsTextIterator ignores replaced elements.
-    RefPtr characterOffsetNode = characterOffset.node;
-    if (AccessibilityObject::replacedNodeNeedsCharacter(characterOffsetNode.get()))
-        return characterOffsetForNodeAndOffset(*characterOffsetNode, 0);
+    // Subsequent *characterOffset.node dereferences are safe because we called CharacterOffset.isNull()
+    // at the top of the method.
+    if (AccessibilityObject::replacedNodeNeedsCharacter(*characterOffset.node))
+        return characterOffsetForNodeAndOffset(*characterOffset.node, 0);
     Node* nextSibling = node.nextSibling();
-    if (&node != characterOffsetNode && AccessibilityObject::replacedNodeNeedsCharacter(nextSibling))
+    if (&node != characterOffset.node.get() && nextSibling && AccessibilityObject::replacedNodeNeedsCharacter(*nextSibling))
         return startOrEndCharacterOffsetForRange(rangeForNodeContents(*nextSibling), false);
 
     if ((!suffixLength && node.isTextNode() && next <= node.length()) || (node.renderer() && node.renderer()->isBR() && !next)) {
@@ -3705,7 +3724,7 @@ CharacterOffset AXObjectCache::previousBoundary(const CharacterOffset& character
     // We don't want to go to the previous node if the node is at the start of a new line.
     if (characterCount < 0 && (characterOffsetNodeIsBR(characterOffset) || string[string.size() - suffixLength - 1] == '\n'))
         characterCount = 0;
-    return characterOffsetForNodeAndOffset(*characterOffsetNode, characterCount, TraverseOptionIncludeStart);
+    return characterOffsetForNodeAndOffset(*characterOffset.node, characterCount, TraverseOptionIncludeStart);
 }
 
 CharacterOffset AXObjectCache::startCharacterOffsetOfParagraph(const CharacterOffset& characterOffset, EditingBoundaryCrossingRule boundaryCrossingRule)
@@ -4189,7 +4208,7 @@ void AXObjectCache::performDeferredCacheUpdate(ForceLayout forceLayout)
     AXLOGDeferredCollection("RecomputeIsIgnoredList"_s, m_deferredRecomputeIsIgnoredList);
     m_deferredRecomputeIsIgnoredList.forEach([this] (auto& element) {
         if (auto* renderer = element.renderer())
-            recomputeIsIgnored(renderer);
+            recomputeIsIgnored(*renderer);
     });
     m_deferredRecomputeIsIgnoredList.clear();
 
@@ -4590,11 +4609,12 @@ void AXObjectCache::deferRecomputeIsIgnoredIfNeeded(Element* element)
     if (!nodeAndRendererAreValid(element))
         return;
     
-    if (rendererNeedsDeferredUpdate(*element->renderer())) {
+    SingleThreadWeakRef<RenderObject> renderer = *element->renderer();
+    if (rendererNeedsDeferredUpdate(renderer.get())) {
         m_deferredRecomputeIsIgnoredList.add(*element);
         return;
     }
-    recomputeIsIgnored(element->renderer());
+    recomputeIsIgnored(renderer.get());
 }
 
 void AXObjectCache::deferRecomputeIsIgnored(Element* element)
@@ -4964,9 +4984,9 @@ bool AXObjectCache::addRelation(AccessibilityObject* origin, AccessibilityObject
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         if (auto tree = AXIsolatedTree::treeForPageID(m_pageID)) {
-            if (origin && origin->accessibilityIsIgnored())
+            if (origin && origin->isIgnored())
                 deferAddUnconnectedNode(*origin);
-            if (target && target->accessibilityIsIgnored())
+            if (target && target->isIgnored())
                 deferAddUnconnectedNode(*target);
         }
 #endif

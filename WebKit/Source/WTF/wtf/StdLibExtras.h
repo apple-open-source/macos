@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2022 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2024 Apple Inc. All Rights Reserved.
  * Copyright (C) 2013 Patrick Gansterer <paroga@paroga.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,7 +26,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <span>
 #include <type_traits>
@@ -425,8 +427,7 @@ bool findBitInWord(T word, size_t& startOrResultIndex, size_t endIndex, bool val
 
 // Visitor adapted from http://stackoverflow.com/questions/25338795/is-there-a-name-for-this-tuple-creation-idiom
 
-template <class A, class... B>
-struct Visitor : Visitor<A>, Visitor<B...> {
+template<class A, class... B> struct Visitor : Visitor<A>, Visitor<B...> {
     Visitor(A a, B... b)
         : Visitor<A>(a)
         , Visitor<B...>(b...)
@@ -437,8 +438,7 @@ struct Visitor : Visitor<A>, Visitor<B...> {
     using Visitor<B...>::operator ();
 };
   
-template <class A>
-struct Visitor<A> : A {
+template<class A> struct Visitor<A> : A {
     Visitor(A a)
         : A(a)
     {
@@ -447,17 +447,113 @@ struct Visitor<A> : A {
     using A::operator();
 };
  
-template <class... F>
-Visitor<F...> makeVisitor(F... f)
+template<class... F> ALWAYS_INLINE Visitor<F...> makeVisitor(F... f)
 {
     return Visitor<F...>(f...);
 }
 
-template<class V, class... F>
-auto switchOn(V&& v, F&&... f) -> decltype(std::visit(makeVisitor(std::forward<F>(f)...), std::forward<V>(v)))
+// `asVariant` is used to allow subclasses of std::variant to work with `switchOn`.
+
+template<class... Ts> ALWAYS_INLINE constexpr std::variant<Ts...>& asVariant(std::variant<Ts...>& v)
 {
-    return std::visit(makeVisitor(std::forward<F>(f)...), std::forward<V>(v));
+    return v;
 }
+
+template<class... Ts> ALWAYS_INLINE constexpr const std::variant<Ts...>& asVariant(const std::variant<Ts...>& v)
+{
+    return v;
+}
+
+template<class... Ts> ALWAYS_INLINE constexpr std::variant<Ts...>&& asVariant(std::variant<Ts...>&& v)
+{
+    return std::move(v);
+}
+
+template<class... Ts> ALWAYS_INLINE constexpr const std::variant<Ts...>&& asVariant(const std::variant<Ts...>&& v)
+{
+    return std::move(v);
+}
+
+#ifdef _LIBCPP_VERSION
+
+// Single-variant switch-based visit function adapted from https://www.reddit.com/r/cpp/comments/kst2pu/comment/giilcxv/.
+// Works around bad code generation for std::visit with one std::variant by some standard library / compilers that
+// lead to excessive binary size growth. Currently only needed by libc++. See https://webkit.org/b/279498.
+
+template<size_t I = 0, class F, class V> ALWAYS_INLINE decltype(auto) visitOneVariant(F&& f, V&& v)
+{
+    constexpr auto size = std::variant_size_v<std::remove_cvref_t<V>>;
+
+#define WTF_VISIT_CASE_COUNT 32
+#define WTF_VISIT_CASE(N, D) \
+        case I + N:                                                                                 \
+        {                                                                                           \
+            if constexpr (I + N < size) {                                                           \
+                return std::invoke(std::forward<F>(f), std::get<I + N>(std::forward<V>(v)));        \
+            } else {                                                                                \
+                WTF_UNREACHABLE()                                                                   \
+            }                                                                                       \
+        }                                                                                           \
+
+    switch (v.index()) {
+        WTF_VISIT_CASE(0, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(1, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(2, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(3, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(4, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(5, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(6, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(7, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(8, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(9, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(10, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(11, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(12, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(13, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(14, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(15, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(16, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(17, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(18, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(19, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(20, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(21, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(22, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(23, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(24, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(25, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(26, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(27, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(28, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(29, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(30, WTF_VISIT_CASE_COUNT)
+        WTF_VISIT_CASE(31, WTF_VISIT_CASE_COUNT)
+    }
+
+    constexpr auto nextI = std::min(I + WTF_VISIT_CASE_COUNT, size);
+
+    if constexpr (nextI < size)
+        return visitOneVariant<nextI>(std::forward<F>(f), std::forward<V>(v));
+
+    WTF_UNREACHABLE();
+
+#undef WTF_VISIT_CASE_COUNT
+#undef WTF_VISIT_CASE
+}
+
+template<class V, class... F> ALWAYS_INLINE auto switchOn(V&& v, F&&... f) -> decltype(visitOneVariant(makeVisitor(std::forward<F>(f)...), asVariant(std::forward<V>(v))))
+{
+    return visitOneVariant(makeVisitor(std::forward<F>(f)...), asVariant(std::forward<V>(v)));
+}
+
+#else
+
+template<class V, class... F> ALWAYS_INLINE auto switchOn(V&& v, F&&... f) -> decltype(std::visit(makeVisitor(std::forward<F>(f)...), asVariant(std::forward<V>(v))))
+{
+    return std::visit(makeVisitor(std::forward<F>(f)...), asVariant(std::forward<V>(v)));
+}
+
+#endif
 
 namespace detail {
 
@@ -683,11 +779,18 @@ template<typename OptionalType> auto valueOrDefault(OptionalType&& optionalValue
 }
 
 template<typename T, typename U, std::size_t Extent>
-std::span<T, Extent> spanReinterpretCast(std::span<U, Extent> span)
+std::span<T, Extent == std::dynamic_extent ? std::dynamic_extent : (sizeof(U) * Extent) / sizeof(T)> spanReinterpretCast(std::span<U, Extent> span)
 {
-    RELEASE_ASSERT(!(span.size_bytes() % sizeof(T)));
-    static_assert(std::is_const_v<T> || (!std::is_const_v<T> && !std::is_const_v<U>), "spanCast will not remove constness from source");
-    return std::span<T, Extent> { reinterpret_cast<T*>(const_cast<std::remove_const_t<U>*>(span.data())), span.size_bytes() / sizeof(T) };
+    if constexpr (Extent == std::dynamic_extent) {
+        if constexpr (sizeof(U) < sizeof(T) || sizeof(U) % sizeof(T))
+            RELEASE_ASSERT_WITH_MESSAGE(!(span.size_bytes() % sizeof(T)), "spanReinterpretCast will not change size in bytes from source");
+    } else
+        static_assert(!((sizeof(U) * Extent) % sizeof(T)), "spanReinterpretCast will not change size in bytes from source");
+
+    static_assert(std::is_const_v<T> || (!std::is_const_v<T> && !std::is_const_v<U>), "spanReinterpretCast will not remove constness from source");
+
+    using ReturnType = std::span<T, Extent == std::dynamic_extent ? std::dynamic_extent : (sizeof(U) * Extent) / sizeof(T)>;
+    return ReturnType { reinterpret_cast<T*>(const_cast<std::remove_const_t<U>*>(span.data())), span.size_bytes() / sizeof(T) };
 }
 
 template<typename T, std::size_t Extent>
@@ -722,11 +825,11 @@ bool equalSpans(std::span<T, TExtent> a, std::span<U, UExtent> b)
 template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
 void memcpySpan(std::span<T, TExtent> destination, std::span<U, UExtent> source)
 {
-    RELEASE_ASSERT(destination.size() == source.size());
     static_assert(sizeof(T) == sizeof(U));
     static_assert(std::is_trivially_copyable_v<T>);
     static_assert(std::is_trivially_copyable_v<U>);
-    memcpy(destination.data(), source.data(), destination.size_bytes());
+    RELEASE_ASSERT(destination.size() >= source.size());
+    memcpy(destination.data(), source.data(), source.size_bytes());
 }
 
 template<typename T, std::size_t Extent>
@@ -765,22 +868,35 @@ template<ByteType T, typename U> constexpr auto byteCast(const U& value)
     return ByteCastTraits<U>::template cast<T>(value);
 }
 
+// This is like std::invocable but it takes the expected signature rather than just the arguments.
+template<typename Functor, typename Signature>
+concept Invocable = requires(std::decay_t<Functor>&& f, std::function<Signature> expected)
+{
+    { expected = std::move(f) };
+};
+
+// This is like std::apply, but works with user-defined "Tuple-like" types as well as the
+// standard ones. The only real difference between its implementation and the standard one
+// is the use of un-prefixed `get`.
+//
+// This should be something we can remove if P2165 (https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2165r3.pdf)
+// is adopted and implemented.
+template<class F, class T, size_t ...I>
+constexpr decltype(auto) apply_impl(F&& functor, T&& tupleLike, std::index_sequence<I...>)
+{
+    using std::get;
+    return std::invoke(std::forward<F>(functor), get<I>(std::forward<T>(tupleLike))...);
+}
+
+template<class F, class T>
+constexpr decltype(auto) apply(F&& functor, T&& tupleLike)
+{
+    return apply_impl(std::forward<F>(functor), std::forward<T>(tupleLike), std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<T>>> { });
+}
+
 } // namespace WTF
 
 #define WTFMove(value) std::move<WTF::CheckMoveParameter>(value)
-
-// FIXME: Needed for GCC<=9.3. Remove it after Ubuntu 20.04 end of support (May 2023).
-#if defined(__GLIBCXX__) && !defined(HAVE_STD_REMOVE_CVREF) && !COMPILER(CLANG)
-namespace std {
-template <typename T>
-struct remove_cvref {
-    using type = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
-};
-
-template <typename T>
-using remove_cvref_t = typename remove_cvref<T>::type;
-}
-#endif
 
 namespace WTF {
 namespace detail {
@@ -826,3 +942,4 @@ using WTF::tryBinarySearch;
 using WTF::valueOrCompute;
 using WTF::valueOrDefault;
 using WTF::toTwosComplement;
+using WTF::Invocable;

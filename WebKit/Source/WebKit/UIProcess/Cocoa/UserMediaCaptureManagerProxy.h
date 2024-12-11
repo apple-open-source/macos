@@ -38,15 +38,11 @@
 #include <WebCore/RealtimeMediaSource.h>
 #include <WebCore/RealtimeMediaSourceIdentifier.h>
 #include <pal/spi/cocoa/TCCSPI.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebKit {
 class UserMediaCaptureManagerProxy;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::UserMediaCaptureManagerProxy> : std::true_type { };
 }
 
 namespace WebCore {
@@ -61,7 +57,7 @@ class WebProcessProxy;
 class UserMediaCaptureManagerProxySourceProxy;
 
 class UserMediaCaptureManagerProxy : public IPC::MessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(UserMediaCaptureManagerProxy);
 public:
     class ConnectionProxy {
     public:
@@ -81,6 +77,9 @@ public:
 #endif
         virtual void startProducingData(WebCore::CaptureDevice::DeviceType) { }
         virtual RemoteVideoFrameObjectHeap* remoteVideoFrameObjectHeap() { return nullptr; }
+
+        virtual void startMonitoringCaptureDeviceRotation(WebCore::PageIdentifier, const String&) { }
+        virtual void stopMonitoringCaptureDeviceRotation(WebCore::PageIdentifier, const String&) { }
     };
     explicit UserMediaCaptureManagerProxy(UniqueRef<ConnectionProxy>&&);
     ~UserMediaCaptureManagerProxy();
@@ -89,6 +88,7 @@ public:
     void clear();
 
     void setOrientation(WebCore::IntDegrees);
+    void rotationAngleForCaptureDeviceChanged(const String&, WebCore::VideoFrameRotation);
 
     void didReceiveMessageFromGPUProcess(IPC::Connection& connection, IPC::Decoder& decoder) { didReceiveMessage(connection, decoder); }
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
@@ -128,7 +128,7 @@ private:
     void queueAndProcessSerialAction(SerialAction&&);
 
     friend class UserMediaCaptureManagerProxySourceProxy;
-    HashMap<WebCore::RealtimeMediaSourceIdentifier, std::unique_ptr<UserMediaCaptureManagerProxySourceProxy>> m_proxies;
+    HashMap<WebCore::RealtimeMediaSourceIdentifier, Ref<UserMediaCaptureManagerProxySourceProxy>> m_proxies;
     UniqueRef<ConnectionProxy> m_connectionProxy;
     WebCore::OrientationNotifier m_orientationNotifier { 0 };
     Ref<GenericPromise> m_pendingAction { GenericPromise::createAndResolve() };

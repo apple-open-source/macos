@@ -156,6 +156,7 @@
                                                         zoneID:viewState.zoneID
                                                          error:&error];
                 [newkey ensureKeyLoadedForContextID:viewState.contextID
+                                              cache:keyCache
                                                error:&error];
                 if(error) {
                     ckkserror("ckksreencrypt", viewState.zoneID, "Couldn't fetch the current key for class %@: %@", originalKey.keyclass, error);

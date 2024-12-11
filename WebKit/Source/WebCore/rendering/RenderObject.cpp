@@ -64,6 +64,7 @@
 #include "RenderMultiColumnFlow.h"
 #include "RenderMultiColumnSet.h"
 #include "RenderMultiColumnSpannerPlaceholder.h"
+#include "RenderReplica.h"
 #include "RenderSVGBlock.h"
 #include "RenderSVGInline.h"
 #include "RenderSVGModelObject.h"
@@ -80,8 +81,8 @@
 #include <algorithm>
 #include <stdio.h>
 #include <wtf/HexNumber.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/RefCountedLeakCounter.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -92,7 +93,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_COMPACT_ISO_ALLOCATED_IMPL(RenderObject);
+WTF_MAKE_COMPACT_TZONE_OR_ISO_ALLOCATED_IMPL(RenderObject);
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(RenderObjectRenderObjectRareData, RenderObject::RenderObjectRareData);
 
 #if ASSERT_ENABLED
 
@@ -571,10 +573,8 @@ void RenderObject::clearNeedsLayout(HadSkippedLayout hadSkippedLayout)
     setEverHadLayout();
     setHadSkippedLayout(hadSkippedLayout == HadSkippedLayout::Yes);
 
-    if (auto* renderElement = dynamicDowncast<RenderElement>(*this)) {
-        renderElement->setAncestorLineBoxDirty(false);
+    if (auto* renderElement = dynamicDowncast<RenderElement>(*this))
         renderElement->setLayoutIdentifier(renderElement->view().frameView().layoutContext().layoutIdentifier());
-    }
     m_stateBitfields.clearFlag(StateFlag::NeedsLayout);
     setPosChildNeedsLayoutBit(false);
     setNeedsSimplifiedNormalFlowLayoutBit(false);
@@ -593,6 +593,20 @@ void RenderObject::scheduleLayout(RenderElement* layoutRoot)
 
     if (layoutRoot && layoutRoot->isRooted())
         layoutRoot->view().protectedFrameView()->checkedLayoutContext()->scheduleSubtreeLayout(*layoutRoot);
+}
+
+static inline void setIsSimplifiedLayoutRootForLayerIfApplicable(RenderElement& renderElement)
+{
+    ASSERT(renderElement.isOutOfFlowPositioned());
+
+    if (!renderElement.normalChildNeedsLayout())
+        return;
+
+    if (auto* renderer = dynamicDowncast<RenderLayerModelObject>(renderElement)) {
+        if (auto* layer = renderer->layer())
+            return layer->setIsSimplifiedLayoutRoot();
+    }
+    ASSERT_NOT_REACHED();
 }
 
 RenderElement* RenderObject::markContainingBlocksForLayout(RenderElement* layoutRoot)
@@ -648,6 +662,8 @@ RenderElement* RenderObject::markContainingBlocksForLayout(RenderElement* layout
             return ancestor.get();
 
         hasOutOfFlowPosition = ancestor->isOutOfFlowPositioned();
+        if (hasOutOfFlowPosition)
+            setIsSimplifiedLayoutRootForLayerIfApplicable(*ancestor);
         ancestor = WTFMove(container);
     }
     return { };
@@ -1810,9 +1826,10 @@ void RenderObject::setCapturedInViewTransition(bool captured)
         m_stateBitfields.setFlag(StateFlag::CapturedInViewTransition, captured);
 
         CheckedPtr<RenderLayer> layerToInvalidate;
-        if (isDocumentElementRenderer())
+        if (isDocumentElementRenderer()) {
             layerToInvalidate = view().layer();
-        else if (hasLayer())
+            view().compositor().setRootElementCapturedInViewTransition(captured);
+        } else if (hasLayer())
             layerToInvalidate = downcast<RenderLayerModelObject>(*this).layer();
 
         if (layerToInvalidate) {
@@ -1845,8 +1862,8 @@ void RenderObject::willBeDestroyed()
 void RenderObject::insertedIntoTree()
 {
     // FIXME: We should ASSERT(isRooted()) here but generated content makes some out-of-order insertion.
-    if (!isFloating() && parent()->childrenInline())
-        checkedParent()->dirtyLinesFromChangedChild(*this);
+    if (!isFloating() && parent()->isSVGRenderer() && parent()->childrenInline())
+        checkedParent()->dirtyLineFromChangedChild();
 }
 
 void RenderObject::willBeRemovedFromTree()

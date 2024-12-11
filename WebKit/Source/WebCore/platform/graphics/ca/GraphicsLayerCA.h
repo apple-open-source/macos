@@ -32,6 +32,7 @@
 #include "PlatformCALayerClient.h"
 #include <wtf/HashMap.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringHash.h>
 
@@ -52,6 +53,7 @@ class NativeImage;
 class TransformState;
 
 class GraphicsLayerCA : public GraphicsLayer, public PlatformCALayerClient {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(GraphicsLayerCA, WEBCORE_EXPORT);
 public:
     WEBCORE_EXPORT explicit GraphicsLayerCA(Type, GraphicsLayerClient&);
     WEBCORE_EXPORT virtual ~GraphicsLayerCA();
@@ -61,7 +63,7 @@ public:
     WEBCORE_EXPORT void setName(const String&) override;
     WEBCORE_EXPORT String debugName() const override;
 
-    WEBCORE_EXPORT PlatformLayerIdentifier primaryLayerID() const override;
+    WEBCORE_EXPORT std::optional<PlatformLayerIdentifier> primaryLayerID() const override;
 
     WEBCORE_EXPORT PlatformLayer* platformLayer() const override;
     PlatformCALayer* platformCALayer() const { return primaryLayer(); }
@@ -161,7 +163,7 @@ public:
     WEBCORE_EXPORT void setContentsToSolidColor(const Color&) override;
 #if ENABLE(MODEL_ELEMENT)
     WEBCORE_EXPORT void setContentsToModel(RefPtr<Model>&&, ModelInteraction) override;
-    WEBCORE_EXPORT PlatformLayerIdentifier contentsLayerIDForModel() const override;
+    WEBCORE_EXPORT std::optional<PlatformLayerIdentifier> contentsLayerIDForModel() const override;
 #endif
     WEBCORE_EXPORT void setContentsMinificationFilter(ScalingFilter) override;
     WEBCORE_EXPORT void setContentsMagnificationFilter(ScalingFilter) override;
@@ -219,7 +221,7 @@ private:
     bool isGraphicsLayerCA() const override { return true; }
 
     // PlatformCALayerClient overrides
-    PlatformLayerIdentifier platformCALayerIdentifier() const override { return primaryLayerID(); }
+    PlatformLayerIdentifier platformCALayerIdentifier() const override { return *primaryLayerID(); }
     void platformCALayerLayoutSublayersOfLayer(PlatformCALayer*) override { }
     bool platformCALayerRespondsToLayoutChanges() const override { return false; }
     WEBCORE_EXPORT void platformCALayerCustomSublayersChanged(PlatformCALayer*) override;

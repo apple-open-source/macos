@@ -1,0 +1,66 @@
+diff --git a/cpan/HTTP-Tiny/lib/HTTP/Tiny.pm b/cpan/HTTP-Tiny/lib/HTTP/Tiny.pm
+index 5803e45..e5da63a 100644
+--- a/cpan/HTTP-Tiny/lib/HTTP/Tiny.pm
++++ b/cpan/HTTP-Tiny/lib/HTTP/Tiny.pm
+@@ -108,11 +108,17 @@ sub timeout {
+ sub new {
+     my($class, %args) = @_;
+ 
++    # Support lower case verify_ssl argument, but only if verify_SSL is not
++    # true.
++    if ( exists $args{verify_ssl} ) {
++        $args{verify_SSL}  ||= $args{verify_ssl};
++    }
++
+     my $self = {
+         max_redirect => 5,
+         timeout      => defined $args{timeout} ? $args{timeout} : 60,
+         keep_alive   => 1,
+-        verify_SSL   => $args{verify_SSL} || $args{verify_ssl} || 0, # no verification by default
++        verify_SSL   => defined $args{verify_SSL} ? $args{verify_SSL} : _verify_SSL_default(),
+         no_proxy     => $ENV{no_proxy},
+     };
+ 
+@@ -131,6 +137,13 @@ sub new {
+     return $self;
+ }
+ 
++sub _verify_SSL_default {
++    my ($self) = @_;
++    # Check if insecure default certificate verification behaviour has been
++    # changed by the user by setting PERL_HTTP_TINY_SSL_INSECURE_BY_DEFAULT=1
++    return (($ENV{PERL_HTTP_TINY_INSECURE_BY_DEFAULT} || '') eq '1') ? 0 : 1;
++}
++
+ sub _set_proxies {
+     my ($self) = @_;
+ 
+@@ -1038,7 +1051,7 @@ sub new {
+         timeout          => 60,
+         max_line_size    => 16384,
+         max_header_lines => 64,
+-        verify_SSL       => 0,
++        verify_SSL       => HTTP::Tiny::_verify_SSL_default(),
+         SSL_options      => {},
+         %args
+     }, $class;
+@@ -2060,9 +2073,7 @@ If the environment variable C<SSL_CERT_FILE> is present, HTTP::Tiny
+ will try to find a CA certificate file in that location.
+ 
+ If the L<Mozilla::CA> module is installed, HTTP::Tiny will use the CA file
+-included with it as a source of trusted CA's.  (This means you trust Mozilla,
+-the author of Mozilla::CA, the CPAN mirror where you got Mozilla::CA, the
+-toolchain used to install it, and your operating system security, right?)
++included with it as a source of trusted CA's.
+ 
+ If that module is not available, then HTTP::Tiny will search several
+ system-specific default locations for a CA certificate file:
+@@ -2097,7 +2108,7 @@ example, to provide your own trusted CA file:
+ 
+ The C<SSL_options> attribute could also be used for such things as providing a
+ client certificate for authentication to a server or controlling the choice of
+-cipher used for the SSL connection. See L<IO::Socket::SSL> documentation for
++cipher used for the TLS/SSL connection. See L<IO::Socket::SSL> documentation for
+ details.
+ 
+ =head1 PROXY SUPPORT

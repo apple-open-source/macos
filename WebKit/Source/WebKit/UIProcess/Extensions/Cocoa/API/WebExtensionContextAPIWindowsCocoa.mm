@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,12 +33,12 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #import "CocoaHelpers.h"
+#import "WKWebExtensionControllerDelegatePrivate.h"
+#import "WKWebExtensionWindowConfigurationInternal.h"
 #import "WebExtensionContextProxy.h"
 #import "WebExtensionContextProxyMessages.h"
 #import "WebExtensionUtilities.h"
 #import "WebExtensionWindowIdentifier.h"
-#import "_WKWebExtensionControllerDelegatePrivate.h"
-#import "_WKWebExtensionWindowCreationOptionsInternal.h"
 #import <wtf/BlockPtr.h>
 
 namespace WebKit {
@@ -55,11 +55,11 @@ void WebExtensionContext::windowsCreate(const WebExtensionWindowParameters& crea
     static constexpr CGFloat NaN = std::numeric_limits<CGFloat>::quiet_NaN();
     static constexpr CGRect CGRectNaN = { { NaN, NaN }, { NaN, NaN } };
 
-    auto *creationOptions = [[_WKWebExtensionWindowCreationOptions alloc] _init];
-    creationOptions.desiredWindowType = toAPI(creationParameters.type.value_or(WebExtensionWindow::Type::Normal));
-    creationOptions.desiredWindowState = toAPI(creationParameters.state.value_or(WebExtensionWindow::State::Normal));
-    creationOptions.shouldFocus = creationParameters.focused.value_or(true);
-    creationOptions.shouldUsePrivateBrowsing = creationParameters.privateBrowsing.value_or(false);
+    auto *configuration = [[WKWebExtensionWindowConfiguration alloc] _init];
+    configuration.windowType = toAPI(creationParameters.type.value_or(WebExtensionWindow::Type::Normal));
+    configuration.windowState = toAPI(creationParameters.state.value_or(WebExtensionWindow::State::Normal));
+    configuration.shouldBeFocused = creationParameters.focused.value_or(true);
+    configuration.shouldBePrivate = creationParameters.privateBrowsing.value_or(false);
 
     if (creationParameters.frame) {
         CGRect desiredFrame = creationParameters.frame.value();
@@ -75,12 +75,12 @@ void WebExtensionContext::windowsCreate(const WebExtensionWindowParameters& crea
             desiredFrame.origin.y = screenFrame.size.height + screenFrame.origin.y - desiredFrame.size.height - desiredFrame.origin.y;
 #endif
 
-        creationOptions.desiredFrame = desiredFrame;
+        configuration.frame = desiredFrame;
     } else
-        creationOptions.desiredFrame = CGRectNaN;
+        configuration.frame = CGRectNaN;
 
     NSMutableArray<NSURL *> *urls = [NSMutableArray array];
-    NSMutableArray<id<_WKWebExtensionTab>> *tabs = [NSMutableArray array];
+    NSMutableArray<id<WKWebExtensionTab>> *tabs = [NSMutableArray array];
 
     if (creationParameters.tabs) {
         for (auto& tabParameters : creationParameters.tabs.value()) {
@@ -97,10 +97,10 @@ void WebExtensionContext::windowsCreate(const WebExtensionWindowParameters& crea
         }
     }
 
-    creationOptions.desiredURLs = [urls copy];
-    creationOptions.desiredTabs = [tabs copy];
+    configuration.tabURLs = [urls copy];
+    configuration.tabs = [tabs copy];
 
-    [extensionController()->delegate() webExtensionController:extensionController()->wrapper() openNewWindowWithOptions:creationOptions forExtensionContext:wrapper() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](id<_WKWebExtensionWindow> newWindow, NSError *error) mutable {
+    [extensionController()->delegate() webExtensionController:extensionController()->wrapper() openNewWindowUsingConfiguration:configuration forExtensionContext:wrapper() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](id<WKWebExtensionWindow> newWindow, NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for open new window: %{public}@", privacyPreservingDescription(error));
             completionHandler(toWebExtensionError(apiName, nil, error.localizedDescription));

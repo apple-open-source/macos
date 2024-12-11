@@ -943,7 +943,7 @@ pcap_ng_dump_block(pcap_dumper_t *p, pcapng_block_t block)
 	struct iovec iov[4];
 	int iovcnt;
 	char data_padding[3] = { 0, 0, 0 };
-	
+
 	block_header = (struct pcapng_block_header *)pcap_ng_block_header_ptr(block);
 	block_header->block_type = block->pcapng_block_type;
 	block_header->total_length = (bpf_u_int32)block->pcapng_block_len;
@@ -1023,7 +1023,7 @@ pcap_ng_dump_block(pcap_dumper_t *p, pcapng_block_t block)
 	iovcnt++;
 
 	bytes_written += writev(p->f->_file, iov, iovcnt);
-	
+
 	return (bytes_written);
 }
 

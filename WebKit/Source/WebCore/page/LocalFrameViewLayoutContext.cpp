@@ -49,9 +49,12 @@
 #include "RenderStyleInlines.h"
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LocalFrameViewLayoutContext);
 
 UpdateScrollInfoAfterLayoutTransaction::UpdateScrollInfoAfterLayoutTransaction() = default;
 UpdateScrollInfoAfterLayoutTransaction::~UpdateScrollInfoAfterLayoutTransaction() = default;
@@ -79,8 +82,8 @@ public :
             auto needsLayout = [&] {
                 if (renderer.needsLayout())
                     return true;
-                if (auto* renderBlockFlow = dynamicDowncast<RenderBlockFlow>(renderer); renderBlockFlow && renderBlockFlow->modernLineLayout())
-                    return renderBlockFlow->modernLineLayout()->hasDetachedContent();
+                if (auto* renderBlockFlow = dynamicDowncast<RenderBlockFlow>(renderer); renderBlockFlow && renderBlockFlow->inlineLayout())
+                    return renderBlockFlow->inlineLayout()->hasDetachedContent();
                 return false;
             };
 
@@ -132,9 +135,7 @@ LocalFrameViewLayoutContext::LocalFrameViewLayoutContext(LocalFrameView& frameVi
 {
 }
 
-LocalFrameViewLayoutContext::~LocalFrameViewLayoutContext()
-{
-}
+LocalFrameViewLayoutContext::~LocalFrameViewLayoutContext() = default;
 
 UpdateScrollInfoAfterLayoutTransaction& LocalFrameViewLayoutContext::updateScrollInfoAfterLayoutTransaction()
 {
@@ -143,13 +144,13 @@ UpdateScrollInfoAfterLayoutTransaction& LocalFrameViewLayoutContext::updateScrol
     return *m_updateScrollInfoAfterLayoutTransaction;
 }
 
-void LocalFrameViewLayoutContext::layout()
+void LocalFrameViewLayoutContext::layout(bool canDeferUpdateLayerPositions)
 {
     LOG_WITH_STREAM(Layout, stream << "LocalFrameView " << &view() << " LocalFrameViewLayoutContext::layout() with size " << view().layoutSize());
 
     Ref protectedView(view());
 
-    performLayout();
+    performLayout(canDeferUpdateLayerPositions);
 
     if (view().hasOneRef())
         return;
@@ -161,14 +162,14 @@ void LocalFrameViewLayoutContext::layout()
         if (!needsLayout())
             break;
 
-        performLayout();
+        performLayout(canDeferUpdateLayerPositions);
 
         if (view().hasOneRef())
             return;
     }
 }
 
-void LocalFrameViewLayoutContext::performLayout()
+void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPositions)
 {
     Ref frame = this->frame();
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(!document()->inRenderTreeUpdate());
@@ -221,7 +222,7 @@ void LocalFrameViewLayoutContext::performLayout()
         layoutRoot = subtreeLayoutRoot() ? subtreeLayoutRoot() : renderView();
         m_needsFullRepaint = is<RenderView>(layoutRoot) && (m_firstLayout || renderView()->printing());
 
-        LOG_WITH_STREAM(Layout, stream << "LocalFrameView " << &view() << " layout " << m_layoutCount << " - subtree root " << subtreeLayoutRoot() << ", needsFullRepaint " << m_needsFullRepaint);
+        LOG_WITH_STREAM(Layout, stream << "LocalFrameView " << &view() << " layout " << m_layoutIdentifier << " - subtree root " << subtreeLayoutRoot() << ", needsFullRepaint " << m_needsFullRepaint);
 
         protectedView()->willDoLayout(layoutRoot);
         m_firstLayout = false;
@@ -239,7 +240,6 @@ void LocalFrameViewLayoutContext::performLayout()
 #endif
         ++m_layoutIdentifier;
         layoutRoot->layout();
-        ++m_layoutCount;
 #if ENABLE(TEXT_AUTOSIZING)
         applyTextSizingIfNeeded(*layoutRoot.get());
 #endif
@@ -271,14 +271,14 @@ void LocalFrameViewLayoutContext::performLayout()
         if (m_needsFullRepaint)
             renderView()->repaintRootContents();
         ASSERT(!layoutRoot->needsLayout());
-        protectedView()->didLayout(layoutRoot, isSimplifiedLayout);
-        runOrScheduleAsynchronousTasks();
+        protectedView()->didLayout(layoutRoot, isSimplifiedLayout, canDeferUpdateLayerPositions);
+        runOrScheduleAsynchronousTasks(canDeferUpdateLayerPositions);
     }
     InspectorInstrumentation::didLayout(frame, *layoutRoot);
     DebugPageOverlays::didLayout(frame);
 }
 
-void LocalFrameViewLayoutContext::runOrScheduleAsynchronousTasks()
+void LocalFrameViewLayoutContext::runOrScheduleAsynchronousTasks(bool canDeferUpdateLayerPositions)
 {
     if (m_postLayoutTaskTimer.isActive())
         return;
@@ -297,10 +297,10 @@ void LocalFrameViewLayoutContext::runOrScheduleAsynchronousTasks()
     }
 
     runPostLayoutTasks();
-    if (needsLayout()) {
+    if (needsLayoutInternal()) {
         // If runPostLayoutTasks() made us layout again, let's defer the tasks until after we return.
         m_postLayoutTaskTimer.startOneShot(0_s);
-        layout();
+        layout(canDeferUpdateLayerPositions);
     }
 }
 
@@ -324,7 +324,6 @@ void LocalFrameViewLayoutContext::reset()
 {
     m_layoutPhase = LayoutPhase::OutsideLayout;
     clearSubtreeLayoutRoot();
-    m_layoutCount = 0;
     m_layoutSchedulingIsEnabled = true;
     m_layoutTimer.stop();
     m_firstLayout = true;
@@ -332,7 +331,18 @@ void LocalFrameViewLayoutContext::reset()
     m_needsFullRepaint = true;
 }
 
-bool LocalFrameViewLayoutContext::needsLayout() const
+bool LocalFrameViewLayoutContext::needsLayout(OptionSet<LayoutOptions> layoutOptions) const
+{
+    if (needsLayoutInternal())
+        return true;
+
+    if (layoutOptions.contains(LayoutOptions::CanDeferUpdateLayerPositions))
+        return false;
+
+    return protectedView()->hasPendingUpdateLayerPositions();
+}
+
+bool LocalFrameViewLayoutContext::needsLayoutInternal() const
 {
     // This can return true in cases where the document does not have a body yet.
     // Document::shouldScheduleLayout takes care of preventing us from scheduling
@@ -604,6 +614,7 @@ bool LocalFrameViewLayoutContext::pushLayoutState(RenderBox& renderer, const Lay
             , pageHeight
             , pageHeightChanged
             , layoutState ? layoutState->lineClamp() : std::nullopt
+            , layoutState ? layoutState->legacyLineClamp() : std::nullopt
             , layoutState ? layoutState->textBoxTrim() : RenderLayoutState::TextBoxTrim()));
         return true;
     }
@@ -615,15 +626,15 @@ void LocalFrameViewLayoutContext::popLayoutState()
     if (!layoutState())
         return;
 
-    auto currentLineClamp = layoutState()->lineClamp();
+    auto currentLineClamp = layoutState()->legacyLineClamp();
 
     m_layoutStateStack.removeLast();
 
     if (currentLineClamp) {
         // Propagates the current line clamp state to the parent.
-        if (auto* layoutState = this->layoutState(); layoutState && layoutState->lineClamp()) {
-            ASSERT(layoutState->lineClamp()->maximumLineCount == currentLineClamp->maximumLineCount);
-            layoutState->setLineClamp(currentLineClamp);
+        if (auto* layoutState = this->layoutState(); layoutState && layoutState->legacyLineClamp()) {
+            ASSERT(layoutState->legacyLineClamp()->maximumLineCount == currentLineClamp->maximumLineCount);
+            layoutState->setLegacyLineClamp(currentLineClamp);
         }
     }
 }

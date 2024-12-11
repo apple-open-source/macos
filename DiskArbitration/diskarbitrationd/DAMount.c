@@ -28,6 +28,7 @@
 #include "DALog.h"
 #include "DAMain.h"
 #include "DASupport.h"
+#include "DATelemetry.h"
 
 #include <fstab.h>
 #include <sys/stat.h>
@@ -49,6 +50,9 @@ struct __DAMountCallbackContext
     CFURLRef        devicePath;
     DADiskRef       contDisk;
     int             fd;
+    uint64_t        fsckStartTime;
+    uint64_t        mountStartTime;
+    Boolean         useUserFS;
 };
 
 typedef struct __DAMountCallbackContext __DAMountCallbackContext;
@@ -89,6 +93,24 @@ static void __DAMountWithArgumentsCallback( int status, void * parameter )
     free( context );
 }
 
+static void __DAMountSendFSCKEvent( int status , __DAMountCallbackContext * context )
+{
+    CFNumberRef diskSize = DADiskGetDescription( context->disk , kDADiskDescriptionMediaSizeKey );
+    DAFileSystemRef filesystem = DADiskGetFileSystem( context->disk );
+    uint64_t diskSizeUInt = 0;
+    
+    if ( diskSize )
+    {
+        diskSizeUInt = ___CFNumberGetIntegerValue( diskSize );
+    }
+    
+    DATelemetrySendFSCKEvent( status ,
+                              ( filesystem ) ? DAFileSystemGetKind( filesystem ) : NULL ,
+                              ( filesystem && DAFileSystemIsFSModule( filesystem ) ) ? CFSTR("FSKit") : CFSTR("kext") ,
+                              clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->fsckStartTime ,
+                              diskSizeUInt );
+}
+
 static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 {
     /*
@@ -96,8 +118,7 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
      */
 
     __DAMountCallbackContext * context = parameter;
-
-
+    
     if ( context->assertionID != kIOPMNullAssertionID )
     {
         IOPMAssertionRelease( context->assertionID );
@@ -129,9 +150,9 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
         else
         {
             DALogInfo( "repaired disk, id = %@, failure.", context->disk );
-
             DALogError( "unable to repair %@ (status code 0x%08X).", context->disk, status );
-
+            __DAMountSendFSCKEvent( status , context );
+            
             if ( context->force )
             {
                 status = 0;
@@ -151,6 +172,7 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
         DADiskSetState( context->disk, kDADiskStateRequireRepair, FALSE );
 
         DALogInfo( "repaired disk, id = %@, success.", context->disk );
+        __DAMountSendFSCKEvent( status , context );
     }
 
     /*
@@ -180,8 +202,9 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 #endif
         {
             DALogInfo( "mounted disk, id = %@, ongoing.", context->disk );
+            DADiskSetState( context->disk, kDADiskStateMountOngoing , TRUE );
             
-            if ( context->mountpoint)
+            if ( context->mountpoint )
             {
                 CFArrayAppendValue( gDAMountPointList, context->mountpoint );
             }
@@ -194,7 +217,9 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
                 preferredMountMethod = CFSTR("UserFS");
             }
 #endif
-            
+            context->useUserFS = DAFilesystemShouldMountWithUserFS( DADiskGetFileSystem( context->disk ) ,
+                                                                    preferredMountMethod );
+            context->mountStartTime = clock_gettime_nsec_np( CLOCK_UPTIME_RAW );
             DAFileSystemMountWithArguments( DADiskGetFileSystem( context->disk ),
                                             context->devicePath,
                                             DADiskGetDescription( context->disk, kDADiskDescriptionVolumeNameKey ),
@@ -221,6 +246,13 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
      */
     
     __DAMountCallbackContext * context = parameter;
+    DAFileSystemRef filesystem = DADiskGetFileSystem( context->disk );
+    DADiskSetState( context->disk , kDADiskStateMountOngoing , FALSE );
+    
+    DATelemetrySendMountEvent( status ,
+                               ( filesystem ) ? DAFileSystemGetKind( filesystem ) : NULL ,
+                               context->useUserFS ,
+                               clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->mountStartTime );
     
     if ( context->mountpoint )
     {
@@ -252,6 +284,14 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
 
         DALogInfo( "mounted disk, id = %@, success.", context->disk );
 
+        if ( DADiskGetDescription( context->disk, kDADiskDescriptionMediaEncryptedKey ) == kCFBooleanTrue &&
+             ( DAMountGetPreference( context->disk, kDAMountPreferenceDefer ) ) )
+        {
+            // set console user id
+            DALogInfo( "setting uid, id = %@ %d, success.", context->disk, gDAConsoleUserUID  );
+            DADiskSetMountedByUserUID( context->disk, gDAConsoleUserUID );
+            
+        }
         /*
          * Execute the "repair quotas" command.
          */
@@ -1419,7 +1459,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
                                             0,
                                             NULL,
                                             &context->assertionID );
-
+        context->fsckStartTime = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
         DAFileSystemRepair( DADiskGetFileSystem( disk ),
                            (context->contDisk)? DADiskGetDevice( context->contDisk ):DADiskGetDevice( disk ),
                             context->fd,

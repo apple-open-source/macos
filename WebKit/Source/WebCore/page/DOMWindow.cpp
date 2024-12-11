@@ -45,12 +45,12 @@
 #include "SecurityOrigin.h"
 #include "WebCoreOpaqueRoot.h"
 #include "WebKitPoint.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(DOMWindow);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(DOMWindow);
 
 DOMWindow::DOMWindow(GlobalWindowIdentifier&& identifier, DOMWindowType type)
     : m_identifier(WTFMove(identifier))
@@ -112,7 +112,7 @@ void DOMWindow::close()
     if (!frame->isMainFrame())
         return;
 
-    if (!(page->openedByDOM() || page->backForward().count() <= 1)) {
+    if (!(page->openedByDOM() || page->checkedBackForward()->count() <= 1)) {
         checkedConsole()->addMessage(MessageSource::JS, MessageLevel::Warning, "Can't close the window since it was not opened by JavaScript"_s);
         return;
     }

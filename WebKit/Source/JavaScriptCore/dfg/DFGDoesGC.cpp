@@ -108,6 +108,7 @@ bool doesGC(Graph& graph, Node* node)
     case ArithCeil:
     case ArithTrunc:
     case ArithFRound:
+    case ArithF16Round:
     case ArithUnary:
     case CheckStructure:
     case CheckStructureOrEmpty:
@@ -123,6 +124,7 @@ bool doesGC(Graph& graph, Node* node)
     case SkipScope:
     case GetGlobalObject:
     case GetGlobalThis:
+    case UnwrapGlobalProxy:
     case GetClosureVar:
     case PutClosureVar:
     case GetInternalField:
@@ -143,6 +145,7 @@ bool doesGC(Graph& graph, Node* node)
     case ProfileControlFlow:
     case OverridesHasInstance:
     case IsEmpty:
+    case IsEmptyStorage:
     case TypeOfIsUndefined:
     case TypeOfIsObject:
     case TypeOfIsFunction:
@@ -167,8 +170,8 @@ bool doesGC(Graph& graph, Node* node)
     case SuperSamplerEnd:
     case CPUIntrinsic:
     case NormalizeMapKey: // HeapBigInt => BigInt32 conversion does not involve GC.
-    case MapKeyIndex:
-    case MapValue:
+    case MapGet:
+    case LoadMapValue:
     case MapIteratorNext:
     case MapIteratorKey:
     case MapIteratorValue:
@@ -325,6 +328,7 @@ bool doesGC(Graph& graph, Node* node)
     case HasPrivateName:
     case HasPrivateBrand:
     case InstanceOf:
+    case InstanceOfMegamorphic:
     case InstanceOfCustom:
     case VarargsLength:
     case LoadVarargs:
@@ -518,30 +522,30 @@ bool doesGC(Graph& graph, Node* node)
             if (node->isBinaryUseKind(BooleanUse)
                 || node->isBinaryUseKind(SymbolUse)
                 || node->isBinaryUseKind(ObjectUse)
-                || node->isReflexiveBinaryUseKind(ObjectUse, ObjectOrOtherUse))
+                || node->isSymmetricBinaryUseKind(ObjectUse, ObjectOrOtherUse))
                 return false;
         }
         return true;
 
     case CompareStrictEq:
         if (node->isBinaryUseKind(BooleanUse)
-            || node->isReflexiveBinaryUseKind(BooleanUse, UntypedUse)
+            || node->isSymmetricBinaryUseKind(BooleanUse, UntypedUse)
             || node->isBinaryUseKind(Int32Use)
 #if USE(JSVALUE64)
             || node->isBinaryUseKind(Int52RepUse)
 #endif
             || node->isBinaryUseKind(DoubleRepUse)
             || node->isBinaryUseKind(SymbolUse)
-            || node->isReflexiveBinaryUseKind(SymbolUse, UntypedUse)
+            || node->isSymmetricBinaryUseKind(SymbolUse, UntypedUse)
             || node->isBinaryUseKind(StringIdentUse)
-            || node->isReflexiveBinaryUseKind(ObjectUse, UntypedUse)
+            || node->isSymmetricBinaryUseKind(ObjectUse, UntypedUse)
             || node->isBinaryUseKind(ObjectUse)
             || node->isBinaryUseKind(OtherUse)
-            || node->isReflexiveBinaryUseKind(OtherUse, UntypedUse)
+            || node->isSymmetricBinaryUseKind(OtherUse, UntypedUse)
             || node->isBinaryUseKind(MiscUse)
-            || node->isReflexiveBinaryUseKind(MiscUse, UntypedUse)
-            || node->isReflexiveBinaryUseKind(StringIdentUse, NotStringVarUse)
-            || node->isReflexiveBinaryUseKind(NotDoubleUse, NeitherDoubleNorHeapBigIntNorStringUse))
+            || node->isSymmetricBinaryUseKind(MiscUse, UntypedUse)
+            || node->isSymmetricBinaryUseKind(StringIdentUse, NotStringVarUse)
+            || node->isSymmetricBinaryUseKind(NotDoubleUse, NeitherDoubleNorHeapBigIntNorStringUse))
             return false;
         return true;
 

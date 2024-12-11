@@ -72,7 +72,7 @@ extension SignedCustodianRecoveryKey {
     }
 }
 
-extension TPPolicyVersion: Comparable {
+extension TPPolicyVersion: @retroactive Comparable {
     public static func < (lhs: TPPolicyVersion, rhs: TPPolicyVersion) -> Bool {
         if lhs.versionNumber != rhs.versionNumber {
             return lhs.versionNumber < rhs.versionNumber

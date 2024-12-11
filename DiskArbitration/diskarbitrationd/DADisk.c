@@ -73,6 +73,7 @@ struct __DADisk
     DADiskState            _state;
     gid_t                  _userGID;
     uid_t                  _userUID;
+    uid_t                  _mountedByUserUID;
 #ifdef DA_FSKIT
     CFDictionaryRef        _fskitAdditions;
 #endif
@@ -152,6 +153,7 @@ static DADiskRef __DADiskCreate( CFAllocatorRef allocator, const char * id )
         disk->_state                = 0;
         disk->_userGID              = ___GID_WHEEL;
         disk->_userUID              = ___UID_ROOT;
+        disk->_mountedByUserUID     = ___UID_ROOT;
 #ifdef DA_FSKIT
         disk->_fskitAdditions       = NULL;
 #endif
@@ -1270,6 +1272,11 @@ uid_t DADiskGetUserUID( DADiskRef disk )
     return disk->_userUID;
 }
 
+uid_t DADiskGetMountedByUserUID( DADiskRef disk )
+{
+    return disk->_mountedByUserUID;
+}
+
 void DADiskInitialize( void )
 {
     __kDADiskTypeID = _CFRuntimeRegisterClass( &__DADiskClass );
@@ -1538,6 +1545,11 @@ void DADiskSetState( DADiskRef disk, DADiskState state, Boolean value )
 void DADiskSetContainerId( DADiskRef disk, char * containerId )
 {
     disk->_containerId = strdup ( containerId );
+}
+
+void DADiskSetMountedByUserUID( DADiskRef disk, uid_t uid )
+{
+    disk->_mountedByUserUID = uid;
 }
 
 char * DADiskGetContainerId( DADiskRef disk )

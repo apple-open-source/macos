@@ -37,9 +37,12 @@
 #include <WebCore/Page.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(UserMediaPermissionRequestManager);
 
 UserMediaPermissionRequestManager::UserMediaPermissionRequestManager(WebPage& page)
     : m_page(page)
@@ -192,6 +195,11 @@ void UserMediaPermissionRequestManager::removeDeviceChangeObserver(UserMediaClie
 {
     bool wasRemoved = m_deviceChangeObserverMap.remove(token);
     ASSERT_UNUSED(wasRemoved, wasRemoved);
+}
+
+void UserMediaPermissionRequestManager::updateCaptureState(const WebCore::Document& document, bool isActive, WebCore::MediaProducerMediaCaptureKind kind, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& completionHandler)
+{
+    m_page.updateCaptureState(document, isActive, kind, WTFMove(completionHandler));
 }
 
 void UserMediaPermissionRequestManager::captureDevicesChanged()

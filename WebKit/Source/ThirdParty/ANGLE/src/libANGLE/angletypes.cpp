@@ -1108,6 +1108,13 @@ bool DecompressBlob(const uint8_t *compressedData,
     uint32_t uncompressedSize =
         zlib_internal::GetGzipUncompressedSize(compressedData, compressedSize);
 
+    if (uncompressedSize == 0)
+    {
+        ERR() << "Decompressed data size is zero. Wrong or corrupted data? (compressed size is: "
+              << compressedSize << ")";
+        return false;
+    }
+
     if (uncompressedSize > maxUncompressedDataSize)
     {
         ERR() << "Decompressed data size is larger than the maximum supported (" << uncompressedSize
@@ -1139,9 +1146,11 @@ bool DecompressBlob(const uint8_t *compressedData,
     return true;
 }
 
-uint32_t GenerateCrc(const uint8_t *data, size_t size)
+uint32_t GenerateCRC32(const uint8_t *data, size_t size)
 {
-    return static_cast<uint32_t>(crc32_z(0u, data, size));
+    // To get required initial value for the crc, need to pass nullptr into buf.
+    const uLong initialValue = crc32_z(0u, nullptr, 0u);
+    return static_cast<uint32_t>(crc32_z(initialValue, data, size));
 }
 
 UnlockedTailCall::UnlockedTailCall() = default;

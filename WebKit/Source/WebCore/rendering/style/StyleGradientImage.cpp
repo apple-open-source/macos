@@ -94,7 +94,7 @@ static std::optional<float> resolveColorStopPosition(const StyleGradientImageAng
         [](AngleRaw angle) -> std::optional<float> {
             return CSSPrimitiveValue::computeDegrees(angle.type, angle.value) / 360.0;
         },
-        [](PercentRaw percent) -> std::optional<float> {
+        [](PercentageRaw percent) -> std::optional<float> {
             return percent.value / 100.0;
         }
     );
@@ -154,7 +154,7 @@ static inline RefPtr<CSSPrimitiveValue> computedStyleValueForColorStopPosition(c
         [](AngleRaw angle) -> RefPtr<CSSPrimitiveValue> {
             return CSSPrimitiveValue::create(angle.value, angle.type);
         },
-        [](PercentRaw percent) -> RefPtr<CSSPrimitiveValue> {
+        [](PercentageRaw percent) -> RefPtr<CSSPrimitiveValue> {
             return CSSPrimitiveValue::create(percent.value, CSSUnitType::CSS_PERCENTAGE);
         }
     );
@@ -186,7 +186,7 @@ static Ref<CSSPrimitiveValue> computedStyleValue(const StyleGradientDeprecatedPo
         [](NumberRaw number) -> Ref<CSSPrimitiveValue> {
             return CSSPrimitiveValue::create(number.value, CSSUnitType::CSS_NUMBER);
         },
-        [](PercentRaw percent) -> Ref<CSSPrimitiveValue> {
+        [](PercentageRaw percent) -> Ref<CSSPrimitiveValue> {
             return CSSPrimitiveValue::create(percent.value, CSSUnitType::CSS_PERCENTAGE);
         }
     );
@@ -986,7 +986,7 @@ static float positionFromValue(const StyleGradientDeprecatedPoint::Coordinate& c
         [&](NumberRaw number) -> float {
             return number.value;
         },
-        [&](PercentRaw percent) -> float {
+        [&](PercentageRaw percent) -> float {
             return percent.value / 100.0f * edgeDistance;
         }
     );
@@ -1067,7 +1067,7 @@ struct DistanceToCorner {
     FloatPoint corner;
 };
 
-static DistanceToCorner distanceToClosestCorner(const FloatPoint& p, const FloatSize& size)
+static DistanceToCorner findDistanceToClosestCorner(const FloatPoint& p, const FloatSize& size)
 {
     FloatPoint topLeft;
     float topLeftDistance = FloatSize(p - topLeft).diagonalLength();
@@ -1101,7 +1101,7 @@ static DistanceToCorner distanceToClosestCorner(const FloatPoint& p, const Float
     return { minDistance, corner };
 }
 
-static DistanceToCorner distanceToFarthestCorner(const FloatPoint& p, const FloatSize& size)
+static DistanceToCorner findDistanceToFarthestCorner(const FloatPoint& p, const FloatSize& size)
 {
     FloatPoint topLeft;
     float topLeftDistance = FloatSize(p - topLeft).diagonalLength();
@@ -1292,16 +1292,16 @@ Ref<Gradient> StyleGradientImage::createGradient(const RadialData& radial, const
     auto computeCircleRadius = [&](RadialData::ExtentKeyword extent, FloatPoint centerPoint) -> std::pair<float, float> {
         switch (extent) {
         case RadialData::ExtentKeyword::ClosestSide:
-            return { std::min({ centerPoint.x(), size.width() - centerPoint.x(), centerPoint.y(), size.height() - centerPoint.y() }), 1 };
+            return { distanceToClosestSide(centerPoint, size), 1 };
 
         case RadialData::ExtentKeyword::FarthestSide:
-            return { std::max({ centerPoint.x(), size.width() - centerPoint.x(), centerPoint.y(), size.height() - centerPoint.y() }), 1 };
+            return { distanceToFarthestSide(centerPoint, size), 1 };
 
         case RadialData::ExtentKeyword::ClosestCorner:
-            return { distanceToClosestCorner(centerPoint, size).distance, 1 };
+            return { distanceToClosestCorner(centerPoint, size), 1 };
 
         case RadialData::ExtentKeyword::FarthestCorner:
-            return { distanceToFarthestCorner(centerPoint, size).distance, 1 };
+            return { distanceToFarthestCorner(centerPoint, size), 1 };
         }
         RELEASE_ASSERT_NOT_REACHED();
     };
@@ -1321,7 +1321,7 @@ Ref<Gradient> StyleGradientImage::createGradient(const RadialData& radial, const
         }
 
         case RadialData::ExtentKeyword::ClosestCorner: {
-            auto [distance, corner] = distanceToClosestCorner(centerPoint, size);
+            auto [distance, corner] = findDistanceToClosestCorner(centerPoint, size);
             // If <shape> is ellipse, the gradient-shape has the same ratio of width to height
             // that it would if closest-side or farthest-side were specified, as appropriate.
             float xDist = std::min(centerPoint.x(), size.width() - centerPoint.x());
@@ -1330,7 +1330,7 @@ Ref<Gradient> StyleGradientImage::createGradient(const RadialData& radial, const
         }
 
         case RadialData::ExtentKeyword::FarthestCorner: {
-            auto [distance, corner] = distanceToFarthestCorner(centerPoint, size);
+            auto [distance, corner] = findDistanceToFarthestCorner(centerPoint, size);
             // If <shape> is ellipse, the gradient-shape has the same ratio of width to height
             // that it would if closest-side or farthest-side were specified, as appropriate.
             float xDist = std::max(centerPoint.x(), size.width() - centerPoint.x());
@@ -1417,7 +1417,7 @@ Ref<Gradient> StyleGradientImage::createGradient(const RadialData& radial, const
     );
 
     // computeStops() only uses maxExtent for repeating gradients.
-    float maxExtent = radial.repeating == CSSGradientRepeat::Repeating ? distanceToFarthestCorner(data.point1, size).distance : 0;
+    float maxExtent = radial.repeating == CSSGradientRepeat::Repeating ? distanceToFarthestCorner(data.point1, size) : 0;
 
     RadialGradientAdapter adapter { data };
     auto stops = computeStops(adapter, radial.stops, style, maxExtent, radial.repeating);
@@ -1441,11 +1441,11 @@ Ref<Gradient> StyleGradientImage::createGradient(const PrefixedRadialData& radia
             return { std::max({ centerPoint.x(), size.width() - centerPoint.x(), centerPoint.y(), size.height() - centerPoint.y() }), 1 };
 
         case PrefixedRadialData::ExtentKeyword::ClosestCorner:
-            return { distanceToClosestCorner(centerPoint, size).distance, 1 };
+            return { distanceToClosestCorner(centerPoint, size), 1 };
 
         case PrefixedRadialData::ExtentKeyword::Cover:
         case PrefixedRadialData::ExtentKeyword::FarthestCorner:
-            return { distanceToFarthestCorner(centerPoint, size).distance, 1 };
+            return { distanceToFarthestCorner(centerPoint, size), 1 };
         }
         RELEASE_ASSERT_NOT_REACHED();
     };
@@ -1466,7 +1466,7 @@ Ref<Gradient> StyleGradientImage::createGradient(const PrefixedRadialData& radia
         }
 
         case PrefixedRadialData::ExtentKeyword::ClosestCorner: {
-            auto [distance, corner] = distanceToClosestCorner(centerPoint, size);
+            auto [distance, corner] = findDistanceToClosestCorner(centerPoint, size);
             // If <shape> is ellipse, the gradient-shape has the same ratio of width to height
             // that it would if closest-side or farthest-side were specified, as appropriate.
             float xDist = std::min(centerPoint.x(), size.width() - centerPoint.x());
@@ -1476,7 +1476,7 @@ Ref<Gradient> StyleGradientImage::createGradient(const PrefixedRadialData& radia
 
         case PrefixedRadialData::ExtentKeyword::Cover:
         case PrefixedRadialData::ExtentKeyword::FarthestCorner: {
-            auto [distance, corner] = distanceToFarthestCorner(centerPoint, size);
+            auto [distance, corner] = findDistanceToFarthestCorner(centerPoint, size);
             // If <shape> is ellipse, the gradient-shape has the same ratio of width to height
             // that it would if closest-side or farthest-side were specified, as appropriate.
             float xDist = std::max(centerPoint.x(), size.width() - centerPoint.x());
@@ -1537,7 +1537,7 @@ Ref<Gradient> StyleGradientImage::createGradient(const PrefixedRadialData& radia
     );
 
     // computeStops() only uses maxExtent for repeating gradients.
-    float maxExtent = radial.repeating == CSSGradientRepeat::Repeating ? distanceToFarthestCorner(data.point1, size).distance : 0;
+    float maxExtent = radial.repeating == CSSGradientRepeat::Repeating ? distanceToFarthestCorner(data.point1, size) : 0;
 
     RadialGradientAdapter adapter { data };
     auto stops = computeStops(adapter, radial.stops, style, maxExtent, radial.repeating);

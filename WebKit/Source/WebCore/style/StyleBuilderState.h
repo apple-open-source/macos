@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "AnchorPositionEvaluator.h"
 #include "CSSToLengthConversionData.h"
 #include "CSSToStyleMap.h"
 #include "CascadeLevel.h"
@@ -58,7 +57,6 @@ struct BuilderContext {
     const RenderStyle& parentStyle;
     const RenderStyle* rootElementStyle = nullptr;
     RefPtr<const Element> element = nullptr;
-    AnchorPositionedStateMap* anchorPositionedStateMap = nullptr;
 };
 
 class BuilderState {
@@ -68,6 +66,8 @@ public:
     Builder& builder() { return m_builder; }
 
     RenderStyle& style() { return m_style; }
+    const RenderStyle& style() const { return m_style; }
+
     const RenderStyle& parentStyle() const { return m_context.parentStyle; }
     const RenderStyle* rootElementStyle() const { return m_context.rootElementStyle; }
 
@@ -95,7 +95,7 @@ public:
     ScopeOrdinal styleScopeOrdinal() const { return m_currentProperty->styleScopeOrdinal; }
 
     RefPtr<StyleImage> createStyleImage(const CSSValue&);
-    std::optional<FilterOperations> createFilterOperations(const CSSValue&);
+    FilterOperations createFilterOperations(const CSSValue&);
 
     static bool isColorFromPrimitiveValueDerivedFromElement(const CSSPrimitiveValue&);
     StyleColor colorFromPrimitiveValue(const CSSPrimitiveValue&, ForVisitedLink = ForVisitedLink::No) const;
@@ -112,6 +112,8 @@ public:
     {
         return m_currentProperty && m_currentProperty->cascadeLevel == CascadeLevel::Author;
     }
+
+    CSSPropertyID cssPropertyID() const;
 
 private:
     // See the comment in maybeUpdateFontForLetterSpacing() about why this needs to be a friend.

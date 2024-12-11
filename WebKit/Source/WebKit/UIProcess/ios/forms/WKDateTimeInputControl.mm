@@ -35,23 +35,33 @@
 #import "WKWebViewIOS.h"
 #import "WKWebViewPrivateForTesting.h"
 #import "WebPageProxy.h"
+#import <UIKit/UICalendarView.h>
 #import <UIKit/UIDatePicker.h>
 #import <WebCore/LocalizedStrings.h>
 #import <pal/system/ios/UserInterfaceIdiom.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/SetForScope.h>
 
-@interface WKDateTimePicker : NSObject<WKFormControl, WKDatePickerPopoverControllerDelegate> {
+#if HAVE(UI_CALENDAR_SELECTION_WEEK_OF_YEAR)
+@interface WKDateTimePicker : NSObject<WKFormControl, WKDatePickerPopoverControllerDelegate, UICalendarSelectionWeekOfYearDelegate>
+#else
+@interface WKDateTimePicker : NSObject<WKFormControl, WKDatePickerPopoverControllerDelegate>
+#endif
+{
     NSString *_formatString;
     RetainPtr<NSString> _initialValue;
     WKContentView *_view;
     CGPoint _interactionPoint;
     RetainPtr<UIDatePicker> _datePicker;
+#if HAVE(UI_CALENDAR_SELECTION_WEEK_OF_YEAR)
+    RetainPtr<UICalendarView> _calendarView;
+    RetainPtr<UICalendarSelectionWeekOfYear> _selectionWeekOfYear;
+#endif
     BOOL _isDismissingDatePicker;
     RetainPtr<WKDatePickerPopoverController> _datePickerController;
 }
 
-- (instancetype)initWithView:(WKContentView *)view datePickerMode:(UIDatePickerMode)mode;
+- (instancetype)initWithView:(WKContentView *)view inputType:(WebKit::InputType)inputType;
 
 @property (nonatomic, readonly) WKDatePickerPopoverController *datePickerController;
 @property (nonatomic, readonly) NSString *calendarType;
@@ -67,9 +77,10 @@ static NSString * const kDateFormatString = @"yyyy-MM-dd"; // "2011-01-27".
 static NSString * const kMonthFormatString = @"yyyy-MM"; // "2011-01".
 static NSString * const kTimeFormatString = @"HH:mm"; // "13:45".
 static NSString * const kDateTimeFormatString = @"yyyy-MM-dd'T'HH:mm"; // "2011-01-27T13:45"
+static NSString * const kWeekFormatString = @"yyyy-'W'ww";
 static constexpr auto yearAndMonthDatePickerMode = static_cast<UIDatePickerMode>(4269);
 
-- (id)initWithView:(WKContentView *)view datePickerMode:(UIDatePickerMode)mode
+- (id)initWithView:(WKContentView *)view inputType:(WebKit::InputType)inputType
 {
     if (!(self = [super init]))
         return nil;
@@ -77,21 +88,37 @@ static constexpr auto yearAndMonthDatePickerMode = static_cast<UIDatePickerMode>
     _view = view;
     _interactionPoint = [_view lastInteractionLocation];
 
-    switch (view.focusedElementInformation.elementType) {
+    UIDatePickerMode mode;
+
+    switch (inputType) {
     case WebKit::InputType::Date:
+        mode = UIDatePickerModeDate;
         _formatString = kDateFormatString;
         break;
     case WebKit::InputType::Month:
+        mode = yearAndMonthDatePickerMode;
         _formatString = kMonthFormatString;
         break;
     case WebKit::InputType::Time:
+        mode = UIDatePickerModeTime;
         _formatString = kTimeFormatString;
         break;
     case WebKit::InputType::DateTimeLocal:
+        mode = UIDatePickerModeDateAndTime;
         _formatString = kDateTimeFormatString;
         break;
+#if HAVE(UI_CALENDAR_SELECTION_WEEK_OF_YEAR)
+    case WebKit::InputType::Week:
+        _formatString = kWeekFormatString;
+        _selectionWeekOfYear = adoptNS([[UICalendarSelectionWeekOfYear alloc] initWithDelegate:self]);
+        _calendarView = adoptNS([[UICalendarView alloc] init]);
+        [_calendarView setCalendar:[NSCalendar calendarWithIdentifier:NSCalendarIdentifierISO8601]];
+        [_calendarView setSelectionBehavior:_selectionWeekOfYear.get()];
+        return self;
+#endif
     default:
-        break;
+        [self release];
+        return nil;
     }
 
     _datePicker = adoptNS([[UIDatePicker alloc] init]);
@@ -112,6 +139,16 @@ static constexpr auto yearAndMonthDatePickerMode = static_cast<UIDatePickerMode>
 
     return self;
 }
+
+#if HAVE(UI_CALENDAR_SELECTION_WEEK_OF_YEAR)
+
+- (void)weekOfYearSelection:(UICalendarSelectionWeekOfYear *)selection didSelectWeekOfYear:(NSDateComponents *)weekOfYearComponents {
+    _selectionWeekOfYear = selection;
+    [_calendarView setSelectionBehavior:_selectionWeekOfYear.get()];
+    [self _dateChanged];
+}
+
+#endif
 
 - (void)datePickerPopoverControllerDidDismiss:(WKDatePickerPopoverController *)controller
 {
@@ -153,7 +190,12 @@ static constexpr auto yearAndMonthDatePickerMode = static_cast<UIDatePickerMode>
 
 - (void)showDateTimePicker
 {
-    _datePickerController = adoptNS([[WKDatePickerPopoverController alloc] initWithDatePicker:_datePicker.get() delegate:self]);
+#if HAVE(UI_CALENDAR_SELECTION_WEEK_OF_YEAR)
+    if (_view.focusedElementInformation.elementType == WebKit::InputType::Week)
+        _datePickerController = adoptNS([[WKDatePickerPopoverController alloc] initWithCalendarView:_calendarView.get() selectionWeekOfYear:_selectionWeekOfYear.get() delegate:self]);
+    else
+#endif
+        _datePickerController = adoptNS([[WKDatePickerPopoverController alloc] initWithDatePicker:_datePicker.get() delegate:self]);
     [_datePickerController presentInView:_view sourceRect:_view.focusedElementInformation.interactionRect completion:[strongSelf = retainPtr(self)] {
         [strongSelf->_view.webView _didShowContextMenu];
     }];
@@ -192,6 +234,14 @@ static constexpr auto yearAndMonthDatePickerMode = static_cast<UIDatePickerMode>
     return value;
 }
 
+- (RetainPtr<NSISO8601DateFormatter>)iso8601DateFormatterForCalendarView
+{
+    RetainPtr dateFormatter = adoptNS([[NSISO8601DateFormatter alloc] init]);
+    [dateFormatter setTimeZone:[NSTimeZone localTimeZone]];
+    [dateFormatter setFormatOptions: NSISO8601DateFormatWithYear | NSISO8601DateFormatWithWeekOfYear | NSISO8601DateFormatWithDashSeparatorInDate];
+    return dateFormatter;
+}
+
 - (RetainPtr<NSDateFormatter>)dateFormatterForPicker
 {
     auto englishLocale = adoptNS([[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"]);
@@ -205,12 +255,48 @@ static constexpr auto yearAndMonthDatePickerMode = static_cast<UIDatePickerMode>
 
 - (void)_dateChanged
 {
+#if HAVE(UI_CALENDAR_SELECTION_WEEK_OF_YEAR)
+    if (_view.focusedElementInformation.elementType == WebKit::InputType::Week) {
+        RetainPtr dateFormatter = [self iso8601DateFormatterForCalendarView];
+        [_view updateFocusedElementValue:[dateFormatter stringFromDate:[[NSCalendar calendarWithIdentifier:NSCalendarIdentifierISO8601] dateFromComponents:[_selectionWeekOfYear selectedWeekOfYear]]]];
+        return;
+    }
+#endif
+
     RetainPtr dateFormatter = [self dateFormatterForPicker];
     [_view updateFocusedElementValue:[dateFormatter stringFromDate:[_datePicker date]]];
 }
 
+#if HAVE(UI_CALENDAR_SELECTION_WEEK_OF_YEAR)
+
+- (void)setWeekPickerToInitialValue
+{
+    NSCalendarUnit unitFlags = NSCalendarUnitYearForWeekOfYear | NSCalendarUnitWeekOfYear | NSCalendarUnitWeekday;
+
+    if (![_initialValue length]) {
+        [_selectionWeekOfYear setSelectedWeekOfYear:[[NSCalendar calendarWithIdentifier:NSCalendarIdentifierISO8601] components:unitFlags fromDate:[NSDate date]]];
+        [self _dateChanged];
+        return;
+    }
+
+    RetainPtr parsedDate = [[self iso8601DateFormatterForCalendarView] dateFromString:[self _sanitizeInputValueForFormatter:_initialValue.get()]];
+
+    if (!parsedDate || ![[_calendarView availableDateRange] containsDate:parsedDate.get()])
+        parsedDate = [NSDate date];
+
+    RetainPtr<NSDateComponents> dateComponents = [[NSCalendar calendarWithIdentifier:NSCalendarIdentifierISO8601] components:unitFlags fromDate:parsedDate.get()];
+    [_selectionWeekOfYear setSelectedWeekOfYear:dateComponents.get() animated:YES];
+}
+
+#endif
+
 - (void)setDateTimePickerToInitialValue
 {
+#if HAVE(UI_CALENDAR_SELECTION_WEEK_OF_YEAR)
+    if (_view.focusedElementInformation.elementType == WebKit::InputType::Week)
+        return [self setWeekPickerToInitialValue];
+#endif
+
     if (![_initialValue length]) {
         [_datePicker setDate:[NSDate date]];
         [self _dateChanged];
@@ -294,28 +380,22 @@ static constexpr auto yearAndMonthDatePickerMode = static_cast<UIDatePickerMode>
 
 - (instancetype)initWithView:(WKContentView *)view
 {
-    UIDatePickerMode mode;
+    WebKit::InputType controlType = view.focusedElementInformation.elementType;
 
-    switch (view.focusedElementInformation.elementType) {
+    switch (controlType) {
     case WebKit::InputType::Date:
-        mode = UIDatePickerModeDate;
-        break;
     case WebKit::InputType::DateTimeLocal:
-        mode = UIDatePickerModeDateAndTime;
-        break;
     case WebKit::InputType::Time:
-        mode = UIDatePickerModeTime;
-        break;
     case WebKit::InputType::Month:
-        mode = yearAndMonthDatePickerMode;
-        break;
+#if HAVE(UI_CALENDAR_SELECTION_WEEK_OF_YEAR)
+    case WebKit::InputType::Week:
+#endif
+        self = [super initWithView:view control:adoptNS([[WKDateTimePicker alloc] initWithView:view inputType:controlType])];
+        return self;
     default:
         [self release];
         return nil;
     }
-
-    self = [super initWithView:view control:adoptNS([[WKDateTimePicker alloc] initWithView:view datePickerMode:mode])];
-    return self;
 }
 
 @end

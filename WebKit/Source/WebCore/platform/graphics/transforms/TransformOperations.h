@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/Ref.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -35,7 +36,7 @@ namespace WebCore {
 struct BlendingContext;
 
 class TransformOperations {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(TransformOperations);
 public:
     using const_iterator = Vector<Ref<TransformOperation>>::const_iterator;
     using const_reverse_iterator = Vector<Ref<TransformOperation>>::const_reverse_iterator;
@@ -48,7 +49,7 @@ public:
 
     bool operator==(const TransformOperations&) const;
 
-    TransformOperations clone() const;
+    WEBCORE_EXPORT TransformOperations clone() const;
     TransformOperations selfOrCopyWithResolvedCalculatedValues(const FloatSize&) const;
 
     const_iterator begin() const { return m_operations.begin(); }

@@ -27,10 +27,10 @@
 #ifndef ThreadTimers_h
 #define ThreadTimers_h
 
-#include <wtf/IsoMalloc.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefCounted.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
 
@@ -45,7 +45,8 @@ typedef Vector<RefPtr<ThreadTimerHeapItem>> ThreadTimerHeap;
     
 // A collection of timers per thread. Kept in ThreadGlobalData.
 class ThreadTimers {
-    WTF_MAKE_NONCOPYABLE(ThreadTimers); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(ThreadTimers);
+    WTF_MAKE_NONCOPYABLE(ThreadTimers);
 public:
     ThreadTimers();
 
@@ -76,7 +77,7 @@ private:
 };
 
 struct ThreadTimerHeapItem : ThreadSafeRefCounted<ThreadTimerHeapItem> {
-    WTF_MAKE_ISO_ALLOCATED(ThreadTimerHeapItem);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ThreadTimerHeapItem);
     WTF_ALLOW_STRUCT_COMPACT_POINTERS;
 
     static RefPtr<ThreadTimerHeapItem> create(TimerBase&, MonotonicTime, unsigned);

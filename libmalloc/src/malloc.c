@@ -1363,11 +1363,11 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 		max_medium_magazines = max_magazines;
 	}
 
-	// The "single-cluster" concept doesn't apply to macOS: there is no
-	// non-Intel real hardware without multiple AMP clusters, so this will only
-	// happen under virtualization, and for that case we'd prefer the
-	// straight-to-pcpu behaviour rather than falling back to the old allocator.
-#if CONFIG_MAGAZINE_PER_CLUSTER && !(TARGET_OS_OSX || MALLOC_TARGET_DK_OSX)
+	// Don't enable for pre-AMP iOS hardware, which we identify as "iOS, plain
+	// arm64"
+#if CONFIG_MAGAZINE_PER_CLUSTER && \
+		(MALLOC_TARGET_IOS_ONLY || MALLOC_TARGET_DK_IOS) && \
+		defined(__arm64__) && !defined(__arm64e__)
 	if (ncpuclusters == 1) {
 #if CONFIG_FEATUREFLAGS_SIMPLE
 		// Not with the other feature flag checks because ncpuclusters needs to
@@ -1381,7 +1381,7 @@ _malloc_initialize(const char *apple[], const char *bootargs)
 			malloc_xzone_enabled = false;
 		}
 	}
-#endif // CONFIG_MAGAZINE_PER_CLUSTER && !(TARGET_OS_OSX || MALLOC_TARGET_DK_OSX)
+#endif
 
 	_malloc_detect_interposition();
 
@@ -2912,7 +2912,12 @@ reallocf(void *in_ptr, size_t new_size)
 	void *ptr = realloc(in_ptr, new_size);
 
 	if (!ptr && in_ptr && new_size != 0) {
+		// Save and restore `errno`, because `realloc` will set it to ENOMEM
+		// on allocation failure, but it could be overwritten if `free` calls
+		// into a library function that also modifies `errno`
+		errno_t error = errno;
 		free(in_ptr);
+		errno = error;
 	}
 
 	return ptr;

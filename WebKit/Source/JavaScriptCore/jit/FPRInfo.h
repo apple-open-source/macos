@@ -102,7 +102,7 @@ public:
         return result;
     }
     
-    static FPRReg toArgumentRegister(unsigned index)
+    static constexpr FPRReg toArgumentRegister(unsigned index)
     {
         return (FPRReg)index;
     }
@@ -151,6 +151,12 @@ public:
     static constexpr FPRReg returnValueFPR = ARMRegisters::d0; // fpRegT0
     static constexpr FPRReg argumentFPR0 = ARMRegisters::d0; // fpRegT0
     static constexpr FPRReg argumentFPR1 = ARMRegisters::d1; // fpRegT1
+    static constexpr FPRReg argumentFPR2 = ARMRegisters::d2; // fpRegT2
+    static constexpr FPRReg argumentFPR3 = ARMRegisters::d3; // fpRegT3
+    static constexpr FPRReg argumentFPR4 = ARMRegisters::d4; // fpRegT4
+    static constexpr FPRReg argumentFPR5 = ARMRegisters::d5; // fpRegT5
+    static constexpr FPRReg argumentFPR6 = ARMRegisters::d6; // fpRegT6
+    static constexpr FPRReg argumentFPR7 = ARMRegisters::d7; // fpRegT7
 
     static constexpr FPRReg nonPreservedNonArgumentFPR0 = ARMRegisters::d14;
 
@@ -173,9 +179,9 @@ public:
         return (unsigned)reg;
     }
 
-    static FPRReg toArgumentRegister(unsigned index)
+    static constexpr FPRReg toArgumentRegister(unsigned index)
     {
-        ASSERT(index < numberOfArgumentRegisters);
+        ASSERT_UNDER_CONSTEXPR_CONTEXT(index < numberOfArgumentRegisters);
         return static_cast<FPRReg>(index);
     }
 
@@ -269,9 +275,9 @@ public:
         return result;
     }
 
-    static FPRReg toArgumentRegister(unsigned index)
+    static constexpr FPRReg toArgumentRegister(unsigned index)
     {
-        ASSERT(index < 8);
+        ASSERT_UNDER_CONSTEXPR_CONTEXT(index < 8);
         return static_cast<FPRReg>(index);
     }
 
@@ -349,10 +355,10 @@ public:
         return registerForIndex[index];
     }
 
-    static FPRReg toArgumentRegister(unsigned index)
+    static constexpr FPRReg toArgumentRegister(unsigned index)
     {
-        ASSERT(index < numberOfArgumentRegisters);
-        static const FPRReg registerForIndex[numberOfArgumentRegisters] = {
+        ASSERT_UNDER_CONSTEXPR_CONTEXT(index < numberOfArgumentRegisters);
+        constexpr FPRReg registerForIndex[numberOfArgumentRegisters] = {
             argumentFPR0, argumentFPR1, argumentFPR2, argumentFPR3,
             argumentFPR4, argumentFPR5, argumentFPR6, argumentFPR7,
         };

@@ -76,7 +76,6 @@ struct _malloc_msl_symbols {
 	unsigned long version;
 
 	/* the following are included in version 1 of this structure */
-
 	void (*handle_memory_event) (unsigned long event);
 	boolean_t (*stack_logging_locked) (void);
 	void (*fork_prepare) (void);
@@ -88,6 +87,10 @@ struct _malloc_msl_symbols {
 	boolean_t (*turn_on_stack_logging) (stack_logging_mode_type mode);
 	void (*turn_off_stack_logging) (void);
 	void (*copy_msl_lite_hooks) (struct _malloc_msl_lite_hooks_s *hooksp, size_t size);
+
+	/* the following are included in version 2 of this structure */
+	bool (*stack_logging_locked_v2) (void);
+	bool (*turn_on_stack_logging_v2) (stack_logging_mode_type mode);
 };
 
 /*

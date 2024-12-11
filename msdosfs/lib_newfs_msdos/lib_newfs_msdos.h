@@ -35,8 +35,6 @@ typedef struct {
     size_t  block_size;
     u_int   except_block_start;
     u_int   except_block_length;
-    u_int   include_block_start;
-    u_int   include_block_length;
 } WipeFSProperties;
 
 /** Prints message */

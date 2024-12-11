@@ -1,4 +1,4 @@
-; Copyright (C) 2010-2023 Apple Inc. All rights reserved.
+; Copyright (C) 2010-2024 Apple Inc. All rights reserved.
 ;
 ; Redistribution and use in source and binary forms, with or without
 ; modification, are permitted provided that the following conditions
@@ -271,7 +271,9 @@
     )
 
     (allow sysctl-read
-        (sysctl-name #"kern.bootsessionuuid"))
+        (sysctl-name
+            "kern.bootsessionuuid"
+            "kern.boottime"))
 
     (allow mach-lookup
        ;; <rdar://problem/47268166>
@@ -761,8 +763,6 @@
 
 (when (defined? 'syscall-unix)
     (deny syscall-unix (with telemetry))
-    (deny syscall-unix (with no-report) (syscall-number
-        SYS_faccessat))
     (when (defined? 'SYS_crossarch_trap)
         (deny syscall-unix (with no-report) (syscall-number
             SYS_crossarch_trap)))
@@ -794,6 +794,7 @@
         SYS_dup
         SYS_dup2
         SYS_exit
+        SYS_faccessat
         SYS_fcntl
         SYS_fcntl_nocancel
         SYS_fileport_makefd
@@ -818,6 +819,7 @@
         SYS_gettid
         SYS_gettimeofday
         SYS_getuid
+        SYS_getxattr
         SYS_ioctl
         SYS_issetugid
         SYS_kdebug_trace64

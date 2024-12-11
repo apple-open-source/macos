@@ -39,6 +39,7 @@ typedef struct opaqueCMSampleBuffer* CMSampleBufferRef;
 OBJC_CLASS AVCaptureConnection;
 OBJC_CLASS AVCaptureDevice;
 OBJC_CLASS AVCaptureDeviceFormat;
+OBJC_CLASS AVCaptureDeviceRotationCoordinator;
 OBJC_CLASS AVCapturePhoto;
 OBJC_CLASS AVCapturePhotoOutput;
 OBJC_CLASS AVCapturePhotoSettings;
@@ -60,7 +61,7 @@ enum class VideoFrameRotation : uint16_t;
 
 class AVVideoCaptureSource : public RealtimeVideoCaptureSource, private OrientationNotifier::Observer {
 public:
-    static CaptureSourceOrError create(const CaptureDevice&, MediaDeviceHashSalts&&, const MediaConstraints*, PageIdentifier);
+    static CaptureSourceOrError create(const CaptureDevice&, MediaDeviceHashSalts&&, const MediaConstraints*, std::optional<PageIdentifier>);
     static NSMutableArray* cameraCaptureDeviceTypes();
 
     WEBCORE_EXPORT static VideoCaptureFactory& factory();
@@ -78,7 +79,7 @@ public:
     void captureOutputDidFinishProcessingPhoto(RetainPtr<AVCapturePhotoOutput>, RetainPtr<AVCapturePhoto>, RetainPtr<NSError>);
 
 private:
-    AVVideoCaptureSource(AVCaptureDevice*, const CaptureDevice&, MediaDeviceHashSalts&&, PageIdentifier);
+    AVVideoCaptureSource(AVCaptureDevice*, const CaptureDevice&, MediaDeviceHashSalts&&, std::optional<PageIdentifier>);
     virtual ~AVVideoCaptureSource();
 
     void clearSession();
@@ -104,7 +105,7 @@ private:
     bool interrupted() const final;
 
     VideoFrameRotation videoFrameRotation() const final { return m_videoFrameRotation; }
-    void setFrameRateAndZoomWithPreset(double, double, std::optional<VideoPreset>&&) final;
+    void applyFrameRateAndZoomWithPreset(double, double, std::optional<VideoPreset>&&) final;
     void generatePresets() final;
     bool canResizeVideoFrames() const final { return true; }
 
@@ -116,6 +117,8 @@ private:
 
     // OrientationNotifier::Observer API
     void orientationChanged(IntDegrees orientation) final;
+    void rotationAngleForHorizonLevelDisplayChanged(const String&, VideoFrameRotation) final;
+
 
     bool setFrameRateConstraint(double minFrameRate, double maxFrameRate);
     bool areSettingsMatching() const;
@@ -197,6 +200,7 @@ private:
     uint64_t m_framesCount { 0 };
     uint64_t m_lastFramesCount { 0 };
     int64_t m_defaultTorchMode { 0 };
+    bool m_useSensorAndDeviceOrientation { true };
 };
 
 } // namespace WebCore

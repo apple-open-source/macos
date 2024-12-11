@@ -36,6 +36,7 @@
 #include <mutex>
 #include <wtf/Lock.h>
 #include <wtf/StdMap.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
 #include <wtf/text/WTFString.h>
 
@@ -43,6 +44,8 @@ GST_DEBUG_CATEGORY(webkit_webrtcdec_debug);
 #define GST_CAT_DEFAULT webkit_webrtcdec_debug
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GStreamerVideoDecoderFactory);
 
 class GStreamerWebRTCVideoDecoder : public webrtc::VideoDecoder {
 public:
@@ -82,16 +85,6 @@ public:
         m_needsKeyframe = true;
     }
 
-    static unsigned getGstAutoplugSelectResult(const char* nick)
-    {
-        static GEnumClass* enumClass = static_cast<GEnumClass*>(g_type_class_ref(g_type_from_name("GstAutoplugSelectResult")));
-        ASSERT(enumClass);
-        GEnumValue* ev = g_enum_get_value_by_nick(enumClass, nick);
-        if (!ev)
-            return 0;
-        return ev->value;
-    }
-
     bool Configure(const webrtc::VideoDecoder::Settings& codecSettings) override
     {
         m_src = makeElement("appsrc");
@@ -101,8 +94,7 @@ public:
         auto capsfilter = CreateFilter();
         auto decoder = makeElement("decodebin");
 
-        m_width = codecSettings.max_render_resolution().Width();
-        m_height = codecSettings.max_render_resolution().Height();
+        updateCapsFromImageSize(codecSettings.max_render_resolution().Width(), codecSettings.max_render_resolution().Height());
 
         m_pipeline = makeElement("pipeline");
         connectSimpleBusMessageCallback(m_pipeline.get());
@@ -112,12 +104,17 @@ public:
 
         auto& quirksManager = GStreamerQuirksManager::singleton();
         if (quirksManager.isEnabled()) {
+            // Prevent auto-plugging of hardware-accelerated elements. Those will be used in the playback pipeline.
             g_signal_connect(decoder, "autoplug-select", G_CALLBACK(+[](GstElement*, GstPad*, GstCaps*, GstElementFactory* factory, gpointer) -> unsigned {
+                static auto skipAutoPlug = gstGetAutoplugSelectResult("skip"_s);
+                static auto tryAutoPlug = gstGetAutoplugSelectResult("try"_s);
+                RELEASE_ASSERT(skipAutoPlug);
+                RELEASE_ASSERT(tryAutoPlug);
                 auto& quirksManager = GStreamerQuirksManager::singleton();
                 auto isHardwareAccelerated = quirksManager.isHardwareAccelerated(factory).value_or(false);
                 if (isHardwareAccelerated)
-                    return getGstAutoplugSelectResult("skip");
-                return getGstAutoplugSelectResult("try");
+                    return *skipAutoPlug;
+                return *tryAutoPlug;
             }), nullptr);
         }
 
@@ -211,13 +208,22 @@ public:
             return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
         }
 
+        if (inputImage._encodedWidth && inputImage._encodedHeight)
+            updateCapsFromImageSize(inputImage._encodedWidth, inputImage._encodedHeight);
+
+        if (UNLIKELY(!m_caps)) {
+            GST_ERROR("Encoded image caps not set");
+            ASSERT_NOT_REACHED();
+            return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
+        }
+
         // FIXME: Use a GstBufferPool.
         GST_TRACE_OBJECT(pipeline(), "Pushing encoded image with RTP timestamp %u", inputImage.RtpTimestamp());
         auto buffer = adoptGRef(gstBufferNewWrappedFast(fastMemDup(inputImage.data(), inputImage.size()), inputImage.size()));
 
         gst_buffer_add_reference_timestamp_meta(buffer.get(), m_rtpTimestampCaps.get(), inputImage.RtpTimestamp(), GST_CLOCK_TIME_NONE);
 
-        auto sample = adoptGRef(gst_sample_new(buffer.get(), GetCapsForFrame(inputImage), nullptr, nullptr));
+        auto sample = adoptGRef(gst_sample_new(buffer.get(), m_caps.get(), nullptr, nullptr));
         switch (gst_app_src_push_sample(GST_APP_SRC(m_src), sample.get())) {
         case GST_FLOW_OK:
             break;
@@ -246,16 +252,14 @@ public:
         return WEBRTC_VIDEO_CODEC_OK;
     }
 
-    virtual GstCaps* GetCapsForFrame(const webrtc::EncodedImage& image)
+    virtual void updateCapsFromImageSize(int width, int height)
     {
-        if (!m_caps) {
-            m_caps = adoptGRef(gst_caps_new_simple(Caps(),
-                "width", G_TYPE_INT, image._encodedWidth ? image._encodedWidth : m_width,
-                "height", G_TYPE_INT, image._encodedHeight ? image._encodedHeight : m_height,
-                nullptr));
-        }
+        if (m_width == width && m_height == height)
+            return;
 
-        return m_caps.get();
+        m_width = width;
+        m_height = height;
+        m_caps = adoptGRef(gst_caps_new_simple(Caps(), "width", G_TYPE_INT, width, "height", G_TYPE_INT, height, nullptr));
     }
 
     void AddDecoderIfSupported(std::vector<webrtc::SdpVideoFormat>& codecList)
@@ -301,8 +305,8 @@ public:
 
 protected:
     GRefPtr<GstCaps> m_caps;
-    gint m_width;
-    gint m_height;
+    int m_width;
+    int m_height;
     bool m_requireParse = false;
     bool m_needsKeyframe;
 
@@ -335,17 +339,15 @@ public:
         return GStreamerWebRTCVideoDecoder::Configure(codecSettings);
     }
 
-    GstCaps* GetCapsForFrame(const webrtc::EncodedImage& image) final
+    void updateCapsFromImageSize(int width, int height) final
     {
-        if (!m_caps) {
-            m_caps = adoptGRef(gst_caps_new_simple(Caps(),
-                "width", G_TYPE_INT, image._encodedWidth ? image._encodedWidth : m_width,
-                "height", G_TYPE_INT, image._encodedHeight ? image._encodedHeight : m_height,
-                "alignment", G_TYPE_STRING, "au",
-                nullptr));
-        }
+        if (m_width == width && m_height == height)
+            return;
 
-        return m_caps.get();
+        m_width = width;
+        m_height = height;
+        m_caps = adoptGRef(gst_caps_new_simple(Caps(), "width", G_TYPE_INT, width, "height", G_TYPE_INT, height,
+            "alignment", G_TYPE_STRING, "au", nullptr));
     }
     const gchar* Caps() final { return "video/x-h264"; }
     const gchar* Name() final { return "h264"; }

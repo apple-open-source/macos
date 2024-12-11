@@ -31,6 +31,7 @@
 #include <wtf/Forward.h>
 #include <wtf/FunctionDispatcher.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
 
@@ -80,6 +81,7 @@ class PopupMenuClient;
 class PopupOpeningObserver;
 class SearchPopupMenu;
 class WorkerClient;
+class WorkerOrWorkletThread;
 
 struct AppHighlight;
 struct ContactInfo;
@@ -90,6 +92,7 @@ struct ViewportArguments;
 struct WindowFeatures;
 
 class Chrome : public HostWindow {
+    WTF_MAKE_TZONE_ALLOCATED(Chrome);
 public:
     Chrome(Page&, UniqueRef<ChromeClient>&&);
     virtual ~Chrome();
@@ -182,7 +185,6 @@ public:
     void runJavaScriptAlert(LocalFrame&, const String&);
     bool runJavaScriptConfirm(LocalFrame&, const String&);
     bool runJavaScriptPrompt(LocalFrame&, const String& message, const String& defaultValue, String& result);
-    WEBCORE_EXPORT void setStatusbarText(LocalFrame&, const String&);
 
     void mouseDidMoveOverElement(const HitTestResult&, OptionSet<PlatformEventModifier>);
 
@@ -203,7 +205,7 @@ public:
     std::unique_ptr<DateTimeChooser> createDateTimeChooser(DateTimeChooserClient&);
 #endif
 
-    std::unique_ptr<WorkerClient> createWorkerClient(SerialFunctionDispatcher&);
+    std::unique_ptr<WorkerClient> createWorkerClient(WorkerOrWorkletThread&);
 
     void runOpenPanel(LocalFrame&, FileChooser&);
     void showShareSheet(ShareDataWithParsedURL&, CompletionHandler<void(bool)>&&);

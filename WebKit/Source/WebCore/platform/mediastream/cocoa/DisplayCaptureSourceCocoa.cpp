@@ -28,7 +28,6 @@
 
 #if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
 
-#include "CGDisplayStreamScreenCaptureSource.h"
 #include "ImageTransferSessionVT.h"
 #include "Logging.h"
 #include "MediaDeviceHashSalts.h"
@@ -46,6 +45,7 @@
 #include <sys/time.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/spi/cocoa/IOSurfaceSPI.h>
 
 #if HAVE(REPLAYKIT)
@@ -61,18 +61,23 @@
 
 namespace WebCore {
 
-CaptureSourceOrError DisplayCaptureSourceCocoa::create(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DisplayCaptureSourceCocoa);
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(DisplayCaptureSourceCocoaCapturer, DisplayCaptureSourceCocoa::Capturer);
+
+CaptureSourceOrError DisplayCaptureSourceCocoa::create(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier> pageIdentifier)
 {
     switch (device.type()) {
     case CaptureDevice::DeviceType::Screen:
 #if HAVE(REPLAYKIT)
         return create(ReplayKitCaptureSource::create(device.persistentId()), device, WTFMove(hashSalts), constraints, pageIdentifier);
-#else
-#if HAVE(SCREEN_CAPTURE_KIT)
+#elif HAVE(SCREEN_CAPTURE_KIT)
         if (ScreenCaptureKitCaptureSource::isAvailable())
             return create(ScreenCaptureKitCaptureSource::create(device, constraints), device, WTFMove(hashSalts), constraints, pageIdentifier);
-#endif
-        return create(CGDisplayStreamScreenCaptureSource::create(device.persistentId()), device, WTFMove(hashSalts), constraints, pageIdentifier);
+        ASSERT_NOT_REACHED();
+        return { };
+#else
+        ASSERT_NOT_REACHED();
+        return { };
 #endif
     case CaptureDevice::DeviceType::Window:
 #if HAVE(SCREEN_CAPTURE_KIT)
@@ -92,7 +97,7 @@ CaptureSourceOrError DisplayCaptureSourceCocoa::create(const CaptureDevice& devi
     return { };
 }
 
-CaptureSourceOrError DisplayCaptureSourceCocoa::create(Expected<UniqueRef<Capturer>, CaptureSourceError>&& capturer, const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
+CaptureSourceOrError DisplayCaptureSourceCocoa::create(Expected<UniqueRef<Capturer>, CaptureSourceError>&& capturer, const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier> pageIdentifier)
 {
     if (!capturer.has_value())
         return CaptureSourceOrError { WTFMove(capturer.error()) };
@@ -106,7 +111,7 @@ CaptureSourceOrError DisplayCaptureSourceCocoa::create(Expected<UniqueRef<Captur
     return CaptureSourceOrError(WTFMove(source));
 }
 
-DisplayCaptureSourceCocoa::DisplayCaptureSourceCocoa(UniqueRef<Capturer>&& capturer, const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, PageIdentifier pageIdentifier)
+DisplayCaptureSourceCocoa::DisplayCaptureSourceCocoa(UniqueRef<Capturer>&& capturer, const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, std::optional<PageIdentifier> pageIdentifier)
     : RealtimeMediaSource(device, WTFMove(hashSalts), pageIdentifier)
     , m_capturer(WTFMove(capturer))
     , m_timer(RunLoop::current(), this, &DisplayCaptureSourceCocoa::emitFrame)

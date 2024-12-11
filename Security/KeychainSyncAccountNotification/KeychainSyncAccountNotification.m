@@ -16,9 +16,9 @@
 #import "keychain/ot/OTControl.h"
 #include "utilities/SecCFRelease.h"
 
-#import "keychain/analytics/SecurityAnalyticsConstants.h"
-#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
-#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import "ipc/securityd_client.h"
 #if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER

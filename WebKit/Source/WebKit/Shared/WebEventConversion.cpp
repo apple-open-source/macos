@@ -117,6 +117,12 @@ public:
         m_unadjustedMovementDelta = webEvent.unadjustedMovementDelta();
         m_globalPosition = webEvent.globalPosition();
         m_clickCount = webEvent.clickCount();
+        m_coalescedEvents = WTF::map(webEvent.coalescedEvents(), [&](const auto& event) {
+            return platform(event);
+        });
+        m_predictedEvents = WTF::map(webEvent.predictedEvents(), [&](const auto& event) {
+            return platform(event);
+        });
 #if PLATFORM(MAC)
         m_eventNumber = webEvent.eventNumber();
         m_menuTypeForEvent = webEvent.menuTypeForEvent();
@@ -354,6 +360,14 @@ public:
 #if PLATFORM(IOS_FAMILY)
         m_touchPoints = WTF::map(webEvent.touchPoints(), [&](auto& touchPoint) -> WebCore::PlatformTouchPoint {
             return WebKit2PlatformTouchPoint(touchPoint);
+        });
+
+        m_coalescedEvents = WTF::map(webEvent.coalescedEvents(), [&](auto& event) {
+            return platform(event);
+        });
+
+        m_predictedEvents = WTF::map(webEvent.predictedEvents(), [&](auto& event) {
+            return platform(event);
         });
 
         m_gestureScale = webEvent.gestureScale();

@@ -109,10 +109,9 @@ enum class ShadowRootSerializable : bool { No, Yes };
 enum class VisibilityAdjustment : uint8_t;
 
 // https://github.com/whatwg/html/pull/9841
-enum class InvokeAction: uint8_t {
+enum class CommandType: uint8_t {
     Invalid,
 
-    Auto,
     Custom,
 
     TogglePopover,
@@ -157,7 +156,8 @@ struct ResolvedStyle;
 }
 
 class Element : public ContainerNode {
-    WTF_MAKE_ISO_ALLOCATED(Element);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Element);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Element);
 public:
     static Ref<Element> create(const QualifiedName&, Document&);
     virtual ~Element();
@@ -398,7 +398,7 @@ public:
     WEBCORE_EXPORT ExceptionOr<ShadowRoot&> attachShadow(const ShadowRootInit&);
     ExceptionOr<ShadowRoot&> attachDeclarativeShadow(ShadowRootMode, ShadowRootDelegatesFocus, ShadowRootClonable, ShadowRootSerializable);
 
-    ShadowRoot* userAgentShadowRoot() const;
+    WEBCORE_EXPORT ShadowRoot* userAgentShadowRoot() const;
     RefPtr<ShadowRoot> protectedUserAgentShadowRoot() const;
     WEBCORE_EXPORT ShadowRoot& ensureUserAgentShadowRoot();
     WEBCORE_EXPORT ShadowRoot& createUserAgentShadowRoot();
@@ -655,8 +655,8 @@ public:
     void clearPopoverData();
     bool isPopoverShowing() const;
 
-    virtual bool isValidInvokeAction(const InvokeAction action) { return action == InvokeAction::Auto; }
-    virtual bool handleInvokeInternal(const HTMLFormControlElement&, const InvokeAction&) { return false; }
+    virtual bool isValidCommandType(const CommandType) { return false; }
+    virtual bool handleCommandInternal(const HTMLFormControlElement&, const CommandType&) { return false; }
 
     ExceptionOr<void> setPointerCapture(int32_t);
     ExceptionOr<void> releasePointerCapture(int32_t);
@@ -760,7 +760,6 @@ public:
     void invalidateStyleForSubtreeInternal();
     void invalidateForQueryContainerSizeChange();
     void invalidateForResumingQueryContainerResolution();
-    void invalidateAncestorsForAnchor();
     void invalidateForResumingAnchorPositionedElementResolution();
 
     bool needsUpdateQueryContainerDependentStyle() const;
@@ -817,6 +816,12 @@ public:
 
     bool hasCustomState(const AtomString& state) const;
     CustomStateSet& ensureCustomStateSet();
+
+    bool hasValidTextDirectionState() const;
+    bool hasAutoTextDirectionState() const;
+
+    void updateEffectiveTextDirection();
+    void updateEffectiveTextDirectionIfNeeded();
 
 protected:
     Element(const QualifiedName&, Document&, OptionSet<TypeFlag>);
@@ -943,6 +948,8 @@ private:
 #if ASSERT_ENABLED
     WEBCORE_EXPORT bool fastAttributeLookupAllowed(const QualifiedName&) const;
 #endif
+
+    void dirAttributeChanged(const AtomString& newValue);
 
     bool hasEffectiveLangState() const;
     void updateEffectiveLangState();

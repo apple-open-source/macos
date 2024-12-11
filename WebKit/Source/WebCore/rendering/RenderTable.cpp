@@ -30,6 +30,7 @@
 #include "AutoTableLayout.h"
 #include "BackgroundPainter.h"
 #include "BorderPainter.h"
+#include "BorderShape.h"
 #include "CollapsedBorderValue.h"
 #include "Document.h"
 #include "FixedTableLayout.h"
@@ -57,15 +58,15 @@
 #include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "StyleInheritedData.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/SetForScope.h>
 #include <wtf/StackStats.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderTable);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderTable);
 
 RenderTable::RenderTable(Type type, Element& element, RenderStyle&& style)
     : RenderBlock(type, element, WTFMove(style), { })
@@ -529,19 +530,21 @@ void RenderTable::layout()
         if (auto overridingLogicalHeight = this->overridingLogicalHeight())
             computedLogicalHeight = std::max(computedLogicalHeight, *overridingLogicalHeight - borderAndPaddingAfter - sumCaptionsLogicalHeight());
 
-        Length logicalMaxHeightLength = style().logicalMaxHeight();
-        if (logicalMaxHeightLength.isFillAvailable() || (logicalMaxHeightLength.isSpecified() && !logicalMaxHeightLength.isNegative()
-            && !logicalMaxHeightLength.isMinContent() && !logicalMaxHeightLength.isMaxContent() && !logicalMaxHeightLength.isFitContent())) {
-            LayoutUnit computedMaxLogicalHeight = convertStyleLogicalHeightToComputedHeight(logicalMaxHeightLength);
-            computedLogicalHeight = std::min(computedLogicalHeight, computedMaxLogicalHeight);
-        }
+        if (!shouldIgnoreLogicalMinMaxHeightSizes()) {
+            Length logicalMaxHeightLength = style().logicalMaxHeight();
+            if (logicalMaxHeightLength.isFillAvailable() || (logicalMaxHeightLength.isSpecified() && !logicalMaxHeightLength.isNegative()
+                && !logicalMaxHeightLength.isMinContent() && !logicalMaxHeightLength.isMaxContent() && !logicalMaxHeightLength.isFitContent())) {
+                LayoutUnit computedMaxLogicalHeight = convertStyleLogicalHeightToComputedHeight(logicalMaxHeightLength);
+                computedLogicalHeight = std::min(computedLogicalHeight, computedMaxLogicalHeight);
+            }
 
-        Length logicalMinHeightLength = style().logicalMinHeight();
-        if (logicalMinHeightLength.isMinContent() || logicalMinHeightLength.isMaxContent() || logicalMinHeightLength.isFitContent())
-            logicalMinHeightLength = LengthType::Auto;
-        if (logicalMinHeightLength.isIntrinsic() || (logicalMinHeightLength.isSpecified() && !logicalMinHeightLength.isNegative())) {
-            LayoutUnit computedMinLogicalHeight = convertStyleLogicalHeightToComputedHeight(logicalMinHeightLength);
-            computedLogicalHeight = std::max(computedLogicalHeight, computedMinLogicalHeight);
+            Length logicalMinHeightLength = style().logicalMinHeight();
+            if (logicalMinHeightLength.isMinContent() || logicalMinHeightLength.isMaxContent() || logicalMinHeightLength.isFitContent())
+                logicalMinHeightLength = LengthType::Auto;
+            if (logicalMinHeightLength.isIntrinsic() || (logicalMinHeightLength.isSpecified() && !logicalMinHeightLength.isNegative())) {
+                LayoutUnit computedMinLogicalHeight = convertStyleLogicalHeightToComputedHeight(logicalMinHeightLength);
+                computedLogicalHeight = std::max(computedLogicalHeight, computedMinLogicalHeight);
+            }
         }
 
         distributeExtraLogicalHeight(computedLogicalHeight - totalSectionLogicalHeight);
@@ -844,7 +847,8 @@ void RenderTable::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& p
         // into a transparency layer, and then clip that in one go (which requires setting up the clip before
         // beginning the layer).
         stateSaver.save();
-        paintInfo.context().clipRoundedRect(style().getRoundedBorderFor(rect).pixelSnappedRoundedRectForPainting(document().deviceScaleFactor()));
+        auto borderShape = BorderShape::shapeForBorderRect(style(), rect);
+        borderShape.clipToOuterShape(paintInfo.context(), document().deviceScaleFactor());
         paintInfo.context().beginTransparencyLayer(1);
     }
 
@@ -906,11 +910,6 @@ void RenderTable::computePreferredLogicalWidths()
 
     for (unsigned i = 0; i < m_captions.size(); i++)
         m_minPreferredLogicalWidth = std::max(m_minPreferredLogicalWidth, m_captions[i]->minPreferredLogicalWidth());
-
-    if (auto overridingLogicalWidth = this->overridingLogicalWidth()) {
-        m_minPreferredLogicalWidth = std::max(m_minPreferredLogicalWidth, *overridingLogicalWidth);
-        m_maxPreferredLogicalWidth = std::max(m_maxPreferredLogicalWidth, *overridingLogicalWidth);
-    }
 
     auto& styleToUse = style();
     // FIXME: This should probably be checking for isSpecified since you should be able to use percentage or calc values for min-width.

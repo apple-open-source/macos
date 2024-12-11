@@ -27,14 +27,13 @@
 #include "config.h"
 #include "PlaceholderRenderingContext.h"
 
+#include "BitmapTexture.h"
+#include "CoordinatedPlatformLayerBufferRGB.h"
 #include "GLFence.h"
-#include "GraphicsLayerContentsDisplayDelegate.h"
+#include "GraphicsLayerContentsDisplayDelegateTextureMapper.h"
 #include "ImageBuffer.h"
 #include "NativeImage.h"
-#include "NicosiaContentLayer.h"
-#include "NicosiaPlatformLayer.h"
 #include "TextureMapperFlags.h"
-#include "TextureMapperPlatformLayerBuffer.h"
 #include "TextureMapperPlatformLayerProxyGL.h"
 #include <wtf/Lock.h>
 
@@ -60,52 +59,25 @@ namespace Nicosia {
 
 using namespace WebCore;
 
-class NicosiaPlaceholderRenderingContextSourceDisplayDelegate final : public WebCore::GraphicsLayerContentsDisplayDelegate {
-public:
-    static Ref<NicosiaPlaceholderRenderingContextSourceDisplayDelegate> create(ContentLayer& nicosiaLayer)
-    {
-        return adoptRef(*new NicosiaPlaceholderRenderingContextSourceDisplayDelegate(nicosiaLayer));
-    }
-
-    // GraphicsLayerContentsDisplayDelegate overrides.
-    PlatformLayer* platformLayer() const final { return m_nicosiaLayer.ptr(); }
-private:
-    NicosiaPlaceholderRenderingContextSourceDisplayDelegate(ContentLayer& nicosiaLayer)
-        : m_nicosiaLayer(nicosiaLayer)
-    {
-    }
-    Ref<ContentLayer> m_nicosiaLayer;
-};
-
-class NicosiaPlaceholderRenderingContextSource final : public WebCore::PlaceholderRenderingContextSource, public ContentLayer::Client {
+class NicosiaPlaceholderRenderingContextSource final : public WebCore::PlaceholderRenderingContextSource {
 public:
     NicosiaPlaceholderRenderingContextSource(PlaceholderRenderingContext&);
-    ~NicosiaPlaceholderRenderingContextSource();
+    ~NicosiaPlaceholderRenderingContextSource() = default;
 
     // PlaceholderRenderingContextSource overrides.
     void setPlaceholderBuffer(WebCore::ImageBuffer&) final;
     void setContentsToLayer(GraphicsLayer&) final;
 
-    // ContentLayerTextureMapperImpl::Client overrides.
-    void swapBuffersIfNeeded() final;
-
 private:
-    Ref<ContentLayer> m_nicosiaLayer;
-    Ref<NicosiaPlaceholderRenderingContextSourceDisplayDelegate> m_layerContentsDisplayDelegate;
+    Ref<GraphicsLayerContentsDisplayDelegateTextureMapper> m_layerContentsDisplayDelegate;
     RefPtr<WebCore::NativeImage> m_image WTF_GUARDED_BY_LOCK(m_imageLock);
     mutable Lock m_imageLock;
 };
 
 NicosiaPlaceholderRenderingContextSource::NicosiaPlaceholderRenderingContextSource(PlaceholderRenderingContext& context)
     : PlaceholderRenderingContextSource(context)
-    , m_nicosiaLayer(Nicosia::ContentLayer::create(*this, adoptRef(*new TextureMapperPlatformLayerProxyGL(TextureMapperPlatformLayerProxy::ContentType::OffscreenCanvas))))
-    , m_layerContentsDisplayDelegate(NicosiaPlaceholderRenderingContextSourceDisplayDelegate::create(m_nicosiaLayer))
+    , m_layerContentsDisplayDelegate(GraphicsLayerContentsDisplayDelegateTextureMapper::create(TextureMapperPlatformLayerProxyGL::create(TextureMapperPlatformLayerProxy::ContentType::OffscreenCanvas)))
 {
-}
-
-NicosiaPlaceholderRenderingContextSource::~NicosiaPlaceholderRenderingContextSource()
-{
-    m_nicosiaLayer->invalidateClient();
 }
 
 void NicosiaPlaceholderRenderingContextSource::setPlaceholderBuffer(ImageBuffer& buffer)
@@ -124,7 +96,7 @@ void NicosiaPlaceholderRenderingContextSource::setPlaceholderBuffer(ImageBuffer&
         unsigned textureID = 0;
         auto image = nativeImage->platformImage();
         if (image->isTextureBacked()) {
-            auto& display = PlatformDisplay::sharedDisplayForCompositing();
+            auto& display = PlatformDisplay::sharedDisplay();
             if (!display.skiaGLContext()->makeContextCurrent())
                 return;
 
@@ -148,7 +120,7 @@ void NicosiaPlaceholderRenderingContextSource::setPlaceholderBuffer(ImageBuffer&
         }
 #endif
 
-        downcast<TextureMapperPlatformLayerProxyGL>(m_nicosiaLayer->proxy()).scheduleUpdateOnCompositorThread([this
+        downcast<TextureMapperPlatformLayerProxyGL>(m_layerContentsDisplayDelegate->proxy()).scheduleUpdateOnCompositorThread([this
 #if USE(SKIA)
         , textureID
 #endif
@@ -156,7 +128,7 @@ void NicosiaPlaceholderRenderingContextSource::setPlaceholderBuffer(ImageBuffer&
         , fence = WTFMove(fence)
 #endif
         ] () mutable {
-            auto& proxy = m_nicosiaLayer->proxy();
+            auto& proxy = m_layerContentsDisplayDelegate->proxy();
             Locker locker { proxy.lock() };
             if (!proxy.isActive())
                 return;
@@ -183,7 +155,7 @@ void NicosiaPlaceholderRenderingContextSource::setPlaceholderBuffer(ImageBuffer&
                 auto image = nativeImage->platformImage();
                 if (image->isTextureBacked()) {
 #if PLATFORM(GTK) || PLATFORM(WPE)
-                    fence->wait(WebCore::GLFence::FlushCommands::No);
+                    fence->serverWait();
 #endif // PLATFORM(GTK) || PLATFORM(WPE)
                     texture->copyFromExternalTexture(textureID);
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -197,20 +169,12 @@ void NicosiaPlaceholderRenderingContextSource::setPlaceholderBuffer(ImageBuffer&
 #endif
             }
 
-            auto layerBuffer = makeUnique<TextureMapperPlatformLayerBuffer>(WTFMove(texture));
-            layerBuffer->setExtraFlags(TextureMapperFlags::ShouldBlend);
-#if PLATFORM(GTK) || PLATFORM(WPE)
-            layerBuffer->setFence(WTFMove(fence));
-#endif
+            auto layerBuffer = CoordinatedPlatformLayerBufferRGB::create(Ref { *texture }, { TextureMapperFlags::ShouldBlend }, WTFMove(fence));
             downcast<TextureMapperPlatformLayerProxyGL>(proxy).pushNextBuffer(WTFMove(layerBuffer));
 
         });
     }
     m_image = WTFMove(nativeImage);
-}
-
-void NicosiaPlaceholderRenderingContextSource::swapBuffersIfNeeded()
-{
 }
 
 void NicosiaPlaceholderRenderingContextSource::setContentsToLayer(GraphicsLayer& layer)

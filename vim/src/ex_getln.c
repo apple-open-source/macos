@@ -493,7 +493,7 @@ may_do_incsearch_highlighting(
 	sia.sa_tm = 500;
 #endif
 	found = do_search(NULL, firstc == ':' ? '/' : firstc, search_delim,
-				 ccline.cmdbuff + skiplen, count, search_flags,
+				 ccline.cmdbuff + skiplen, patlen, count, search_flags,
 #ifdef FEAT_RELTIME
 		&sia
 #else
@@ -654,7 +654,7 @@ may_adjust_incsearch_highlighting(
     pat[patlen] = NUL;
     i = searchit(curwin, curbuf, &t, NULL,
 		 c == Ctrl_G ? FORWARD : BACKWARD,
-		 pat, count, search_flags, RE_SEARCH, NULL);
+		 pat, patlen, count, search_flags, RE_SEARCH, NULL);
     --emsg_off;
     pat[patlen] = save;
     if (i)
@@ -1586,6 +1586,7 @@ getcmdline_int(
     int		res;
     int		save_msg_scroll = msg_scroll;
     int		save_State = State;	// remember State when called
+    int		prev_cmdpos = -1;
     int		some_key_typed = FALSE;	// one of the keys was typed
     // mouse drag and release events are ignored, unless they are
     // preceded with a mouse down event
@@ -2473,6 +2474,13 @@ getcmdline_int(
  * (Sorry for the goto's, I know it is ugly).
  */
 cmdline_not_changed:
+	// Trigger CursorMovedC autocommands.
+	if (ccline.cmdpos != prev_cmdpos)
+	{
+	    trigger_cmd_autocmd(cmdline_type, EVENT_CURSORMOVEDC);
+	    prev_cmdpos = ccline.cmdpos;
+	}
+
 #ifdef FEAT_SEARCH_EXTRA
 	if (!is_state.incsearch_postponed)
 	    continue;
@@ -2484,9 +2492,16 @@ cmdline_changed:
 	if (is_state.winid != curwin->w_id)
 	    init_incsearch_state(&is_state);
 #endif
+	// Trigger CmdlineChanged autocommands.
 	if (trigger_cmdlinechanged)
-	    // Trigger CmdlineChanged autocommands.
 	    trigger_cmd_autocmd(cmdline_type, EVENT_CMDLINECHANGED);
+
+	// Trigger CursorMovedC autocommands.
+	if (ccline.cmdpos != prev_cmdpos)
+	{
+	    trigger_cmd_autocmd(cmdline_type, EVENT_CURSORMOVEDC);
+	    prev_cmdpos = ccline.cmdpos;
+	}
 
 #ifdef FEAT_SEARCH_EXTRA
 	if (xpc.xp_context == EXPAND_NOTHING && (KeyTyped || vpeekc() == NUL))
@@ -2539,12 +2554,14 @@ returncmd:
 	if (ccline.cmdlen && firstc != NUL
 		&& (some_key_typed || histype == HIST_SEARCH))
 	{
-	    add_to_history(histype, ccline.cmdbuff, TRUE,
+	    size_t cmdbufflen = STRLEN(ccline.cmdbuff);
+
+	    add_to_history(histype, ccline.cmdbuff, cmdbufflen, TRUE,
 				       histype == HIST_SEARCH ? firstc : NUL);
 	    if (firstc == ':')
 	    {
 		vim_free(new_last_cmdline);
-		new_last_cmdline = vim_strsave(ccline.cmdbuff);
+		new_last_cmdline = vim_strnsave(ccline.cmdbuff, cmdbufflen);
 	    }
 	}
 
@@ -3128,31 +3145,15 @@ redraw:
 	windgoto(msg_row, msg_col);
 	pend = (char_u *)(line_ga.ga_data) + line_ga.ga_len;
 
-	// We are done when a NL is entered, but not when it comes after an
-	// odd number of backslashes, that results in a NUL.
-	if (line_ga.ga_len > 0 && pend[-1] == '\n')
+	// We are done when a NL is entered, but not when it comes after a
+	// backslash in prompt mode.
+	if (line_ga.ga_len > 0 && pend[-1] == '\n'
+		&& (line_ga.ga_len <= 1 || pend[-2] != '\\' || !promptc))
 	{
-	    int bcount = 0;
-
-	    while (line_ga.ga_len - 2 >= bcount && pend[-2 - bcount] == '\\')
-		++bcount;
-
-	    if (bcount > 0)
-	    {
-		// Halve the number of backslashes: "\NL" -> "NUL", "\\NL" ->
-		// "\NL", etc.
-		line_ga.ga_len -= (bcount + 1) / 2;
-		pend -= (bcount + 1) / 2;
-		pend[-1] = '\n';
-	    }
-
-	    if ((bcount & 1) == 0)
-	    {
-		--line_ga.ga_len;
-		--pend;
-		*pend = NUL;
-		break;
-	    }
+	    --line_ga.ga_len;
+	    --pend;
+	    *pend = NUL;
+	    break;
 	}
     }
 
@@ -3329,7 +3330,6 @@ realloc_cmdbuff(int len)
     // there, thus copy up to the NUL and add a NUL.
     mch_memmove(ccline.cmdbuff, p, (size_t)ccline.cmdlen);
     ccline.cmdbuff[ccline.cmdlen] = NUL;
-    vim_free(p);
 
     if (ccline.xpc != NULL
 	    && ccline.xpc->xp_pattern != NULL
@@ -3343,6 +3343,8 @@ realloc_cmdbuff(int len)
 	if (i >= 0 && i <= ccline.cmdlen)
 	    ccline.xpc->xp_pattern = ccline.cmdbuff + i;
     }
+
+    vim_free(p);
 
     return OK;
 }
@@ -4174,6 +4176,7 @@ get_cmdline_completion(void)
 {
     cmdline_info_T *p;
     char_u	*buffer;
+    int		xp_context;
 
     if (cmdline_star > 0)
 	return NULL;
@@ -4182,15 +4185,21 @@ get_cmdline_completion(void)
     if (p == NULL || p->xpc == NULL)
 	return NULL;
 
-    set_expand_context(p->xpc);
-    if (p->xpc->xp_context == EXPAND_UNSUCCESSFUL)
+    xp_context = p->xpc->xp_context;
+    if (xp_context == EXPAND_NOTHING)
+    {
+	set_expand_context(p->xpc);
+	xp_context = p->xpc->xp_context;
+	p->xpc->xp_context = EXPAND_NOTHING;
+    }
+    if (xp_context == EXPAND_UNSUCCESSFUL)
 	return NULL;
 
-    char_u *cmd_compl = cmdcomplete_type_to_str(p->xpc->xp_context);
+    char_u *cmd_compl = cmdcomplete_type_to_str(xp_context);
     if (cmd_compl == NULL)
 	return NULL;
 
-    if (p->xpc->xp_context == EXPAND_USER_LIST || p->xpc->xp_context == EXPAND_USER_DEFINED)
+    if (xp_context == EXPAND_USER_LIST || xp_context == EXPAND_USER_DEFINED)
     {
 	buffer = alloc(STRLEN(cmd_compl) + STRLEN(p->xpc->xp_arg) + 2);
 	if (buffer == NULL)
@@ -4231,6 +4240,18 @@ f_getcmdpos(typval_T *argvars UNUSED, typval_T *rettv)
     cmdline_info_T *p = get_ccline_ptr();
 
     rettv->vval.v_number = p != NULL ? p->cmdpos + 1 : 0;
+}
+
+/*
+ * "getcmdprompt()" function
+ */
+    void
+f_getcmdprompt(typval_T *argvars UNUSED, typval_T *rettv)
+{
+    cmdline_info_T *p = get_ccline_ptr();
+    rettv->v_type = VAR_STRING;
+    rettv->vval.v_string = p != NULL && p->cmdprompt != NULL ?
+					    vim_strsave(p->cmdprompt) : NULL;
 }
 
 /*
@@ -4306,6 +4327,7 @@ set_cmdline_pos(
 	new_cmdpos = 0;
     else
 	new_cmdpos = pos;
+
     return 0;
 }
 
@@ -4423,7 +4445,7 @@ did_set_cedit(optset_T *args UNUSED)
     else
     {
 	n = string_to_key(p_cedit, FALSE);
-	if (vim_isprintc(n))
+	if (n == 0 || vim_isprintc(n))
 	    return e_invalid_argument;
 	cedit_key = n;
     }
@@ -4458,6 +4480,8 @@ open_cmdwin(void)
 #ifdef FEAT_FOLDING
     int			save_KeyTyped;
 #endif
+    int			newbuf_status;
+    int			cmdwin_valid;
 
     // Can't do this when text or buffer is locked.
     // Can't do this recursively.  Can't do it when typing a password.
@@ -4491,25 +4515,50 @@ open_cmdwin(void)
 	ga_clear(&winsizes);
 	return K_IGNORE;
     }
+    // win_split() autocommands may have messed with the old window or buffer.
+    // Treat it as abandoning this command-line.
+    if (!win_valid(old_curwin) || curwin == old_curwin
+	    || !bufref_valid(&old_curbuf)
+	    || old_curwin->w_buffer != old_curbuf.br_buf)
+    {
+	beep_flush();
+	ga_clear(&winsizes);
+	return Ctrl_C;
+    }
     // Don't let quitting the More prompt make this fail.
     got_int = FALSE;
 
-    // Set "cmdwin_type" before any autocommands may mess things up.
+    // Set "cmdwin_..." variables before any autocommands may mess things up.
     cmdwin_type = get_cmdline_type();
+    cmdwin_win = curwin;
 
-    // Create the command-line buffer empty.
-    if (do_ecmd(0, NULL, NULL, NULL, ECMD_ONE, ECMD_HIDE, NULL) == FAIL)
+    // Create empty command-line buffer.  Be especially cautious of BufLeave
+    // autocommands from do_ecmd(), as cmdwin restrictions do not apply to them!
+    newbuf_status = do_ecmd(0, NULL, NULL, NULL, ECMD_ONE, ECMD_HIDE,
+					NULL);
+    cmdwin_valid = win_valid(cmdwin_win);
+    if (newbuf_status == FAIL || !cmdwin_valid || curwin != cmdwin_win ||
+	    !win_valid(old_curwin) || !bufref_valid(&old_curbuf) ||
+	    old_curwin->w_buffer != old_curbuf.br_buf)
     {
-	// Some autocommand messed it up?
-	win_close(curwin, TRUE);
-	ga_clear(&winsizes);
+	if (newbuf_status == OK)
+	    set_bufref(&bufref, curbuf);
+	if (cmdwin_valid && !last_window())
+	    win_close(cmdwin_win, TRUE);
+
+	// win_close() autocommands may have already deleted the buffer.
+	if (newbuf_status == OK && bufref_valid(&bufref) &&
+		bufref.br_buf != curbuf)
+	    close_buffer(NULL, bufref.br_buf, DOBUF_WIPE, FALSE, FALSE);
+
 	cmdwin_type = 0;
+	cmdwin_win = NULL;
+	beep_flush();
+	ga_clear(&winsizes);
 	return Ctrl_C;
     }
+    cmdwin_buf = curbuf;
 
-    apply_autocmds(EVENT_BUFFILEPRE, NULL, NULL, FALSE, curbuf);
-    (void)setfname(curbuf, (char_u *)_("[Command Line]"), NULL, TRUE);
-    apply_autocmds(EVENT_BUFFILEPOST, NULL, NULL, FALSE, curbuf);
     set_option_value_give_err((char_u *)"bt",
 					    0L, (char_u *)"nofile", OPT_LOCAL);
     curbuf->b_p_ma = TRUE;
@@ -4615,14 +4664,17 @@ open_cmdwin(void)
 # endif
 
     cmdwin_type = 0;
+    cmdwin_buf = NULL;
+    cmdwin_win = NULL;
     exmode_active = save_exmode;
 
-    // Safety check: The old window or buffer was deleted: It's a bug when
-    // this happens!
-    if (!win_valid(old_curwin) || !bufref_valid(&old_curbuf))
+    // Safety check: The old window or buffer was changed or deleted: It's a bug
+    // when this happens!
+    if (!win_valid(old_curwin) || !bufref_valid(&old_curbuf)
+	    || old_curwin->w_buffer != old_curbuf.br_buf)
     {
 	cmdwin_result = Ctrl_C;
-	emsg(_(e_active_window_or_buffer_deleted));
+	emsg(_(e_active_window_or_buffer_changed_or_deleted));
     }
     else
     {
@@ -4753,7 +4805,7 @@ script_get(exarg_T *eap UNUSED, char_u *cmd UNUSED)
     char_u	*s;
     garray_T	ga;
 
-    if (cmd[0] != '<' || cmd[1] != '<' || eap->getline == NULL)
+    if (cmd[0] != '<' || cmd[1] != '<' || eap->ea_getline == NULL)
 	return NULL;
     cmd += 2;
 

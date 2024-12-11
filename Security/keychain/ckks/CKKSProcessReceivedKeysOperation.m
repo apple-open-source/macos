@@ -34,9 +34,9 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
-#import "keychain/analytics/SecurityAnalyticsConstants.h"
-#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
-#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface CKKSProcessReceivedKeysOperation ()
 @property BOOL allowFullRefetchResult;

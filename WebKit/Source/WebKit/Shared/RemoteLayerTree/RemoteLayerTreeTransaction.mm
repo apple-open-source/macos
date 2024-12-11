@@ -36,11 +36,14 @@
 #import <WebCore/Model.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/TimingFunction.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/MakeString.h>
 #import <wtf/text/TextStream.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLayerTreeTransaction);
 
 RemoteLayerTreeTransaction::RemoteLayerTreeTransaction(RemoteLayerTreeTransaction&&) = default;
 
@@ -52,8 +55,6 @@ RemoteLayerTreeTransaction::~RemoteLayerTreeTransaction() = default;
 
 void RemoteLayerTreeTransaction::setRootLayerID(WebCore::PlatformLayerIdentifier rootLayerID)
 {
-    ASSERT_ARG(rootLayerID, rootLayerID);
-
     m_rootLayerID = rootLayerID;
 }
 
@@ -374,7 +375,7 @@ auto RemoteLayerTreeTransaction::LayerCreationProperties::operator=(LayerCreatio
 
 RemoteLayerBackingStoreOrProperties::~RemoteLayerBackingStoreOrProperties() = default;
 
-RemoteLayerTreeTransaction::LayerCreationProperties::LayerCreationProperties(WebCore::PlatformLayerIdentifier layerID, WebCore::PlatformCALayer::LayerType type, std::optional<RemoteLayerTreeTransaction::LayerCreationProperties::VideoElementData>&& videoElementData, RemoteLayerTreeTransaction::LayerCreationProperties::AdditionalData&& additionalData)
+RemoteLayerTreeTransaction::LayerCreationProperties::LayerCreationProperties(Markable<WebCore::PlatformLayerIdentifier> layerID, WebCore::PlatformCALayer::LayerType type, std::optional<RemoteLayerTreeTransaction::LayerCreationProperties::VideoElementData>&& videoElementData, RemoteLayerTreeTransaction::LayerCreationProperties::AdditionalData&& additionalData)
     : layerID(layerID)
     , type(type)
     , videoElementData(WTFMove(videoElementData))

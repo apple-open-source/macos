@@ -35,6 +35,7 @@
 #include "AddEventListenerOptions.h"
 #include "DOMWrapperWorld.h"
 #include "EventNames.h"
+#include "EventPath.h"
 #include "EventTargetConcrete.h"
 #include "HTMLBodyElement.h"
 #include "HTMLHtmlElement.h"
@@ -46,17 +47,17 @@
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Ref.h>
 #include <wtf/SetForScope.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/Vector.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(EventTarget);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(EventTargetData);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(EventTarget);
 
 struct SameSizeAsEventTarget : ScriptWrappable, CanMakeWeakPtrWithBitField<EventTarget, WeakPtrFactoryInitialization::Lazy, WeakPtrImplWithEventTargetData> {
     virtual ~SameSizeAsEventTarget() = default; // Allocate vtable pointer.

@@ -35,11 +35,11 @@
 #include "RenderIterator.h"
 #include "RenderMathMLBlockInlines.h"
 #include "RenderMathMLOperator.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLUnderOver);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderMathMLUnderOver);
 
 RenderMathMLUnderOver::RenderMathMLUnderOver(MathMLUnderOverElement& element, RenderStyle&& style)
     : RenderMathMLScripts(Type::MathMLUnderOver, element, WTFMove(style))
@@ -187,8 +187,7 @@ void RenderMathMLUnderOver::computePreferredLogicalWidths()
     ASSERT(preferredLogicalWidthsDirty());
 
     if (!isValid()) {
-        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = 0;
-        setPreferredLogicalWidthsDirty(false);
+        RenderMathMLRow::computePreferredLogicalWidths();
         return;
     }
 
@@ -306,7 +305,7 @@ void RenderMathMLUnderOver::layoutBlock(bool relayoutChildren, LayoutUnit pageLo
         return;
 
     if (!isValid()) {
-        layoutInvalidMarkup(relayoutChildren);
+        RenderMathMLRow::layoutBlock(relayoutChildren);
         return;
     }
 

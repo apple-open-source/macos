@@ -178,6 +178,9 @@ int timeout = -1;
 int family = AF_UNSPEC;
 char *portlist[PORT_MAX+1];
 
+int tcp_maxseg = 0;
+int tcp_maxseg_flag = 0;
+
 void	atelnet(int, unsigned char *, unsigned int);
 void	build_ports(char *);
 void	help(void);
@@ -264,6 +267,7 @@ const struct option long_options[] =
 	{ "apple-notify-ack",	no_argument,		&notify_ack, 1},
 	{ "apple-netsvctype",    required_argument,    &netsvctype_flag, 1},
 	{ "apple-no-reuseport",    no_argument,    &no_reuseport, 1},
+	{ "apple-tcp-maxseg",    required_argument,    &tcp_maxseg_flag, 1},
 	{ NULL,			0,			NULL,	0 }
 };
 
@@ -496,6 +500,10 @@ main(int argc, char *argv[])
 					errx(EX_OSERR, "strdup() failed");
 				}
 				nowakefromsleep_flag = 0;
+			}
+			if (tcp_maxseg_flag != 0) {
+				tcp_maxseg = atoi(optarg);
+				tcp_maxseg_flag = 0;
 			}
 #endif /* __APPLE__ */
 			break;
@@ -1622,6 +1630,11 @@ set_common_sockopts(int s, int af)
 			}
 		}
 	}
+	if (tcp_maxseg != 0) {
+		if (setsockopt(s, IPPROTO_TCP, TCP_MAXSEG, &tcp_maxseg, sizeof(tcp_maxseg)) == -1) {
+				err(1, "set TCP_MAXSEG");
+			}
+	}
 #endif /* __APPLE__ */
 }
 
@@ -1743,12 +1756,13 @@ help(void)
                 "\t--apple-ext-bk-idle           Extended background idle time\n",
                 "\t--apple-kao                   Set keep alive offload\n",
                 "\t--apple-netsvctype            Set the network service type\n"
-                "\t--apple-nowakefromsleep n      No wake from sleep (when n >= 2 generate KEV_SOCKET_CLOSED)\n",
+                "\t--apple-nowakefromsleep n     No wake from sleep (when n >= 2 generate KEV_SOCKET_CLOSED)\n",
                 "\t--apple-notify-ack            Receive events when data gets acknowledged\n",
                 "\t--apple-sockev                Receive and print socket events\n",
                 "\t--apple-tos tos               Set the IP_TOS or IPV6_TCLASS option\n",
                 "\t--apple-tos-cmsg              Set the IP_TOS or IPV6_TCLASS option via cmsg\n"
                 "\t--apple-no-reuseport          Do not use the SO_REUSPORT socket option\n"
+                "\t--apple-tcp-maxseg mss        Set the TCP_MAXSEG option\n"
 #endif /* !__APPLE__ */
                 );
         exit(1);
@@ -1774,7 +1788,8 @@ usage(int ret)
                 "\t  [--apple-kao] [--apple-ext-bk-idle]\n"
                 "\t  [--apple-netsvctype svc] [---apple-nowakefromsleep]\n"
                 "\t  [--apple-notify-ack] [--apple-sockev]\n"
-                "\t  [--apple-tos tos] [--apple-tos-cmsg]\n");
+                "\t  [--apple-tos tos] [--apple-tos-cmsg]\n"
+                "\t  [--apple-tcp-maxseg mss]\n");
 #endif /* !__APPLE__ */
 	fprintf(stderr, "\t  [-s source_ip_address] [-w timeout] [-X proxy_version]\n");
 	fprintf(stderr, "\t  [-x proxy_address[:port]] [hostname] [port[s]]\n");

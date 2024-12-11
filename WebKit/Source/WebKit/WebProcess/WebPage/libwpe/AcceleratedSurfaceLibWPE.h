@@ -28,6 +28,7 @@
 #if USE(WPE_RENDERER)
 
 #include "AcceleratedSurface.h"
+#include <wtf/TZoneMalloc.h>
 
 struct wpe_renderer_backend_egl_target;
 
@@ -36,7 +37,8 @@ namespace WebKit {
 class WebPage;
 
 class AcceleratedSurfaceLibWPE final : public AcceleratedSurface {
-    WTF_MAKE_NONCOPYABLE(AcceleratedSurfaceLibWPE); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(AcceleratedSurfaceLibWPE);
+    WTF_MAKE_TZONE_ALLOCATED(AcceleratedSurfaceLibWPE);
 public:
     static std::unique_ptr<AcceleratedSurfaceLibWPE> create(WebPage&, Client&);
     ~AcceleratedSurfaceLibWPE();
@@ -56,7 +58,7 @@ public:
     void initialize() override;
     void finalize() override;
     void willRenderFrame() override;
-    void didRenderFrame(const std::optional<WebCore::Region>&) override;
+    void didRenderFrame(WebCore::Region&&) override;
 
 private:
     AcceleratedSurfaceLibWPE(WebPage&, Client&);

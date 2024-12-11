@@ -31,9 +31,11 @@
 #include "ScriptExecutionContext.h"
 #include <JavaScriptCore/CatchScope.h>
 #include <JavaScriptCore/JSPromise.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
+class DOMPromise;
 enum class RejectAsHandled : bool { No, Yes };
 
 #define DEFERRED_PROMISE_HANDLE_AND_RETURN_IF_EXCEPTION(scope, globalObject) do { \
@@ -235,7 +237,7 @@ private:
 };
 
 class DOMPromiseDeferredBase {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(DOMPromiseDeferredBase);
 public:
     DOMPromiseDeferredBase(Ref<DeferredPromise>&& genericPromise)
         : m_promise(WTFMove(genericPromise))
@@ -347,6 +349,9 @@ WEBCORE_EXPORT void rejectPromiseWithExceptionIfAny(JSC::JSGlobalObject&, JSDOMG
 
 enum class RejectedPromiseWithTypeErrorCause { NativeGetter, InvalidThis };
 JSC::EncodedJSValue createRejectedPromiseWithTypeError(JSC::JSGlobalObject&, const String&, RejectedPromiseWithTypeErrorCause);
+
+std::pair<Ref<DOMPromise>, Ref<DeferredPromise>> createPromiseAndWrapper(Document&);
+std::pair<Ref<DOMPromise>, Ref<DeferredPromise>> createPromiseAndWrapper(JSDOMGlobalObject&);
 
 using PromiseFunction = void(JSC::JSGlobalObject&, JSC::CallFrame&, Ref<DeferredPromise>&&);
 

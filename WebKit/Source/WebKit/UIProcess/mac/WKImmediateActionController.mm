@@ -31,6 +31,7 @@
 #import "APIHitTestResult.h"
 #import "MessageSenderInlines.h"
 #import "WKNSURLExtras.h"
+#import "WebFrameProxy.h"
 #import "WebPageMessages.h"
 #import "WebPageProxy.h"
 #import "WebPageProxyMessages.h"
@@ -194,11 +195,10 @@
     // FIXME: We need to be able to cancel this if the gesture recognizer is cancelled.
     // FIXME: Connection can be null if the process is closed; we should clean up better in that case.
     if (_state == WebKit::ImmediateActionState::Pending) {
-        if (auto* connection = RefPtr { _page.get() }->legacyMainFrameProcess().connection()) {
-            bool receivedReply = connection->waitForAndDispatchImmediately<Messages::WebPageProxy::DidPerformImmediateActionHitTest>(RefPtr { _page.get() }->webPageIDInMainFrameProcess(), 500_ms) == IPC::Error::NoError;
-            if (!receivedReply)
-                _state = WebKit::ImmediateActionState::TimedOut;
-        }
+        Ref connection = RefPtr { _page.get() }->legacyMainFrameProcess().connection();
+        bool receivedReply = connection->waitForAndDispatchImmediately<Messages::WebPageProxy::DidPerformImmediateActionHitTest>(RefPtr { _page.get() }->webPageIDInMainFrameProcess(), 500_ms) == IPC::Error::NoError;
+        if (!receivedReply)
+            _state = WebKit::ImmediateActionState::TimedOut;
     }
 
     if (_state != WebKit::ImmediateActionState::Ready) {

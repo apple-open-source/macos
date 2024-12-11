@@ -37,6 +37,9 @@
 #import "ContextMenuContextData.h"
 #import "Logging.h"
 #import "SandboxUtilities.h"
+#import "WKFeature.h"
+#import "WKPreferences.h"
+#import "WKPreferencesPrivate.h"
 #import "WKWebViewConfigurationPrivate.h"
 #import "WKWebsiteDataStoreInternal.h"
 #import "WebExtensionContext.h"
@@ -49,6 +52,7 @@
 #import "WebExtensionEventListenerType.h"
 #import "WebPageProxy.h"
 #import "WebProcessPool.h"
+#import "_WKFeatureInternal.h"
 #import "_WKWebExtensionStorageSQLiteStore.h"
 #import <WebCore/ContentRuleListResults.h>
 #import <wtf/BlockPtr.h>
@@ -439,7 +443,7 @@ void WebExtensionController::addUserContentController(WebUserContentControllerPr
         return;
 
     for (Ref context : m_extensionContexts) {
-        if (!context->hasAccessInPrivateBrowsing() && forPrivateBrowsing == ForPrivateBrowsing::Yes)
+        if (!context->hasAccessToPrivateData() && forPrivateBrowsing == ForPrivateBrowsing::Yes)
             continue;
 
         context->addInjectedContent(userContentController);
@@ -505,6 +509,19 @@ void WebExtensionController::cookiesDidChange(API::HTTPCookieStore& cookieStore)
 
     for (Ref context : m_extensionContexts)
         context->cookiesDidChange(cookieStore);
+}
+
+bool WebExtensionController::isFeatureEnabled(const String& featureName) const
+{
+    WKPreferences *preferences = configuration().webViewConfiguration().preferences;
+
+    NSString *cocoaFeatureName = static_cast<NSString *>(featureName);
+    for (_WKFeature *feature in WKPreferences._features) {
+        if ([feature.key isEqualToString:cocoaFeatureName])
+            return [preferences _isEnabledForFeature:feature];
+    }
+
+    return false;
 }
 
 RefPtr<WebExtensionContext> WebExtensionController::extensionContext(const WebExtension& extension) const
@@ -621,8 +638,8 @@ void WebExtensionController::handleContentRuleListNotification(WebPageProxyIdent
     if (!savedMatchedRule || m_purgeOldMatchedRulesTimer)
         return;
 
-    m_purgeOldMatchedRulesTimer = makeUnique<WebCore::Timer>(*this, &WebExtensionController::purgeOldMatchedRules);
-    m_purgeOldMatchedRulesTimer->start(purgeMatchedRulesInterval, purgeMatchedRulesInterval);
+    m_purgeOldMatchedRulesTimer = makeUnique<RunLoop::Timer>(RunLoop::current(), this, &WebExtensionController::purgeOldMatchedRules);
+    m_purgeOldMatchedRulesTimer->startRepeating(purgeMatchedRulesInterval);
 }
 
 void WebExtensionController::purgeOldMatchedRules()
@@ -642,7 +659,7 @@ void WebExtensionController::updateWebsitePoliciesForNavigation(API::WebsitePoli
     auto actionPatterns = websitePolicies.activeContentRuleListActionPatterns();
 
     for (Ref context : m_extensionContexts) {
-        if (!context->hasPermission(_WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess))
+        if (!context->hasPermission(WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess))
             continue;
 
         Vector<String> patterns;

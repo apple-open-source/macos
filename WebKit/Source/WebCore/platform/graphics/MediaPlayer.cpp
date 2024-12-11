@@ -47,13 +47,16 @@
 #include "PlatformStrategies.h"
 #include "PlatformTextTrack.h"
 #include "PlatformTimeRanges.h"
+#include "ResourceError.h"
 #include "SecurityOrigin.h"
+#include "SpatialVideoMetadata.h"
 #include "VideoFrame.h"
 #include "VideoFrameMetadata.h"
 #include <JavaScriptCore/ArrayBuffer.h>
 #include <wtf/Lock.h>
 #include <wtf/NativePromise.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 
@@ -101,6 +104,9 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayer);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerFactory);
 
 // a null player to make MediaPlayer logic simpler
 
@@ -193,7 +199,7 @@ static const std::optional<Vector<FourCC>>& nullOptionalFourCCVector()
     return vector;
 }
 
-class NullMediaPlayerClient : public MediaPlayerClient {
+class NullMediaPlayerClient final : public MediaPlayerClient {
 private:
 #if !RELEASE_LOG_DISABLED
     const Logger& mediaPlayerLogger() final
@@ -209,7 +215,11 @@ private:
 
     const Vector<WebCore::ContentType>& mediaContentTypesRequiringHardwareSupport() const final { return nullContentTypeVector(); }
 
-    RefPtr<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() final { ASSERT_NOT_REACHED(); return nullptr; }
+    Ref<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() final
+    {
+        ASSERT_NOT_REACHED();
+        return adoptRef(*new NullMediaResourceLoader());
+    }
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<ArrayBuffer> mediaPlayerCachedKeyForKeyId(const String&) const final { return nullptr; }
@@ -220,6 +230,15 @@ private:
     const std::optional<Vector<FourCC>>& allowedMediaVideoCodecIDs() const final { return nullOptionalFourCCVector(); }
     const std::optional<Vector<FourCC>>& allowedMediaAudioCodecIDs() const final { return nullOptionalFourCCVector(); }
     const std::optional<Vector<FourCC>>& allowedMediaCaptionFormatTypes() const final { return nullOptionalFourCCVector(); }
+
+    class NullMediaResourceLoader final : public PlatformMediaResourceLoader {
+        WTF_MAKE_TZONE_ALLOCATED_INLINE(NullMediaResourceLoader);
+        void sendH2Ping(const URL&, CompletionHandler<void(Expected<Seconds, ResourceError>&&)>&& completionHandler) final
+        {
+            completionHandler(makeUnexpected(ResourceError { }));
+        }
+        RefPtr<PlatformMediaResource> requestResource(ResourceRequest&&, LoadOptions) final { return nullptr; }
+    };
 };
 
 const Vector<ContentType>& MediaPlayerClient::mediaContentTypesRequiringHardwareSupport() const
@@ -1583,7 +1602,7 @@ CachedResourceLoader* MediaPlayer::cachedResourceLoader()
     return client().mediaPlayerCachedResourceLoader();
 }
 
-RefPtr<PlatformMediaResourceLoader> MediaPlayer::createResourceLoader()
+Ref<PlatformMediaResourceLoader> MediaPlayer::createResourceLoader()
 {
     return client().mediaPlayerCreateResourceLoader();
 }
@@ -2118,6 +2137,14 @@ String SeekTarget::toString() const
     return makeString('[', WTF::LogArgument<MediaTime>::toString(time),
         WTF::LogArgument<MediaTime>::toString(negativeThreshold),
         WTF::LogArgument<MediaTime>::toString(positiveThreshold), ']');
+}
+
+String convertSpatialVideoMetadataToString(const SpatialVideoMetadata& metadata)
+{
+    return makeString("SpatialMetadata {"_s, WTF::LogArgument<WebCore::IntSize>::toString(metadata.size),
+        WTF::LogArgument<float>::toString(metadata.horizontalFOVDegrees),
+        WTF::LogArgument<float>::toString(metadata.baseline),
+        WTF::LogArgument<float>::toString(metadata.disparityAdjustment), '}');
 }
 
 } // namespace WebCore

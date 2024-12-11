@@ -40,12 +40,12 @@
 #include "SVGSVGElement.h"
 #include "SVGStringList.h"
 #include "TransformOperationData.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGGraphicsElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(SVGGraphicsElement);
 
 SVGGraphicsElement::SVGGraphicsElement(const QualifiedName& tagName, Document& document, UniqueRef<SVGPropertyRegistry>&& propertyRegistry, OptionSet<TypeFlag> typeFlags)
     : SVGElement(tagName, document, WTFMove(propertyRegistry), typeFlags)
@@ -109,13 +109,6 @@ AffineTransform SVGGraphicsElement::animatedLocalTransform() const
 
         // Flatten any 3D transform.
         matrix = transform.toAffineTransform();
-        // CSS bakes the zoom factor into lengths, including translation components.
-        // In order to align CSS & SVG transforms, we need to invert this operation.
-        float zoom = style->usedZoom();
-        if (zoom != 1) {
-            matrix.setE(matrix.e() / zoom);
-            matrix.setF(matrix.f() / zoom);
-        }
     }
 
     // If we didn't have the CSS "transform" property set, we must account for the "transform" attribute.

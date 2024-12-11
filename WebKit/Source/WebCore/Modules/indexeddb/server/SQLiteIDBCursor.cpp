@@ -33,8 +33,8 @@
 #include "SQLiteIDBBackingStore.h"
 #include "SQLiteIDBTransaction.h"
 #include "SQLiteStatement.h"
-#include "SQLiteTransaction.h"
 #include <sqlite3.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
@@ -42,6 +42,8 @@ namespace IDBServer {
 
 static const size_t prefetchLimit = 256;
 static const size_t prefetchSizeLimit = 1 * MB;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SQLiteIDBCursor);
 
 std::unique_ptr<SQLiteIDBCursor> SQLiteIDBCursor::maybeCreate(SQLiteIDBTransaction& transaction, const IDBCursorInfo& info)
 {
@@ -186,9 +188,9 @@ bool SQLiteIDBCursor::createSQLiteStatement(StringView sql)
 
     ASSERT(!m_currentLowerKey.isNull());
     ASSERT(!m_currentUpperKey.isNull());
-    ASSERT(m_transaction->sqliteTransaction());
+    ASSERT(m_transaction->sqliteDatabase());
 
-    CheckedRef database = m_transaction->sqliteTransaction()->database();
+    CheckedPtr database = m_transaction->sqliteDatabase();
     auto statement = database->prepareHeapStatementSlow(sql);
     if (!statement) {
         LOG_ERROR("Could not create cursor statement (prepare/id) - '%s'", database->lastErrorMsg());
@@ -241,7 +243,7 @@ void SQLiteIDBCursor::resetAndRebindStatement()
 {
     ASSERT(!m_currentLowerKey.isNull());
     ASSERT(!m_currentUpperKey.isNull());
-    ASSERT(m_transaction->sqliteTransaction());
+    ASSERT(m_transaction->sqliteDatabase());
     ASSERT(m_statementNeedsReset);
 
     m_statementNeedsReset = false;
@@ -293,7 +295,7 @@ bool SQLiteIDBCursor::resetAndRebindPreIndexStatementIfNecessary()
     if (m_currentIndexRecordValue.isNull())
         return true;
 
-    CheckedRef database = m_transaction->sqliteTransaction()->database();
+    CheckedPtr database = m_transaction->sqliteDatabase();
     if (!m_preIndexStatement) {
         auto preIndexStatement = database->prepareHeapStatementSlow(buildPreIndexStatement(isDirectionNext()));
         if (!preIndexStatement) {
@@ -470,14 +472,14 @@ void SQLiteIDBCursor::markAsErrored(SQLiteCursorRecord& record)
 
 SQLiteIDBCursor::FetchResult SQLiteIDBCursor::internalFetchNextRecord(SQLiteCursorRecord& record)
 {
-    ASSERT(m_transaction->sqliteTransaction());
+    ASSERT(m_transaction->sqliteDatabase());
     ASSERT(m_statement);
     ASSERT(!m_fetchedRecords.isEmpty());
     ASSERT(!m_fetchedRecords.last().isTerminalRecord());
 
     record.record.value = { };
 
-    CheckedRef database = m_transaction->sqliteTransaction()->database();
+    CheckedPtr database = m_transaction->sqliteDatabase();
     SQLiteStatement* statement = nullptr;
 
     int result;
@@ -573,7 +575,7 @@ SQLiteIDBCursor::FetchResult SQLiteIDBCursor::internalFetchNextRecord(SQLiteCurs
 
 bool SQLiteIDBCursor::iterate(const IDBKeyData& targetKey, const IDBKeyData& targetPrimaryKey)
 {
-    ASSERT(m_transaction->sqliteTransaction());
+    ASSERT(m_transaction->sqliteDatabase());
     ASSERT(m_statement);
 
     bool result = advance(1);

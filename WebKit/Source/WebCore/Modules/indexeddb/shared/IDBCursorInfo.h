@@ -67,8 +67,6 @@ public:
 
     WEBCORE_EXPORT IDBCursorInfo isolatedCopy() const;
 
-    WEBCORE_EXPORT IDBCursorInfo();
-
 #if !LOG_DISABLED
     String loggingString() const;
 #endif

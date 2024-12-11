@@ -58,8 +58,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/gbm/PlatformDisplayGBM.h
 
     platform/graphics/libwpe/PlatformDisplayLibWPE.h
-
-    platform/graphics/wayland/PlatformDisplayWayland.h
 )
 
 set(CSS_VALUE_PLATFORM_DEFINES "HAVE_OS_DARK_MODE_SUPPORT=1")
@@ -82,10 +80,6 @@ list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${LIBTASN1_INCLUDE_DIRS}
     ${UPOWERGLIB_INCLUDE_DIRS}
 )
-
-if (USE_WPEBACKEND_FDO_AUDIO_EXTENSION)
-    list(APPEND WebCore_PRIVATE_LIBRARIES WPE::FDO)
-endif ()
 
 if (USE_OPENXR)
     list(APPEND WebCore_LIBRARIES ${OPENXR_LIBRARIES})

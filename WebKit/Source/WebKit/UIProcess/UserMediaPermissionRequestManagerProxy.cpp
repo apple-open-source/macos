@@ -50,6 +50,7 @@
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/Scope.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/WeakHashSet.h>
 
 #if ENABLE(GPU_PROCESS)
@@ -93,6 +94,8 @@ bool UserMediaPermissionRequestManagerProxy::permittedToCaptureVideo()
     return true;
 }
 #endif
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(UserMediaPermissionRequestManagerProxy);
 
 UserMediaPermissionRequestManagerProxy::UserMediaPermissionRequestManagerProxy(WebPageProxy& page)
     : m_page(page)
@@ -737,7 +740,7 @@ void UserMediaPermissionRequestManagerProxy::checkUserMediaPermissionForSpeechRe
 
     // We use UserMediaRequestIdentifierType of 0 because this does not correspond to a UserMediaPermissionRequest in web process.
     // We create the RequestProxy only to check the media permission for speech.
-    Ref request = UserMediaPermissionRequestProxy::create(*this, ObjectIdentifier<WebCore::UserMediaRequestIdentifierType>(0), frameIdentifier, frameIdentifier, requestingOrigin.isolatedCopy(), topOrigin.isolatedCopy(), Vector<WebCore::CaptureDevice> { device }, { }, { }, WTFMove(completionHandler));
+    Ref request = UserMediaPermissionRequestProxy::create(*this, LegacyNullableObjectIdentifier<WebCore::UserMediaRequestIdentifierType>(0), frameIdentifier, frameIdentifier, requestingOrigin.isolatedCopy(), topOrigin.isolatedCopy(), Vector<WebCore::CaptureDevice> { device }, { }, { }, WTFMove(completionHandler));
 
     // FIXME: Use switch on action.
     auto action = getRequestAction(request.get());
@@ -1049,7 +1052,7 @@ void UserMediaPermissionRequestManagerProxy::captureStateChanged(MediaProducerMe
     if (m_captureState & activeCaptureMask)
         interval = Seconds::fromHours(page->preferences().longRunningMediaCaptureStreamRepromptIntervalInHours());
     else
-        interval = Seconds::fromMinutes(page->preferences().inactiveMediaCaptureSteamRepromptIntervalInMinutes());
+        interval = Seconds::fromMinutes(page->preferences().inactiveMediaCaptureStreamRepromptIntervalInMinutes());
 
     if (interval == m_currentWatchdogInterval)
         return;

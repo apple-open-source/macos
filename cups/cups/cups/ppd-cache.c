@@ -39,6 +39,8 @@ static void	pwg_ppdize_name(const char *ipp, char *name, size_t namesize);
 static void	pwg_ppdize_resolution(ipp_attribute_t *attr, int element, int *xres, int *yres, char *name, size_t namesize);
 static void	pwg_unppdize_name(const char *ppd, char *name, size_t namesize,
 		                  const char *dashchars);
+static int isBadPPDStr(const char *str);
+static ipp_attribute_t *findPPDStrAttr(ipp_t *ipp, const char *name, ipp_tag_t type);
 
 
 /*
@@ -3046,6 +3048,39 @@ _ppdCacheWriteFile(
   return (!rename(newfile, filename));
 }
 
+// Return true if the string contains a newline or carriage return
+static int isBadPPDStr(const char *str)
+{
+  bool bad = false;
+
+  while (*str && !bad) {
+    bad = *str == '\n' || *str == '\r';
+    str++;
+  }
+  
+  return bad;
+}
+
+// Find and return an attribute. If the attribute holds strings, then make sure the strings
+// are valid for inclusion in a PPD. See security issue: rdar://136390931.
+static ipp_attribute_t *findPPDStrAttr(ipp_t *ipp, const char *name, ipp_tag_t type)
+{
+  bool bad = false;
+  ipp_attribute_t *attr = ippFindAttribute(ipp, name, type);
+  
+  if (attr) {
+    int numElements = ippGetCount(attr);
+    for (int i = 0; i < numElements && !bad; i++) {
+      const char *str = ippGetString(attr, i, NULL);
+      if (str) {
+        bad = isBadPPDStr(str);
+      }
+    }
+  }
+  
+  return bad ? NULL : attr;
+}
+
 
 /*
  * '_ppdCreateFromIPP()' - Create a PPD file describing the capabilities
@@ -3150,7 +3185,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   cupsFilePuts(fp, "*FileSystem: False\n");
   cupsFilePuts(fp, "*PCFileName: \"ippeve.ppd\"\n");
 
-  if ((attr = ippFindAttribute(response, "printer-make-and-model", IPP_TAG_TEXT)) != NULL)
+  if ((attr = findPPDStrAttr(response, "printer-make-and-model", IPP_TAG_TEXT)) != NULL)
     strlcpy(make, ippGetString(attr, 0, NULL), sizeof(make));
   else
     strlcpy(make, "Unknown Printer", sizeof(make));
@@ -3181,13 +3216,13 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   cupsFilePuts(fp, "*cupsSNMPSupplies: False\n");
   cupsFilePrintf(fp, "*cupsLanguages: \"%s\"\n", lang->language);
 
-  if ((attr = ippFindAttribute(response, "printer-more-info", IPP_TAG_URI)) != NULL)
+  if ((attr = findPPDStrAttr(response, "printer-more-info", IPP_TAG_URI)) != NULL)
     cupsFilePrintf(fp, "*APSupplies: \"%s\"\n", ippGetString(attr, 0, NULL));
 
-  if ((attr = ippFindAttribute(response, "printer-charge-info-uri", IPP_TAG_URI)) != NULL)
+  if ((attr = findPPDStrAttr(response, "printer-charge-info-uri", IPP_TAG_URI)) != NULL)
     cupsFilePrintf(fp, "*cupsChargeInfoURI: \"%s\"\n", ippGetString(attr, 0, NULL));
 
-  if ((attr = ippFindAttribute(response, "printer-strings-uri", IPP_TAG_URI)) != NULL)
+  if ((attr = findPPDStrAttr(response, "printer-strings-uri", IPP_TAG_URI)) != NULL)
   {
     http_t	*http = NULL;		/* Connection to printer */
     char	stringsfile[1024];	/* Temporary strings file */
@@ -3345,7 +3380,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
     else
       strlcpy(ppdname, "Unknown", sizeof(ppdname));
   }
-  else if ((pwg = pwgMediaForPWG(ippGetString(ippFindAttribute(response, "media-default", IPP_TAG_ZERO), 0, NULL))) != NULL)
+  else if ((pwg = pwgMediaForPWG(ippGetString(findPPDStrAttr(response, "media-default", IPP_TAG_ZERO), 0, NULL))) != NULL)
     strlcpy(ppdname, pwg->ppd, sizeof(ppdname));
   else
     strlcpy(ppdname, "Unknown", sizeof(ppdname));
@@ -3529,7 +3564,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
       }
     }
   }
-  else if ((attr = ippFindAttribute(response, "media-supported", IPP_TAG_ZERO)) != NULL)
+  else if ((attr = findPPDStrAttr(response, "media-supported", IPP_TAG_ZERO)) != NULL)
   {
     for (i = 0, count = ippGetCount(attr); i < count; i ++)
     {
@@ -3668,12 +3703,12 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   * InputSlot...
   */
 
-  if ((attr = ippFindAttribute(ippGetCollection(defattr, 0), "media-source", IPP_TAG_ZERO)) != NULL)
+  if ((attr = findPPDStrAttr(ippGetCollection(defattr, 0), "media-source", IPP_TAG_ZERO)) != NULL)
     pwg_ppdize_name(ippGetString(attr, 0, NULL), ppdname, sizeof(ppdname));
   else
     strlcpy(ppdname, "Unknown", sizeof(ppdname));
 
-  if ((attr = ippFindAttribute(response, "media-source-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1)
+  if ((attr = findPPDStrAttr(response, "media-source-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1)
   {
     static const char * const sources[] =
     {					/* Standard "media-source" strings */
@@ -3754,12 +3789,12 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   * MediaType...
   */
 
-  if ((attr = ippFindAttribute(ippGetCollection(defattr, 0), "media-type", IPP_TAG_ZERO)) != NULL)
+  if ((attr = findPPDStrAttr(ippGetCollection(defattr, 0), "media-type", IPP_TAG_ZERO)) != NULL)
     pwg_ppdize_name(ippGetString(attr, 0, NULL), ppdname, sizeof(ppdname));
   else
     strlcpy(ppdname, "Unknown", sizeof(ppdname));
 
-  if ((attr = ippFindAttribute(response, "media-type-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1)
+  if ((attr = findPPDStrAttr(response, "media-type-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1)
   {
     cupsFilePrintf(fp, "*OpenUI *MediaType: PickOne\n"
                        "*OrderDependency: 10 AnySetup *MediaType\n"
@@ -3785,10 +3820,10 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   * ColorModel...
   */
 
-  if ((attr = ippFindAttribute(response, "urf-supported", IPP_TAG_KEYWORD)) == NULL)
-    if ((attr = ippFindAttribute(response, "pwg-raster-document-type-supported", IPP_TAG_KEYWORD)) == NULL)
-      if ((attr = ippFindAttribute(response, "print-color-mode-supported", IPP_TAG_KEYWORD)) == NULL)
-        attr = ippFindAttribute(response, "output-mode-supported", IPP_TAG_KEYWORD);
+  if ((attr = findPPDStrAttr(response, "urf-supported", IPP_TAG_KEYWORD)) == NULL)
+    if ((attr = findPPDStrAttr(response, "pwg-raster-document-type-supported", IPP_TAG_KEYWORD)) == NULL)
+      if ((attr = findPPDStrAttr(response, "print-color-mode-supported", IPP_TAG_KEYWORD)) == NULL)
+        attr = findPPDStrAttr(response, "output-mode-supported", IPP_TAG_KEYWORD);
 
   if (attr)
   {
@@ -3922,7 +3957,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 		       "*%s.Duplex DuplexTumble/%s: \"\"\n"
 		       "*CloseUI: *Duplex\n", lang->language, _cupsLangString(lang, _("2-Sided Printing")), lang->language, _cupsLangString(lang, _("Off (1-Sided)")), lang->language, _cupsLangString(lang, _("Long-Edge (Portrait)")), lang->language, _cupsLangString(lang, _("Short-Edge (Landscape)")));
 
-    if ((attr = ippFindAttribute(response, "urf-supported", IPP_TAG_KEYWORD)) != NULL)
+    if ((attr = findPPDStrAttr(response, "urf-supported", IPP_TAG_KEYWORD)) != NULL)
     {
       for (i = 0, count = ippGetCount(attr); i < count; i ++)
       {
@@ -3951,7 +3986,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
         }
       }
     }
-    else if ((attr = ippFindAttribute(response, "pwg-raster-document-sheet-back", IPP_TAG_KEYWORD)) != NULL)
+    else if ((attr = findPPDStrAttr(response, "pwg-raster-document-sheet-back", IPP_TAG_KEYWORD)) != NULL)
     {
       keyword = ippGetString(attr, 0, NULL);
 
@@ -3970,12 +4005,12 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   * Output bin...
   */
 
-  if ((attr = ippFindAttribute(response, "output-bin-default", IPP_TAG_ZERO)) != NULL)
+  if ((attr = findPPDStrAttr(response, "output-bin-default", IPP_TAG_ZERO)) != NULL)
     pwg_ppdize_name(ippGetString(attr, 0, NULL), ppdname, sizeof(ppdname));
   else
     strlcpy(ppdname, "Unknown", sizeof(ppdname));
 
-  if ((attr = ippFindAttribute(response, "output-bin-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1)
+  if ((attr = findPPDStrAttr(response, "output-bin-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1)
   {
     ipp_attribute_t	*trays = ippFindAttribute(response, "printer-output-tray", IPP_TAG_STRING);
 					/* printer-output-tray attribute, if any */
@@ -4418,7 +4453,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
     for (i = 0; i < count; i ++)
     {
       finishing_col = ippGetCollection(attr, i);
-      keyword       = ippGetString(ippFindAttribute(finishing_col, "finishing-template", IPP_TAG_ZERO), 0, NULL);
+      keyword       = ippGetString(findPPDStrAttr(finishing_col, "finishing-template", IPP_TAG_ZERO), 0, NULL);
 
       if (!keyword || cupsArrayFind(templates, (void *)keyword))
         continue;
@@ -4478,7 +4513,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 
   quality = ippFindAttribute(response, "print-quality-supported", IPP_TAG_ENUM);
 
-  if ((attr = ippFindAttribute(response, "urf-supported", IPP_TAG_KEYWORD)) != NULL)
+  if ((attr = findPPDStrAttr(response, "urf-supported", IPP_TAG_KEYWORD)) != NULL)
   {
     int lowdpi = 0, hidpi = 0;    /* Lower and higher resolution */
 
@@ -4634,7 +4669,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   * Presets...
   */
 
-  if ((attr = ippFindAttribute(response, "job-presets-supported", IPP_TAG_BEGIN_COLLECTION)) != NULL)
+  if ((attr = findPPDStrAttr(response, "job-presets-supported", IPP_TAG_BEGIN_COLLECTION)) != NULL)
   {
     for (i = 0, count = ippGetCount(attr); i < count; i ++)
     {
@@ -4690,7 +4725,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
           {
             fin_col = ippGetCollection(member, i);
 
-            if ((keyword = ippGetString(ippFindAttribute(fin_col, "finishing-template", IPP_TAG_ZERO), 0, NULL)) != NULL)
+            if ((keyword = ippGetString(findPPDStrAttr(fin_col, "finishing-template", IPP_TAG_ZERO), 0, NULL)) != NULL)
               cupsFilePrintf(fp, "*cupsFinishingTemplate %s\n", keyword);
           }
         }
@@ -4715,13 +4750,13 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 	      cupsFilePrintf(fp, "*PageSize %s\n", pwg->ppd);
           }
 
-          if ((keyword = ippGetString(ippFindAttribute(media_col, "media-source", IPP_TAG_ZERO), 0, NULL)) != NULL)
+          if ((keyword = ippGetString(findPPDStrAttr(media_col, "media-source", IPP_TAG_ZERO), 0, NULL)) != NULL)
           {
             pwg_ppdize_name(keyword, ppdname, sizeof(ppdname));
             cupsFilePrintf(fp, "*InputSlot %s\n", keyword);
 	  }
 
-          if ((keyword = ippGetString(ippFindAttribute(media_col, "media-type", IPP_TAG_ZERO), 0, NULL)) != NULL)
+          if ((keyword = ippGetString(findPPDStrAttr(media_col, "media-type", IPP_TAG_ZERO), 0, NULL)) != NULL)
           {
             pwg_ppdize_name(keyword, ppdname, sizeof(ppdname));
             cupsFilePrintf(fp, "*MediaType %s\n", keyword);

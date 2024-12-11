@@ -65,6 +65,7 @@ private:
     struct ExpansionData {
         SInt32  absoluteAxisRemovalPercentage;
         SInt32  preferredAxisRemovalPercentage;
+        bool    appleVendorSupported;
         
         struct {
             OSArray *           elements;
@@ -83,7 +84,6 @@ private:
             OSArray *           elements;
             OSArray *           blessedUsagePairs;
             UInt8               bootMouseData[4];
-            bool                appleVendorSupported;
             IOHIDElement *      keyboardPower;
         } keyboard;
         
@@ -99,7 +99,9 @@ private:
             IOHIDElement *      relativeScanTime;
             IOHIDElement *      surfaceSwitch;
             IOHIDElement *      reportRate;
+            IOHIDElement *      noiseMetric;
             OSArray *           buttons;
+            IOHIDElement *height;
         } digitizer;
         
         struct {

@@ -49,15 +49,18 @@
 #include "StorageMap.h"
 #include <limits>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(MEDIA_STREAM)
 #include "MockRealtimeMediaSourceCenter.h"
 #endif
-#if HAVE(AVCONTENTKEYSPECIFIER)
+#if USE(MODERN_AVCONTENTKEYSESSION)
 #include "MediaSessionManagerCocoa.h"
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SettingsBase);
 
 static void invalidateAfterGenericFamilyChange(Page* page)
 {
@@ -368,8 +371,8 @@ void SettingsBase::imageLoadingSettingsTimerFired()
             continue;
         if (!localFrame->document())
             continue;
-        localFrame->document()->cachedResourceLoader().setImagesEnabled(m_page->settings().areImagesEnabled());
-        localFrame->document()->cachedResourceLoader().setAutoLoadImages(m_page->settings().loadsImagesAutomatically());
+        localFrame->document()->protectedCachedResourceLoader()->setImagesEnabled(m_page->settings().areImagesEnabled());
+        localFrame->document()->protectedCachedResourceLoader()->setAutoLoadImages(m_page->settings().loadsImagesAutomatically());
     }
 }
 
@@ -504,11 +507,11 @@ void SettingsBase::resourceUsageOverlayVisibleChanged()
 #endif
 }
 
-#if HAVE(AVCONTENTKEYSPECIFIER)
-void SettingsBase::sampleBufferContentKeySessionSupportEnabledChanged()
+#if USE(MODERN_AVCONTENTKEYSESSION)
+void SettingsBase::shouldUseModernAVContentKeySessionChanged()
 {
     if (m_page)
-        MediaSessionManagerCocoa::setSampleBufferContentKeySessionSupportEnabled(m_page->settings().sampleBufferContentKeySessionSupportEnabled());
+        MediaSessionManagerCocoa::setShouldUseModernAVContentKeySession(m_page->settings().shouldUseModernAVContentKeySession());
 }
 #endif
 

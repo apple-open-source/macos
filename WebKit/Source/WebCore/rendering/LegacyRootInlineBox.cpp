@@ -36,11 +36,11 @@
 #include "RenderInline.h"
 #include "RenderLayoutState.h"
 #include "RenderView.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(LegacyRootInlineBox);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(LegacyRootInlineBox);
 
 struct SameSizeAsLegacyRootInlineBox : LegacyInlineFlowBox, CanMakeWeakPtr<LegacyRootInlineBox>, CanMakeCheckedPtr<SameSizeAsLegacyRootInlineBox> {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
@@ -164,18 +164,18 @@ RenderBlockFlow& LegacyRootInlineBox::blockFlow() const
 void LegacyRootInlineBox::removeLineBoxFromRenderObject()
 {
     // Null if we are destroying LegacyLineLayout.
-    if (auto* legacyLineLayout = blockFlow().legacyLineLayout())
+    if (auto* legacyLineLayout = blockFlow().svgTextLayout())
         legacyLineLayout->lineBoxes().removeLineBox(this);
 }
 
 void LegacyRootInlineBox::extractLineBoxFromRenderObject()
 {
-    blockFlow().legacyLineLayout()->lineBoxes().extractLineBox(this);
+    blockFlow().svgTextLayout()->lineBoxes().extractLineBox(this);
 }
 
 void LegacyRootInlineBox::attachLineBoxToRenderObject()
 {
-    blockFlow().legacyLineLayout()->lineBoxes().attachLineBox(this);
+    blockFlow().svgTextLayout()->lineBoxes().attachLineBox(this);
 }
 
 LayoutUnit LegacyRootInlineBox::lineBoxWidth() const

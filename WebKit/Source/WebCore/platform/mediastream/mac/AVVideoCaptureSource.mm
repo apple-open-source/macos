@@ -212,7 +212,7 @@ static WorkQueue& photoQueue()
     return queue.get();
 }
 
-CaptureSourceOrError AVVideoCaptureSource::create(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
+CaptureSourceOrError AVVideoCaptureSource::create(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier> pageIdentifier)
 {
     auto *avDevice = [PAL::getAVCaptureDeviceClass() deviceWithUniqueID:device.persistentId()];
     if (!avDevice)
@@ -238,7 +238,7 @@ static double cameraZoomScaleFactor(AVCaptureDeviceType deviceType)
 #endif
 }
 
-AVVideoCaptureSource::AVVideoCaptureSource(AVCaptureDevice* avDevice, const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, PageIdentifier pageIdentifier)
+AVVideoCaptureSource::AVVideoCaptureSource(AVCaptureDevice* avDevice, const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, std::optional<PageIdentifier> pageIdentifier)
     : RealtimeVideoCaptureSource(device, WTFMove(hashSalts), pageIdentifier)
     , m_objcObserver(adoptNS([[WebCoreAVVideoCaptureSourceObserver alloc] initWithCaptureSource:this]))
     , m_device(avDevice)
@@ -795,7 +795,7 @@ double AVVideoCaptureSource::facingModeFitnessScoreAdjustment() const
     return fitnessScore;
 }
 
-void AVVideoCaptureSource::setFrameRateAndZoomWithPreset(double requestedFrameRate, double requestedZoom, std::optional<VideoPreset>&& preset)
+void AVVideoCaptureSource::applyFrameRateAndZoomWithPreset(double requestedFrameRate, double requestedZoom, std::optional<VideoPreset>&& preset)
 {
     requestedZoom *= m_zoomScaleFactor;
     if (m_currentFrameRate == requestedFrameRate && m_currentZoom == requestedZoom && preset && m_currentPreset && preset->format() == m_currentPreset->format())
@@ -1062,7 +1062,9 @@ bool AVVideoCaptureSource::setupSession()
         return false;
     }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(APPLETV)
+    [m_session setMultitaskingCameraAccessEnabled:YES];
+#elif PLATFORM(IOS_FAMILY)
     PAL::AVCaptureSessionSetAuthorizedToUseCameraInMultipleForegroundAppLayout(m_session.get());
 #endif
     [m_session addObserver:m_objcObserver.get() forKeyPath:@"running" options:NSKeyValueObservingOptionNew context:(void *)nil];
@@ -1144,13 +1146,11 @@ void AVVideoCaptureSource::monitorOrientation(OrientationNotifier& notifier)
 {
 #if PLATFORM(IOS_FAMILY)
     if (PAL::canLoad_AVFoundation_AVCaptureDeviceTypeExternalUnknown() && [device() deviceType] == AVCaptureDeviceTypeExternalUnknown)
-        return;
+        m_useSensorAndDeviceOrientation = false;
+#endif
 
     notifier.addObserver(*this);
     orientationChanged(notifier.orientation());
-#else
-    UNUSED_PARAM(notifier);
-#endif
 }
 
 void AVVideoCaptureSource::orientationChanged(IntDegrees orientation)
@@ -1161,8 +1161,26 @@ void AVVideoCaptureSource::orientationChanged(IntDegrees orientation)
     ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER, "rotation = ", m_videoFrameRotation, ", orientation = ", m_deviceOrientation);
 }
 
+void AVVideoCaptureSource::rotationAngleForHorizonLevelDisplayChanged(const String& devicePersistentId, VideoFrameRotation videoFrameRotation)
+{
+    if (captureDevice().persistentId() != devicePersistentId)
+        return;
+
+    m_useSensorAndDeviceOrientation = false;
+
+    if (videoFrameRotation == m_videoFrameRotation)
+        return;
+
+    m_videoFrameRotation = videoFrameRotation;
+    ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER, "rotation = ", m_videoFrameRotation);
+    notifySettingsDidChangeObservers({ RealtimeMediaSourceSettings::Flag::Width, RealtimeMediaSourceSettings::Flag::Height });
+}
+
 void AVVideoCaptureSource::computeVideoFrameRotation()
 {
+    if (!m_useSensorAndDeviceOrientation)
+        return;
+
     bool frontCamera = [device() position] == AVCaptureDevicePositionFront;
     VideoFrame::Rotation videoFrameRotation;
     switch (m_sensorOrientation - m_deviceOrientation) {

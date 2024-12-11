@@ -36,6 +36,7 @@
 #include <JavaScriptCore/Strong.h>
 #include <pal/SessionID.h>
 #include <wtf/HashMap.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -50,7 +51,7 @@ enum class IsSchemaUpgraded : bool { No, Yes };
 class SQLiteIDBCursor;
 
 class SQLiteIDBBackingStore final : public IDBBackingStore {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(SQLiteIDBBackingStore, WEBCORE_EXPORT);
 public:
     WEBCORE_EXPORT SQLiteIDBBackingStore(const IDBDatabaseIdentifier&, const String& databaseDirectory);
     WEBCORE_EXPORT ~SQLiteIDBBackingStore() final;
@@ -84,7 +85,7 @@ public:
     IDBObjectStoreInfo* infoForObjectStore(IDBObjectStoreIdentifier) final;
     void deleteBackingStore() final;
 
-    bool supportsSimultaneousTransactions() final { return false; }
+    bool supportsSimultaneousReadWriteTransactions() final { return false; }
     bool isEphemeral() final { return false; }
     String fullDatabasePath() const final;
 

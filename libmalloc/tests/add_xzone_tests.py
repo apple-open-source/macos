@@ -5,10 +5,12 @@ import copy
 import plistlib
 from os.path import exists
 
-def create_xzone_test(test, nano_on_xzone):
+def create_xzone_test(test, nano_on_xzone=False, force_pgm=False):
     xzone_test = copy.deepcopy(test)
 
     extension = 'nano-on-xzone' if nano_on_xzone else 'xzone'
+    if force_pgm:
+        extension += '.pgm'
 
     if 'TestName' in xzone_test:
         orig_name = xzone_test['TestName']
@@ -37,6 +39,13 @@ def create_xzone_test(test, nano_on_xzone):
         envvars.append('MallocNanoOnXzone=1')
     else:
         envvars.append('MallocSecureAllocatorNano=1')
+
+    if force_pgm:
+        # If we're forcing PGM, it should already be disabled in the test
+        # we're starting with
+        assert('MallocProbGuard=0' in xzone_test['ShellEnv'])
+        xzone_test['ShellEnv'].remove('MallocProbGuard=0')
+        envvars.append('MallocProbGuard=1')
 
     if 'perf' not in xzone_test['Tags'] and \
             'no_debug' not in xzone_test['Tags'] and \
@@ -84,12 +93,22 @@ def add_xzone_tests(bats_plist_path, disable_xzone):
         if 'Tags' in test and not disable_xzone:
             if 'xzone' in test['Tags'] or 'xzone_only' in test['Tags']:
                 # This test has been tagged to run with xzone malloc
-                xzone_test = create_xzone_test(test, False)
+                xzone_test = create_xzone_test(test)
                 tests.append(xzone_test)
 
+                if 'xzone_and_pgm' in test['Tags']:
+                    xzone_and_pgm_test = create_xzone_test(test,
+                            nano_on_xzone=False, force_pgm=True)
+                    tests.append(xzone_and_pgm_test)
+
             if 'nano_on_xzone' in test['Tags']:
-                nano_on_xzone_test = create_xzone_test(test, True)
+                nano_on_xzone_test = create_xzone_test(test, nano_on_xzone=True)
                 tests.append(nano_on_xzone_test)
+
+                if 'xzone_and_pgm' in test['Tags']:
+                    pgm_on_nano_on_xzone_test = create_xzone_test(test,
+                            nano_on_xzone=True, force_pgm=True)
+                    tests.append(pgm_on_nano_on_xzone_test)
 
     new_bats_plist['Tests'] = tests
 

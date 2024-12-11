@@ -783,6 +783,11 @@ void log_exit(int code, const char *file, int line)
 		if (code == RERR_VANISHED) {
 			rprintf(FINFO, "rsync warning: %s (code %d) at %s(%d) [%s=%s]\n",
 				name, code, file, line, who_am_i(), RSYNC_VERSION);
+#ifdef __APPLE__
+		} else if (code == RERR_SIGNAL || code == RERR_SIGNAL1) {
+			(rprintf)(FERROR, "rsync error: %s (code %d) at %s(%d) [%s=%s]\n",
+				name, code, file, line, who_am_i(), RSYNC_VERSION);
+#endif
 		} else {
 			rprintf(FERROR, "rsync error: %s (code %d) at %s(%d) [%s=%s]\n",
 				name, code, file, line, who_am_i(), RSYNC_VERSION);

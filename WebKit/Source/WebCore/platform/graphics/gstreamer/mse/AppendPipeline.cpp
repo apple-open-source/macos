@@ -42,6 +42,7 @@
 #include <gst/pbutils/pbutils.h>
 #include <gst/video/video.h>
 #include <wtf/Condition.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
 #include <wtf/text/MakeString.h>
 
@@ -49,6 +50,9 @@ GST_DEBUG_CATEGORY_EXTERN(webkit_mse_debug);
 #define GST_CAT_DEFAULT webkit_mse_debug
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(AppendPipeline);
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(AppendPipelineTrack, AppendPipeline::Track);
 
 GType AppendPipeline::s_endOfAppendMetaType = 0;
 const GstMetaInfo* AppendPipeline::s_webKitEndOfAppendMetaInfo = nullptr;
@@ -245,18 +249,12 @@ AppendPipeline::~AppendPipeline()
 void AppendPipeline::handleErrorConditionFromStreamingThread()
 {
     ASSERT(!isMainThread());
-    // Notify the main thread that the append has a decode error.
-    auto response = m_taskQueue.enqueueTaskAndWait<AbortableTaskQueue::Void>([this]() {
+    m_taskQueue.enqueueTaskAndWait<AbortableTaskQueue::Void>([this]() {
         m_errorReceived = true;
         // appendParsingFailed() will cause resetParserState() to be called.
         m_sourceBufferPrivate.appendParsingFailed();
         return AbortableTaskQueue::Void();
     });
-#if !ASSERT_ENABLED
-    UNUSED_VARIABLE(response);
-#endif
-    // The streaming thread has now been unblocked because we are aborting in the main thread.
-    ASSERT(!response);
 }
 
 void AppendPipeline::handleErrorSyncMessage(GstMessage* message)
@@ -304,9 +302,9 @@ std::tuple<GRefPtr<GstCaps>, AppendPipeline::StreamType, FloatSize> AppendPipeli
     StreamType streamType = StreamType::Unknown;
     FloatSize presentationSize;
 
-    const char* originalMediaType = capsMediaType(demuxerSrcPadCaps);
+    auto originalMediaType = capsMediaType(demuxerSrcPadCaps);
     auto& gstRegistryScanner = GStreamerRegistryScannerMSE::singleton();
-    if (!gstRegistryScanner.isCodecSupported(GStreamerRegistryScanner::Configuration::Decoding, String::fromLatin1(originalMediaType))) {
+    if (!gstRegistryScanner.isCodecSupported(GStreamerRegistryScanner::Configuration::Decoding, originalMediaType.toStringWithoutCopying())) {
         streamType = StreamType::Invalid;
     } else if (doCapsHaveType(demuxerSrcPadCaps, GST_VIDEO_CAPS_TYPE_PREFIX)) {
         presentationSize = getVideoResolutionFromCaps(demuxerSrcPadCaps).value_or(FloatSize());
@@ -337,8 +335,10 @@ void AppendPipeline::appsinkCapsChanged(Track& track)
     // If this is not the first time we're parsing an initialization segment, fail if the track
     // has a different codec or type (e.g. if we were previously demuxing an audio stream and
     // someone appends a video stream).
-    if (track.caps && g_strcmp0(capsMediaType(caps.get()), capsMediaType(track.caps.get()))) {
-        GST_WARNING_OBJECT(pipeline(), "Track received incompatible caps, received '%s' for a track previously handling '%s'. Erroring out.", capsMediaType(caps.get()), capsMediaType(track.caps.get()));
+    auto currentMediaType = capsMediaType(caps.get());
+    auto trackMediaType = capsMediaType(track.caps.get());
+    if (track.caps && currentMediaType != trackMediaType) {
+        GST_WARNING_OBJECT(pipeline(), "Track received incompatible caps, received '%s' for a track previously handling '%s'. Erroring out.", reinterpret_cast<const char*>(currentMediaType.rawCharacters()), reinterpret_cast<const char*>(trackMediaType.rawCharacters()));
         m_sourceBufferPrivate.appendParsingFailed();
         return;
     }
@@ -703,14 +703,14 @@ GRefPtr<GstElement> createOptionalParserForFormat(GstBin* bin, const AtomString&
     // NOTE: Please add and keep comments updated with the rationale for each parser.
 
     GstStructure* structure = gst_caps_get_structure(caps, 0);
-    const char* mediaType = gst_structure_get_name(structure);
+    auto mediaType = gstStructureGetName(structure);
     auto parserName = makeString(trackStringId, "_parser"_s);
     // Since parsers are not needed in every case, we can use an identity element as pass-through
     // parser for cases where a parser is not needed, making the management of elements and pads
     // more orthogonal.
     const char* elementClass = "identity";
 
-    if (!g_strcmp0(mediaType, "audio/x-opus")) {
+    if (mediaType == "audio/x-opus"_s) {
         // Necessary for: metadata filling.
         // Frame durations are optional in Matroska/WebM. Although frame durations are not required
         // for regular playback, they're necessary for MSE, especially handling replacement of frames
@@ -718,7 +718,7 @@ GRefPtr<GstElement> createOptionalParserForFormat(GstBin* bin, const AtomString&
         // An example of an Opus audio file lacking durations is car_opus_low.webm
         // https://storage.googleapis.com/ytlr-cert.appspot.com/test/materials/media/car_opus_low.webm
         elementClass = "opusparse";
-    } else if (!g_strcmp0(mediaType, "video/x-h264")) {
+    } else if (mediaType == "video/x-h264"_s) {
         // Necessary for: metadata filling.
         // Some dubiously muxed content lacks the bit specifying what frames are key frames or not.
         // Without this bit, seeks will most often than not cause corrupted output in the decoder,
@@ -726,7 +726,7 @@ GRefPtr<GstElement> createOptionalParserForFormat(GstBin* bin, const AtomString&
         // to the decoder.
         // An example of such a stream: http://orange-opensource.github.io/hasplayer.js/1.2.0/player.html?url=http://playready.directtaps.net/smoothstreaming/SSWSS720H264/SuperSpeedway_720.ism/Manifest
         elementClass = "h264parse";
-    } else if (!g_strcmp0(mediaType, "audio/mpeg")) {
+    } else if (mediaType == "audio/mpeg"_s) {
         // Necessary for: framing.
         // The Media Source Extensions Byte Stream Format Registry includes MPEG Audio Byte Stream Format
         // as the (as of writing) only one spec-defined format that has the "Generate Timestamps Flag" set
@@ -753,7 +753,7 @@ GRefPtr<GstElement> createOptionalParserForFormat(GstBin* bin, const AtomString&
         default:
             GST_WARNING_OBJECT(bin, "Unsupported audio mpeg caps: %" GST_PTR_FORMAT, caps);
         }
-    } else if (!g_strcmp0(mediaType, "video/x-vp9")) {
+    } else if (mediaType == "video/x-vp9"_s) {
         // Necessary for: metadata filling.
         // Without this parser the codec string set on the corresponding video track will be incomplete.
         elementClass = "vp9parse";
@@ -946,7 +946,7 @@ void AppendPipeline::Track::emplaceOptionalParserForFormat(GstBin* bin, const GR
     if (parser) {
         ASSERT(caps);
         // When switching from encrypted to unencrypted content the caps can change and we need to replace the parser.
-        if (g_str_equal(gst_structure_get_name(gst_caps_get_structure(caps.get(), 0)), gst_structure_get_name(gst_caps_get_structure(newCaps.get(), 0)))) {
+        if (gstStructureGetName(gst_caps_get_structure(caps.get(), 0)) == gstStructureGetName(gst_caps_get_structure(newCaps.get(), 0))) {
             GST_TRACE_OBJECT(bin, "caps are compatible, bailing out");
             return;
         }

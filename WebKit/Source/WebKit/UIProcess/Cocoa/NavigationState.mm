@@ -68,6 +68,7 @@
 #import "_WKContentRuleListActionInternal.h"
 #import "_WKErrorRecoveryAttempting.h"
 #import "_WKFrameHandleInternal.h"
+#import "_WKPageLoadTimingInternal.h"
 #import "_WKRenderingProgressEventsInternal.h"
 #import "_WKSameDocumentNavigationTypeInternal.h"
 #import <JavaScriptCore/ConsoleTypes.h>
@@ -79,6 +80,7 @@
 #import <wtf/BlockPtr.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/Scope.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/URL.h>
 #import <wtf/WeakHashMap.h>
 #import <wtf/cocoa/VectorCocoa.h>
@@ -118,6 +120,8 @@ static WeakHashMap<WebPageProxy, WeakPtr<NavigationState>>& navigationStates()
 
     return navigationStates;
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(NavigationState);
 
 NavigationState::NavigationState(WKWebView *webView)
     : m_webView(webView)
@@ -237,6 +241,7 @@ void NavigationState::setNavigationDelegate(id<WKNavigationDelegate> delegate)
 #if HAVE(APP_SSO)
     m_navigationDelegateMethods.webViewDecidePolicyForSOAuthorizationLoadWithCurrentPolicyForExtensionCompletionHandler = [delegate respondsToSelector:@selector(_webView:decidePolicyForSOAuthorizationLoadWithCurrentPolicy:forExtension:completionHandler:)];
 #endif
+    m_navigationDelegateMethods.webViewDidGeneratePageLoadTiming = [delegate respondsToSelector:@selector(_webView:didGeneratePageLoadTiming:)];
 }
 
 RetainPtr<id<WKHistoryDelegatePrivate>> NavigationState::historyDelegate() const
@@ -877,7 +882,7 @@ void NavigationState::NavigationClient::didCancelClientRedirect(WebPageProxy& pa
     [static_cast<id<WKNavigationDelegatePrivate>>(navigationDelegate) _webViewDidCancelClientRedirect:m_navigationState->webView().get()];
 }
 
-static RetainPtr<NSError> createErrorWithRecoveryAttempter(WKWebView *webView, const FrameInfoData& frameInfo, NSError *originalError, const URL& url, bool isHTTPSOnlyError = false)
+static RetainPtr<NSError> createErrorWithRecoveryAttempter(WKWebView *webView, const FrameInfoData& frameInfo, NSError *originalError, const URL& url)
 {
     auto frameHandle = API::FrameHandle::create(frameInfo.frameID);
     auto recoveryAttempter = adoptNS([[WKReloadFrameErrorRecoveryAttempter alloc] initWithWebView:webView frameHandle:wrapper(frameHandle.get()) urlString:url.string()]);
@@ -886,11 +891,6 @@ static RetainPtr<NSError> createErrorWithRecoveryAttempter(WKWebView *webView, c
 
     if (NSDictionary *originalUserInfo = originalError.userInfo)
         [userInfo addEntriesFromDictionary:originalUserInfo];
-
-    if (isHTTPSOnlyError) {
-        RELEASE_LOG(Loading, "NavigationState: Including HTTPS Only HTTP fallback signal.");
-        [userInfo setValue:@"HTTPSOnlyHTTPFallback" forKey:@"errorRecoveryMethod"];
-    }
 
     return adoptNS([[NSError alloc] initWithDomain:originalError.domain code:originalError.code userInfo:userInfo.get()]);
 }
@@ -904,9 +904,7 @@ void NavigationState::NavigationClient::didFailProvisionalNavigationWithError(We
     if (!navigationDelegate)
         return;
 
-    bool isHTTPSOnlyEnabled = navigation && navigation->websitePolicies() && navigation->websitePolicies()->advancedPrivacyProtections().contains(WebCore::AdvancedPrivacyProtections::HTTPSOnly) && !navigation->websitePolicies()->advancedPrivacyProtections().contains(WebCore::AdvancedPrivacyProtections::HTTPSOnlyExplicitlyBypassedForDomain);
-    bool isHTTPSOnlyError = isHTTPSOnlyEnabled && error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::HTTPFallback && frameInfo.isMainFrame;
-    auto errorWithRecoveryAttempter = createErrorWithRecoveryAttempter(m_navigationState->webView().get(), frameInfo, error, url, isHTTPSOnlyError);
+    auto errorWithRecoveryAttempter = createErrorWithRecoveryAttempter(m_navigationState->webView().get(), frameInfo, error, url);
 
     if (frameInfo.isMainFrame) {
         // FIXME: We should assert that navigation is not null here, but it's currently null for some navigations through the back/forward cache.
@@ -1201,8 +1199,12 @@ static _WKProcessTerminationReason wkProcessTerminationReason(ProcessTermination
     case ProcessTerminationReason::Unresponsive:
     case ProcessTerminationReason::RequestedByNetworkProcess:
     case ProcessTerminationReason::RequestedByGPUProcess:
+    case ProcessTerminationReason::RequestedByModelProcess:
     case ProcessTerminationReason::Crash:
         return _WKProcessTerminationReasonCrash;
+    case ProcessTerminationReason::GPUProcessCrashedTooManyTimes:
+    case ProcessTerminationReason::ModelProcessCrashedTooManyTimes:
+        return _WKProcessTerminationReasonExceededSharedProcessCrashLimit;
     }
     ASSERT_NOT_REACHED();
     return _WKProcessTerminationReasonCrash;
@@ -1674,6 +1676,17 @@ void NavigationState::didSwapWebProcesses()
     if (m_networkActivity && webView)
         m_networkActivity = webView->_page->legacyMainFrameProcess().throttler().backgroundActivity("Page Load"_s).moveToUniquePtr();
 #endif
+}
+
+void NavigationState::didGeneratePageLoadTiming(const WebPageLoadTiming& timing)
+{
+    if (!m_navigationDelegateMethods.webViewDidGeneratePageLoadTiming)
+        return;
+    auto delegate = navigationDelegate();
+    if (!delegate)
+        return;
+    RetainPtr wkPageLoadTiming = adoptNS([[_WKPageLoadTiming alloc] _initWithTiming:timing]);
+    [static_cast<id<WKNavigationDelegatePrivate>>(delegate) _webView:webView().get() didGeneratePageLoadTiming:wkPageLoadTiming.get()];
 }
 
 } // namespace WebKit

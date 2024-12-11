@@ -34,9 +34,9 @@
 
 #import "utilities/SecCFWrappers.h"
 
-#import "keychain/analytics/SecurityAnalyticsConstants.h"
-#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
-#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import "keychain/SecureObjectSync/SOSCloudCircle.h"
 #import "KeychainCircle/PairingChannel.h"
@@ -2596,6 +2596,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
 
     __block NSError* localError = nil;
     [control performCKServerUnreadableDataRemoval:[[OTControlArguments alloc] initWithConfiguration:data]
+                                          altDSID:data.altDSID
                                             reply:^(NSError * _Nullable deleteError) {
         if (deleteError) {
             secerror("clique-perform-ckserver-unreadable-data-removal: failed to remove data from ckserver: %@", deleteError);

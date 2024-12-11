@@ -40,10 +40,12 @@
 #include <simd/simd.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 
 OBJC_CLASS WKModelProcessModelLayer;
+OBJC_CLASS WKSRKEntity;
 
 namespace WebCore {
 class Model;
@@ -59,7 +61,7 @@ class ModelProcessModelPlayerProxy final
     : public WebCore::ModelPlayer
     , public WebCore::REModelLoaderClient
     , private IPC::MessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(ModelProcessModelPlayerProxy);
 public:
     static Ref<ModelProcessModelPlayerProxy> create(ModelProcessModelPlayerManagerProxy&, WebCore::ModelPlayerIdentifier, Ref<IPC::Connection>&&);
     ~ModelProcessModelPlayerProxy();
@@ -125,13 +127,14 @@ private:
     RetainPtr<WKModelProcessModelLayer> m_layer;
     RefPtr<WebCore::REModelLoader> m_loader;
     RefPtr<WebCore::REModel> m_model;
+    RetainPtr<WKSRKEntity> m_modelRKEntity;
     REPtr<RESceneRef> m_scene;
 
     WebCore::Color m_backgroundColor;
+    simd_float3 m_originalBoundingBoxCenter { simd_make_float3(0, 0, 0) };
     simd_float3 m_originalBoundingBoxExtents { simd_make_float3(0, 0, 0) };
     float m_pitch { 0 };
     float m_yaw { 0 };
-    REAnimationPlaybackToken m_animationPlaybackToken { kInvalidAnimationToken };
 
     RESRT m_transformSRT; // SRT=Scaling/Rotation/Translation. This is stricter than a WebCore::TransformationMatrix.
 };

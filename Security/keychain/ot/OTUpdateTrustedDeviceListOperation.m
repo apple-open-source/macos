@@ -24,9 +24,9 @@
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/ot/OTOperationDependencies.h"
 
-#import "keychain/analytics/SecurityAnalyticsConstants.h"
-#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
-#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface OTUpdateTrustedDeviceListOperation ()
 @property OTOperationDependencies* deps;

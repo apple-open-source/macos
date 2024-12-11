@@ -70,7 +70,6 @@
 #include "ObjectConstructor.h"
 #include "ParserError.h"
 #include "ProfilerDatabase.h"
-#include "RegisterTZoneTypes.h"
 #include "ReleaseHeapAccessScope.h"
 #include "SamplingProfiler.h"
 #include "SideDataRepository.h"
@@ -103,7 +102,6 @@
 #include <wtf/SafeStrerror.h>
 #include <wtf/Scope.h>
 #include <wtf/StringPrintStream.h>
-#include <wtf/TZoneMallocInitialization.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/WTFProcess.h>
@@ -153,8 +151,10 @@
 #include <arm/arch.h>
 #endif
 
-#if OS(DARWIN) && PLATFORM(MAC)
+#if OS(DARWIN)
+#if __has_include(<libproc.h>)
 #include <libproc.h>
+#endif
 #endif
 
 #if OS(DARWIN)
@@ -422,6 +422,8 @@ static JSC_DECLARE_HOST_FUNCTION(functionSetUnhandledRejectionCallback);
 static JSC_DECLARE_HOST_FUNCTION(functionAsDoubleNumber);
 
 static JSC_DECLARE_HOST_FUNCTION(functionDropAllLocks);
+
+static JSC_DECLARE_HOST_FUNCTION(functionPerformanceNow);
 
 #if ENABLE(FUZZILLI)
 static JSC_DECLARE_HOST_FUNCTION(functionFuzzilli);
@@ -795,6 +797,11 @@ private:
         addFunction(vm, "asDoubleNumber"_s, functionAsDoubleNumber, 1);
 
         addFunction(vm, "dropAllLocks"_s, functionDropAllLocks, 1);
+
+        // We'll probably have to make this a real class if we want to add performance.mark in the future.
+        JSObject* performance = JSFinalObject::create(vm, plainObjectStructure);
+        putDirect(vm, Identifier::fromString(vm, "performance"_s), performance, DontEnum);
+        addFunctionToObject(vm, performance, "now"_s, functionPerformanceNow, 0);
 
 #if ENABLE(FUZZILLI)
         addFunction(vm, "fuzzilli"_s, functionFuzzilli, 2);
@@ -1929,7 +1936,7 @@ JSC_DEFINE_HOST_FUNCTION(functionRunString, (JSGlobalObject* globalObject, CallF
         return JSValue::encode(jsUndefined());
     }
     
-    return JSValue::encode(realm);
+    return JSValue::encode(realm->globalThis());
 }
 
 static URL computeFilePath(VM& vm, JSGlobalObject* globalObject, CallFrame* callFrame)
@@ -2297,7 +2304,13 @@ JSC_DEFINE_HOST_FUNCTION(functionCallerIsBBQOrOMGCompiled, (JSGlobalObject* glob
     ASSERT(wasmToJSFrame.callerFrame()->callee().isNativeCallee());
     CallerFunctor wasmFrame;
     StackVisitor::visit(wasmToJSFrame.callerFrame(), vm, wasmFrame);
+    if (!wasmFrame.callerFrame()->callee().isNativeCallee()) {
+        // This can happen if FTL directly calls wasm which tail calls this function, which fuzzers can produce, just bail out.
+        ASSERT(wasmFrame.callerFrame()->codeBlock()->jitType() == JITType::FTLJIT);
+        return throwVMError(globalObject, scope, "caller isn't a wasm function"_s);
+    }
     ASSERT(wasmFrame.callerFrame()->callee().isNativeCallee());
+    ASSERT(wasmFrame.callerFrame()->callee().asNativeCallee()->category() == NativeCallee::Category::Wasm);
 #if ENABLE(WEBASSEMBLY)
     auto mode = static_cast<Wasm::Callee*>(wasmFrame.callerFrame()->callee().asNativeCallee())->compilationMode();
     return JSValue::encode(jsBoolean(isAnyBBQ(mode) || isAnyOMG(mode)));
@@ -2580,9 +2593,9 @@ JSC_DEFINE_HOST_FUNCTION(functionDollarAgentReceiveBroadcast, (JSGlobalObject* g
             auto handler = [&vm, jsMemory](Wasm::Memory::GrowSuccess, PageCount oldPageCount, PageCount newPageCount) { jsMemory->growSuccessCallback(vm, oldPageCount, newPageCount); };
             RefPtr<Wasm::Memory> memory;
             if (auto shared = std::get<RefPtr<SharedArrayBufferContents>>(WTFMove(content)))
-                memory = Wasm::Memory::create(shared.releaseNonNull(), WTFMove(handler));
+                memory = Wasm::Memory::create(vm, shared.releaseNonNull(), WTFMove(handler));
             else
-                memory = Wasm::Memory::createZeroSized(MemorySharingMode::Shared, WTFMove(handler));
+                memory = Wasm::Memory::createZeroSized(vm, MemorySharingMode::Shared, WTFMove(handler));
             jsMemory->adopt(memory.releaseNonNull());
             return jsMemory;
         }
@@ -2908,7 +2921,7 @@ JSC_DEFINE_HOST_FUNCTION(functionSetTimeout, (JSGlobalObject* globalObject, Call
     if (!callback)
         return throwVMTypeError(globalObject, scope, "First argument is not a JS function"_s);
 
-    auto ticket = vm.deferredWorkTimer->addPendingWork(vm, callback, { });
+    auto ticket = vm.deferredWorkTimer->addPendingWork(DeferredWorkTimer::WorkType::AtSomePoint, vm, callback, { });
     auto dispatch = [callback, ticket] {
         callback->vm().deferredWorkTimer->scheduleWorkSoon(ticket, [callback](DeferredWorkTimer::Ticket) {
             JSGlobalObject* globalObject = callback->globalObject();
@@ -3279,6 +3292,13 @@ JSC_DEFINE_HOST_FUNCTION(functionDropAllLocks, (JSGlobalObject* globalObject, Ca
     return JSValue::encode(jsUndefined());
 }
 
+// This is intended to match the resolution of WebCore's Performance::now when we're using a high resolution time.
+JSC_DEFINE_HOST_FUNCTION(functionPerformanceNow, (JSGlobalObject*, CallFrame*))
+{
+    static const MonotonicTime timeOrigin = MonotonicTime::now();
+    return JSValue::encode(jsNumber((MonotonicTime::now() - timeOrigin).reduceTimeResolution(Seconds::highTimePrecision()).milliseconds()));
+}
+
 #if ENABLE(FUZZILLI)
 
 // We have to assume that the fuzzer will be able to call this function e.g. by
@@ -3458,19 +3478,16 @@ static void startTimeoutThreadIfNeeded(VM& vm)
     startTimeoutTimer(timeoutDuration);
 }
 
-int main(int argc, char** argv WTF_TZONE_EXTRA_MAIN_ARGS)
+int main(int argc, char** argv)
 {
-#if USE(TZONE_MALLOC)
-    const char* boothash = GET_TZONE_SEED_FROM_ENV(darwinEnvp);
-    WTF_TZONE_INIT(boothash);
-#endif
-
-#if OS(DARWIN) && PLATFORM(MAC)
+#if OS(DARWIN)
+#if __has_include(<libproc.h>)
     // Let the kernel kill us when OOM
     {
         int retval = proc_setpcontrol(PROC_SETPC_TERMINATE);
         ASSERT_UNUSED(retval, !retval);
     }
+#endif
 #endif
 
 #if OS(WINDOWS)
@@ -3959,7 +3976,7 @@ void CommandLine::parseArguments(int argc, char** argv)
     Options::initialize();
     Options::useSharedArrayBuffer() = true;
     
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(APPLETV) && !PLATFORM(WATCHOS)
     Options::crashIfCantAllocateJITMemory() = true;
 #endif
 
@@ -4027,8 +4044,8 @@ void CommandLine::parseArguments(int argc, char** argv)
         }
         if (!strcmp(arg, "--signal-expected")) {
 #if OS(UNIX)
-            SignalAction (*exit)(Signal, SigInfo&, PlatformRegisters&) = [] (Signal, SigInfo&, PlatformRegisters&) {
-                dataLogLn("Signal handler hit. Exiting with status 137");
+            SignalAction (*exit)(Signal, SigInfo&, PlatformRegisters&) = [] (Signal signal, SigInfo&, PlatformRegisters&) {
+                dataLogLn("Signal handler for ", ScopedEnumDump(signal), " hit. Exiting with status 137");
                 // Deliberate exit with a SIGKILL code greater than 130.
                 terminateProcess(137);
                 return SignalAction::ForceDefault;
@@ -4352,22 +4369,13 @@ extern const JITOperationAnnotation startOfJITOperationsInShell __asm("section$s
 extern const JITOperationAnnotation endOfJITOperationsInShell __asm("section$end$__DATA_CONST$__jsc_ops");
 #endif
 
-#if USE(TZONE_MALLOC)
-extern const bmalloc::api::TZoneAnnotation startOfTZoneTypesInShell __asm("section$start$__DATA_CONST$__tzone_descs");
-extern const bmalloc::api::TZoneAnnotation endOfTZoneTypesInShell __asm("section$end$__DATA_CONST$__tzone_descs");
-#endif
-
 int jscmain(int argc, char** argv)
 {
     // Need to override and enable restricted options before we start parsing options below.
     JSC::Config::enableRestrictedOptions();
+    JSC::Options::machExceptionHandlerSandboxPolicy = JSC::Options::SandboxPolicy::Allow;
 
     WTF::initializeMainThread();
-#if USE(TZONE_MALLOC)
-    WTF_TZONE_REGISTER_TYPES(&startOfTZoneTypesInShell, &endOfTZoneTypesInShell);
-    JSC::registerTZoneTypes();
-    WTF_TZONE_REGISTRATION_DONE();
-#endif
 
     // Note that the options parsing can affect VM creation, and thus
     // comes first.

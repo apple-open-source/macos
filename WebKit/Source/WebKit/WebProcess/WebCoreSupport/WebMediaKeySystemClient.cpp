@@ -32,23 +32,31 @@
 #include "WebPage.h"
 #include <WebCore/MediaKeySystemController.h>
 #include <WebCore/MediaKeySystemRequest.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebMediaKeySystemClient);
 
 WebMediaKeySystemClient::WebMediaKeySystemClient(WebPage& page)
     : m_page(page)
 {
 }
 
+void WebMediaKeySystemClient::pageDestroyed()
+{
+    delete this;
+}
+
 void WebMediaKeySystemClient::requestMediaKeySystem(MediaKeySystemRequest& request)
 {
-    m_page.mediaKeySystemPermissionRequestManager().startMediaKeySystemRequest(request);
+    m_page->mediaKeySystemPermissionRequestManager().startMediaKeySystemRequest(request);
 }
 
 void WebMediaKeySystemClient::cancelMediaKeySystemRequest(MediaKeySystemRequest& request)
 {
-    m_page.mediaKeySystemPermissionRequestManager().cancelMediaKeySystemRequest(request);
+    m_page->mediaKeySystemPermissionRequestManager().cancelMediaKeySystemRequest(request);
 }
 
 } // namespace WebKit;

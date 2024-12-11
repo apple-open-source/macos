@@ -32,6 +32,7 @@
 #include "ExitFlag.h"
 #include "GetByVariant.h"
 #include "ICStatusMap.h"
+#include "InlineCacheCompiler.h"
 #include "ScopeOffset.h"
 #include "StubInfoSummary.h"
 
@@ -43,6 +44,8 @@ class JSModuleEnvironment;
 class JSModuleNamespaceObject;
 class ModuleNamespaceAccessCase;
 class StructureStubInfo;
+
+enum class CacheType : int8_t;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(GetByStatus);
 
@@ -139,6 +142,17 @@ public:
     void dump(PrintStream&) const;
 
     CacheableIdentifier singleIdentifier() const;
+
+    bool viaGlobalProxy() const
+    {
+        if (m_variants.isEmpty())
+            return false;
+        return m_variants.first().viaGlobalProxy();
+    }
+
+#if ENABLE(JIT)
+    CacheType preferredCacheType() const;
+#endif
     
 private:
     void merge(const GetByStatus&);

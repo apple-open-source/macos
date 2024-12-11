@@ -27,15 +27,19 @@
 
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore::WebGPU {
 
-class BindGroup : public RefCounted<BindGroup> {
+class ExternalTexture;
+
+class BindGroup : public RefCounted<BindGroup>, public CanMakeWeakPtr<BindGroup> {
 public:
     virtual ~BindGroup() = default;
 
     String label() const { return m_label; }
+    virtual void updateExternalTextures(const ExternalTexture&) = 0;
 
     void setLabel(String&& label)
     {

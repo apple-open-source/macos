@@ -82,8 +82,10 @@
 // rdar://
 #include "dtptngen_impl.h" // for datePatternHasNumericCore()
 // rdar://106782612 compatibility: format with plain spaces for specific app(s)
+#if U_PLATFORM_IS_DARWIN_BASED
 #include <stdlib.h> // for getprogname()
 #include <os/log.h>
+#endif  // U_PLATFORM_IS_DARWIN_BASED
 #endif  // APPLE_ICU_CHANGES
 
 #if APPLE_ICU_CHANGES
@@ -1325,6 +1327,7 @@ SimpleDateFormat::initialize(const Locale& locale,
 // rdar://106782612&108035771 compatibility: format with plain spaces for specific app(s).
 // This needs to be before the call to parsePattern(), which will do the space adjust.
     fUsePlainSpaces = false;
+#if U_PLATFORM_IS_DARWIN_BASED
     const char* progname = getprogname();
     if (progname!=nullptr && (
             uprv_strncmp(progname,"Wells_Fargo_Mobile_Banking",26)==0 ||
@@ -1335,6 +1338,7 @@ SimpleDateFormat::initialize(const Locale& locale,
         fUsePlainSpaces = true;
         os_log(OS_LOG_DEFAULT, "ICU using compatibility space for date formatting");
     }
+#endif
 #endif  // APPLE_ICU_CHANGES
 
     parsePattern(); // Need this before initNumberFormatters(), to set fHasHanYearChar

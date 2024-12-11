@@ -922,12 +922,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 }
 
 - (void)performCKServerUnreadableDataRemoval:(OTControlArguments*)arguments
+                                     altDSID:(NSString*)altDSID
                                        reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
     }] performCKServerUnreadableDataRemoval:arguments
-                                        reply:reply];
+                                    altDSID:altDSID
+                                      reply:reply];
 }
 
 - (void)totalTrustedPeers:(OTControlArguments*)arguments

@@ -84,13 +84,13 @@ namespace JSC {
         RegisterID* thisRegister() { return m_argv[0].get(); }
         RegisterID* argumentRegister(unsigned i) { return m_argv[i + 1].get(); }
         unsigned stackOffset() { return -m_argv[0]->index() + CallFrame::headerSizeInRegisters; }
-        unsigned argumentCountIncludingThis() { return m_argv.size() - m_padding; }
+        unsigned argumentCountIncludingThis() { return m_argv.size(); }
         ArgumentsNode* argumentsNode() { return m_argumentsNode; }
 
     private:
         ArgumentsNode* m_argumentsNode;
-        Vector<RefPtr<RegisterID>, 8, UnsafeVectorOverflow> m_argv;
-        unsigned m_padding;
+        std::span<RefPtr<RegisterID>> m_argv;
+        Vector<RefPtr<RegisterID>, 8, UnsafeVectorOverflow> m_allocatedRegisters;
     };
 
     class Variable {
@@ -370,7 +370,7 @@ namespace JSC {
         bool usesThis() const { return m_scopeNode->usesThis(); }
         bool isFunctionNode() const { return m_scopeNode->isFunctionNode(); }
         bool hasShadowsArgumentsCodeFeature() const { return m_scopeNode->hasShadowsArgumentsFeature(); }
-        LexicalScopeFeatures lexicalScopeFeatures() const { return m_scopeNode->lexicalScopeFeatures(); }
+        LexicallyScopedFeatures lexicallyScopedFeatures() const { return m_scopeNode->lexicallyScopedFeatures(); }
         PrivateBrandRequirement privateBrandRequirement() const { return m_codeBlock->privateBrandRequirement(); }
         ConstructorKind constructorKind() const { return m_codeBlock->constructorKind(); }
         SuperBinding superBinding() const { return m_codeBlock->superBinding(); }
@@ -928,6 +928,7 @@ namespace JSC {
         RegisterID* emitIsArrayIterator(RegisterID* dst, RegisterID* src) { return emitIsCellWithType(dst, src, JSArrayIteratorType); }
         RegisterID* emitIsMapIterator(RegisterID* dst, RegisterID* src) { return emitIsCellWithType(dst, src, JSMapIteratorType); }
         RegisterID* emitIsSetIterator(RegisterID* dst, RegisterID* src) { return emitIsCellWithType(dst, src, JSSetIteratorType); }
+        RegisterID* emitIsWrapForValidIterator(RegisterID* dst, RegisterID* src) { return emitIsCellWithType(dst, src, JSWrapForValidIteratorType); }
         RegisterID* emitIsObject(RegisterID* dst, RegisterID* src);
         RegisterID* emitIsCallable(RegisterID* dst, RegisterID* src);
         RegisterID* emitIsConstructor(RegisterID* dst, RegisterID* src);
@@ -1059,7 +1060,7 @@ namespace JSC {
 
         CodeType codeType() const { return m_codeType; }
 
-        bool shouldBeConcernedWithCompletionValue() const { return m_codeType != FunctionCode; }
+        bool shouldBeConcernedWithCompletionValue() const { return !m_defaultAllowCallIgnoreResultOptimization; }
 
         bool shouldEmitDebugHooks() const { return m_codeGenerationMode.contains(CodeGenerationMode::Debugger) && !m_isBuiltinFunction; }
         bool shouldEmitTypeProfilerHooks() const { return m_codeGenerationMode.contains(CodeGenerationMode::TypeProfiler); }
@@ -1145,6 +1146,8 @@ namespace JSC {
         // expected functions have identical behavior for both call and construct
         // (i.e. "Object()" is identical to "new Object()").
         ExpectedFunction emitExpectedFunctionSnippet(RegisterID* dst, RegisterID* func, ExpectedFunction, CallArguments&, Label& done);
+
+        LexicallyScopedFeatures computeFeaturesForCallDirectEval();
         
         template<typename CallOp>
         RegisterID* emitCall(RegisterID* dst, RegisterID* func, ExpectedFunction, CallArguments&, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd, DebuggableCall);
@@ -1278,6 +1281,8 @@ namespace JSC {
                 && !isArrowFunctionParseMode(parseMode())
                 && !isGeneratorOrAsyncFunctionBodyParseMode(parseMode());
         }
+
+        unsigned localScopeCount() const { return m_localScopeCount; }
     private:
         OptionSet<CodeGenerationMode> m_codeGenerationMode;
 
@@ -1322,6 +1327,7 @@ namespace JSC {
         SegmentedVector<RegisterID, 32> m_constantPoolRegisters;
         unsigned m_finallyDepth { 0 };
         unsigned m_localScopeDepth { 0 };
+        unsigned m_localScopeCount { 0 };
         const CodeType m_codeType;
 
         unsigned localScopeDepth() const;

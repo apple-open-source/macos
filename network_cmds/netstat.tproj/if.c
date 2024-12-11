@@ -445,6 +445,9 @@ intpr(void (*pfunc)(char *))
 		} else {
 			continue;
 		}
+		if (pfunc != NULL) {
+			continue;
+		}
 		if (lflag) {
 			printf("%-14.14s %-5u ", name, mtu);
 		} else {

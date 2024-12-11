@@ -66,6 +66,8 @@ public:
     RefPtr<JSC::ArrayBuffer> takeAsArrayBuffer();
     String takeAsText();
 
+    bool hasPendingActivity() const { return m_formDataConsumer ? m_formDataConsumer->hasPendingActivity() : false; }
+
     void setType(Type type) { m_type = type; }
 
     void clean();
@@ -97,7 +99,7 @@ private:
     RefPtr<FetchBodySource> m_source;
     bool m_isLoading { false };
     RefPtr<UserGestureToken> m_userGestureToken;
-    std::unique_ptr<FormDataConsumer> m_formDataConsumer;
+    RefPtr<FormDataConsumer> m_formDataConsumer;
 };
 
 } // namespace WebCore

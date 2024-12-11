@@ -30,7 +30,9 @@
 namespace WebCore {
 
 class CSSParserTokenRange;
+class CSSValue;
 struct CSSParserContext;
+class CSSValue;
 
 namespace CSSPropertyParserHelpers {
 

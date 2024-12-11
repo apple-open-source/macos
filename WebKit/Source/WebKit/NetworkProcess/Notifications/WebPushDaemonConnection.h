@@ -31,6 +31,7 @@
 #include "MessageSender.h"
 #include "WebPushDaemonConnectionConfiguration.h"
 #include "WebPushDaemonConstants.h"
+#include <wtf/TZoneMalloc.h>
 
 namespace IPC {
 class Decoder;
@@ -52,12 +53,9 @@ struct ConnectionTraits {
 };
 
 class Connection : public Daemon::ConnectionToMachService<ConnectionTraits>, public IPC::MessageSender {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(Connection);
 public:
-    Connection(CString&& machServiceName, NetworkNotificationManager&, WebPushDaemonConnectionConfiguration&&);
-
-    void debugMessage(const String&);
-    void setConfiguration(WebPushDaemonConnectionConfiguration&&);
+    Connection(CString&& machServiceName, WebPushDaemonConnectionConfiguration&&);
 
 private:
     void newConnectionWasInitialized() const final;
@@ -65,11 +63,7 @@ private:
     OSObjectPtr<xpc_object_t> dictionaryFromMessage(MessageType, Daemon::EncodedMessage&&) const final { return nullptr; }
     void connectionReceivedEvent(xpc_object_t) final { }
 #endif
-    void sendDebugModeIsEnabledMessageIfNecessary() const;
 
-    NetworkSession& networkSession() const;
-
-    NetworkNotificationManager& m_notificationManager;
     WebPushDaemonConnectionConfiguration m_configuration;
 
     // IPC::MessageSender

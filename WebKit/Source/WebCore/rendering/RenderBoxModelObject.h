@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2006, 2007, 2009 Apple Inc. All rights reserved.
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2003-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -59,6 +59,7 @@ enum ContentChangeType {
 };
 
 class BorderEdge;
+class BorderShape;
 class ImageBuffer;
 class RenderTextFragment;
 class StickyPositionViewportConstraints;
@@ -76,7 +77,7 @@ using BorderEdges = RectEdges<BorderEdge>;
 // at http://www.w3.org/TR/CSS21/box.html
 
 class RenderBoxModelObject : public RenderLayerModelObject {
-    WTF_MAKE_ISO_ALLOCATED(RenderBoxModelObject);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderBoxModelObject);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderBoxModelObject);
 public:
     virtual ~RenderBoxModelObject();
@@ -182,7 +183,7 @@ public:
     LayoutUnit marginLogicalHeight() const { return marginBefore() + marginAfter(); }
     LayoutUnit marginLogicalWidth() const { return marginStart() + marginEnd(); }
 
-    RoundedRect roundedContentBoxRect(const LayoutRect& borderBoxRect, bool includeLeftEdge = true, bool includeRightEdge = true) const;
+    BorderShape borderShapeForContentClipping(const LayoutRect& borderBoxRect, bool includeLeftEdge = true, bool includeRightEdge = true) const;
 
     inline bool hasInlineDirectionBordersPaddingOrMargin() const;
     inline bool hasInlineDirectionBordersOrPadding() const;
@@ -226,14 +227,15 @@ protected:
     bool borderObscuresBackgroundEdge(const FloatSize& contextScale) const;
     bool borderObscuresBackground() const;
 
-    bool hasAutoHeightOrContainingBlockWithAutoHeight() const;
+    enum class UpdatePercentageHeightDescendants : bool { No, Yes };
+    bool hasAutoHeightOrContainingBlockWithAutoHeight(UpdatePercentageHeightDescendants = UpdatePercentageHeightDescendants::Yes) const;
 
 public:
     bool fixedBackgroundPaintsInLocalCoordinates() const;
     InterpolationQuality chooseInterpolationQuality(GraphicsContext&, Image&, const void*, const LayoutSize&) const;
     DecodingMode decodingModeForImageDraw(const Image&, const PaintInfo&) const;
 
-    void paintMaskForTextFillBox(ImageBuffer*, const FloatRect&, const InlineIterator::InlineBoxIterator&, const LayoutRect&);
+    void paintMaskForTextFillBox(GraphicsContext&, const FloatRect&, const InlineIterator::InlineBoxIterator&, const LayoutRect&);
 
     // For RenderBlocks and RenderInlines with m_style->pseudoElementType() == PseudoId::FirstLetter, this tracks their remaining text fragments
     RenderTextFragment* firstLetterRemainingText() const;

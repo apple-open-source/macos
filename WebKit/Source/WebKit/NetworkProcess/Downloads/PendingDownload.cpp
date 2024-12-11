@@ -35,9 +35,12 @@
 #include "NetworkSession.h"
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/LocalFrameLoaderClient.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PendingDownload);
 
 PendingDownload::PendingDownload(IPC::Connection* parentProcessConnection, NetworkLoadParameters&& parameters, DownloadID downloadID, NetworkSession& networkSession, const String& suggestedName, FromDownloadAttribute fromDownloadAttribute, std::optional<WebCore::ProcessIdentifier> webProcessID)
     : m_networkLoad(makeUnique<NetworkLoad>(*this, WTFMove(parameters), networkSession))
@@ -67,6 +70,8 @@ PendingDownload::PendingDownload(IPC::Connection* parentProcessConnection, std::
     m_networkLoad->convertTaskToDownload(*this, request, response, WTFMove(completionHandler));
 }
 
+PendingDownload::~PendingDownload() = default;
+
 bool PendingDownload::isDownloadTriggeredWithDownloadAttribute() const
 {
     return m_fromDownloadAttribute == FromDownloadAttribute::Yes;
@@ -79,7 +84,12 @@ inline static bool isRedirectCrossOrigin(const WebCore::ResourceRequest& redirec
 
 void PendingDownload::willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse, CompletionHandler<void(WebCore::ResourceRequest&&)>&& completionHandler)
 {
-    if (WTF::linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::BlockCrossOriginRedirectDownloads) && isDownloadTriggeredWithDownloadAttribute() && isRedirectCrossOrigin(redirectRequest, redirectResponse)) {
+#if PLATFORM(COCOA)
+    bool linkedOnOrAfterBlockCrossOriginDownloads = WTF::linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::BlockCrossOriginRedirectDownloads);
+#else
+    bool linkedOnOrAfterBlockCrossOriginDownloads = true;
+#endif
+    if (linkedOnOrAfterBlockCrossOriginDownloads && isDownloadTriggeredWithDownloadAttribute() && isRedirectCrossOrigin(redirectRequest, redirectResponse)) {
         completionHandler(WebCore::ResourceRequest());
         m_networkLoad->cancel();
         if (m_webProcessID && !redirectRequest.url().protocolIsJavaScript() && m_networkLoad->webFrameID() && m_networkLoad->webPageID())
@@ -97,17 +107,33 @@ void PendingDownload::cancel(CompletionHandler<void(std::span<const uint8_t>)>&&
 }
 
 #if PLATFORM(COCOA)
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+void PendingDownload::publishProgress(const URL& url, std::span<const uint8_t> bookmarkData, UseDownloadPlaceholder useDownloadPlaceholder, std::span<const uint8_t> activityAccessToken)
+{
+    ASSERT(!m_progressURL.isValid());
+    m_progressURL = url;
+    m_bookmarkData = bookmarkData;
+    m_useDownloadPlaceholder = useDownloadPlaceholder;
+    m_activityAccessToken = activityAccessToken;
+}
+#else
 void PendingDownload::publishProgress(const URL& url, SandboxExtension::Handle&& sandboxExtension)
 {
     ASSERT(!m_progressURL.isValid());
     m_progressURL = url;
     m_progressSandboxExtension = WTFMove(sandboxExtension);
 }
+#endif
 
 void PendingDownload::didBecomeDownload(const std::unique_ptr<Download>& download)
 {
-    if (m_progressURL.isValid())
-        download->publishProgress(m_progressURL, WTFMove(m_progressSandboxExtension));
+    if (!m_progressURL.isValid())
+        return;
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+    download->publishProgress(m_progressURL, m_bookmarkData, m_useDownloadPlaceholder, m_activityAccessToken);
+#else
+    download->publishProgress(m_progressURL, WTFMove(m_progressSandboxExtension));
+#endif
 }
 #endif // PLATFORM(COCOA)
 
@@ -132,7 +158,7 @@ void PendingDownload::didReceiveResponse(WebCore::ResourceResponse&& response, P
 
 uint64_t PendingDownload::messageSenderDestinationID() const
 {
-    return m_networkLoad->pendingDownloadID().toUInt64();
+    return m_networkLoad->pendingDownloadID()->toUInt64();
 }
     
 }

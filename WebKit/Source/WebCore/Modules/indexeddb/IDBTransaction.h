@@ -66,7 +66,7 @@ class TransactionOperation;
 }
 
 class IDBTransaction final : public ThreadSafeRefCounted<IDBTransaction>, public EventTarget, public IDBActiveDOMObject {
-    WTF_MAKE_ISO_ALLOCATED_EXPORT(IDBTransaction, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(IDBTransaction, WEBCORE_EXPORT);
 public:
     static Ref<IDBTransaction> create(IDBDatabase&, const IDBTransactionInfo&);
     static Ref<IDBTransaction> create(IDBDatabase&, const IDBTransactionInfo&, IDBOpenDBRequest&);

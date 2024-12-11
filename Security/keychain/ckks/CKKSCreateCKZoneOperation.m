@@ -11,9 +11,9 @@
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/ot/OTDefines.h"
 
-#import "keychain/analytics/SecurityAnalyticsConstants.h"
-#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
-#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface CKKSCreateCKZoneOperation ()
 @property bool allZoneCreationsSucceeded;

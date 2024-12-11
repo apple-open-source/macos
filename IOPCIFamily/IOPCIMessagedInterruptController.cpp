@@ -47,6 +47,14 @@
 
 extern uint32_t gIOPCIFlags;
 
+#define DLOG(fmt, args...)                   \
+    do {                                                    \
+        if ((gIOPCIFlags & kIOPCIConfiguratorIOLog) && !ml_at_interrupt_context())   \
+            IOLog(fmt, ## args);                            \
+        if (gIOPCIFlags & kIOPCIConfiguratorKPrintf)        \
+            kprintf(fmt, ## args);                          \
+    } while(0)
+
 #if !ACPI_SUPPORT
 #define IOPCISetMSIInterrupt(a,b,c)		kIOReturnUnsupported
 #endif
@@ -651,6 +659,8 @@ void IOPCIMessagedInterruptController::enableDeviceMSI(IOPCIDevice *device)
 {
     if (device && device->reserved && !device->isInactive())
     {
+        IORecursiveLockLock(device->reserved->lock);
+
         if (!device->reserved->msiEnable)
         {
             IOByteCount msi = device->reserved->msiCapability;
@@ -674,29 +684,40 @@ void IOPCIMessagedInterruptController::enableDeviceMSI(IOPCIDevice *device)
             device->setProperty("IOPCIMSIMode", kOSBooleanTrue);
         }
         device->reserved->msiEnable++;
+
+		DLOG("[%s()] nub %s msiEnable %u\n", __func__, device->getName(), device->reserved->msiEnable);
+
+        IORecursiveLockUnlock(device->reserved->lock);
     }
 }
 
 void IOPCIMessagedInterruptController::disableDeviceMSI(IOPCIDevice *device)
 {
-    if (device && device->reserved 
-        && device->reserved->msiEnable 
-        && !(--device->reserved->msiEnable)
-        && !device->isInactive())
+    if (device && device->reserved && !device->isInactive())
     {
-        IOByteCount msi = device->reserved->msiCapability;
-        uint16_t control;
+		IORecursiveLockLock(device->reserved->lock);
 
-        control = device->reserved->msiControl;
-        control &= ~((1 << 15) | 1);
-		device->reserved->msiControl = control;
-        device->configWrite16(msi + 2, control);
+		if (device->reserved->msiEnable
+		    && !(--device->reserved->msiEnable))
+		{
+		    IOByteCount msi = device->reserved->msiCapability;
+		    uint16_t control;
 
-		control = device->configRead16(kIOPCIConfigCommand);
-		control &= ~kIOPCICommandInterruptDisable;
-        device->configWrite16(kIOPCIConfigCommand, control);
+		    control = device->reserved->msiControl;
+		    control &= ~((1 << 15) | 1);
+			device->reserved->msiControl = control;
+		    device->configWrite16(msi + 2, control);
 
-        device->removeProperty("IOPCIMSIMode");
+			control = device->configRead16(kIOPCIConfigCommand);
+			control &= ~kIOPCICommandInterruptDisable;
+		    device->configWrite16(kIOPCIConfigCommand, control);
+
+		    device->removeProperty("IOPCIMSIMode");
+		}
+
+		DLOG("[%s()] nub %s msiEnable %u\n", __func__, device->getName(), device->reserved->msiEnable);
+
+		IORecursiveLockUnlock(device->reserved->lock);
     }
 }
 

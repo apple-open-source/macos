@@ -251,32 +251,6 @@ void WKAccessibilityEnable()
     WebCore::AXObjectCache::enableAccessibility();
 }
 
-void* WKAccessibilityRootObject(WKBundlePageRef pageRef)
-{
-    if (!pageRef)
-        return 0;
-
-    WebCore::Page* page = WebKit::toImpl(pageRef)->corePage();
-    if (!page)
-        return 0;
-
-    auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(page->mainFrame());
-    if (!localMainFrame)
-        return 0;
-    
-    auto& core = *localMainFrame;
-    if (!core.document())
-        return 0;
-    
-    WebCore::AXObjectCache::enableAccessibility();
-
-    WebCore::AXCoreObject* root = core.document()->axObjectCache()->rootObject();
-    if (!root)
-        return 0;
-    
-    return root->wrapper();
-}
-
 void* WKAccessibilityFocusedObject(WKBundlePageRef pageRef)
 {
     if (!pageRef)
@@ -501,7 +475,7 @@ WKImageRef WKBundlePageCreateSnapshotWithOptions(WKBundlePageRef pageRef, WKRect
 WKImageRef WKBundlePageCreateSnapshotInViewCoordinates(WKBundlePageRef pageRef, WKRect rect, WKImageOptions options)
 {
     auto snapshotOptions = WebKit::snapshotOptionsFromImageOptions(options);
-    snapshotOptions |= WebKit::SnapshotOptionsInViewCoordinates;
+    snapshotOptions.add(WebKit::SnapshotOption::InViewCoordinates);
     RefPtr<WebKit::WebImage> webImage = WebKit::toImpl(pageRef)->scaledSnapshotWithOptions(WebKit::toIntRect(rect), 1, snapshotOptions);
     return toAPI(webImage.leakRef());
 }

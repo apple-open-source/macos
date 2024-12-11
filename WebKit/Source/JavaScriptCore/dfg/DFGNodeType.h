@@ -170,6 +170,7 @@ namespace JSC { namespace DFG {
     macro(ArithMin, NodeResultNumber | NodeHasVarArgs) \
     macro(ArithMax, NodeResultNumber | NodeHasVarArgs) \
     macro(ArithFRound, NodeResultDouble | NodeMustGenerate) \
+    macro(ArithF16Round, NodeResultDouble | NodeMustGenerate) \
     macro(ArithPow, NodeResultDouble) \
     macro(ArithRandom, NodeResultDouble | NodeMustGenerate) \
     macro(ArithRound, NodeResultNumber | NodeMustGenerate) \
@@ -283,6 +284,7 @@ namespace JSC { namespace DFG {
     macro(ResolveScopeForHoistingFuncDeclInEval, NodeResultJS | NodeMustGenerate) \
     macro(GetGlobalObject, NodeResultJS) \
     macro(GetGlobalThis, NodeResultJS) \
+    macro(UnwrapGlobalProxy, NodeResultJS) \
     macro(GetClosureVar, NodeResultJS) \
     macro(PutClosureVar, NodeMustGenerate) \
     macro(GetGlobalVar, NodeResultJS) \
@@ -427,11 +429,13 @@ namespace JSC { namespace DFG {
     /* Nodes for misc operations. */\
     macro(OverridesHasInstance, NodeMustGenerate | NodeResultBoolean) \
     macro(InstanceOf, NodeMustGenerate | NodeResultBoolean) \
+    macro(InstanceOfMegamorphic, NodeMustGenerate | NodeResultBoolean) \
     macro(InstanceOfCustom, NodeMustGenerate | NodeResultBoolean) \
     macro(MatchStructure, NodeMustGenerate | NodeResultBoolean) \
     \
     macro(IsCellWithType, NodeResultBoolean) \
     macro(IsEmpty, NodeResultBoolean) \
+    macro(IsEmptyStorage, NodeResultBoolean) \
     macro(HasStructureWithFlags, NodeResultBoolean) \
     macro(TypeOfIsUndefined, NodeResultBoolean) \
     macro(TypeOfIsObject, NodeResultBoolean) \
@@ -554,8 +558,8 @@ namespace JSC { namespace DFG {
     /* Nodes for JSMap and JSSet */ \
     macro(MapHash, NodeResultInt32) \
     macro(NormalizeMapKey, NodeResultJS) \
-    macro(MapKeyIndex, NodeResultInt32) \
-    macro(MapValue, NodeResultJS) \
+    macro(MapGet, NodeResultStorage) \
+    macro(LoadMapValue, NodeResultJS) \
     macro(MapIteratorNext, NodeResultBoolean) \
     macro(MapIteratorKey, NodeResultJS) \
     macro(MapIteratorValue, NodeResultJS) \

@@ -3312,7 +3312,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
     SMB_LOG_KTRACE(SMB_DBG_IOD_RECONNECT | DBG_FUNC_START,
                    iod->iod_id, 0, 0, 0, 0);
 
-    SMB_LOG_MC("id %d Starting reconnect with %s\n", iod->iod_id, sessionp->session_srvname);
+    SMBERROR("id %d Starting reconnect with %s\n", iod->iod_id, sessionp->session_srvname);
 	SMB_TRAN_DISCONNECT(iod); /* Make sure the connection is close first */
 	iod->iod_state = SMBIOD_ST_CONNECT;
 	
@@ -3474,7 +3474,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
 						   iod->iod_id, sessionp->session_srvname, error);
 				break;				
 			} else {
-                SMB_LOG_MC("id %d The negotiate succeeded to %s\n",
+                SMBERROR("id %d The negotiate succeeded to %s\n",
                            iod->iod_id, sessionp->session_srvname);
 				iod->iod_state = SMBIOD_ST_NEGOACTIVE;
 				/*
@@ -3751,7 +3751,7 @@ exit:
 	}
     else {
         /* Reconnect worked, its now safe to start up crediting again */
-        SMB_LOG_MC("id %d: Reconnect completed successfully. \n", iod->iod_id);
+        SMBERROR("id %d: Reconnect completed successfully. \n", iod->iod_id);
         smb2_rq_credit_start(iod, 0);
 		smb_reconn_stats.success_cnt += 1;
     }

@@ -360,9 +360,14 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
         }
 #endif /* TARGET_OS_IOS */
 
+        NSString *volumeNameStr = @"";
+        if (outVols[0].volumeName != nil) {
+            volumeNameStr = outVols[0].volumeName.string;
+        }
+
         error = [mountClient mountVolume:volumeID
                               fileSystem:shortName
-                             displayName:outVols[0].volumeName
+                             displayName:volumeNameStr
                                 provider:fpProviderName
                              domainError:nil
                                       on:mountPathString
@@ -388,9 +393,22 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
                 warnx("Final mount step cleanup ended with error: %s",
                       error1.localizedDescription.UTF8String);
             }
-
+            FSTaskOptionsBundle *unloadOptions = [FSTaskOptionsBundle new];
+            dispatch_group_t unloadGroup = dispatch_group_create();
+            dispatch_group_enter(unloadGroup);
+            [client unloadResource:theResource
+                         shortName:shortName
+                           options:unloadOptions
+                      replyHandler:^(NSError * _Nullable unloadError) {
+                if (unloadError) {
+                    os_log_debug(fskit_std_log(), "%s:error:%@", __FUNCTION__, unloadError);
+                }
+                dispatch_group_leave(unloadGroup);
+            }];
+            dispatch_group_wait(unloadGroup, DISPATCH_TIME_FOREVER);
             return (int)error.code;
         }
+
     } else {
         // Successfully formatted or checked. Unload the resource
     }

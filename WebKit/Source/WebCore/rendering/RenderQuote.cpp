@@ -28,13 +28,13 @@
 #include "RenderTextFragment.h"
 #include "RenderTreeBuilder.h"
 #include "RenderView.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 using namespace WTF::Unicode;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderQuote);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderQuote);
 
 RenderQuote::RenderQuote(Document& document, RenderStyle&& style, QuoteType quote)
     : RenderInline(Type::Quote, document, WTFMove(style))
@@ -44,10 +44,8 @@ RenderQuote::RenderQuote(Document& document, RenderStyle&& style, QuoteType quot
     ASSERT(isRenderQuote());
 }
 
-RenderQuote::~RenderQuote()
-{
-    // Do not add any code here. Add it to willBeDestroyed() instead.
-}
+// Do not add any code in below destructor. Add it to willBeDestroyed() instead.
+RenderQuote::~RenderQuote() = default;
 
 void RenderQuote::insertedIntoTree()
 {
@@ -446,7 +444,7 @@ void RenderQuote::updateTextRenderer(RenderTreeBuilder& builder)
     m_text = text;
     if (auto* renderText = dynamicDowncast<RenderTextFragment>(lastChild())) {
         renderText->setContentString(m_text);
-        renderText->dirtyLineBoxes(false);
+        renderText->dirtyLegacyLineBoxes(false);
         return;
     }
     builder.attach(*this, createRenderer<RenderTextFragment>(document(), m_text));

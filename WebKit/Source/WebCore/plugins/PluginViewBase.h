@@ -77,6 +77,7 @@ public:
     virtual void setPDFDisplayModeForTesting(const String&) { };
     virtual bool sendEditingCommandToPDFForTesting(const String&, const String&) { return false; }
     virtual Vector<FloatRect> pdfAnnotationRectsForTesting() const { return { }; }
+    virtual void setPDFTextAnnotationValueForTesting(unsigned /* pageIndex */, unsigned /* annotationIndex */, const String& /* value */) { };
 
     virtual void releaseMemory() { }
 

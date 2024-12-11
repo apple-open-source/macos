@@ -73,13 +73,16 @@ int openpty(int *aprimary, int *areplica, char *name, struct termios *termp, str
 {
 	int primary, replica;
 	char rname[128];
+	int errno_saved;
 
 	if ((primary = posix_openpt(O_RDWR|O_NOCTTY)) < 0)
 		return -1;
 	if (grantpt(primary) < 0 || unlockpt(primary) < 0
 	    || ptsname_r(primary, rname, sizeof(rname)) == -1
 	    || (replica = open(rname, O_RDWR|O_NOCTTY, 0)) < 0) {
+		errno_saved = errno;
 		(void) close(primary);
+		errno = errno_saved;
 		return -1;
 	}
 	*aprimary = primary;
@@ -97,13 +100,16 @@ int
 forkpty(int *aprimary, char *name, struct termios *termp, struct winsize *winp)
 {
 	int primary, replica, pid;
+	int errno_saved;
 
 	if (openpty(&primary, &replica, name, termp, winp) == -1)
 		return (-1);
 	switch (pid = fork()) {
 	case -1:
+		errno_saved = errno;
 		(void) close(primary);
 		(void) close(replica);
+		errno = errno_saved;
 		return (-1);
 	case 0:
 		/* 

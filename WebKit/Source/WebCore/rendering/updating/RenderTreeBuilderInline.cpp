@@ -33,8 +33,11 @@
 #include "RenderTreeBuilderMultiColumn.h"
 #include "RenderTreeBuilderTable.h"
 #include <wtf/SetForScope.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(RenderTreeBuilderInline, RenderTreeBuilder::Inline);
 
 static bool canUseAsParentForContinuation(const RenderObject* renderer)
 {
@@ -239,6 +242,7 @@ void RenderTreeBuilder::Inline::splitFlow(RenderInline& parent, RenderObject* be
         RenderObject* o = boxFirst;
         while (o) {
             RenderObject* no = o;
+            auto internalMoveScope = SetForScope { m_builder.m_internalMovesType, IsInternalMove::Yes };
             o = no->nextSibling();
             auto childToMove = m_builder.detachFromRenderElement(*block, *no, WillBeDestroyed::No);
             m_builder.attachToRenderElementInternal(*pre, WTFMove(childToMove));

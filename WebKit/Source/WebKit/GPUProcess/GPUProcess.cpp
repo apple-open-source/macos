@@ -35,7 +35,6 @@
 #include "GPUProcessConnectionParameters.h"
 #include "GPUProcessCreationParameters.h"
 #include "GPUProcessPreferences.h"
-#include "GPUProcessPreferencesForWebProcess.h"
 #include "GPUProcessProxyMessages.h"
 #include "GPUProcessSessionParameters.h"
 #include "LogInitialization.h"
@@ -149,6 +148,13 @@ void GPUProcess::createGPUConnectionToWebProcess(WebCore::ProcessIdentifier iden
     m_webProcessConnections.add(identifier, WTFMove(newConnection));
 }
 
+void GPUProcess::sharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier identifier, SharedPreferencesForWebProcess&& sharedPreferencesForWebProcess, CompletionHandler<void()>&& completionHandler)
+{
+    if (RefPtr connection = m_webProcessConnections.get(identifier))
+        connection->updateSharedPreferencesForWebProcess(WTFMove(sharedPreferencesForWebProcess));
+    completionHandler();
+}
+
 void GPUProcess::removeGPUConnectionToWebProcess(GPUConnectionToWebProcess& connection)
 {
     RELEASE_LOG(Process, "%p - GPUProcess::removeGPUConnectionToWebProcess: processIdentifier=%" PRIu64, this, connection.webProcessIdentifier().toUInt64());
@@ -222,8 +228,10 @@ void GPUProcess::lowMemoryHandler(Critical critical, Synchronous synchronous)
     WebCore::releaseGraphicsMemory(critical, synchronous);
 }
 
-void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters)
+void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters, CompletionHandler<void()>&& completionHandler)
 {
+    CompletionHandlerCallingScope callCompletionHandler(WTFMove(completionHandler));
+
     applyProcessCreationParameters(parameters.auxiliaryProcessParameters);
     RELEASE_LOG(Process, "%p - GPUProcess::initializeGPUProcess:", this);
     WTF::Thread::setCurrentThreadIsUserInitiated();
@@ -275,6 +283,9 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters)
 
 #if USE(GBM)
     WebCore::DRMDeviceManager::singleton().initializeMainDevice(parameters.renderDeviceFile);
+
+    // Ensure that the GBM device is also initialized before WebGL worker threads try using it.
+    RELEASE_ASSERT(WebCore::DRMDeviceManager::singleton().mainGBMDeviceNode(WebCore::DRMDeviceManager::NodeType::Render));
 #endif
 
     m_applicationVisibleName = WTFMove(parameters.applicationVisibleName);
@@ -301,11 +312,6 @@ void GPUProcess::updateGPUProcessPreferences(GPUProcessPreferences&& preferences
         DeprecatedGlobalSettings::setWebMParserEnabled(*m_preferences.webMParserEnabled);
 #endif
 
-#if ENABLE(WEBM_FORMAT_READER)
-    if (updatePreference(m_preferences.webMFormatReaderEnabled, preferences.webMFormatReaderEnabled))
-        PlatformMediaSessionManager::setWebMFormatReaderEnabled(*m_preferences.webMFormatReaderEnabled);
-#endif
-
 #if ENABLE(OPUS)
     if (updatePreference(m_preferences.opusDecoderEnabled, preferences.opusDecoderEnabled))
         PlatformMediaSessionManager::setOpusDecoderEnabled(*m_preferences.opusDecoderEnabled);
@@ -321,9 +327,9 @@ void GPUProcess::updateGPUProcessPreferences(GPUProcessPreferences&& preferences
         DeprecatedGlobalSettings::setMediaSourceInlinePaintingEnabled(*m_preferences.mediaSourceInlinePaintingEnabled);
 #endif
 
-#if HAVE(AVCONTENTKEYSPECIFIER)
-    if (updatePreference(m_preferences.sampleBufferContentKeySessionSupportEnabled, preferences.sampleBufferContentKeySessionSupportEnabled))
-        MediaSessionManagerCocoa::setSampleBufferContentKeySessionSupportEnabled(*m_preferences.sampleBufferContentKeySessionSupportEnabled);
+#if USE(MODERN_AVCONTENTKEYSESSION)
+    if (updatePreference(m_preferences.shouldUseModernAVContentKeySession, preferences.shouldUseModernAVContentKeySession))
+        MediaSessionManagerCocoa::setShouldUseModernAVContentKeySession(*m_preferences.shouldUseModernAVContentKeySession);
 #endif
 
 #if ENABLE(ALTERNATE_WEBM_PLAYER)
@@ -451,6 +457,12 @@ void GPUProcess::setOrientationForMediaCapture(IntDegrees orientation)
         connection->setOrientationForMediaCapture(orientation);
 }
 
+void GPUProcess::rotationAngleForCaptureDeviceChanged(const String& persistentId, WebCore::VideoFrameRotation rotation)
+{
+    for (auto& connection : m_webProcessConnections.values())
+        connection->rotationAngleForCaptureDeviceChanged(persistentId, rotation);
+}
+
 void GPUProcess::updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, WebCore::ProcessIdentifier processID, CompletionHandler<void()>&& completionHandler)
 {
     RELEASE_LOG(WebRTC, "GPUProcess::updateCaptureAccess: Entering (audio=%d, video=%d, display=%d)", allowAudioCapture, allowVideoCapture, allowDisplayCapture);
@@ -512,6 +524,20 @@ void GPUProcess::triggerMockCaptureConfigurationChange(bool forMicrophone, bool 
 {
     MockRealtimeMediaSourceCenter::singleton().triggerMockCaptureConfigurationChange(forMicrophone, forDisplay);
 }
+
+void GPUProcess::setShouldListenToVoiceActivity(bool shouldListen)
+{
+#if PLATFORM(COCOA)
+    if (!shouldListen) {
+        RealtimeMediaSourceCenter::singleton().audioCaptureFactory().disableMutedSpeechActivityEventListener();
+        return;
+    }
+
+    RealtimeMediaSourceCenter::singleton().audioCaptureFactory().enableMutedSpeechActivityEventListener([] {
+        GPUProcess::singleton().protectedParentProcessConnection()->send(Messages::GPUProcessProxy::VoiceActivityDetected { }, 0);
+    });
+#endif
+}
 #endif // ENABLE(MEDIA_STREAM)
 
 #if HAVE(SCREEN_CAPTURE_KIT)
@@ -526,14 +552,6 @@ void GPUProcess::cancelGetDisplayMediaPrompt()
 }
 
 #endif // HAVE(SCREEN_CAPTURE_KIT)
-
-#if PLATFORM(MAC)
-void GPUProcess::displayConfigurationChanged(CGDirectDisplayID displayID, CGDisplayChangeSummaryFlags flags)
-{
-    for (auto& connection : m_webProcessConnections.values())
-        connection->displayConfigurationChanged(displayID, flags);
-}
-#endif
 
 void GPUProcess::addSession(PAL::SessionID sessionID, GPUProcessSessionParameters&& parameters)
 {

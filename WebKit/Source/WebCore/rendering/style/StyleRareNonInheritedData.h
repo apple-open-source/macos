@@ -45,10 +45,12 @@
 #include "StyleContentAlignmentData.h"
 #include "StyleScrollSnapPoints.h"
 #include "StyleSelfAlignmentData.h"
+#include "StyleTextEdge.h"
 #include "TextDecorationThickness.h"
 #include "TouchAction.h"
 #include "TranslateTransformOperation.h"
 #include "ViewTimeline.h"
+#include "ViewTransitionName.h"
 #include "WillChangeData.h"
 #include <memory>
 #include <wtf/DataRef.h>
@@ -77,11 +79,11 @@ struct StyleMarqueeData;
 // Page size type.
 // StyleRareNonInheritedData::pageSize is meaningful only when
 // StyleRareNonInheritedData::pageSizeType is PAGE_SIZE_RESOLVED.
-enum PageSizeType : uint8_t {
-    PAGE_SIZE_AUTO, // size: auto
-    PAGE_SIZE_AUTO_LANDSCAPE, // size: landscape
-    PAGE_SIZE_AUTO_PORTRAIT, // size: portrait
-    PAGE_SIZE_RESOLVED // Size is fully resolved.
+enum class PageSizeType : uint8_t {
+    Auto, // size: auto
+    AutoLandscape, // size: landscape
+    AutoPortrait, // size: portrait
+    Resolved // Size is fully resolved.
 };
 
 // This struct is for rarely used non-inherited CSS3, CSS2, and WebKit-specific properties.
@@ -111,6 +113,10 @@ public:
 
     LineClampValue lineClamp; // An Apple extension.
     
+    size_t maxLines { 0 };
+
+    OverflowContinue overflowContinue { OverflowContinue::Auto };
+
     IntSize initialLetter;
 
     DataRef<StyleMarqueeData> marquee; // Marquee properties
@@ -153,7 +159,9 @@ public:
     RefPtr<PathOperation> offsetPath;
 
     Vector<Style::ScopedName> containerNames;
-    std::optional<Style::ScopedName> viewTransitionName;
+
+    Vector<Style::ScopedName> viewTransitionClasses;
+    Style::ViewTransitionName viewTransitionName;
 
     GapLength columnGap;
     GapLength rowGap;

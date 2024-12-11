@@ -33,7 +33,9 @@
 #import "ModelConnectionToWebProcess.h"
 #import "ModelProcessModelPlayerManagerProxy.h"
 #import "ModelProcessModelPlayerMessages.h"
+#import "RealityKitBridging.h"
 #import "WKModelProcessModelLayer.h"
+#import "WebKitSwiftSoftLink.h"
 #import <RealitySystemSupport/RealitySystemSupport.h>
 #import <SurfBoardServices/SurfBoardServices.h>
 #import <WebCore/Color.h>
@@ -50,9 +52,12 @@
 #import <wtf/BlockPtr.h>
 #import <wtf/MathExtras.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/TextStream.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ModelProcessModelPlayerProxy);
 
 Ref<ModelProcessModelPlayerProxy> ModelProcessModelPlayerProxy::create(ModelProcessModelPlayerManagerProxy& manager, WebCore::ModelPlayerIdentifier identifier, Ref<IPC::Connection>&& connection)
 {
@@ -150,26 +155,27 @@ static inline simd_float2 makeMeterSizeFromPointSize(CGSize pointSize, CGFloat p
     return simd_make_float2(pointSize.width / pointsPerMeter, pointSize.height / pointsPerMeter);
 }
 
-static simd_float3 computeExtents(simd_float2 boundsOfLayerInMeters, simd_float3 originalBoundingBoxExtents)
+static void computeScaledExtentsAndCenter(simd_float2 boundsOfLayerInMeters, simd_float3& boundingBoxExtents, simd_float3& boundingBoxCenter)
 {
-    if (simd_reduce_min(originalBoundingBoxExtents) - FLT_EPSILON > 0) {
+    if (simd_reduce_min(boundingBoxExtents) - FLT_EPSILON > 0) {
         auto boundsScaleRatios = simd_make_float2(
-            boundsOfLayerInMeters.x / originalBoundingBoxExtents.x,
-            boundsOfLayerInMeters.y / originalBoundingBoxExtents.y
+            boundsOfLayerInMeters.x / boundingBoxExtents.x,
+            boundsOfLayerInMeters.y / boundingBoxExtents.y
         );
-        return simd_reduce_min(boundsScaleRatios) * originalBoundingBoxExtents;
+        boundingBoxCenter = simd_reduce_min(boundsScaleRatios) * boundingBoxCenter;
+        boundingBoxExtents = simd_reduce_min(boundsScaleRatios) * boundingBoxExtents;
     }
-
-    return originalBoundingBoxExtents;
 }
 
-static RESRT computeSRT(CALayer *layer, simd_float3 originalBoundingBoxExtents, float pitch, float yaw, bool isPortal, CGFloat pointsPerMeter)
+static RESRT computeSRT(CALayer *layer, simd_float3 originalBoundingBoxExtents, simd_float3 originalBoundingBoxCenter, float pitch, float yaw, bool isPortal, CGFloat pointsPerMeter)
 {
     auto boundsOfLayerInMeters = makeMeterSizeFromPointSize(layer.bounds.size, pointsPerMeter);
-    auto extents = computeExtents(boundsOfLayerInMeters, originalBoundingBoxExtents);
+    simd_float3 boundingBoxExtents = originalBoundingBoxExtents;
+    simd_float3 boundingBoxCenter = originalBoundingBoxCenter;
+    computeScaledExtentsAndCenter(boundsOfLayerInMeters, boundingBoxExtents, boundingBoxCenter);
 
     RESRT srt;
-    srt.scale = simd_make_float3(extents.x / originalBoundingBoxExtents.x, extents.y / originalBoundingBoxExtents.y, extents.z / originalBoundingBoxExtents.z);
+    srt.scale = simd_make_float3(boundingBoxExtents.x / originalBoundingBoxExtents.x, boundingBoxExtents.y / originalBoundingBoxExtents.y, boundingBoxExtents.z / originalBoundingBoxExtents.z);
     float minScale = simd_reduce_min(srt.scale);
     srt.scale = simd_make_float3(minScale, minScale, minScale); // FIXME: assume object-fit:contain for now
 
@@ -183,9 +189,9 @@ static RESRT computeSRT(CALayer *layer, simd_float3 originalBoundingBoxExtents, 
     srt.rotation = simd_mul(pitchQuat, yawQuat);
 
     if (isPortal)
-        srt.translation = simd_make_float3(0, -boundsOfLayerInMeters.y / 2.0f, -extents.z / 2.0f);
+        srt.translation = simd_make_float3(-boundingBoxCenter.x, -boundingBoxCenter.y, -boundingBoxCenter.z - boundingBoxExtents.z / 2.0f);
     else
-        srt.translation = simd_make_float3(0, -boundsOfLayerInMeters.y / 2.0f, extents.z / 2.0f);
+        srt.translation = simd_make_float3(-boundingBoxCenter.x, -boundingBoxCenter.y, -boundingBoxCenter.z + boundingBoxExtents.z / 2.0f);
 
     return srt;
 }
@@ -221,7 +227,7 @@ void ModelProcessModelPlayerProxy::computeTransform()
         return;
 
     // FIXME: Use the value of the 'object-fit' property here to compute an appropriate SRT.
-    RESRT newSRT = computeSRT(m_layer.get(), m_originalBoundingBoxExtents, m_pitch, m_yaw, true, effectivePointsPerMeter(m_layer.get()));
+    RESRT newSRT = computeSRT(m_layer.get(), m_originalBoundingBoxExtents, m_originalBoundingBoxCenter, m_pitch, m_yaw, true, effectivePointsPerMeter(m_layer.get()));
     m_transformSRT = newSRT;
 
     simd_float4x4 matrix = RESRTMatrix(m_transformSRT);
@@ -234,9 +240,7 @@ void ModelProcessModelPlayerProxy::updateTransform()
     if (!m_model || !m_layer)
         return;
 
-    auto transformComponent = REEntityGetOrAddComponentByClass(m_model->rootEntity(), RETransformComponentGetComponentType());
-    RETransformComponentSetLocalSRT(transformComponent, m_transformSRT);
-    RENetworkMarkComponentDirty(transformComponent);
+    [m_modelRKEntity setTransform:WKEntityTransform({ m_transformSRT.scale, m_transformSRT.rotation, m_transformSRT.translation })];
 }
 
 void ModelProcessModelPlayerProxy::updateOpacity()
@@ -244,19 +248,7 @@ void ModelProcessModelPlayerProxy::updateOpacity()
     if (!m_model || !m_layer)
         return;
 
-    auto opacity = std::max(0.0f, [m_layer opacity]);
-
-    if (opacity >= 1.0f) {
-        // If the hosting layer is completely opaque, remove any fade component that might have been set
-        // previously.
-        REEntityRemoveComponentByClass(m_model->rootEntity(), REHierarchicalFadeComponentGetComponentType());
-        // FIXME: Do we need to mark anything as dirty when removing a component?
-        return;
-    }
-
-    auto hierarchicalFadeComponent = REEntityGetOrAddComponentByClass(m_model->rootEntity(), REHierarchicalFadeComponentGetComponentType());
-    REHierarchicalFadeComponentSetOpacity(hierarchicalFadeComponent, opacity);
-    RENetworkMarkComponentDirty(hierarchicalFadeComponent);
+    [m_modelRKEntity setOpacity:[m_layer opacity]];
 }
 
 void ModelProcessModelPlayerProxy::startAnimating()
@@ -264,60 +256,7 @@ void ModelProcessModelPlayerProxy::startAnimating()
     if (!m_model || !m_layer)
         return;
 
-    auto animationLibraryComponent = REEntityGetComponentByClass(m_model->rootEntity(), REAnimationLibraryComponentGetComponentType());
-    if (!animationLibraryComponent)
-        return;
-
-    auto animationLibraryAsset = REAnimationLibraryComponentGetAnimationLibraryAsset(animationLibraryComponent);
-    if (!animationLibraryAsset)
-        return;
-
-    auto engine = REEngineGetShared();
-    auto serviceLocator = REEngineGetServiceLocator(engine);
-    auto assetManager = REServiceLocatorGetAssetManager(serviceLocator);
-
-    auto animationLibraryDefinition = adoptRE(REAnimationLibraryDefinitionCreateFromAnimationLibraryAsset(assetManager, animationLibraryAsset));
-    if (!animationLibraryDefinition)
-        return;
-
-    // FIXME: Allow passing in the name of the animation to run, and then loop over all the
-    // entries in the animationLibraryDefinition, extracting the root timelines and getting
-    // their names via RETimelineDefinitionGetName().
-
-    auto animationAsset = REAnimationLibraryDefinitionGetEntryAsset(animationLibraryDefinition.get(), 0);
-    if (!animationAsset)
-        return;
-
-    auto extractRootTimelineDefinition = [] (auto animationAsset) -> REPtr<RETimelineDefinitionRef> {
-        auto animationAssetType = REAssetHandleAssetType(animationAsset);
-        if (animationAssetType == kREAssetTypeTimeline)
-            return adoptRE(RETimelineDefinitionCreateFromTimeline(animationAsset));
-        if (animationAssetType == kREAssetTypeAnimationScene) {
-            auto rootTimelineAsset = REAnimationSceneAssetGetRootTimeline(animationAsset);
-            return adoptRE(RETimelineDefinitionCreateFromTimeline(rootTimelineAsset));
-        }
-        return nullptr;
-    };
-
-    auto rootTimelineDefinition = extractRootTimelineDefinition(animationAsset);
-    if (!rootTimelineDefinition) {
-        RELEASE_LOG_ERROR(ModelElement, "%p - ModelProcessModelPlayerProxy Could not extract root timeline from animation asset due to unknown asset type id=%" PRIu64 " type=%@", this, m_id.toUInt64(), (NSString *)REAssetGetType(animationAsset));
-        return;
-    }
-
-    // FIXME: Allow passing in options to control looping behavior.
-
-    // Wrap animation asset in an infinitely repeating clip.
-
-    auto repeatingTimelineClipDefinition = adoptRE(RETimelineDefinitionCreateTimelineClip("Repeater", assetManager, rootTimelineDefinition.get()));
-    RETimelineDefinitionSetClipLoopBehavior(repeatingTimelineClipDefinition.get(), kREAnimationLoopBehaviorRepeat);
-    double duration = std::numeric_limits<double>::infinity();
-    RETimelineDefinitionSetClipDuration(repeatingTimelineClipDefinition.get(), &duration);
-    auto repeatingTimelineAsset = adoptRE(RETimelineDefinitionCreateTimelineAsset(repeatingTimelineClipDefinition.get(), assetManager));
-
-    auto animationComponent = REEntityGetOrAddComponentByClass(m_model->rootEntity(), REAnimationComponentGetComponentType());
-    auto animationHandoffDescription = REAnimationHandoffDefaultDescEx();
-    m_animationPlaybackToken = REAnimationComponentPlay(animationComponent, repeatingTimelineAsset.get(), animationHandoffDescription, kREAnimationMarkComponentsDirty);
+    [m_modelRKEntity startAnimating];
 }
 
 // MARK: - WebCore::RELoaderClient
@@ -334,9 +273,11 @@ void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& load
 
     m_loader = nullptr;
     m_model = WTFMove(model);
+    if (m_model->rootEntity())
+        m_modelRKEntity = adoptNS([allocWKSRKEntityInstance() initWithCoreEntity:m_model->rootEntity()]);
 
-    auto modelBoundingBox = REEntityComputeMeshBounds(m_model->rootEntity(), true, matrix_identity_float4x4, kREEntityStatusNone);
-    m_originalBoundingBoxExtents = REAABBExtents(modelBoundingBox);
+    m_originalBoundingBoxExtents = [m_modelRKEntity boundingBoxExtents];
+    m_originalBoundingBoxCenter = [m_modelRKEntity boundingBoxCenter];
 
     REPtr<REEntityRef> hostingEntity = adoptRE(REEntityCreate());
     REEntitySetName(hostingEntity.get(), "WebKit:EntityWithRootComponent");
@@ -383,7 +324,7 @@ void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& load
     updateOpacity();
     startAnimating();
 
-    send(Messages::ModelProcessModelPlayer::DidFinishLoading());
+    send(Messages::ModelProcessModelPlayer::DidFinishLoading(WebCore::FloatPoint3D(m_originalBoundingBoxCenter.x, m_originalBoundingBoxCenter.y, m_originalBoundingBoxCenter.z), WebCore::FloatPoint3D(m_originalBoundingBoxExtents.x, m_originalBoundingBoxExtents.y, m_originalBoundingBoxExtents.z)));
 }
 
 void ModelProcessModelPlayerProxy::didFailLoading(WebCore::REModelLoader& loader, const WebCore::ResourceError& error)
@@ -415,8 +356,8 @@ void ModelProcessModelPlayerProxy::load(WebCore::Model& model, WebCore::LayoutSi
 
 void ModelProcessModelPlayerProxy::sizeDidChange(WebCore::LayoutSize layoutSize)
 {
-    RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy::sizeDidChange w=%lf h=%lf id=%" PRIu64, this, layoutSize.width().toDouble(), layoutSize.width().toDouble(), m_id.toUInt64());
-    [m_layer setFrame:CGRectMake(0, 0, layoutSize.width().toDouble(), layoutSize.width().toDouble())];
+    RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy::sizeDidChange w=%lf h=%lf id=%" PRIu64, this, layoutSize.width().toDouble(), layoutSize.height().toDouble(), m_id.toUInt64());
+    [m_layer setFrame:CGRectMake(0, 0, layoutSize.width().toDouble(), layoutSize.height().toDouble())];
 }
 
 PlatformLayer* ModelProcessModelPlayerProxy::layer()

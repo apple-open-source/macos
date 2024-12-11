@@ -36,18 +36,18 @@
 #if ENABLE(OFFSCREEN_CANVAS)
 
 #include "CSSFontSelector.h"
+#include "CSSPropertyParserConsumer+Font.h"
 #include "CSSPropertyParserHelpers.h"
-#include "CSSPropertyParserWorkerSafe.h"
 #include "InspectorInstrumentation.h"
 #include "RenderStyle.h"
 #include "ScriptExecutionContext.h"
-#include "StyleResolveForFontRaw.h"
+#include "StyleResolveForFont.h"
 #include "TextMetrics.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(OffscreenCanvasRenderingContext2D);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(OffscreenCanvasRenderingContext2D);
 
 bool OffscreenCanvasRenderingContext2D::enabledForContext(ScriptExecutionContext& context)
 {
@@ -94,9 +94,9 @@ void OffscreenCanvasRenderingContext2D::setFont(const String& newFont)
         return;
 
     // According to http://lists.w3.org/Archives/Public/public-html/2009Jul/0947.html,
-    // the "inherit" and "initial" values must be ignored. CSSPropertyParserWorkerSafe::parseFont() ignores these.
-    auto fontRaw = CSSPropertyParserWorkerSafe::parseFont(newFont, strictToCSSParserMode(!usesCSSCompatibilityParseMode()));
-    if (!fontRaw)
+    // the "inherit" and "initial" values must be ignored. CSSPropertyParserHelpers::parseFont() ignores these.
+    auto unresolvedFont = CSSPropertyParserHelpers::parseUnresolvedFont(newFont, strictToCSSParserMode(!usesCSSCompatibilityParseMode()));
+    if (!unresolvedFont)
         return;
 
     // The parse succeeded.
@@ -111,7 +111,7 @@ void OffscreenCanvasRenderingContext2D::setFont(const String& newFont)
     fontDescription.setSpecifiedSize(DefaultFontSize);
     fontDescription.setComputedSize(DefaultFontSize);
 
-    if (auto fontCascade = Style::resolveForFontRaw(*fontRaw, WTFMove(fontDescription), context)) {
+    if (auto fontCascade = Style::resolveForUnresolvedFont(*unresolvedFont, WTFMove(fontDescription), context)) {
         ASSERT(context.cssFontSelector());
         modifiableState().font.initialize(*context.cssFontSelector(), *fontCascade);
     }

@@ -80,10 +80,10 @@
 #include "TextInputType.h"
 #include "TreeScopeInlines.h"
 #include "TypedElementDescendantIteratorInlines.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
 #include <wtf/MathExtras.h>
 #include <wtf/Ref.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
@@ -93,13 +93,13 @@
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLInputElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLInputElement);
 
 using namespace HTMLNames;
 
 #if ENABLE(DATALIST_ELEMENT)
 class ListAttributeTargetObserver final : public IdTargetObserver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(ListAttributeTargetObserver);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ListAttributeTargetObserver);
 public:
     ListAttributeTargetObserver(const AtomString& id, HTMLInputElement&);
@@ -561,8 +561,8 @@ void HTMLInputElement::updateType(const AtomString& typeAttributeValue)
     m_inputType->createShadowSubtreeIfNeeded();
 
     // https://html.spec.whatwg.org/multipage/dom.html#auto-directionality
-    if (oldType == InputType::Type::Telephone || m_inputType->type() == InputType::Type::Telephone || (hasDirectionAuto() && didDirAutoUseValue != m_inputType->dirAutoUsesValue()))
-        updateTextDirectionalityAfterInputTypeChange();
+    if (oldType == InputType::Type::Telephone || m_inputType->type() == InputType::Type::Telephone || (hasAutoTextDirectionState() && didDirAutoUseValue != m_inputType->dirAutoUsesValue()))
+        updateEffectiveTextDirection();
 
     if (UNLIKELY(didSupportReadOnly != willSupportReadOnly && hasAttributeWithoutSynchronization(readonlyAttr))) {
         emplace(readWriteInvalidation, *this, { { CSSSelector::PseudoClass::ReadWrite, !willSupportReadOnly }, { CSSSelector::PseudoClass::ReadOnly, willSupportReadOnly } });
@@ -662,7 +662,7 @@ void HTMLInputElement::subtreeHasChanged()
     m_inputType->subtreeHasChanged();
     // When typing in an input field, childrenChanged is not called, so we need to force the directionality check.
     if (selfOrPrecedingNodesAffectDirAuto())
-        updateEffectiveDirectionalityOfDirAuto();
+        updateEffectiveTextDirection();
 }
 
 const AtomString& HTMLInputElement::formControlType() const
@@ -811,6 +811,8 @@ void HTMLInputElement::attributeChanged(const QualifiedName& name, const AtomStr
             setFormControlValueMatchesRenderer(false);
         }
         updateValidity();
+        if (selfOrPrecedingNodesAffectDirAuto())
+            updateEffectiveTextDirection();
         m_valueAttributeWasUpdatedAfterParsing = !m_parsingInProgress;
         break;
     case AttributeNames::nameAttr:
@@ -864,7 +866,6 @@ void HTMLInputElement::attributeChanged(const QualifiedName& name, const AtomStr
         m_maxResults = newValue.isNull() ? -1 : std::min(parseHTMLInteger(newValue).value_or(0), maxSavedResults);
         break;
     case AttributeNames::autosaveAttr:
-    case AttributeNames::incrementalAttr:
         invalidateStyleForSubtree();
         break;
     case AttributeNames::maxAttr:
@@ -1177,7 +1178,7 @@ ExceptionOr<void> HTMLInputElement::setValue(const String& value, TextFieldEvent
     setFormControlValueMatchesRenderer(false);
     m_inputType->setValue(WTFMove(sanitizedValue), valueChanged, eventBehavior, selection);
     if (selfOrPrecedingNodesAffectDirAuto())
-        updateEffectiveDirectionalityOfDirAuto();
+        updateEffectiveTextDirection();
 
     if (valueChanged && eventBehavior == DispatchNoEvent)
         setTextAsOfLastFormControlChangeEvent(sanitizedValue);
@@ -1278,6 +1279,14 @@ void HTMLInputElement::willDispatchEvent(Event& event, InputElementClickState& s
             state.stateful = true;
         }
     }
+
+    if (event.type() == eventNames.auxclickEvent) {
+        auto* mouseEvent = dynamicDowncast<MouseEvent>(event);
+        if (mouseEvent && mouseEvent->button() != MouseButton::Left) {
+            m_inputType->willDispatchClick(state);
+            state.stateful = true;
+        }
+    }
 }
 
 void HTMLInputElement::didDispatchClickEvent(Event& event, const InputElementClickState& state)
@@ -1294,7 +1303,7 @@ void HTMLInputElement::defaultEventHandler(Event& event)
 {
     if (auto* mouseEvent = dynamicDowncast<MouseEvent>(event); mouseEvent && mouseEvent->button() == MouseButton::Left) {
         auto eventType = mouseEvent->type();
-        if (eventType == eventNames().clickEvent)
+        if (isAnyClick(*mouseEvent))
             m_inputType->handleClickEvent(*mouseEvent);
         else if (eventType == eventNames().mousedownEvent)
             m_inputType->handleMouseDownEvent(*mouseEvent);
@@ -1334,8 +1343,8 @@ void HTMLInputElement::defaultEventHandler(Event& event)
     // must dispatch a DOMActivate event - a click event will not do the job.
     if (event.type() == eventNames().DOMActivateEvent) {
         m_inputType->handleDOMActivateEvent(event);
-        if (invokeTargetElement())
-            handleInvokeAction();
+        if (commandForElement())
+            handleCommand();
         else
             handlePopoverTargetAction();
         if (event.defaultHandled())
@@ -1357,11 +1366,8 @@ void HTMLInputElement::defaultEventHandler(Event& event)
     }
 
     if (m_inputType->shouldSubmitImplicitly(event)) {
-        if (isSearchField()) {
+        if (isSearchField())
             addSearchResult();
-            if (document().settings().searchInputIncrementalAttributeAndSearchEventEnabled())
-                onSearch();
-        }
         // Form submission finishes editing, just as loss of focus does.
         // If there was a change, send the event now.
         if (wasChangedSinceLastFormControlChangeEvent())
@@ -1669,18 +1675,6 @@ bool HTMLInputElement::matchesReadWritePseudoClass() const
 void HTMLInputElement::addSearchResult()
 {
     m_inputType->addSearchResult();
-}
-
-void HTMLInputElement::onSearch()
-{
-    // The type of the input element could have changed during event handling. If we are no longer
-    // a search field, don't try to do search things.
-    auto* searchInputType = dynamicDowncast<SearchInputType>(*m_inputType);
-    if (!searchInputType)
-        return;
-
-    searchInputType->stopSearchEventTimer();
-    dispatchEvent(Event::create(eventNames().searchEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
 }
 
 void HTMLInputElement::resumeFromDocumentSuspension()

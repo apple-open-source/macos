@@ -12,7 +12,7 @@
  * Used for both the console version and the Win32 GUI.  A lot of code is for
  * the console version only, so there is a lot of "#ifndef FEAT_GUI_MSWIN".
  *
- * Win32 (Windows NT and Windows 95) system-dependent routines.
+ * Win32 system-dependent routines.
  * Portions lifted from the Win32 SDK samples, the MSDOS-dependent code,
  * NetHack 3.1.3, GNU Emacs 19.30, and Vile 5.5.
  *
@@ -34,52 +34,14 @@
 #ifndef PROTO
 # include <process.h>
 # include <winternl.h>
-#endif
-
-#undef chdir
-#ifdef __GNUC__
-# ifndef __MINGW32__
-#  include <dirent.h>
-# endif
-#else
 # include <direct.h>
-#endif
 
-#ifndef PROTO
 # if !defined(FEAT_GUI_MSWIN)
 #  include <shellapi.h>
 # endif
-#endif
 
-#ifdef FEAT_JOB_CHANNEL
-# include <tlhelp32.h>
-#endif
-
-#ifdef __MINGW32__
-# ifndef FROM_LEFT_1ST_BUTTON_PRESSED
-#  define FROM_LEFT_1ST_BUTTON_PRESSED    0x0001
-# endif
-# ifndef RIGHTMOST_BUTTON_PRESSED
-#  define RIGHTMOST_BUTTON_PRESSED	  0x0002
-# endif
-# ifndef FROM_LEFT_2ND_BUTTON_PRESSED
-#  define FROM_LEFT_2ND_BUTTON_PRESSED    0x0004
-# endif
-# ifndef FROM_LEFT_3RD_BUTTON_PRESSED
-#  define FROM_LEFT_3RD_BUTTON_PRESSED    0x0008
-# endif
-# ifndef FROM_LEFT_4TH_BUTTON_PRESSED
-#  define FROM_LEFT_4TH_BUTTON_PRESSED    0x0010
-# endif
-
-/*
- * EventFlags
- */
-# ifndef MOUSE_MOVED
-#  define MOUSE_MOVED   0x0001
-# endif
-# ifndef DOUBLE_CLICK
-#  define DOUBLE_CLICK  0x0002
+# ifdef FEAT_JOB_CHANNEL
+#  include <tlhelp32.h>
 # endif
 #endif
 
@@ -156,7 +118,10 @@ static HANDLE g_hConOut = INVALID_HANDLE_VALUE;
 
 // Win32 Screen buffer,coordinate,console I/O information
 static SMALL_RECT g_srScrollRegion;
-static COORD	  g_coord;  // 0-based, but external coords are 1-based
+// This is explicitly initialised to work around a LTCG issue on Windows ARM64
+// (at least of 19.39.33321).  This pushes this into the `.data` rather than
+// `.bss` which corrects code generation in `write_chars` (#13453).
+static COORD	  g_coord = {0, 0};  // 0-based, but external coords are 1-based
 
 // The attribute of the screen when the editor was started
 static WORD  g_attrDefault = 7;  // lightgray text on black background
@@ -1298,6 +1263,13 @@ decode_key_event(
 				    }
 				}
 			    }
+			}
+			else if (pker->wVirtualKeyCode == VK_INSERT
+					&& (nModifs & SHIFT) != 0
+					&& (nModifs & ~SHIFT) == 0)
+			{
+			    *pmodifiers = 0;
+			    *pch2 = VirtKeyMap[i].chShift;
 			}
 			else
 			{
@@ -2759,12 +2731,6 @@ theend:
 #endif // FEAT_GUI_MSWIN
 }
 
-#ifndef PROTO
-# ifndef __MINGW32__
-#  include <shellapi.h>	// required for FindExecutable()
-# endif
-#endif
-
 /*
  * Return TRUE if "name" is an executable file, FALSE if not or it doesn't exist.
  * When returning TRUE and "path" is not NULL save the path and set "*path" to
@@ -3595,6 +3561,10 @@ mch_exit_c(int r)
     vtp_exit();
 
     stoptermcap();
+    // Switch back to main screen buffer.
+    if (use_alternate_screen_buffer)
+	vtp_printf("\033[?1049l");
+
     if (g_fWindInitCalled)
 	settmode(TMODE_COOK);
 
@@ -5152,8 +5122,7 @@ mch_system_piped(char *cmd, int options)
 	    )
 	{
 	    len = 0;
-	    if (!(options & SHELL_EXPAND)
-		&& ((options &
+	    if (((options &
 			(SHELL_READ|SHELL_WRITE|SHELL_COOKED))
 		    != (SHELL_READ|SHELL_WRITE|SHELL_COOKED)
 # ifdef FEAT_GUI
@@ -5173,7 +5142,7 @@ mch_system_piped(char *cmd, int options)
 		{
 		    /*
 		     * For pipes: Check for CTRL-C: send interrupt signal to
-		     * child.  Check for CTRL-D: EOF, close pipe to child.
+		     * child.
 		     */
 		    if (len == 1 && cmd != NULL)
 		    {
@@ -5183,10 +5152,22 @@ mch_system_piped(char *cmd, int options)
 			// now put 9 as SIGKILL
 			    TerminateProcess(pi.hProcess, 9);
 			}
-			if (ta_buf[ta_len] == Ctrl_D)
+		    }
+
+		    /*
+		     * Check for CTRL-D: EOF, close pipe to child.
+		     * Ctrl_D may be decorated by _OnChar()
+		     */
+		    if ((len == 1 || len == 4 ) && cmd != NULL)
+		    {
+			if (ta_buf[0] == Ctrl_D
+			    || (ta_buf[0] == CSI
+				&& ta_buf[1] == KS_MODIFIER
+				&& ta_buf[3] == Ctrl_D))
 			{
 			    CloseHandle(g_hChildStd_IN_Wr);
 			    g_hChildStd_IN_Wr = NULL;
+			    len = 0;
 			}
 		    }
 
@@ -5515,11 +5496,7 @@ mch_call_shell(
      * CTRL-C, Ctrl-Break or illegal instruction  might otherwise kill us.
      */
     mch_signal(SIGINT, SIG_IGN);
-#if defined(__GNUC__) && !defined(__MINGW32__)
-    mch_signal(SIGKILL, SIG_IGN);
-#else
     mch_signal(SIGBREAK, SIG_IGN);
-#endif
     mch_signal(SIGILL, SIG_IGN);
     mch_signal(SIGFPE, SIG_IGN);
     mch_signal(SIGSEGV, SIG_IGN);
@@ -5754,11 +5731,7 @@ mch_call_shell(
     resettitle();
 
     mch_signal(SIGINT, SIG_DFL);
-#if defined(__GNUC__) && !defined(__MINGW32__)
-    mch_signal(SIGKILL, SIG_DFL);
-#else
     mch_signal(SIGBREAK, SIG_DFL);
-#endif
     mch_signal(SIGILL, SIG_DFL);
     mch_signal(SIGFPE, SIG_DFL);
     mch_signal(SIGSEGV, SIG_DFL);
@@ -6364,10 +6337,6 @@ termcap_mode_end(void)
 # endif
     RestoreConsoleBuffer(cb, p_rs);
     restore_console_color_rgb();
-
-    // Switch back to main screen buffer.
-    if (exiting && use_alternate_screen_buffer)
-	vtp_printf("\033[?1049l");
 
     if (!USE_WT && (p_rs || exiting))
     {
@@ -7440,7 +7409,7 @@ notsgr:
 	{
 	    int l = 2;
 
-	    if (isdigit(s[l]))
+	    if (SAFE_isdigit(s[l]))
 		l++;
 	    if (s[l] == ' ' && s[l + 1] == 'q')
 	    {
@@ -7603,19 +7572,9 @@ mch_total_mem(int special UNUSED)
 
 /*
  * mch_wrename() works around a bug in rename (aka MoveFile) in
- * Windows 95: rename("foo.bar", "foo.bar~") will generate a
- * file whose short file name is "FOO.BAR" (its long file name will
- * be correct: "foo.bar~").  Because a file can be accessed by
- * either its SFN or its LFN, "foo.bar" has effectively been
- * renamed to "foo.bar", which is not at all what was wanted.  This
- * seems to happen only when renaming files with three-character
- * extensions by appending a suffix that does not include ".".
- * Windows NT gets it right, however, with an SFN of "FOO~1.BAR".
- *
- * There is another problem, which isn't really a bug but isn't right either:
+ * Windows, the bug can be demonstrated with the following scenario:
  * When renaming "abcdef~1.txt" to "abcdef~1.txt~", the short name can be
- * "abcdef~1.txt" again.  This has been reported on Windows NT 4.0 with
- * service pack 6.  Doesn't seem to happen on Windows 98.
+ * "abcdef~1.txt" again.
  *
  * Like rename(), returns 0 upon success, non-zero upon failure.
  * Should probably set errno appropriately when errors occur.

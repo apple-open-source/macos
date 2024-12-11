@@ -52,12 +52,12 @@
 #include "Settings.h"
 #include "SharedBuffer.h"
 #include <wtf/HashCountedSet.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/LoggerHelper.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaKeySession);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MediaKeySession);
 
 Ref<MediaKeySession> MediaKeySession::create(Document& document, WeakPtr<MediaKeys>&& keys, MediaKeySessionType sessionType, bool useDistinctiveIdentifier, Ref<CDM>&& implementation, Ref<CDMInstanceSession>&& instanceSession)
 {
@@ -805,9 +805,9 @@ String MediaKeySession::mediaKeysStorageDirectory() const
 
 CDMKeyGroupingStrategy MediaKeySession::keyGroupingStrategy() const
 {
-#if HAVE(AVCONTENTKEYSPECIFIER)
+#if USE(MODERN_AVCONTENTKEYSESSION)
     RefPtr document = downcast<Document>(scriptExecutionContext());
-    if (document && document->settings().sampleBufferContentKeySessionSupportEnabled())
+    if (document && document->settings().shouldUseModernAVContentKeySession())
         return CDMKeyGroupingStrategy::BuiltIn;
 #endif
 

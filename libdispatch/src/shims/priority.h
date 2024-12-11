@@ -132,6 +132,17 @@ typedef uint32_t dispatch_priority_t;
 #define DISPATCH_QOS_MIN                DISPATCH_QOS_MAINTENANCE
 #define DISPATCH_QOS_MAX                DISPATCH_QOS_USER_INTERACTIVE
 #define DISPATCH_QOS_SATURATED          ((dispatch_qos_t)15)
+#ifdef __LP64__
+#define DISPATCH_QOS_MASK				((uintptr_t)0x7ull)
+#define DISPATCH_QOS_SHIFT				(0)
+#else
+// arm64_32 only guarantees 4 byte pointer alignment, so we only have 2 bits
+// for QoS. Use the upper two bits of the three bit QoS values, which still
+// gives reasonable bucketing (UI > IN/DE > UT/BG > maintenance/unspecified)
+#define DISPATCH_QOS_MASK				((uintptr_t)0x3ull)
+#define DISPATCH_QOS_SHIFT				(1)
+#endif // __LP64__
+dispatch_static_assert(!((DISPATCH_QOS_MAX >> DISPATCH_QOS_SHIFT) & ~DISPATCH_QOS_MASK));
 
 #define DISPATCH_QOS_NBUCKETS           (DISPATCH_QOS_MAX - DISPATCH_QOS_MIN + 1)
 #define DISPATCH_QOS_BUCKET(qos)        ((int)((qos) - DISPATCH_QOS_MIN))

@@ -75,6 +75,7 @@
 #include "StyleResolver.h"
 #include "TextDirection.h"
 #include <wtf/MathExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
@@ -82,6 +83,8 @@
 namespace WebCore {
 
 using namespace Inspector;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(InspectorOverlay);
 
 static constexpr float rulerSize = 15;
 static constexpr float rulerLabelSize = 13;
@@ -1204,7 +1207,7 @@ Path InspectorOverlay::drawElementTitle(GraphicsContext& context, Node& node, co
 
     String elementRole;
     if (AXObjectCache* axObjectCache = node.document().axObjectCache()) {
-        if (auto* axObject = axObjectCache->getOrCreate(node); axObject && !axObject->accessibilityIsIgnored())
+        if (auto* axObject = axObjectCache->getOrCreate(node); axObject && !axObject->isIgnored())
             elementRole = axObject->computedRoleString();
     }
 
@@ -1437,7 +1440,7 @@ static Vector<String> authoredGridTrackSizes(Node* node, GridTrackSizingDirectio
         }
 
         if (auto* cssGridIntegerRepeatValue = dynamicDowncast<CSSGridIntegerRepeatValue>(currentValue)) {
-            size_t repetitions = cssGridIntegerRepeatValue->repetitions();
+            size_t repetitions = cssGridIntegerRepeatValue->repetitions().resolveAsIntegerDeprecated();
             for (size_t i = 0; i < repetitions; ++i) {
                 for (auto& integerRepeatValue : *cssGridIntegerRepeatValue)
                     handleValueIgnoringLineNames(integerRepeatValue);

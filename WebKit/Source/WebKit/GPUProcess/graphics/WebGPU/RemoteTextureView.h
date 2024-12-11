@@ -27,9 +27,11 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteGPU.h"
 #include "StreamMessageReceiver.h"
 #include "WebGPUIdentifier.h"
 #include <wtf/Ref.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>
 #include <wtf/text/WTFString.h>
 
@@ -48,21 +50,23 @@ class ObjectHeap;
 }
 
 class RemoteTextureView final : public IPC::StreamMessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteTextureView);
 public:
-    static Ref<RemoteTextureView> create(WebCore::WebGPU::TextureView& textureView, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
+    static Ref<RemoteTextureView> create(WebCore::WebGPU::TextureView& textureView, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteTextureView(textureView, objectHeap, WTFMove(streamConnection), identifier));
+        return adoptRef(*new RemoteTextureView(textureView, objectHeap, WTFMove(streamConnection), gpu, identifier));
     }
 
     virtual ~RemoteTextureView();
+
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
 
     void stopListeningForIPC();
 
 private:
     friend class WebGPU::ObjectHeap;
 
-    RemoteTextureView(WebCore::WebGPU::TextureView&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
+    RemoteTextureView(WebCore::WebGPU::TextureView&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, RemoteGPU&, WebGPUIdentifier);
 
     RemoteTextureView(const RemoteTextureView&) = delete;
     RemoteTextureView(RemoteTextureView&&) = delete;
@@ -70,6 +74,7 @@ private:
     RemoteTextureView& operator=(RemoteTextureView&&) = delete;
 
     WebCore::WebGPU::TextureView& backing() { return m_backing; }
+    Ref<IPC::StreamServerConnection> protectedStreamConnection() const;
 
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 
@@ -79,6 +84,7 @@ private:
     Ref<WebCore::WebGPU::TextureView> m_backing;
     WeakRef<WebGPU::ObjectHeap> m_objectHeap;
     Ref<IPC::StreamServerConnection> m_streamConnection;
+    WeakRef<RemoteGPU> m_gpu;
     WebGPUIdentifier m_identifier;
 };
 

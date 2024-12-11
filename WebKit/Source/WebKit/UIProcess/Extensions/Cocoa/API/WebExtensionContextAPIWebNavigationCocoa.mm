@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,7 +59,7 @@ static WebExtensionFrameParameters frameParametersForFrame(_WKFrameTreeNode *fra
 
 bool WebExtensionContext::isWebNavigationMessageAllowed()
 {
-    return isLoaded() && hasPermission(_WKWebExtensionPermissionWebNavigation);
+    return isLoaded() && hasPermission(WKWebExtensionPermissionWebNavigation);
 }
 
 void WebExtensionContext::webNavigationTraverseFrameTreeForFrame(_WKFrameTreeNode *frame, _WKFrameTreeNode *parentFrame, WebExtensionTab* tab, Vector<WebExtensionFrameParameters> &frames)
@@ -91,7 +91,7 @@ void WebExtensionContext::webNavigationGetFrame(WebExtensionTabIdentifier tabIde
         return;
     }
 
-    auto *webView = tab->mainWebView();
+    auto *webView = tab->webView();
     if (!webView) {
         completionHandler(toWebExtensionError(@"webNavigation.getFrame()", nil, @"tab not found"));
         return;
@@ -119,7 +119,7 @@ void WebExtensionContext::webNavigationGetAllFrames(WebExtensionTabIdentifier ta
         return;
     }
 
-    auto *webView = tab->mainWebView();
+    auto *webView = tab->webView();
     if (!webView) {
         completionHandler(toWebExtensionError(@"webNavigation.getAllFrames()", nil, @"tab not found"));
         return;

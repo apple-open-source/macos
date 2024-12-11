@@ -27,7 +27,9 @@
 #include "WebModelPlayerProvider.h"
 
 #include "WebPage.h"
+#include "WebProcess.h"
 #include <WebCore/ModelPlayer.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
 #include "ARKitInlinePreviewModelPlayerMac.h"
@@ -43,9 +45,12 @@
 
 #if ENABLE(MODEL_PROCESS)
 #include "ModelProcessModelPlayer.h"
+#include "ModelProcessModelPlayerManager.h"
 #endif
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebModelPlayerProvider);
 
 WebModelPlayerProvider::WebModelPlayerProvider(WebPage& page)
     : m_page { page }

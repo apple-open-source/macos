@@ -237,6 +237,7 @@
 
     // failed unwrapping means we can't return a key.
     if(![key ensureKeyLoadedForContextID:contextID
+                                   cache:nil
                                    error:error]) {
         return nil;
     }
@@ -318,6 +319,7 @@
 }
 
 - (CKKSKeychainBackedKey* _Nullable)ensureKeyLoadedForContextID:(NSString*)contextID
+                                                          cache:(CKKSMemoryKeyCache*)cache
                                                           error:(NSError * __autoreleasing *)error
 {
     /* Ensure that self.keycore is filled in */
@@ -334,7 +336,7 @@
 
     // Uhh, okay, if that didn't work, try to unwrap via the key hierarchy
     NSError* keyHierarchyError = nil;
-    if([self unwrapViaKeyHierarchy:&keyHierarchyError]) {
+    if([self unwrapViaKeyHierarchy:cache error:&keyHierarchyError]) {
         // Attempt to save this new key, but don't error if it fails
         NSError* resaveError = nil;
         if(![self saveKeyMaterialToKeychain:&resaveError] || resaveError) {
@@ -352,7 +354,12 @@
     return nil;
 }
 
-- (CKKSAESSIVKey*)unwrapViaKeyHierarchy:(NSError * __autoreleasing *) error
+- (CKKSAESSIVKey*)unwrapViaKeyHierarchy:(NSError *__autoreleasing  _Nullable *)error {
+    return [self unwrapViaKeyHierarchy:nil error:error];
+}
+
+- (CKKSAESSIVKey*)unwrapViaKeyHierarchy:(CKKSMemoryKeyCache* _Nullable)cache
+                                  error:(NSError * __autoreleasing *) error
 {
     /* Ensure that self.keycore is filled in */
     if(nil == [self getKeychainBackedKey:error]) {
@@ -383,13 +390,29 @@
     }
 
     // Recursively unwrap our parent.
-    CKKSKey* parent = [CKKSKey fromDatabaseAnyState:self.parentKeyUUID
-                                          contextID:self.contextID
-                                             zoneID:self.zoneID
-                                              error:error];
+    CKKSKey* parent = nil;
+    NSError* loadError = nil;
+    if (cache != nil) {
+        parent = [cache loadKeyForUUID:self.parentKeyUUID
+                             contextID:self.contextID
+                                zoneID:self.zoneID
+                                 error:&loadError];
+    } else {
+        parent = [CKKSKey fromDatabaseAnyState:self.parentKeyUUID
+                                     contextID:self.contextID
+                                        zoneID:self.zoneID
+                                         error:&loadError];
+    }
+
+    if (loadError || !parent) {
+        ckkserror_global("ckks", "Errored fetching parent key: %@", loadError);
+        if (error) {
+            *error = loadError;
+        }
+    }
 
     // TODO: do we need loop detection here?
-    if(![parent unwrapViaKeyHierarchy: error]) {
+    if(![parent unwrapViaKeyHierarchy:cache error:error]) {
         return nil;
     }
 
@@ -481,6 +504,7 @@
     NSError* loadError = nil;
     CKKSAESSIVKey* loadedKey = nil;
     if([self ensureKeyLoadedForContextID:contextID
+                                   cache:nil
                                    error:&loadError]) {
         // Should just return what was loaded in ensureKeyLoaded
         loadedKey = [self.keycore ensureKeyLoadedFromKeychain:&loadError];
@@ -1012,6 +1036,7 @@
 
 - (NSData*)serializeAsProtobuf: (NSError * __autoreleasing *) error {
     if(![self ensureKeyLoadedForContextID:self.contextID
+                                    cache:nil
                                     error:error]) {
         return nil;
     }

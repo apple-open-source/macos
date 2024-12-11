@@ -1,5 +1,5 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
-// Copyright (C) 2016-2022 Apple Inc. All rights reserved.
+// Copyright (C) 2016-2024 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -31,6 +31,7 @@
 
 #include "CSSAtRuleID.h"
 #include "CSSParser.h"
+#include "CSSParserEnum.h"
 #include "CSSParserTokenRange.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
@@ -63,6 +64,7 @@ class StyleRuleNamespace;
 class StyleRulePage;
 class StyleRuleSupports;
 class StyleRuleViewport;
+class StyleRuleViewTransition;
 class StyleSheetContents;
 class ImmutableStyleProperties;
 class Element;
@@ -71,7 +73,7 @@ class MutableStyleProperties;
 class CSSParserImpl {
     WTF_MAKE_NONCOPYABLE(CSSParserImpl);
 public:
-    CSSParserImpl(const CSSParserContext&, const String&, StyleSheetContents* = nullptr, CSSParserObserverWrapper* = nullptr, CSSParserEnum::IsNestedContext = CSSParserEnum::IsNestedContext::No);
+    CSSParserImpl(const CSSParserContext&, const String&, StyleSheetContents* = nullptr, CSSParserObserverWrapper* = nullptr, CSSParserEnum::NestedContext = { });
     ~CSSParserImpl();
 
     enum class AllowedRules : uint8_t {
@@ -88,14 +90,15 @@ public:
         KeyframeRules,
         CounterStyleRules,
         FontFeatureValuesRules,
+        ViewTransitionRules,
         NoRules, // For parsing at-rules inside declaration lists (without nesting support)
     };
 
-    static CSSParser::ParseResult parseValue(MutableStyleProperties&, CSSPropertyID, const String&, bool important, const CSSParserContext&);
-    static CSSParser::ParseResult parseCustomPropertyValue(MutableStyleProperties&, const AtomString& propertyName, const String&, bool important, const CSSParserContext&);
+    static CSSParser::ParseResult parseValue(MutableStyleProperties&, CSSPropertyID, const String&, IsImportant, const CSSParserContext&);
+    static CSSParser::ParseResult parseCustomPropertyValue(MutableStyleProperties&, const AtomString& propertyName, const String&, IsImportant, const CSSParserContext&);
     static Ref<ImmutableStyleProperties> parseInlineStyleDeclaration(const String&, const Element&);
     static bool parseDeclarationList(MutableStyleProperties*, const String&, const CSSParserContext&);
-    static RefPtr<StyleRuleBase> parseRule(const String&, const CSSParserContext&, StyleSheetContents*, AllowedRules, CSSParserEnum::IsNestedContext = CSSParserEnum::IsNestedContext::No);
+    static RefPtr<StyleRuleBase> parseRule(const String&, const CSSParserContext&, StyleSheetContents*, AllowedRules, CSSParserEnum::NestedContext = { });
     static void parseStyleSheet(const String&, const CSSParserContext&, StyleSheetContents&);
     static CSSSelectorList parsePageSelector(CSSParserTokenRange, StyleSheetContents*);
 
@@ -110,7 +113,9 @@ public:
     static void parseDeclarationListForInspector(const String&, const CSSParserContext&, CSSParserObserver&);
     static void parseStyleSheetForInspector(const String&, const CSSParserContext&, StyleSheetContents&, CSSParserObserver&);
 
-    static bool consumeTrailingImportantAndWhitespace(CSSParserTokenRange&);
+    static IsImportant consumeTrailingImportantAndWhitespace(CSSParserTokenRange&);
+
+    static RefPtr<StyleRuleNestedDeclarations> parseNestedDeclarations(const CSSParserContext&, const String&);
 
     CSSTokenizer* tokenizer() const { return m_tokenizer.get(); }
 
@@ -160,6 +165,7 @@ private:
     RefPtr<StyleRuleProperty> consumePropertyRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRuleScope> consumeScopeRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRuleStartingStyle> consumeStartingStyleRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
+    RefPtr<StyleRuleViewTransition> consumeViewTransitionRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
 
     RefPtr<StyleRuleKeyframe> consumeKeyframeStyleRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRuleBase> consumeStyleRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
@@ -174,14 +180,14 @@ private:
     void consumeDeclarationList(CSSParserTokenRange, StyleRuleType);
     void consumeStyleBlock(CSSParserTokenRange, StyleRuleType, ParsingStyleDeclarationsInRuleList = ParsingStyleDeclarationsInRuleList::No);
     bool consumeDeclaration(CSSParserTokenRange, StyleRuleType);
-    void consumeDeclarationValue(CSSParserTokenRange, CSSPropertyID, bool important, StyleRuleType);
-    void consumeCustomPropertyValue(CSSParserTokenRange, const AtomString& propertyName, bool important);
+    void consumeDeclarationValue(CSSParserTokenRange, CSSPropertyID, IsImportant, StyleRuleType);
+    void consumeCustomPropertyValue(CSSParserTokenRange, const AtomString& propertyName, IsImportant);
 
     static Vector<double> consumeKeyframeKeyList(CSSParserTokenRange);
 
     RefPtr<StyleSheetContents> protectedStyleSheet() const;
 
-    Ref<StyleRuleBase> createNestingParentRule();
+    Ref<StyleRuleBase> createNestedDeclarationsRule();
     void runInNewNestingContext(auto&& run);
     NestingContext& topContext()
     {
@@ -191,27 +197,20 @@ private:
 
     bool isStyleNestedContext()
     {
-        return (m_isAlwaysNestedContext == CSSParserEnum::IsNestedContext::Yes || m_styleRuleNestingLevel) && context().cssNestingEnabled;
+        return m_styleRuleNestingLevel && context().cssNestingEnabled;
     }
-
-    bool isNestedContext()
-    {
-        return m_scopeRuleNestingLevel || isStyleNestedContext();
-    }
-
-    CSSParserEnum::IsNestedContext m_isAlwaysNestedContext { CSSParserEnum::IsNestedContext::No }; // Do we directly start in a nested context (for CSSOM)
 
     // FIXME: we could unify all those into a single stack data structure.
     // https://bugs.webkit.org/show_bug.cgi?id=265566
     unsigned m_styleRuleNestingLevel { 0 };
-    unsigned m_scopeRuleNestingLevel { 0 };
     unsigned m_ruleListNestingLevel { 0 };
-    enum class AncestorRuleType : bool {
-        Style,
-        Scope,
-    };
-    Vector<AncestorRuleType, 16> m_ancestorRuleTypeStack;
-    static void appendImplicitSelectorIfNeeded(MutableCSSSelector&, AncestorRuleType);
+    Vector<CSSParserEnum::NestedContextType, 16> m_ancestorRuleTypeStack;
+    std::optional<CSSParserEnum::NestedContextType> lastAncestorRuleType() const
+    {
+        if (!m_ancestorRuleTypeStack.isEmpty())
+            return m_ancestorRuleTypeStack.last();
+        return { };
+    }
 
     Vector<NestingContext> m_nestingContextStack { NestingContext { } };
     const CSSParserContext& m_context;

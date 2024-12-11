@@ -15,9 +15,11 @@ cpp_delete_fallback(void **ptrs);
 static void
 test_bucketing(void)
 {
-	bool nano_on_xzone = getenv("MallocNanoOnXzone");
-	xzm_malloc_zone_t zone = nano_on_xzone ?
-			get_default_xzone_helper_zone() : get_default_xzone_zone();
+	xzm_malloc_zone_t zone = get_default_xzone_zone();
+
+	malloc_set_thread_options((malloc_thread_options_t){
+		.DisableProbabilisticGuardMalloc = true,
+	});
 
 	void *ptrs[N_UNIQUE_CALLSITES] = { NULL };
 
@@ -88,8 +90,8 @@ T_DECL(malloc_type_callsite_fastpath,
 		"Validate bucketing for callsite type descriptors from fast path",
 		T_META_TAG_XZONE_ONLY,
 		T_META_TAG_NANO_ON_XZONE,
+		T_META_TAG_XZONE_AND_PGM,
 		T_META_TAG("no_debug"),
-		T_META_ENVVAR("MallocProbGuard=0"),
 		T_META_ENVVAR("MallocNanoZone=1"),
 		T_META_ENVVAR(PTR_BUCKET_ENVVAR))
 {
@@ -100,9 +102,9 @@ T_DECL(malloc_type_callsite_slowpath,
 		"Validate bucketing for callsite type descriptors from slow path",
 		T_META_TAG_XZONE_ONLY,
 		T_META_TAG_NANO_ON_XZONE,
+		T_META_TAG_XZONE_AND_PGM,
 		T_META_TAG("no_debug"),
 		T_META_ENVVAR("MallocTracing=1"), // enable tracing to activate slowpath
-		T_META_ENVVAR("MallocProbGuard=0"),
 		T_META_ENVVAR("MallocNanoZone=1"),
 		T_META_ENVVAR(PTR_BUCKET_ENVVAR))
 {

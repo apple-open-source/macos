@@ -1025,6 +1025,11 @@ void PluginView::windowActivityDidChange()
     protectedPlugin()->windowActivityDidChange();
 }
 
+void PluginView::didChangeIsInWindow()
+{
+    protectedPlugin()->didChangeIsInWindow();
+}
+
 void PluginView::didSameDocumentNavigationForFrame(WebFrame& frame)
 {
     if (!m_isInitialized)
@@ -1046,6 +1051,11 @@ void PluginView::setPDFDisplayModeForTesting(const String& mode)
 Vector<WebCore::FloatRect> PluginView::pdfAnnotationRectsForTesting() const
 {
     return protectedPlugin()->annotationRectsForTesting();
+}
+
+void PluginView::setPDFTextAnnotationValueForTesting(unsigned pageIndex, unsigned annotationIndex, const String& value)
+{
+    return protectedPlugin()->setTextAnnotationValueForTesting(pageIndex, annotationIndex, value);
 }
 
 void PluginView::registerPDFTestCallback(RefPtr<VoidCallback>&& callback)

@@ -72,6 +72,7 @@
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
 #include "MixedContentChecker.h"
+#include "NavigationNavigationType.h"
 #include "NavigationRequester.h"
 #include "NavigationScheduler.h"
 #include "NetworkLoadMetrics.h"
@@ -131,7 +132,7 @@
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
-#define PAGE_ID ((m_frame ? valueOrDefault(m_frame->pageID()) : PageIdentifier()).toUInt64())
+#define PAGE_ID (m_frame && m_frame->pageID() ? m_frame->pageID()->toUInt64() : 0)
 #define FRAME_ID ((m_frame ? m_frame->frameID() : FrameIdentifier()).object().toUInt64())
 #define IS_MAIN_FRAME (m_frame ? m_frame->isMainFrame() : false)
 #define DOCUMENTLOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] DocumentLoader::" fmt, this, PAGE_ID, FRAME_ID, IS_MAIN_FRAME, ##__VA_ARGS__)
@@ -221,6 +222,9 @@ DocumentLoader::~DocumentLoader()
         ASSERT(scriptExecutionContextIdentifierToLoaderMap().contains(m_resultingClientId));
         scriptExecutionContextIdentifierToLoaderMap().remove(m_resultingClientId);
     }
+
+    if (auto createdCallback = std::exchange(m_whenDocumentIsCreatedCallback, { }))
+        createdCallback(nullptr);
 }
 
 RefPtr<FragmentedSharedBuffer> DocumentLoader::mainResourceData() const
@@ -285,6 +289,9 @@ void DocumentLoader::setMainDocumentError(const ResourceError& error)
 void DocumentLoader::mainReceivedError(const ResourceError& error, LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
     ASSERT(!error.isNull());
+
+    if (auto createdCallback = std::exchange(m_whenDocumentIsCreatedCallback, { }))
+        createdCallback(nullptr);
 
     if (!frameLoader())
         return;
@@ -558,7 +565,7 @@ void DocumentLoader::handleSubstituteDataLoadNow()
     if (auto* page = m_frame ? m_frame->page() : nullptr) {
         // We intentionally do nothing with the results of this call.
         // We want the CSS to be loaded for us, but we ignore any attempt to block or upgrade the connection since there is no connection.
-        page->userContentProvider().processContentRuleListsForLoad(*page, response.url(), ContentExtensions::ResourceType::Document, *this);
+        page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, response.url(), ContentExtensions::ResourceType::Document, *this);
     }
 #endif
 
@@ -935,7 +942,7 @@ void DocumentLoader::responseReceived(CachedResource& resource, const ResourceRe
             auto firstPartyDomain = RegistrableDomain(response.url());
             if (auto loginDomains = NetworkStorageSession::subResourceDomainsInNeedOfStorageAccessForFirstParty(firstPartyDomain)) {
                 if (!Quirks::hasStorageAccessForAllLoginDomains(*loginDomains, firstPartyDomain)) {
-                    m_frame->navigationScheduler().scheduleRedirect(document, 0, microsoftTeamsRedirectURL(), IsMetaRefresh::No);
+                    m_frame->checkedNavigationScheduler()->scheduleRedirect(document, 0, microsoftTeamsRedirectURL(), IsMetaRefresh::No);
                     return;
                 }
             }
@@ -1146,7 +1153,7 @@ void DocumentLoader::continueAfterContentPolicy(PolicyAction policy)
         if (ResourceLoader* mainResourceLoader = this->mainResourceLoader())
             InspectorInstrumentation::continueWithPolicyDownload(*m_frame, mainResourceLoader->identifier(), *this, m_response);
 
-        if (!(frameLoader()->effectiveSandboxFlags() & SandboxDownloads)) {
+        if (!frameLoader()->effectiveSandboxFlags().contains(SandboxFlag::Downloads)) {
             // When starting the request, we didn't know that it would result in download and not navigation. Now we know that main document URL didn't change.
             // Download may use this knowledge for purposes unrelated to cookies, notably for setting file quarantine data.
             frameLoader()->setOriginalURLForDownloadRequest(m_request);
@@ -1253,7 +1260,7 @@ void DocumentLoader::stopLoadingForPolicyChange(LoadWillContinueInAnotherProcess
 // https://w3c.github.io/ServiceWorker/#control-and-use-window-client
 static inline bool shouldUseActiveServiceWorkerFromParent(const Document& document, const Document& parent)
 {
-    return !document.url().protocolIsInHTTPFamily() && !document.securityOrigin().isOpaque() && parent.securityOrigin().isSameOriginDomain(document.securityOrigin());
+    return !document.url().protocolIsInHTTPFamily() && !document.securityOrigin().isOpaque() && parent.protectedSecurityOrigin()->isSameOriginDomain(document.securityOrigin());
 }
 
 void DocumentLoader::commitData(const SharedBuffer& data)
@@ -1266,7 +1273,13 @@ void DocumentLoader::commitData(const SharedBuffer& data)
 
         m_writer.setDocumentWasLoadedAsPartOfNavigation();
 
-        auto* documentOrNull = m_frame ? m_frame->document() : nullptr;
+        RefPtr documentOrNull = m_frame ? m_frame->document() : nullptr;
+
+        auto scope = makeScopeExit([&] {
+            if (auto createdCallback = std::exchange(m_whenDocumentIsCreatedCallback, { }))
+                createdCallback(isInFinishedLoadingOfEmptyDocument() ? nullptr : documentOrNull.get());
+        });
+
         if (!documentOrNull)
             return;
         auto& document = *documentOrNull;
@@ -1320,7 +1333,7 @@ void DocumentLoader::commitData(const SharedBuffer& data)
         if (!isLoading())
             return;
 
-        if (auto* window = document.domWindow()) {
+        if (RefPtr window = document.domWindow()) {
             window->prewarmLocalStorageIfNecessary();
 
             if (m_mainResource) {
@@ -1453,6 +1466,20 @@ void DocumentLoader::applyPoliciesToSettings()
 #if USE(APPLE_INTERNAL_SDK)
     updateAdditionalSettingsIfNeeded();
 #endif
+
+    if (m_pushAndNotificationsEnabledPolicy != PushAndNotificationsEnabledPolicy::UseGlobalPolicy) {
+        bool enabled = m_pushAndNotificationsEnabledPolicy == PushAndNotificationsEnabledPolicy::Yes;
+        m_frame->settings().setPushAPIEnabled(enabled);
+#if ENABLE(NOTIFICATIONS)
+        m_frame->settings().setNotificationsEnabled(enabled);
+#endif
+#if ENABLE(NOTIFICATION_EVENT)
+        m_frame->settings().setNotificationEventEnabled(enabled);
+#endif
+#if PLATFORM(IOS)
+        m_frame->settings().setAppBadgeEnabled(enabled);
+#endif
+    }
 }
 
 MouseEventPolicy DocumentLoader::mouseEventPolicy() const
@@ -1531,7 +1558,7 @@ void DocumentLoader::detachFromFrame(LoadWillContinueInAnotherProcess loadWillCo
         return;
 
     if (auto navigationID = std::exchange(m_navigationID, { }))
-        m_frame->loader().client().documentLoaderDetached(navigationID, loadWillContinueInAnotherProcess);
+        m_frame->loader().client().documentLoaderDetached(*navigationID, loadWillContinueInAnotherProcess);
 
     InspectorInstrumentation::loaderDetachedFromFrame(*m_frame, *this);
 
@@ -1540,7 +1567,6 @@ void DocumentLoader::detachFromFrame(LoadWillContinueInAnotherProcess loadWillCo
 
 void DocumentLoader::setNavigationID(NavigationIdentifier navigationID)
 {
-    ASSERT(navigationID);
     m_navigationID = navigationID;
 }
 
@@ -2082,7 +2108,7 @@ void DocumentLoader::loadErrorDocument()
         return;
 
     commitData(SharedBuffer::create());
-    m_frame->document()->enforceSandboxFlags(SandboxOrigin);
+    m_frame->document()->enforceSandboxFlags(SandboxFlag::Origin);
     m_writer.end();
 }
 
@@ -2232,7 +2258,7 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
         CachingPolicy::AllowCaching);
 
     auto isSandboxingAllowingServiceWorkerFetchHandling = [](SandboxFlags flags) {
-        return !(flags & SandboxOrigin) && !(flags & SandboxScripts);
+        return !(flags.contains(SandboxFlag::Origin)) && !(flags.contains(SandboxFlag::Scripts));
     };
 
     if (!m_canUseServiceWorkers || !isSandboxingAllowingServiceWorkerFetchHandling(frameLoader()->effectiveSandboxFlags()))
@@ -2492,6 +2518,34 @@ ShouldOpenExternalURLsPolicy DocumentLoader::shouldOpenExternalURLsPolicyToPropa
     return ShouldOpenExternalURLsPolicy::ShouldNotAllow;
 }
 
+// https://www.w3.org/TR/css-view-transitions-2/#navigation-can-trigger-a-cross-document-view-transition
+bool DocumentLoader::navigationCanTriggerCrossDocumentViewTransition(Document& oldDocument, bool fromBackForwardCache)
+{
+    // FIXME: Consider adding implementation-defined navigation experience step.
+
+    if (std::holds_alternative<Document::SkipTransition>(oldDocument.resolveViewTransitionRule()))
+        return false;
+
+    if (!m_triggeringAction.navigationAPIType() || *m_triggeringAction.navigationAPIType() == NavigationNavigationType::Reload)
+        return false;
+
+    Ref newOrigin = SecurityOrigin::create(documentURL());
+    if (!newOrigin->isSameOriginAs(oldDocument.securityOrigin()))
+        return false;
+
+    if (const auto* metrics = response().deprecatedNetworkLoadMetricsOrNull(); metrics && !fromBackForwardCache) {
+        if (metrics->crossOriginRedirect())
+            return false;
+    }
+
+    if (*m_triggeringAction.navigationAPIType() == NavigationNavigationType::Traverse)
+        return true;
+
+    // FIXME: If isBrowserUINavigation is true, then return false.
+
+    return true;
+}
+
 void DocumentLoader::becomeMainResourceClient()
 {
 #if ENABLE(CONTENT_FILTERING)
@@ -2640,9 +2694,33 @@ bool DocumentLoader::fingerprintingProtectionsEnabled() const
     return m_advancedPrivacyProtections.contains(AdvancedPrivacyProtections::FingerprintingProtections);
 }
 
+void DocumentLoader::setHTTPSByDefaultMode(HTTPSByDefaultMode mode)
+{
+    if (mode == HTTPSByDefaultMode::Disabled) {
+        if (m_advancedPrivacyProtections.contains(AdvancedPrivacyProtections::HTTPSOnly))
+            m_httpsByDefaultMode = HTTPSByDefaultMode::UpgradeWithUserMediatedFallback;
+        else if (m_advancedPrivacyProtections.contains(AdvancedPrivacyProtections::HTTPSFirst))
+            m_httpsByDefaultMode = HTTPSByDefaultMode::UpgradeWithAutomaticFallback;
+    } else
+        m_httpsByDefaultMode = mode;
+}
+
 Ref<CachedResourceLoader> DocumentLoader::protectedCachedResourceLoader() const
 {
     return m_cachedResourceLoader;
+}
+
+void DocumentLoader::whenDocumentIsCreated(Function<void(Document*)>&& callback)
+{
+    ASSERT(!m_canUseServiceWorkers || !!m_resultingClientId);
+
+    if (auto previousCallback = std::exchange(m_whenDocumentIsCreatedCallback, { })) {
+        callback = [previousCallback = WTFMove(previousCallback), newCallback = WTFMove(callback)] (auto* document) mutable {
+            previousCallback(document);
+            newCallback(document);
+        };
+    }
+    m_whenDocumentIsCreatedCallback = WTFMove(callback);
 }
 
 } // namespace WebCore

@@ -29,11 +29,11 @@
 #include "LegacyRenderSVGResourceMaskerInlines.h"
 #include "SVGRenderStyle.h"
 #include "SVGRenderingContext.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(LegacyRenderSVGResourceMasker);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(LegacyRenderSVGResourceMasker);
 
 LegacyRenderSVGResourceMasker::LegacyRenderSVGResourceMasker(SVGMaskElement& element, RenderStyle&& style)
     : LegacyRenderSVGResourceContainer(Type::LegacySVGResourceMasker, element, WTFMove(style))
@@ -68,7 +68,9 @@ auto LegacyRenderSVGResourceMasker::applyResource(RenderElement& renderer, const
 
     MaskerData* maskerData = m_masker.get(renderer);
     AffineTransform absoluteTransform = SVGRenderingContext::calculateTransformationToOutermostCoordinateSystem(renderer);
-    FloatRect repaintRect = renderer.repaintRectInLocalCoordinates();
+    // FIXME: This needs to be bounding box and should not use repaint rect.
+    // https://bugs.webkit.org/show_bug.cgi?id=278551
+    FloatRect repaintRect = renderer.repaintRectInLocalCoordinates(RepaintRectCalculation::Accurate);
 
     // Ignore 2D rotation, as it doesn't affect the size of the mask.
     FloatSize scale(absoluteTransform.xScale(), absoluteTransform.yScale());

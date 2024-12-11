@@ -28,6 +28,7 @@
 #include "WebKitWebViewPrivate.h"
 #include "WebKitWebsiteDataManagerPrivate.h"
 #include <glib/gi18n-lib.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
@@ -61,6 +62,7 @@ enum {
 
 enum {
     CREATE_WEB_VIEW,
+    WILL_CLOSE,
 
     LAST_SIGNAL
 };
@@ -77,7 +79,7 @@ static guint signals[LAST_SIGNAL] = { 0, };
 WEBKIT_DEFINE_FINAL_TYPE(WebKitAutomationSession, webkit_automation_session, G_TYPE_OBJECT, GObject)
 
 class AutomationSessionClient final : public API::AutomationSessionClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(AutomationSessionClient);
 public:
     explicit AutomationSessionClient(WebKitAutomationSession* session)
         : m_session(session)
@@ -318,6 +320,26 @@ static void webkit_automation_session_class_init(WebKitAutomationSessionClass* s
         nullptr, nullptr,
         g_cclosure_marshal_generic,
         WEBKIT_TYPE_WEB_VIEW, 0,
+        G_TYPE_NONE);
+
+
+    /**
+     * WebKitAutomationSession::will-close:
+     * @session: a #WebKitAutomationSession
+     *
+     * This signal is emitted when the given automation session is about to finish.
+     * It allows clients to perform any cleanup tasks before the session is destroyed.
+     *
+     * Since: 2.46
+     */
+    signals[WILL_CLOSE] = g_signal_new(
+        "will-close",
+        G_TYPE_FROM_CLASS(gObjectClass),
+        G_SIGNAL_RUN_LAST,
+        0,
+        nullptr, nullptr,
+        g_cclosure_marshal_generic,
+        G_TYPE_NONE, 0,
         G_TYPE_NONE);
 }
 

@@ -28,6 +28,7 @@
 
 #include "AsyncScrollingCoordinator.h"
 #include "BorderData.h"
+#include "BorderShape.h"
 #include "CSSPropertyNames.h"
 #include "CanvasRenderingContext.h"
 #include "Chrome.h"
@@ -82,6 +83,7 @@
 #include <wtf/Scope.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -109,6 +111,12 @@
 #endif
 
 namespace WebCore {
+
+#if PLATFORM(IOS_FAMILY)
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LegacyWebKitScrollingLayerCoordinator);
+#endif
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderLayerCompositor);
 
 #if !USE(COMPOSITING_FOR_SMALL_CANVASES)
 static const int canvasAreaThresholdRequiringCompositing = 50 * 100;
@@ -450,8 +458,6 @@ auto RenderLayerCompositor::BackingSharingState::backingProviderCandidateForLaye
     }
 
     auto& providerLayer = *candidate.providerLayer;
-
-    LOG_WITH_STREAM(Compositing, stream << "Provider: composited scroll(" << providerLayer.canUseCompositedScrolling() << ") scrollableArea(" << providerLayer.scrollableArea() << ") horizontalOverflow(" << (providerLayer.scrollableArea() && providerLayer.scrollableArea()->hasScrollableHorizontalOverflow()) << ") verticalOverflow(" << (providerLayer.scrollableArea() && providerLayer.scrollableArea()->hasScrollableVerticalOverflow()) << ")");
     LayoutRect overlapBounds = candidate.absoluteBounds;
     if (providerLayer.canUseCompositedScrolling() && providerLayer.scrollableArea() && providerLayer.scrollableArea()->hasScrollableHorizontalOverflow() != providerLayer.scrollableArea()->hasScrollableVerticalOverflow()) {
         // If the provider uses composited scrolling but only supports scrolling
@@ -468,11 +474,14 @@ auto RenderLayerCompositor::BackingSharingState::backingProviderCandidateForLaye
         }
     }
 
+    LOG_WITH_STREAM(Compositing, stream << "Provider: composited scroll(" << providerLayer.canUseCompositedScrolling() << ") scrollableArea(" << providerLayer.scrollableArea() << ") horizontalOverflow(" << (providerLayer.scrollableArea() && providerLayer.scrollableArea()->hasScrollableHorizontalOverflow()) << ") verticalOverflow(" << (providerLayer.scrollableArea() && providerLayer.scrollableArea()->hasScrollableVerticalOverflow()) << ")" << " overlapBounds(" << overlapBounds << ")");
+
     // Check if any of the other candidates that are in front of the selected provider will
     // overlap the bounds of the layer to be added.
     for (auto& provider : m_backingProviderCandidates.subspan(candidateIndex + 1)) {
+        LOG_WITH_STREAM(Compositing, stream << "Considering " << provider.providerLayer  << " with bounds " << provider.absoluteBounds);
         if (overlapBounds.intersects(provider.absoluteBounds)) {
-            LOG_WITH_STREAM(Compositing, stream << "Aborting due to " << overlapBounds << " intersecting with " << provider.providerLayer << " " << provider.absoluteBounds);
+            LOG_WITH_STREAM(Compositing, stream << "Aborting due to overlap");
             return nullptr;
         }
     }
@@ -859,7 +868,7 @@ void RenderLayerCompositor::updateScrollCoordinatedLayersAfterFlush()
 
 void RenderLayerCompositor::didChangePlatformLayerForLayer(RenderLayer& layer, const GraphicsLayer*)
 {
-    auto* scrollingCoordinator = this->scrollingCoordinator();
+    RefPtr scrollingCoordinator = this->scrollingCoordinator();
     if (!scrollingCoordinator)
         return;
 
@@ -1089,7 +1098,7 @@ bool RenderLayerCompositor::updateCompositingLayers(CompositingUpdateType update
         if (!m_renderView.frame().isMainFrame())
             scrollingTreeState.parentNodeID = frameHostingNodeForFrame(m_renderView.frame());
 
-        auto* scrollingCoordinator = this->scrollingCoordinator();
+        RefPtr scrollingCoordinator = this->scrollingCoordinator();
         bool hadSubscrollers = scrollingCoordinator ? scrollingCoordinator->hasSubscrollers(m_renderView.frame().rootFrame().frameID()) : false;
 
         UpdateBackingTraversalState traversalState;
@@ -1927,7 +1936,7 @@ void RenderLayerCompositor::logLayerInfo(const RenderLayer& layer, ASCIILiteral 
     absoluteBounds.move(layer.offsetFromAncestor(m_renderView.layer()));
     
     StringBuilder logString;
-    logString.append(pad(' ', 12 + depth * 2, hex(reinterpret_cast<uintptr_t>(&layer), Lowercase)), " id "_s, backing->graphicsLayer()->primaryLayerID().object(), " ("_s, absoluteBounds.x().toFloat(), ',', absoluteBounds.y().toFloat(), '-', absoluteBounds.maxX().toFloat(), ',', absoluteBounds.maxY().toFloat(), ") "_s, FormattedNumber::fixedWidth(backing->backingStoreMemoryEstimate() / 1024, 2), "KB"_s);
+    logString.append(pad(' ', 12 + depth * 2, hex(reinterpret_cast<uintptr_t>(&layer), Lowercase)), " id "_s, backing->graphicsLayer()->primaryLayerID() ? backing->graphicsLayer()->primaryLayerID()->object().toUInt64() : 0, " ("_s, absoluteBounds.x().toFloat(), ',', absoluteBounds.y().toFloat(), '-', absoluteBounds.maxX().toFloat(), ',', absoluteBounds.maxY().toFloat(), ") "_s, FormattedNumber::fixedWidth(backing->backingStoreMemoryEstimate() / 1024, 2), "KB"_s);
 
     if (!layer.renderer().style().hasAutoUsedZIndex())
         logString.append(" z-index: "_s, layer.renderer().style().usedZIndex());
@@ -2238,7 +2247,7 @@ bool RenderLayerCompositor::updateBacking(RenderLayer& layer, RequiresCompositin
 
             if (layer.isRenderViewLayer() && useCoordinatedScrollingForLayer(layer)) {
                 auto& frameView = m_renderView.frameView();
-                if (auto* scrollingCoordinator = this->scrollingCoordinator())
+                if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
                     scrollingCoordinator->frameViewRootLayerDidChange(frameView);
 #if HAVE(RUBBER_BANDING)
                 updateLayerForHeader(frameView.headerHeight());
@@ -2316,7 +2325,7 @@ bool RenderLayerCompositor::updateBacking(RenderLayer& layer, RequiresCompositin
             layerChanged = true;
         }
         if (layerChanged) {
-            if (auto* scrollingCoordinator = this->scrollingCoordinator())
+            if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
                 scrollingCoordinator->frameViewFixedObjectsDidChange(m_renderView.frameView());
         }
     } else
@@ -2657,7 +2666,7 @@ void RenderLayerCompositor::widgetDidChangeSize(RenderWidget& widget)
 
 bool RenderLayerCompositor::hasCoordinatedScrolling() const
 {
-    auto* scrollingCoordinator = this->scrollingCoordinator();
+    RefPtr scrollingCoordinator = this->scrollingCoordinator();
     return scrollingCoordinator && scrollingCoordinator->coordinatesScrollingForFrameView(m_renderView.frameView());
 }
 
@@ -2703,8 +2712,7 @@ FloatPoint RenderLayerCompositor::positionForClipLayer() const
 {
     auto& frameView = m_renderView.frameView();
 
-    return FloatPoint(
-        frameView.shouldPlaceVerticalScrollbarOnLeft() ? frameView.horizontalScrollbarIntrusion() : 0,
+    return FloatPoint(frameView.insetForLeftScrollbarSpace(),
         LocalFrameView::yPositionForInsetClipLayer(frameView.scrollPosition(), frameView.topContentInset()));
 }
 
@@ -2861,7 +2869,7 @@ auto RenderLayerCompositor::attachWidgetContentLayersIfNecessary(RenderWidget& r
             if (!isLayerForPluginWithScrollCoordinatedContents(*layer))
                 return result;
 
-            auto* scrollingCoordinator = this->scrollingCoordinator();
+            RefPtr scrollingCoordinator = this->scrollingCoordinator();
             if (!scrollingCoordinator)
                 return result;
 
@@ -2892,7 +2900,7 @@ auto RenderLayerCompositor::attachWidgetContentLayersIfNecessary(RenderWidget& r
         result.layerHierarchyChanged = addContentsLayerChildIfNecessary(*iframeRootLayer, isVisible);
 
     if (auto frameHostingNodeID = backing->scrollingNodeIDForRole(ScrollCoordinationRole::FrameHosting)) {
-        auto* scrollingCoordinator = this->scrollingCoordinator();
+        RefPtr scrollingCoordinator = this->scrollingCoordinator();
         if (!scrollingCoordinator)
             return result;
 
@@ -3509,8 +3517,9 @@ Vector<CompositedClipData> RenderLayerCompositor::computeAncestorClippingStack(c
                     pushNonScrollableClip(*currentClippedLayer, ancestorLayer);
                     haveNonScrollableClippingIntermediateLayer = false;
                 }
-                
-                auto clipRoundedRect = box->style().getRoundedInnerBorderFor(box->borderBoxRect());
+
+                auto borderShape = BorderShape::shapeForBorderRect(box->style(), box->borderBoxRect());
+                auto clipRoundedRect = borderShape.deprecatedInnerRoundedRect();
 
                 auto offset = layer.convertToLayerCoords(&ancestorLayer, { }, RenderLayer::AdjustForColumns);
                 auto rect = clipRoundedRect.rect();
@@ -4041,7 +4050,7 @@ bool RenderLayerCompositor::useCoordinatedScrollingForLayer(const RenderLayer& l
     if (layer.isRenderViewLayer() && hasCoordinatedScrolling())
         return true;
 
-    if (auto* scrollingCoordinator = this->scrollingCoordinator())
+    if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
         return scrollingCoordinator->coordinatesScrollingForOverflowLayer(layer);
 
     return false;
@@ -4169,7 +4178,7 @@ bool RenderLayerCompositor::isLayerForIFrameWithScrollCoordinatedContents(const 
     if (!view)
         return false;
 
-    if (auto* scrollingCoordinator = this->scrollingCoordinator())
+    if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
         return scrollingCoordinator->coordinatesScrollingForFrameView(view->frameView());
 
     return false;
@@ -4477,7 +4486,7 @@ GraphicsLayer* RenderLayerCompositor::updateLayerForHeader(bool wantsLayer)
 
             // The ScrollingTree knows about the header layer, and the position of the root layer is affected
             // by the header layer, so if we remove the header, we need to tell the scrolling tree.
-            if (auto* scrollingCoordinator = this->scrollingCoordinator())
+            if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
                 scrollingCoordinator->frameViewRootLayerDidChange(m_renderView.frameView());
         }
         return nullptr;
@@ -4494,7 +4503,7 @@ GraphicsLayer* RenderLayerCompositor::updateLayerForHeader(bool wantsLayer)
     m_layerForHeader->setAnchorPoint(FloatPoint3D());
     m_layerForHeader->setSize(FloatSize(m_renderView.frameView().visibleWidth(), m_renderView.frameView().headerHeight()));
 
-    if (auto* scrollingCoordinator = this->scrollingCoordinator())
+    if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
         scrollingCoordinator->frameViewRootLayerDidChange(m_renderView.frameView());
 
     page().chrome().client().didAddHeaderLayer(*m_layerForHeader);
@@ -4513,7 +4522,7 @@ GraphicsLayer* RenderLayerCompositor::updateLayerForFooter(bool wantsLayer)
 
             // The ScrollingTree knows about the footer layer, and the total scrollable size is affected
             // by the footer layer, so if we remove the footer, we need to tell the scrolling tree.
-            if (auto* scrollingCoordinator = this->scrollingCoordinator())
+            if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
                 scrollingCoordinator->frameViewRootLayerDidChange(m_renderView.frameView());
         }
         return nullptr;
@@ -4531,7 +4540,7 @@ GraphicsLayer* RenderLayerCompositor::updateLayerForFooter(bool wantsLayer)
     m_layerForFooter->setAnchorPoint(FloatPoint3D());
     m_layerForFooter->setSize(FloatSize(m_renderView.frameView().visibleWidth(), m_renderView.frameView().footerHeight()));
 
-    if (auto* scrollingCoordinator = this->scrollingCoordinator())
+    if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
         scrollingCoordinator->frameViewRootLayerDidChange(m_renderView.frameView());
 
     page().chrome().client().didAddFooterLayer(*m_layerForFooter);
@@ -4611,6 +4620,24 @@ void RenderLayerCompositor::rootOrBodyStyleChanged(RenderElement& renderer, cons
     }
 }
 
+void RenderLayerCompositor::setRootElementCapturedInViewTransition(bool captured)
+{
+    if (m_rootElementCapturedInViewTransition == captured)
+        return;
+    m_rootElementCapturedInViewTransition = captured;
+    updateRootContentsLayerBackgroundColor();
+}
+
+void RenderLayerCompositor::updateRootContentsLayerBackgroundColor()
+{
+    if (!m_rootContentsLayer)
+        return;
+    if (m_rootElementCapturedInViewTransition)
+        m_rootContentsLayer->setBackgroundColor(m_viewBackgroundColor);
+    else
+        m_rootContentsLayer->setBackgroundColor(Color());
+}
+
 void RenderLayerCompositor::rootBackgroundColorOrTransparencyChanged()
 {
     if (!usesCompositing())
@@ -4640,6 +4667,7 @@ void RenderLayerCompositor::rootBackgroundColorOrTransparencyChanged()
 #if HAVE(RUBBER_BANDING)
         updateLayerForOverhangAreasBackgroundColor();
 #endif
+        updateRootContentsLayerBackgroundColor();
     }
     
     rootLayerConfigurationChanged();
@@ -4702,18 +4730,18 @@ void RenderLayerCompositor::updateOverflowControlsLayers()
             m_layerForHorizontalScrollbar->setAllowsTiling(false);
             m_layerForHorizontalScrollbar->setShowDebugBorder(m_showDebugBorders);
             m_layerForHorizontalScrollbar->setName(MAKE_STATIC_STRING_IMPL("horizontal scrollbar container"));
-#if PLATFORM(COCOA) && USE(CA)
+#if USE(CA)
             m_layerForHorizontalScrollbar->setAcceleratesDrawing(acceleratedDrawingEnabled());
 #endif
             m_overflowControlsHostLayer->addChild(*m_layerForHorizontalScrollbar);
 
-            if (auto* scrollingCoordinator = this->scrollingCoordinator())
+            if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
                 scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(m_renderView.frameView(), ScrollbarOrientation::Horizontal);
         }
     } else if (m_layerForHorizontalScrollbar) {
         GraphicsLayer::unparentAndClear(m_layerForHorizontalScrollbar);
 
-        if (auto* scrollingCoordinator = this->scrollingCoordinator())
+        if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
             scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(m_renderView.frameView(), ScrollbarOrientation::Horizontal);
     }
 
@@ -4724,18 +4752,18 @@ void RenderLayerCompositor::updateOverflowControlsLayers()
             m_layerForVerticalScrollbar->setAllowsTiling(false);
             m_layerForVerticalScrollbar->setShowDebugBorder(m_showDebugBorders);
             m_layerForVerticalScrollbar->setName(MAKE_STATIC_STRING_IMPL("vertical scrollbar container"));
-#if PLATFORM(COCOA) && USE(CA)
+#if USE(CA)
             m_layerForVerticalScrollbar->setAcceleratesDrawing(acceleratedDrawingEnabled());
 #endif
             m_overflowControlsHostLayer->addChild(*m_layerForVerticalScrollbar);
 
-            if (auto* scrollingCoordinator = this->scrollingCoordinator())
+            if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
                 scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(m_renderView.frameView(), ScrollbarOrientation::Vertical);
         }
     } else if (m_layerForVerticalScrollbar) {
         GraphicsLayer::unparentAndClear(m_layerForVerticalScrollbar);
 
-        if (auto* scrollingCoordinator = this->scrollingCoordinator())
+        if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
             scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(m_renderView.frameView(), ScrollbarOrientation::Vertical);
     }
 
@@ -4745,7 +4773,7 @@ void RenderLayerCompositor::updateOverflowControlsLayers()
             m_layerForScrollCorner->setAllowsBackingStoreDetaching(false);
             m_layerForScrollCorner->setShowDebugBorder(m_showDebugBorders);
             m_layerForScrollCorner->setName(MAKE_STATIC_STRING_IMPL("scroll corner"));
-#if PLATFORM(COCOA) && USE(CA)
+#if USE(CA)
             m_layerForScrollCorner->setAcceleratesDrawing(acceleratedDrawingEnabled());
 #endif
             m_overflowControlsHostLayer->addChild(*m_layerForScrollCorner);
@@ -4777,6 +4805,7 @@ void RenderLayerCompositor::ensureRootLayer()
 
         // Need to clip to prevent transformed content showing outside this frame
         updateRootContentLayerClipping();
+        updateRootContentsLayerBackgroundColor();
     }
 
     if (requiresScrollLayer(expectedAttachment)) {
@@ -4855,7 +4884,7 @@ void RenderLayerCompositor::destroyRootLayer()
 
     if (m_layerForHorizontalScrollbar) {
         GraphicsLayer::unparentAndClear(m_layerForHorizontalScrollbar);
-        if (auto* scrollingCoordinator = this->scrollingCoordinator())
+        if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
             scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(m_renderView.frameView(), ScrollbarOrientation::Horizontal);
         if (auto* horizontalScrollbar = m_renderView.frameView().horizontalScrollbar())
             m_renderView.frameView().invalidateScrollbar(*horizontalScrollbar, IntRect(IntPoint(0, 0), horizontalScrollbar->frameRect().size()));
@@ -4863,7 +4892,7 @@ void RenderLayerCompositor::destroyRootLayer()
 
     if (m_layerForVerticalScrollbar) {
         GraphicsLayer::unparentAndClear(m_layerForVerticalScrollbar);
-        if (auto* scrollingCoordinator = this->scrollingCoordinator())
+        if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
             scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(m_renderView.frameView(), ScrollbarOrientation::Vertical);
         if (auto* verticalScrollbar = m_renderView.frameView().verticalScrollbar())
             m_renderView.frameView().invalidateScrollbar(*verticalScrollbar, IntRect(IntPoint(0, 0), verticalScrollbar->frameRect().size()));
@@ -4922,7 +4951,7 @@ void RenderLayerCompositor::detachRootLayer()
     if (!m_rootContentsLayer || m_rootLayerAttachment == RootLayerUnattached)
         return;
 
-    if (auto* scrollingCoordinator = this->scrollingCoordinator())
+    if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
         scrollingCoordinator->frameViewWillBeDetached(m_renderView.frameView());
 
     switch (m_rootLayerAttachment) {
@@ -4938,7 +4967,7 @@ void RenderLayerCompositor::detachRootLayer()
             ownerElement->scheduleInvalidateStyleAndLayerComposition();
 
         if (auto frameRootScrollingNodeID = m_renderView.frameView().scrollingNodeID()) {
-            if (auto* scrollingCoordinator = this->scrollingCoordinator()) {
+            if (RefPtr scrollingCoordinator = this->scrollingCoordinator()) {
                 scrollingCoordinator->frameViewWillBeDetached(m_renderView.frameView());
                 scrollingCoordinator->unparentNode(frameRootScrollingNodeID);
             }
@@ -4946,7 +4975,7 @@ void RenderLayerCompositor::detachRootLayer()
         break;
     }
     case RootLayerAttachedViaChromeClient: {
-        if (auto* scrollingCoordinator = this->scrollingCoordinator())
+        if (RefPtr scrollingCoordinator = this->scrollingCoordinator())
             scrollingCoordinator->frameViewWillBeDetached(m_renderView.frameView());
         page().chrome().client().attachRootGraphicsLayer(m_renderView.frameView().frame(), nullptr);
     }
@@ -5351,7 +5380,7 @@ ScrollingNodeID RenderLayerCompositor::updateScrollCoordinationForLayer(RenderLa
 
 ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForViewportConstrainedRole(RenderLayer& layer, ScrollingTreeState& treeState, OptionSet<ScrollingNodeChangeFlags> changes)
 {
-    auto* scrollingCoordinator = this->scrollingCoordinator();
+    RefPtr scrollingCoordinator = this->scrollingCoordinator();
 
     auto nodeType = ScrollingNodeType::Fixed;
     if (layer.renderer().style().position() == PositionType::Sticky)
@@ -5404,8 +5433,10 @@ RoundedRect RenderLayerCompositor::parentRelativeScrollableRect(const RenderLaye
             return RoundedRect { LayoutRect { } };
 
         scrollableRect = RoundedRect { box->paddingBoxRect() };
-        if (box->style().hasBorderRadius())
-            scrollableRect = box->style().getRoundedInnerBorderFor(box->borderBoxRect());
+        if (box->style().hasBorderRadius()) {
+            auto borderShape = BorderShape::shapeForBorderRect(box->style(), box->borderBoxRect());
+            scrollableRect = borderShape.deprecatedInnerRoundedRect();
+        }
     }
 
     auto offset = layer.convertToLayerCoords(ancestorLayer, scrollableRect.rect().location()); // FIXME: broken for columns.
@@ -5441,7 +5472,7 @@ void RenderLayerCompositor::updateScrollingNodeLayers(ScrollingNodeID nodeID, Re
 
 ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForScrollingRole(RenderLayer& layer, ScrollingTreeState& treeState, OptionSet<ScrollingNodeChangeFlags> changes)
 {
-    auto* scrollingCoordinator = this->scrollingCoordinator();
+    RefPtr scrollingCoordinator = this->scrollingCoordinator();
 
     ScrollingNodeID newNodeID;
 
@@ -5463,6 +5494,8 @@ ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForScrollingRole(Rende
             scrollingCoordinator->setScrollingNodeScrollableAreaGeometry(newNodeID, frameView);
             scrollingCoordinator->setFrameScrollingNodeState(newNodeID, frameView);
         }
+        page().chrome().client().ensureScrollbarsController(page(), frameView, true);
+
     } else {
         newNodeID = attachScrollingNode(layer, ScrollingNodeType::Overflow, treeState);
         if (!newNodeID) {
@@ -5482,7 +5515,7 @@ ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForScrollingRole(Rende
                 scrollingCoordinator->setScrollingNodeScrollableAreaGeometry(newNodeID, *scrollableArea);
         }
         if (auto* scrollableArea = layer.scrollableArea())
-            page().chrome().client().ensureScrollbarsController(page(), *scrollableArea);
+            page().chrome().client().ensureScrollbarsController(page(), *scrollableArea, true);
     }
 
     return newNodeID;
@@ -5504,7 +5537,7 @@ bool RenderLayerCompositor::setupScrollProxyRelatedOverflowScrollingNode(Scrolli
 
 ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForScrollingProxyRole(RenderLayer& layer, ScrollingTreeState& treeState, OptionSet<ScrollingNodeChangeFlags> changes)
 {
-    auto* scrollingCoordinator = this->scrollingCoordinator();
+    RefPtr scrollingCoordinator = this->scrollingCoordinator();
     auto* clippingStack = layer.backing()->ancestorClippingStack();
     if (!clippingStack)
         return treeState.parentNodeID.value_or(ScrollingNodeID { });
@@ -5547,7 +5580,7 @@ ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForScrollingProxyRole(
 
 ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForFrameHostingRole(RenderLayer& layer, ScrollingTreeState& treeState, OptionSet<ScrollingNodeChangeFlags> changes)
 {
-    auto* scrollingCoordinator = this->scrollingCoordinator();
+    RefPtr scrollingCoordinator = this->scrollingCoordinator();
 
     auto newNodeID = attachScrollingNode(layer, ScrollingNodeType::FrameHosting, treeState);
     if (!newNodeID) {
@@ -5582,7 +5615,7 @@ ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForPluginHostingRole(R
 
 ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForPositioningRole(RenderLayer& layer, const RenderLayer* compositingAncestor, ScrollingTreeState& treeState, OptionSet<ScrollingNodeChangeFlags> changes)
 {
-    auto* scrollingCoordinator = this->scrollingCoordinator();
+    RefPtr scrollingCoordinator = this->scrollingCoordinator();
 
     auto newNodeID = attachScrollingNode(layer, ScrollingNodeType::Positioned, treeState);
     if (!newNodeID) {
@@ -5646,7 +5679,7 @@ void RenderLayerCompositor::updateSynchronousScrollingNodes()
     if (m_renderView.settings().fixedBackgroundsPaintRelativeToDocument())
         return;
 
-    auto scrollingCoordinator = this->scrollingCoordinator();
+    RefPtr scrollingCoordinator = this->scrollingCoordinator();
     ASSERT(scrollingCoordinator);
 
     auto rootScrollingNodeID = m_renderView.frameView().scrollingNodeID();
@@ -5776,7 +5809,7 @@ GraphicsLayerFactory* RenderLayerCompositor::graphicsLayerFactory() const
 
 void RenderLayerCompositor::updateScrollSnapPropertiesWithFrameView(const LocalFrameView& frameView) const
 {
-    if (auto* coordinator = scrollingCoordinator())
+    if (RefPtr coordinator = scrollingCoordinator())
         coordinator->updateScrollSnapPropertiesWithFrameView(frameView);
 }
 

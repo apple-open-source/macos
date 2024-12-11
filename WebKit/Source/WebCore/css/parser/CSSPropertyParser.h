@@ -25,7 +25,6 @@
 #include "CSSCustomPropertySyntax.h"
 #include "CSSParserTokenRange.h"
 #include "CSSPropertyParserHelpers.h"
-#include "CSSPropertyParserWorkerSafe.h"
 #include "StyleRuleType.h"
 #include <wtf/text/StringView.h>
 
@@ -84,8 +83,14 @@ private:
     // @keyframe descriptors.
     bool parseKeyframeDescriptor(CSSPropertyID, bool important);
 
+    // @page descriptors.
+    bool parsePageDescriptor(CSSPropertyID, bool important);
+
     // @property descriptors.
     bool parsePropertyDescriptor(CSSPropertyID);
+
+    // @view-transition descriptors.
+    bool parseViewTransitionDescriptor(CSSPropertyID);
 
     void addProperty(CSSPropertyID longhand, CSSPropertyID shorthand, RefPtr<CSSValue>&&, bool important, bool implicit = false);
     void addExpandedProperty(CSSPropertyID shorthand, RefPtr<CSSValue>&&, bool important, bool implicit = false);
@@ -112,9 +117,7 @@ private:
     bool consumeGridShorthand(bool important);
     bool consumeGridAreaShorthand(bool important);
 
-    bool consumePlaceContentShorthand(bool important);
-    bool consumePlaceItemsShorthand(bool important);
-    bool consumePlaceSelfShorthand(bool important);
+    bool consumeAlignShorthand(const StylePropertyShorthand&, bool important);
 
     bool consumeFont(bool important);
     bool consumeTextDecorationSkip(bool important);
@@ -144,6 +147,10 @@ private:
 
     bool consumeScrollTimelineShorthand(bool important);
     bool consumeViewTimelineShorthand(bool important);
+
+    bool consumeLineClampShorthand(bool important);
+
+    bool consumeTextBoxShorthand(bool important);
 
     bool consumeTextWrapShorthand(bool important);
     bool consumeWhiteSpaceShorthand(bool important);

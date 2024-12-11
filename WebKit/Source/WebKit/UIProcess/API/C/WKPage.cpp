@@ -93,6 +93,7 @@
 #include "WebProtectionSpace.h"
 #include <WebCore/AutoplayEvent.h>
 #include <WebCore/ContentRuleListResults.h>
+#include <WebCore/FrameLoaderClient.h>
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/OrganizationStorageAccessPromptQuirk.h>
 #include <WebCore/Page.h>
@@ -101,8 +102,10 @@
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/SerializedCryptoKeyWrap.h>
+#include <WebCore/SharedBuffer.h>
 #include <WebCore/WindowFeatures.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #ifdef __BLOCKS__
 #include <Block.h>
@@ -213,7 +216,7 @@ void WKPageLoadURLWithShouldOpenExternalURLsPolicy(WKPageRef pageRef, WKURLRef U
 void WKPageLoadURLWithUserData(WKPageRef pageRef, WKURLRef URLRef, WKTypeRef userDataRef)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->loadRequest(URL { toWTFString(URLRef) }, WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow, toImpl(userDataRef));
+    toImpl(pageRef)->loadRequest(URL { toWTFString(URLRef) }, WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow, WebCore::IsPerformingHTTPFallback::No, toImpl(userDataRef));
 }
 
 void WKPageLoadURLRequest(WKPageRef pageRef, WKURLRequestRef urlRequestRef)
@@ -227,7 +230,7 @@ void WKPageLoadURLRequestWithUserData(WKPageRef pageRef, WKURLRequestRef urlRequ
 {
     CRASH_IF_SUSPENDED;
     auto resourceRequest = toImpl(urlRequestRef)->resourceRequest();
-    toImpl(pageRef)->loadRequest(WTFMove(resourceRequest), WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow, toImpl(userDataRef));
+    toImpl(pageRef)->loadRequest(WTFMove(resourceRequest), WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow, WebCore::IsPerformingHTTPFallback::No, toImpl(userDataRef));
 }
 
 void WKPageLoadFile(WKPageRef pageRef, WKURLRef fileURL, WKURLRef resourceDirectoryURL)
@@ -245,13 +248,15 @@ void WKPageLoadFileWithUserData(WKPageRef pageRef, WKURLRef fileURL, WKURLRef re
 void WKPageLoadData(WKPageRef pageRef, WKDataRef dataRef, WKStringRef MIMETypeRef, WKStringRef encodingRef, WKURLRef baseURLRef)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->loadData(toImpl(dataRef)->span(), toWTFString(MIMETypeRef), toWTFString(encodingRef), toWTFString(baseURLRef));
+    // FIXME: Use WebCore::DataSegment::Provider to remove this unnecessary copy.
+    toImpl(pageRef)->loadData(WebCore::SharedBuffer::create(toImpl(dataRef)->span()), toWTFString(MIMETypeRef), toWTFString(encodingRef), toWTFString(baseURLRef));
 }
 
 void WKPageLoadDataWithUserData(WKPageRef pageRef, WKDataRef dataRef, WKStringRef MIMETypeRef, WKStringRef encodingRef, WKURLRef baseURLRef, WKTypeRef userDataRef)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->loadData(toImpl(dataRef)->span(), toWTFString(MIMETypeRef), toWTFString(encodingRef), toWTFString(baseURLRef), toImpl(userDataRef));
+    // FIXME: Use WebCore::DataSegment::Provider to remove this unnecessary copy.
+    toImpl(pageRef)->loadData(WebCore::SharedBuffer::create(toImpl(dataRef)->span()), toWTFString(MIMETypeRef), toWTFString(encodingRef), toWTFString(baseURLRef), toImpl(userDataRef));
 }
 
 static String encodingOf(const String& string)
@@ -276,7 +281,8 @@ static Ref<WebCore::DataSegment> dataReferenceFrom(const String& string)
 static void loadString(WKPageRef pageRef, WKStringRef stringRef, const String& mimeType, const String& baseURL, WKTypeRef userDataRef)
 {
     String string = toWTFString(stringRef);
-    toImpl(pageRef)->loadData(dataFrom(string), mimeType, encodingOf(string), baseURL, toImpl(userDataRef));
+    // FIXME: Use WebCore::DataSegment::Provider to remove this unnecessary copy.
+    toImpl(pageRef)->loadData(WebCore::SharedBuffer::create(dataFrom(string)), mimeType, encodingOf(string), baseURL, toImpl(userDataRef));
 }
 
 void WKPageLoadHTMLString(WKPageRef pageRef, WKStringRef htmlStringRef, WKURLRef baseURLRef)
@@ -401,7 +407,7 @@ void WKPageGoBack(WKPageRef pageRef)
 {
     CRASH_IF_SUSPENDED;
     auto& page = *toImpl(pageRef);
-    if (page.pageClient().hasSafeBrowsingWarning()) {
+    if (page.pageClient().hasBrowsingWarning()) {
         WKPageReload(pageRef);
         return;
     }
@@ -2427,7 +2433,7 @@ void WKPageSetPageNavigationClient(WKPageRef pageRef, const WKPageNavigationClie
 }
 
 class StateClient final : public API::Client<WKPageStateClientBase>, public PageLoadState::Observer {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(StateClient);
 public:
     explicit StateClient(const WKPageStateClientBase* client)
     {
@@ -2591,37 +2597,19 @@ void WKPageSetPageStateClient(WKPageRef pageRef, WKPageStateClientBase* client)
         toImpl(pageRef)->setPageLoadStateObserver(nullptr);
 }
 
-void WKPageRunJavaScriptInMainFrame(WKPageRef pageRef, WKStringRef scriptRef, void* context, WKPageRunJavaScriptFunction callback)
+void WKPageEvaluateJavaScriptInMainFrame(WKPageRef pageRef, WKStringRef scriptRef, void* context, WKPageEvaluateJavaScriptFunction callback)
 {
     CRASH_IF_SUSPENDED;
-#if PLATFORM(COCOA)
-    auto removeTransientActivation = shouldEvaluateJavaScriptWithoutTransientActivation() ? RemoveTransientActivation::Yes : RemoveTransientActivation::No;
-#else
-    auto removeTransientActivation = RemoveTransientActivation::Yes;
-#endif
 
-    toImpl(pageRef)->runJavaScriptInMainFrame({ toImpl(scriptRef)->string(), JSC::SourceTaintedOrigin::Untainted, URL { }, false, std::nullopt, true, removeTransientActivation }, [context, callback] (auto&& result) {
+    toImpl(pageRef)->runJavaScriptInMainFrame({ toImpl(scriptRef)->string(), JSC::SourceTaintedOrigin::Untainted, URL { }, false, std::nullopt, true, RemoveTransientActivation::Yes }, [context, callback] (auto&& result) {
+        if (!callback)
+            return;
         if (result.has_value())
-            callback(toAPI(result.value().get()), nullptr, context);
+            callback(API::SerializedScriptValue::deserializeWK(result.value()->internalRepresentation()).get(), nullptr, context);
         else
             callback(nullptr, nullptr, context);
     });
 }
-
-#ifdef __BLOCKS__
-static void callRunJavaScriptBlockAndRelease(WKSerializedScriptValueRef resultValue, WKErrorRef error, void* context)
-{
-    WKPageRunJavaScriptBlock block = (WKPageRunJavaScriptBlock)context;
-    block(resultValue, error);
-    Block_release(block);
-}
-
-void WKPageRunJavaScriptInMainFrame_b(WKPageRef pageRef, WKStringRef scriptRef, WKPageRunJavaScriptBlock block)
-{
-    CRASH_IF_SUSPENDED;
-    WKPageRunJavaScriptInMainFrame(pageRef, scriptRef, Block_copy(block), callRunJavaScriptBlockAndRelease);
-}
-#endif
 
 static CompletionHandler<void(const String&)> toStringCallback(void* context, void(*callback)(WKStringRef, WKErrorRef, void*))
 {
@@ -2824,8 +2812,20 @@ void WKPageSetMuted(WKPageRef pageRef, WKMediaMutedState mutedState)
         coreState.add(WebCore::MediaProducerMutedState::AudioIsMuted);
     if (mutedState & kWKMediaCaptureDevicesMuted)
         coreState.add(WebCore::MediaProducer::AudioAndVideoCaptureIsMuted);
+
     if (mutedState & kWKMediaScreenCaptureMuted)
         coreState.add(WebCore::MediaProducerMutedState::ScreenCaptureIsMuted);
+    if (mutedState & kWKMediaCameraCaptureMuted)
+        coreState.add(WebCore::MediaProducerMutedState::VideoCaptureIsMuted);
+    if (mutedState & kWKMediaMicrophoneCaptureMuted)
+        coreState.add(WebCore::MediaProducerMutedState::AudioCaptureIsMuted);
+
+    if (mutedState & kWKMediaScreenCaptureUnmuted)
+        coreState.remove(WebCore::MediaProducerMutedState::ScreenCaptureIsMuted);
+    if (mutedState & kWKMediaCameraCaptureUnmuted)
+        coreState.remove(WebCore::MediaProducerMutedState::VideoCaptureIsMuted);
+    if (mutedState & kWKMediaMicrophoneCaptureUnmuted)
+        coreState.remove(WebCore::MediaProducerMutedState::AudioCaptureIsMuted);
 
     toImpl(pageRef)->setMuted(coreState);
 }
@@ -3293,4 +3293,26 @@ void WKPageSetPermissionLevelForTesting(WKPageRef pageRef, WKStringRef origin, b
 {
     if (auto* pageForTesting = toImpl(pageRef)->pageForTesting())
         pageForTesting->setPermissionLevel(toImpl(origin)->string(), allowed);
+}
+
+void WKPageSetTopContentInsetForTesting(WKPageRef pageRef, float contentInset, void* context, WKPageSetTopContentInsetForTestingFunction callback)
+{
+    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    if (!pageForTesting)
+        return callback(context);
+
+    pageForTesting->setTopContentInset(contentInset, [context, callback] {
+        callback(context);
+    });
+}
+
+void WKPageSetPageScaleFactorForTesting(WKPageRef pageRef, float scaleFactor, WKPoint point, void* context, WKPageSetPageScaleFactorForTestingFunction completionHandler)
+{
+    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
+    if (!pageForTesting)
+        return completionHandler(context);
+
+    pageForTesting->setPageScaleFactor(scaleFactor, toIntPoint(point), [context, completionHandler] {
+        completionHandler(context);
+    });
 }

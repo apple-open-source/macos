@@ -35,6 +35,7 @@
 #include "InspectorFrontendClient.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -49,11 +50,11 @@ class LocalFrame;
 class Page;
 
 class InspectorFrontendClientLocal : public InspectorFrontendClient {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(InspectorFrontendClientLocal, WEBCORE_EXPORT);
     WTF_MAKE_NONCOPYABLE(InspectorFrontendClientLocal);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     class WEBCORE_EXPORT Settings {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED(Settings);
     public:
         Settings() = default;
         virtual ~Settings() = default;

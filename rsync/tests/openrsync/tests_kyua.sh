@@ -1635,6 +1635,46 @@ test6b_perms_body()
 }
 
 
+atf_test_case test71_same_time
+
+test71_same_time_head()
+{
+    atf_set "descr" "test71_same_time"
+
+}
+
+test71_same_time_body()
+{
+    export tstdir=$(atf_get_srcdir)
+    setup_sshkey
+    if "$tstdir/test71_same_time.test" ; then
+        atf_pass
+    else
+        atf_fail "test71_same_time.test failed"
+    fi
+}
+
+
+atf_test_case test72_mmap_trunc
+
+test72_mmap_trunc_head()
+{
+    atf_set "descr" "test72_mmap_trunc"
+
+}
+
+test72_mmap_trunc_body()
+{
+    export tstdir=$(atf_get_srcdir)
+    setup_sshkey
+    if "$tstdir/test72_mmap_trunc.test" ; then
+        atf_pass
+    else
+        atf_fail "test72_mmap_trunc.test failed"
+    fi
+}
+
+
 atf_test_case test7_symlinks
 
 test7_symlinks_head()
@@ -1816,6 +1856,8 @@ atf_init_test_cases()
     atf_add_test_case test63_relative
     atf_add_test_case test6_perms
     atf_add_test_case test6b_perms
+    atf_add_test_case test71_same_time
+    atf_add_test_case test72_mmap_trunc
     atf_add_test_case test7_symlinks
     atf_add_test_case test7b_symlinks
     atf_add_test_case test8_times

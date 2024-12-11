@@ -26,7 +26,7 @@
 #include "ScriptWrappable.h"
 #include "ShareData.h"
 #include "Supplementable.h"
-#include <wtf/IsoMalloc.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -45,7 +45,7 @@ class Navigator final
     , public PushSubscriptionOwner
 #endif
 {
-    WTF_MAKE_ISO_ALLOCATED(Navigator);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Navigator);
 public:
     static Ref<Navigator> create(ScriptExecutionContext* context, LocalDOMWindow& window) { return adoptRef(*new Navigator(context, window)); }
     virtual ~Navigator();
@@ -67,14 +67,11 @@ public:
     bool standalone() const;
 #endif
 
-#if ENABLE(IOS_TOUCH_EVENTS) && !PLATFORM(MACCATALYST)
-    int maxTouchPoints() const { return 5; }
-#else
-    int maxTouchPoints() const { return 0; }
-#endif
+    int maxTouchPoints() const;
 
     GPU* gpu();
 
+    const Document* document() const;
     Document* document();
 
     void setAppBadge(std::optional<unsigned long long>, Ref<DeferredPromise>&&);

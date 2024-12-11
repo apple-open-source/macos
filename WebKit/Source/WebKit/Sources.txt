@@ -63,6 +63,10 @@ GPUProcess/graphics/WebGPU/RemoteSampler.cpp
 GPUProcess/graphics/WebGPU/RemoteShaderModule.cpp
 GPUProcess/graphics/WebGPU/RemoteTexture.cpp
 GPUProcess/graphics/WebGPU/RemoteTextureView.cpp
+GPUProcess/graphics/WebGPU/RemoteXRBinding.cpp
+GPUProcess/graphics/WebGPU/RemoteXRProjectionLayer.cpp
+GPUProcess/graphics/WebGPU/RemoteXRSubImage.cpp
+GPUProcess/graphics/WebGPU/RemoteXRView.cpp
 GPUProcess/graphics/WebGPU/WebGPUObjectHeap.cpp
 GPUProcess/media/RemoteAudioHardwareListenerProxy.cpp
 GPUProcess/media/RemoteAudioSessionProxy.cpp
@@ -270,8 +274,8 @@ Shared/API/APIData.cpp
 Shared/API/APIDictionary.cpp
 Shared/API/APIError.cpp
 Shared/API/APIObject.cpp
+Shared/API/APISerializedScriptValue.cpp
 Shared/API/APIURLRequest.cpp
-Shared/API/RegisterTZoneTypes.cpp
 
 Shared/API/c/WKArray.cpp
 Shared/API/c/WKCertificateInfo.cpp
@@ -478,6 +482,7 @@ UIProcess/API/APIUserScript.cpp
 UIProcess/API/APIUserStyleSheet.cpp
 UIProcess/API/APIWebAuthenticationAssertionResponse.cpp
 UIProcess/API/APIWebAuthenticationPanel.cpp
+UIProcess/API/APIWebPushDaemonConnection.cpp
 UIProcess/API/APIWebsitePolicies.cpp
 UIProcess/API/APIWindowFeatures.cpp
 
@@ -547,6 +552,8 @@ UIProcess/Automation/WebAutomationSession.cpp @no-unify
 
 UIProcess/Downloads/DownloadProxy.cpp
 UIProcess/Downloads/DownloadProxyMap.cpp
+
+UIProcess/DigitalCredentials/DigitalCredentialsCoordinatorProxy.cpp
 
 UIProcess/Extensions/WebExtensionAlarm.cpp
 UIProcess/Extensions/WebExtensionContext.cpp
@@ -624,6 +631,8 @@ WebProcess/Cache/WebCacheStorageProvider.cpp
 WebProcess/Databases/WebDatabaseProvider.cpp
 
 WebProcess/Databases/IndexedDB/WebIDBConnectionToServer.cpp
+
+WebProcess/DigitalCredentials/DigitalCredentialsCoordinator.cpp
 
 WebProcess/EncryptedMedia/MediaKeySystemPermissionRequestManager.cpp
 
@@ -719,6 +728,10 @@ WebProcess/GPU/graphics/WebGPU/RemoteSamplerProxy.cpp
 WebProcess/GPU/graphics/WebGPU/RemoteShaderModuleProxy.cpp
 WebProcess/GPU/graphics/WebGPU/RemoteTextureProxy.cpp
 WebProcess/GPU/graphics/WebGPU/RemoteTextureViewProxy.cpp
+WebProcess/GPU/graphics/WebGPU/RemoteXRBindingProxy.cpp
+WebProcess/GPU/graphics/WebGPU/RemoteXRProjectionLayerProxy.cpp
+WebProcess/GPU/graphics/WebGPU/RemoteXRSubImageProxy.cpp
+WebProcess/GPU/graphics/WebGPU/RemoteXRViewProxy.cpp
 WebProcess/GPU/graphics/WebGPU/WebGPUDowncastConvertToBackingContext.cpp
 WebProcess/GPU/graphics/ImageBufferShareableBitmapBackend.cpp
 WebProcess/GPU/graphics/PrepareBackingStoreBuffersData.cpp
@@ -875,6 +888,7 @@ WebProcess/WebStorage/WebStorageNamespaceProvider.cpp
 
 WebProcess/XR/PlatformXRSystemProxy.cpp
 
+DigitalCredentialsCoordinatorProxyMessageReceiver.cpp
 IPCConnectionTesterMessageReceiver.cpp
 IPCStreamTesterMessageReceiver.cpp
 IPCStreamTesterProxyMessageReceiver.cpp
@@ -923,6 +937,10 @@ RemoteShaderModuleMessageReceiver.cpp
 RemoteTextDetectorMessageReceiver.cpp
 RemoteTextureMessageReceiver.cpp
 RemoteTextureViewMessageReceiver.cpp
+RemoteXRBindingMessageReceiver.cpp
+RemoteXRProjectionLayerMessageReceiver.cpp
+RemoteXRSubImageMessageReceiver.cpp
+RemoteXRViewMessageReceiver.cpp
 RemoteWebLockRegistryMessageReceiver.cpp
 ServiceWorkerDownloadTaskMessageReceiver.cpp
 WebBroadcastChannelRegistryMessageReceiver.cpp

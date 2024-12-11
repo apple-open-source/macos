@@ -25,8 +25,11 @@
 
 #include "config.h"
 #include "NativeImage.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(NativeImage);
 
 NativeImageBackend::NativeImageBackend() = default;
 
@@ -69,6 +72,8 @@ NativeImage::NativeImage(UniqueRef<NativeImageBackend> backend, RenderingResourc
     , m_backend(WTFMove(backend))
 {
 }
+
+NativeImage::~NativeImage() = default;
 
 const PlatformImagePtr& NativeImage::platformImage() const
 {

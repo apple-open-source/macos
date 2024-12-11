@@ -26,14 +26,17 @@
 #pragma once
 
 #include <WebCore/DOMCacheIdentifier.h>
+#include <wtf/CheckedPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebKit {
 
 class CacheStorageCache;
 
-class CacheStorageRegistry {
-    WTF_MAKE_FAST_ALLOCATED;
+class CacheStorageRegistry : public CanMakeThreadSafeCheckedPtr<CacheStorageRegistry> {
+    WTF_MAKE_TZONE_ALLOCATED(CacheStorageRegistry);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(CacheStorageRegistry);
 public:
     CacheStorageRegistry();
     void registerCache(WebCore::DOMCacheIdentifier, CacheStorageCache&);

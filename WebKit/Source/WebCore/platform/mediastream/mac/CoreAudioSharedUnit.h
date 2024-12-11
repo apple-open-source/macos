@@ -82,11 +82,11 @@ public:
         virtual OSStatus defaultOutputDevice(uint32_t*) = 0;
         virtual void delaySamples(Seconds) { }
         virtual Seconds verifyCaptureInterval(bool isProducingSamples) const { return isProducingSamples ? 20_s : 2_s; }
+        virtual void setVoiceActivityDetection(bool) = 0;
     };
 
     WEBCORE_EXPORT static CoreAudioSharedUnit& unit();
     static BaseAudioSharedUnit& singleton()  { return unit(); }
-    CoreAudioSharedUnit();
     ~CoreAudioSharedUnit();
 
     using CreationCallback = Function<Expected<UniqueRef<InternalUnit>, OSStatus>(bool enableEchoCancellation)>;
@@ -116,7 +116,20 @@ public:
     StoredAudioUnit takeStoredVPIOUnit();
 #endif
 
+    WEBCORE_EXPORT void enableMutedSpeechActivityEventListener(Function<void()>&&);
+    WEBCORE_EXPORT void disableMutedSpeechActivityEventListener();
+
+#if PLATFORM(MAC)
+    static void processVoiceActivityEvent(uint32_t);
+#endif
+
 private:
+    CoreAudioSharedUnit();
+
+    friend class NeverDestroyed<CoreAudioSharedUnit>;
+    friend class MockAudioSharedInternalUnit;
+    friend class CoreAudioSharedInternalUnit;
+
     static size_t preferredIOBufferSize();
 
     LongCapabilityRange sampleRateCapacities() const final { return m_sampleRateCapabilities; }
@@ -201,6 +214,7 @@ private:
 #endif
 
     bool m_shouldUseVPIO { true };
+    bool m_shouldSetVoiceActivityListener { false };
 #if PLATFORM(MAC)
     StoredAudioUnit m_storedVPIOUnit { nullptr };
     Timer m_storedVPIOUnitDeallocationTimer;

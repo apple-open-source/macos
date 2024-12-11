@@ -1,4 +1,0 @@
-module Dispatch [system] {
-	umbrella header "dispatch.h"
-	export *
-}

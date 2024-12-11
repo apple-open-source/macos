@@ -39,6 +39,7 @@
 #include "MediaEncodingConfiguration.h"
 #include "ProcessQualified.h"
 #include <dlfcn.h>
+#include <wtf/TZoneMallocInlines.h>
 
 ALLOW_UNUSED_PARAMETERS_BEGIN
 ALLOW_COMMA_BEGIN
@@ -49,13 +50,16 @@ ALLOW_COMMA_BEGIN
 #include <webrtc/modules/audio_processing/include/audio_processing.h>
 #include <webrtc/p2p/base/basic_packet_socket_factory.h>
 #include <webrtc/p2p/client/basic_port_allocator.h>
+// See Bug 274508: Disable thread-safety-reference-return warnings in libwebrtc
+IGNORE_CLANG_WARNINGS_BEGIN("thread-safety-reference-return")
 #include <webrtc/pc/peer_connection_factory.h>
+IGNORE_CLANG_WARNINGS_END
 #include <webrtc/pc/peer_connection_factory_proxy.h>
 #include <webrtc/rtc_base/physical_socket_server.h>
 #include <webrtc/rtc_base/task_queue_gcd.h>
 
-ALLOW_UNUSED_PARAMETERS_END
 ALLOW_COMMA_END
+ALLOW_UNUSED_PARAMETERS_END
 
 #include <wtf/Function.h>
 #include <wtf/NeverDestroyed.h>
@@ -65,6 +69,8 @@ ALLOW_COMMA_END
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCProvider);
 
 LibWebRTCProvider::LibWebRTCProvider()
 {
@@ -88,10 +94,6 @@ void WebRTCProvider::setH264HardwareEncoderAllowed(bool)
 }
 #endif
 
-void WebRTCProvider::setActive(bool)
-{
-}
-
 static inline rtc::SocketAddress prepareSocketAddress(const rtc::SocketAddress& address, bool disableNonLocalhostConnections)
 {
     auto result = address;
@@ -101,7 +103,7 @@ static inline rtc::SocketAddress prepareSocketAddress(const rtc::SocketAddress& 
 }
 
 class BasicPacketSocketFactory : public rtc::PacketSocketFactory {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(BasicPacketSocketFactory);
 public:
     explicit BasicPacketSocketFactory(rtc::Thread& networkThread)
         : m_socketFactory(makeUniqueRefWithoutFastMallocCheck<rtc::BasicPacketSocketFactory>(networkThread.socketserver()))

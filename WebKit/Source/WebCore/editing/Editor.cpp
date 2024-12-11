@@ -133,6 +133,7 @@
 #include <pal/text/KillRing.h>
 #include <wtf/Scope.h>
 #include <wtf/SetForScope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/unicode/CharacterNames.h>
 
@@ -145,6 +146,10 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(TemporarySelectionChange);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(IgnoreSelectionChangeForScope);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Editor);
 
 static bool dispatchBeforeInputEvent(Element& element, const AtomString& inputType, IsInputMethodComposing isInputMethodComposing, const String& data = { },
     RefPtr<DataTransfer>&& dataTransfer = nullptr, const Vector<RefPtr<StaticRange>>& targetRanges = { }, Event::IsCancelable cancelable = Event::IsCancelable::Yes)
@@ -643,7 +648,7 @@ void Editor::pasteAsPlainText(const String& pastingText, bool smartReplace)
         return;
     auto sanitizedText = pastingText;
     Ref document = protectedDocument();
-    if (auto* page = document->page())
+    if (RefPtr page = document->page())
         sanitizedText = page->applyLinkDecorationFiltering(sanitizedText, LinkDecorationFilteringTrigger::Paste);
     target->dispatchEvent(TextEvent::createForPlainTextPaste(document->windowProxy(), WTFMove(sanitizedText), smartReplace));
 }
@@ -1319,7 +1324,8 @@ void Editor::reappliedEditing(EditCommandComposition& composition)
     updateEditorUINowIfScheduled();
 
 #if ENABLE(WRITING_TOOLS)
-    protectedDocument()->page()->respondToReappliedWritingToolsEditing(&composition);
+    if (RefPtr page = document().page())
+        page->respondToReappliedWritingToolsEditing(&composition);
 #endif
 
     m_lastEditCommand = nullptr;
@@ -1436,7 +1442,7 @@ bool Editor::insertTextWithoutSendingTextEvent(const String& text, bool selectIn
             // then this code should conditionalize revealing selection on whether the ignoreSelectionChanges() bit
             // is set for the newly focused frame.
             if (client() && client()->shouldRevealCurrentSelectionAfterInsertion()) {
-                if (auto* page = document->page())
+                if (RefPtr page = document->page())
                     page->revealCurrentSelection();
             }
         }
@@ -1730,7 +1736,7 @@ void Editor::copyURL(const URL& url, const String& title)
 void Editor::copyURL(const URL& url, const String& title, Pasteboard& pasteboard)
 {
     auto sanitizedURL = url;
-    if (auto* page = document().page())
+    if (RefPtr page = document().page())
         sanitizedURL = page->applyLinkDecorationFiltering(url, LinkDecorationFilteringTrigger::Copy);
 
     PasteboardURL pasteboardURL;
@@ -2063,7 +2069,7 @@ void Editor::setBaseWritingDirection(WritingDirection direction)
     }
 
     auto style = MutableStyleProperties::create();
-    style->setProperty(CSSPropertyDirection, direction == WritingDirection::LeftToRight ? "ltr"_s : direction == WritingDirection::RightToLeft ? "rtl"_s : "inherit"_s, false);
+    style->setProperty(CSSPropertyDirection, direction == WritingDirection::LeftToRight ? "ltr"_s : direction == WritingDirection::RightToLeft ? "rtl"_s : "inherit"_s);
     applyParagraphStyleToSelection(style.ptr(), EditAction::SetBlockWritingDirection);
 }
 
@@ -2309,6 +2315,13 @@ void Editor::setWritingSuggestion(const String& fullTextWithPrediction, const Ch
     auto range = document->selection().selection().firstRange();
     if (!range)
         return;
+
+    if (!range->collapsed())
+        return;
+
+    if (!is<Text>(range->startContainer()))
+        return;
+
     range->start.offset = 0;
 
     m_isHandlingAcceptedCandidate = true;
@@ -2321,7 +2334,7 @@ void Editor::setWritingSuggestion(const String& fullTextWithPrediction, const Ch
     ASSERT(newText.isEmpty() || newText.startsWith(currentText));
     auto textDelta = newText.isEmpty() ? emptyString() : newText.substring(currentText.length());
 
-    auto offset = WebCore::characterCount(*range);
+    auto offset = range->endOffset();
     auto offsetWithDelta = currentText.isEmpty() ? offset : offset + textDelta.length();
 
     if (!suggestionText.isEmpty()) {
@@ -4275,7 +4288,43 @@ bool Editor::selectionStartHasMarkerFor(DocumentMarker::Type markerType, int fro
     }
 
     return false;
-}       
+}
+
+void Editor::selectionStartSetMarkerForTesting(DocumentMarker::Type markerType, int from, int length, const String& data)
+{
+    RefPtr node = findFirstMarkable(document().selection().selection().start().protectedDeprecatedNode().get());
+    if (!node)
+        return;
+
+    RefPtr text = dynamicDowncast<Text>(node);
+    if (!text)
+        return;
+
+    CheckedRef markers = document().checkedMarkers();
+
+    unsigned unsignedFrom = static_cast<unsigned>(from);
+    unsigned unsignedLength = static_cast<unsigned>(length);
+
+    switch (markerType) {
+    case DocumentMarker::Type::TransparentContent:
+        markers->addMarker(*text, unsignedFrom, unsignedLength, markerType, DocumentMarker::TransparentContentData { node, WTF::UUID { 0 } });
+        return;
+
+    case DocumentMarker::Type::DraggedContent:
+        markers->addMarker(*text, unsignedFrom, unsignedLength, markerType, node);
+        return;
+
+    case DocumentMarker::Type::Grammar:
+    case DocumentMarker::Type::Spelling:
+    case DocumentMarker::Type::Replacement:
+        markers->addMarker(*text, unsignedFrom, unsignedLength, markerType, data);
+        return;
+
+    default:
+        // FIXME: Support more marker types in this testing utility function.
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+}
 
 OptionSet<TextCheckingType> Editor::resolveTextCheckingTypeMask(const Node& rootEditableElement, OptionSet<TextCheckingType> textCheckingOptions)
 {

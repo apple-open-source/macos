@@ -2492,7 +2492,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = msdos_appex/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = com.apple.fskit.msdos;
+				INFOPLIST_KEY_CFBundleDisplayName = "msdos module";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
@@ -2542,7 +2542,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = msdos_appex/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = com.apple.fskit.msdos;
+				INFOPLIST_KEY_CFBundleDisplayName = "msdos module";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
@@ -2593,7 +2593,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = msdos_appex/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = com.apple.fskit.msdos;
+				INFOPLIST_KEY_CFBundleDisplayName = "msdos module";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";

@@ -33,8 +33,8 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #import "CocoaHelpers.h"
+#import "WKWebExtensionPermission.h"
 #import "WebExtensionControllerProxy.h"
-#import <WebKit/_WKWebExtensionPermission.h>
 
 namespace WebKit {
 
@@ -47,7 +47,7 @@ bool WebExtensionAPINamespace::isPropertyAllowed(const ASCIILiteral& name, WebPa
         return extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"action", false);
 
     if (name == "commands"_s)
-        return objectForKey<NSDictionary>(extensionContext().manifest(), @"commands");
+        return objectForKey<NSDictionary>(extensionContext().manifest(), @"commands", false);
 
     if (name == "declarativeNetRequest"_s)
         return extensionContext().hasPermission(name) || extensionContext().hasPermission("declarativeNetRequestWithHostAccess"_s);
@@ -73,6 +73,16 @@ bool WebExtensionAPINamespace::isPropertyAllowed(const ASCIILiteral& name, WebPa
 
     if (name == "pageAction"_s)
         return !extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"page_action", false);
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    // If the extension requests both sidePanel and sidebarAction, we will give them sidebarAction --
+    // we check in sidePanel that there is no sidebar_action key, but we do not check in sidebarAction
+    // that there is no sidePanel permission
+    if (name == "sidePanel"_s)
+        return page->corePage()->settings().webExtensionSidebarEnabled() && extensionContext().hasPermission("sidePanel"_s) && !objectForKey<NSDictionary>(extensionContext().manifest(), @"sidebar_action", true);
+    if (name == "sidebarAction"_s)
+        return page->corePage()->settings().webExtensionSidebarEnabled() && objectForKey<NSDictionary>(extensionContext().manifest(), @"sidebar_action", true);
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
 
     if (name == "storage"_s)
         return extensionContext().hasPermission(name) || extensionContext().hasPermission("unlimitedStorage"_s);
@@ -219,6 +229,28 @@ WebExtensionAPIScripting& WebExtensionAPINamespace::scripting()
 
     return *m_scripting;
 }
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+WebExtensionAPISidePanel& WebExtensionAPINamespace::sidePanel()
+{
+    // Documentation: https://developer.chrome.com/docs/extensions/reference/api/sidePanel
+
+    if (!m_sidePanel)
+        m_sidePanel = WebExtensionAPISidePanel::create(*this);
+
+    return *m_sidePanel;
+}
+
+WebExtensionAPISidebarAction& WebExtensionAPINamespace::sidebarAction()
+{
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/sidebarAction
+
+    if (!m_sidebarAction)
+        m_sidebarAction = WebExtensionAPISidebarAction::create(*this);
+
+    return *m_sidebarAction;
+}
+#endif
 
 WebExtensionAPIStorage& WebExtensionAPINamespace::storage()
 {

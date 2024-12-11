@@ -75,6 +75,7 @@
 #include "StyleSheetList.h"
 #include <JavaScriptCore/InspectorProtocolObjects.h>
 #include <wtf/Ref.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
@@ -82,6 +83,8 @@
 namespace WebCore {
 
 using namespace Inspector;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(InspectorCSSAgent);
 
 class InspectorCSSAgent::StyleSheetAction : public InspectorHistory::Action {
     WTF_MAKE_NONCOPYABLE(StyleSheetAction);
@@ -418,6 +421,8 @@ std::optional<Inspector::Protocol::CSS::PseudoId> InspectorCSSAgent::protocolVal
         return Inspector::Protocol::CSS::PseudoId::Highlight;
     case PseudoId::SpellingError:
         return Inspector::Protocol::CSS::PseudoId::SpellingError;
+    case PseudoId::TargetText:
+        return Inspector::Protocol::CSS::PseudoId::TargetText;
     case PseudoId::ViewTransition:
         return Inspector::Protocol::CSS::PseudoId::ViewTransition;
     case PseudoId::ViewTransitionGroup:

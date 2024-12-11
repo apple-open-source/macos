@@ -839,6 +839,7 @@
 		4905FAA62BF2D17F00C343F5 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = D87A375A1DC3AD9D0069E544 /* main.m */; };
 		4905FAA82BF2D17F00C343F5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8ACE9331DBA7ADC00F34E42 /* Foundation.framework */; };
 		4905FAA92BF2D17F00C343F5 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8ACE9301DBA709800F34E42 /* XCTest.framework */; };
+		49416E792C1296E800C1DDC2 /* TestHIDEventDriver_DigitizerHand.m in Sources */ = {isa = PBXBuildFile; fileRef = 49416E782C1296E800C1DDC2 /* TestHIDEventDriver_DigitizerHand.m */; };
 		4979AE012B1A7DD60019E321 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98AC786B1AB35A3B00F61533 /* IOKit.framework */; };
 		4979AE022B1A7DD60019E321 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98B9F0531AB00DBB003B3C24 /* Foundation.framework */; };
 		4979AE0B2B1A7E480019E321 /* IOHIDTelemetrySessionFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 4979AD5D2B03E77C0019E321 /* IOHIDTelemetrySessionFilter.m */; };
@@ -1438,6 +1439,7 @@
 		D0C727DE29F1BFF800E878ED /* TestHIDSensorPowerLoggingFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = D0C727DD29F1BFF800E878ED /* TestHIDSensorPowerLoggingFilter.m */; };
 		D0EDCC782A5E005800966D13 /* TestHID_IOHIDEventSystemClient_ServiceClient.m in Sources */ = {isa = PBXBuildFile; fileRef = D0EDCC772A5E005800966D13 /* TestHID_IOHIDEventSystemClient_ServiceClient.m */; };
 		D0EDCC7A2A5E0BEA00966D13 /* TestHID_IOHIDEventSystemClient_EventDispatch.m in Sources */ = {isa = PBXBuildFile; fileRef = D0EDCC792A5E0BEA00966D13 /* TestHID_IOHIDEventSystemClient_EventDispatch.m */; };
+		D116AADF2C98C2090071E6A0 /* TestHIDDigitizerDefaultReportRate.m in Sources */ = {isa = PBXBuildFile; fileRef = D116AADE2C98C2090071E6A0 /* TestHIDDigitizerDefaultReportRate.m */; };
 		D802710E212CAA3000BD2091 /* TestHIDIOHIDSystemIdleTime.m in Sources */ = {isa = PBXBuildFile; fileRef = D802710D212CAA3000BD2091 /* TestHIDIOHIDSystemIdleTime.m */; };
 		D80358C621D09446007B860B /* IOUserUSBHostHIDDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D803722B21BB9FA700041ADE /* IOUserUSBHostHIDDevice.cpp */; };
 		D80371FF21BB71F300041ADE /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D80371FE21BB71F200041ADE /* Foundation.framework */; };
@@ -3875,6 +3877,7 @@
 		4905FA952BF2B1C000C343F5 /* hidxctest-minprivilege-Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "hidxctest-minprivilege-Entitlements.plist"; path = "tools/hidxctest/hidxctest-minprivilege-Entitlements.plist"; sourceTree = SOURCE_ROOT; };
 		4905FA9C2BF2D10F00C343F5 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		4905FAAF2BF2D17F00C343F5 /* hidxctest_minprivilege */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hidxctest_minprivilege; sourceTree = BUILT_PRODUCTS_DIR; };
+		49416E782C1296E800C1DDC2 /* TestHIDEventDriver_DigitizerHand.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDEventDriver_DigitizerHand.m; sourceTree = "<group>"; };
 		4979AD5D2B03E77C0019E321 /* IOHIDTelemetrySessionFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDTelemetrySessionFilter.m; sourceTree = "<group>"; };
 		4979AD5E2B03E78E0019E321 /* IOHIDTelemetrySessionFilter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDTelemetrySessionFilter.h; sourceTree = "<group>"; };
 		4979AD5F2B03E79B0019E321 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -4246,6 +4249,7 @@
 		D0C727DD29F1BFF800E878ED /* TestHIDSensorPowerLoggingFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDSensorPowerLoggingFilter.m; sourceTree = "<group>"; };
 		D0EDCC772A5E005800966D13 /* TestHID_IOHIDEventSystemClient_ServiceClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHID_IOHIDEventSystemClient_ServiceClient.m; sourceTree = "<group>"; };
 		D0EDCC792A5E0BEA00966D13 /* TestHID_IOHIDEventSystemClient_EventDispatch.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHID_IOHIDEventSystemClient_EventDispatch.m; sourceTree = "<group>"; };
+		D116AADE2C98C2090071E6A0 /* TestHIDDigitizerDefaultReportRate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDigitizerDefaultReportRate.m; sourceTree = "<group>"; };
 		D802710D212CAA3000BD2091 /* TestHIDIOHIDSystemIdleTime.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDIOHIDSystemIdleTime.m; sourceTree = "<group>"; };
 		D80371FE21BB71F200041ADE /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		D803721021BB905A00041ADE /* WirelessDiagnostics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WirelessDiagnostics.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS13.0.Internal.sdk/System/Library/PrivateFrameworks/WirelessDiagnostics.framework; sourceTree = DEVELOPER_DIR; };
@@ -6420,6 +6424,7 @@
 		D8ACE9181DBA6D3C00F34E42 /* IOHIDFamilyUnitTests */ = {
 			isa = PBXGroup;
 			children = (
+				49416E782C1296E800C1DDC2 /* TestHIDEventDriver_DigitizerHand.m */,
 				D82426EC2B687F4C00622417 /* TestHIDVirtualService_RequestTerminate.m */,
 				D0EDCC742A5DFD1000966D13 /* IOHIDEventSystemClientRef */,
 				F3A1BB7B2A69B2C70002F885 /* TestHIDServiceAccessNoEntitlements.m */,
@@ -6431,6 +6436,7 @@
 				F394236E279F368700B4D2CE /* TestHIDKeyboardStandardType.m */,
 				7ECFF6B1273E3885002377A4 /* TestHIDGuaranteedReportDelivery.m */,
 				7E67850927163C96005C6C81 /* TestHIDDeviceMultiThreaded.m */,
+				D116AADE2C98C2090071E6A0 /* TestHIDDigitizerDefaultReportRate.m */,
 				7E6785192718D6AC005C6C81 /* TestHIDEventSystemClientMultiThreaded.m */,
 				7E594EC4260A94E100CF353D /* TestHIDKeyboardFilter.m */,
 				7EC604B02592D0CC003E4FA3 /* TestHIDEventDriver_ConsumerButton.m */,
@@ -10159,6 +10165,7 @@
 				7E67850A27163C96005C6C81 /* TestHIDDeviceMultiThreaded.m in Sources */,
 				1C1368392715025A002F2010 /* TestHIDAsyncOutputReports.m in Sources */,
 				72518C60220BC8BC0003EB98 /* TestHIDDisplaySessionFilter.m in Sources */,
+				D116AADF2C98C2090071E6A0 /* TestHIDDigitizerDefaultReportRate.m in Sources */,
 				72F8F58D219A4E0B005F9DA7 /* TestHIDConfigurableNXEventTranslation.m in Sources */,
 				D8CCD1C21DBE742300EB862E /* IOHIDEventSystemTestController.m in Sources */,
 				727472952059F6B0003FCBD2 /* TestHIDIOHIDEventSerializationWrapper.mm in Sources */,
@@ -10219,6 +10226,7 @@
 				D0EDCC782A5E005800966D13 /* TestHID_IOHIDEventSystemClient_ServiceClient.m in Sources */,
 				499B07872ADFD1F900A0CCC0 /* TestHIDDeviceAccessNoEntitlements.m in Sources */,
 				4905FA7E2BEF010700C343F5 /* TestHID_IOHIDEventSystemClient_NoEntitlements.m in Sources */,
+				49416E792C1296E800C1DDC2 /* TestHIDEventDriver_DigitizerHand.m in Sources */,
 				725078C9200FDFF000D33BAA /* TestHIDObsoleteDevice.m in Sources */,
 				D87145F021C1C885000BF5EC /* TestHIDVirtualService.m in Sources */,
 				D894CA772131024C005248B2 /* TestHIDIOHIDEventDriver_GCFormFittedCollection.m in Sources */,

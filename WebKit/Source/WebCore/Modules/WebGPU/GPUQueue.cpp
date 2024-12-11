@@ -693,8 +693,6 @@ static void* copyToDestinationFormat(const uint8_t* rgbaBytes, GPUTextureFormat 
                 for (size_t x = 0; x < widthInElements; x += 4) {
                     auto alpha = typedBytes[y * widthInElements + x + 3];
                     auto alpha0 = typedBytes[y0 * widthInElements + x + 3];
-                    typedBytes[y * widthInElements + x + 3] = oneValue;
-                    typedBytes[y0 * widthInElements + x + 3] = oneValue;
                     for (size_t c = 0; c < 3; ++c) {
                         float f = static_cast<float>(typedBytes[y0 * widthInElements + x + c]);
                         f = f * alpha0 / static_cast<float>(oneValue);
@@ -972,7 +970,7 @@ ExceptionOr<void> GPUQueue::copyExternalImageToTexture(ScriptExecutionContext& c
         RELEASE_ASSERT(callbackScopeIsSafe);
         auto destinationTexture = destination.texture;
         auto sizeInBytes = imageBytes.size();
-        if (!imageBytes.data() || !sizeInBytes || !destinationTexture)
+        if (!imageBytes.data() || !sizeInBytes || !destinationTexture || (imageBytes.size() % 4))
             return;
 
         bool supportedFormat;

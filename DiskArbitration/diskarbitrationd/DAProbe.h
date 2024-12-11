@@ -51,6 +51,7 @@ struct __DAProbeCallbackContext
     DADiskRef         disk;
     DADiskRef         containerDisk;
     DAFileSystemRef   filesystem;
+    uint64_t          startTime;
 #ifdef DA_FSKIT
     int               gotFSModules;
 #endif

@@ -49,6 +49,11 @@
 #   include	<nc.h>
 #endif	/* _hdr_nc */
 
+#ifdef __APPLE__
+#include <stdlib.h>
+#include <sys/codesign.h>
+#endif /* __APPLE__ */
+
 #define CMD_LENGTH	64
 
 /* These routines are referenced by this module */
@@ -79,6 +84,17 @@ static char	beenhere = 0;
 	}
     }
 #endif /* _lib_sigvec */
+
+#ifdef __APPLE__
+static int
+_is_rootless_restricted_environment(void)
+{
+	uint32_t flags;
+	if (csops(0, CS_OPS_STATUS, &flags, sizeof(flags)))
+		return -1;
+	return ((flags & CS_INSTALLER) || getenv("APPLE_PKGKIT_ESCALATING_ROOT")) ? 1 : 0;
+}
+#endif /* __APPLE__ */
 
 #ifdef PATH_BFPATH
 #define PATHCOMP	NIL(Pathcomp_t*)
@@ -200,7 +216,13 @@ int sh_main(int ac, char *av[], Shinit_f userinit)
 		{
 			/*	system profile	*/
 			sh_source(shp, iop, e_sysprofile);
+#ifdef __APPLE__
+			/* rdar://130111648: do not load login files when under rootless restricted processes */
+			if(!sh_isoption(SH_NOUSRPROFILE) && !sh_isoption(SH_PRIVILEGED) &&
+			   !_is_rootless_restricted_environment())
+#else
 			if(!sh_isoption(SH_NOUSRPROFILE) && !sh_isoption(SH_PRIVILEGED))
+#endif /* __APPLE__ */
 			{
 				char **files = shp->gd->login_files;
 				while ((name = *files++) && !sh_source(shp, iop, sh_mactry(shp,name)));
@@ -210,7 +232,13 @@ int sh_main(int ac, char *av[], Shinit_f userinit)
 		path_pwd(shp,1);
 		if(!sh_isoption(SH_NOEXEC))
 		{
+#ifdef __APPLE__
+			/* rdar://130111648: do not load login files when under rootless restricted processes */
+			if(!sh_isoption(SH_NOUSRPROFILE) && !sh_isoption(SH_PRIVILEGED) && sh_isoption(SH_RC) &&
+			   !_is_rootless_restricted_environment())			   
+#else
 			if(!sh_isoption(SH_NOUSRPROFILE) && !sh_isoption(SH_PRIVILEGED) && sh_isoption(SH_RC))
+#endif /* __APPLE__ */
 			{
 #if SHOPT_BASH
 				if(sh_isoption(SH_BASH) && !sh_isoption(SH_POSIX))

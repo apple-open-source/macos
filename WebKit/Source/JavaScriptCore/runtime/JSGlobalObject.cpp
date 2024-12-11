@@ -1,6 +1,8 @@
 /*
  * Copyright (C) 2007-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich (cwzwarich@uwaterloo.ca)
+ * Copyright (C) 2024 Sosuke Suzuki <aosukeke@gmail.com>.
+ * Copyright (C) 2024 Tetsuharu Ohzeki <tetsuharu.ohzeki@gmail.com>.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -106,7 +108,6 @@
 #include "IntlSegmenterPrototype.h"
 #include "IntlSegments.h"
 #include "IntlSegmentsPrototype.h"
-#include "IteratorPrototypeInlines.h"
 #include "JSAPIWrapperObject.h"
 #include "JSArrayBuffer.h"
 #include "JSArrayBufferConstructor.h"
@@ -140,6 +141,10 @@
 #include "JSInternalPromise.h"
 #include "JSInternalPromiseConstructor.h"
 #include "JSInternalPromisePrototype.h"
+#include "JSIterator.h"
+#include "JSIteratorConstructor.h"
+#include "JSIteratorPrototype.h"
+#include "JSIteratorPrototypeInlines.h"
 #include "JSLexicalEnvironmentInlines.h"
 #include "JSMapInlines.h"
 #include "JSMapIteratorInlines.h"
@@ -179,6 +184,7 @@
 #include "JSWebAssemblyTable.h"
 #include "JSWebAssemblyTag.h"
 #include "JSWithScope.h"
+#include "JSWrapForValidIteratorInlines.h"
 #include "LazyClassStructureInlines.h"
 #include "LazyPropertyInlines.h"
 #include "LinkTimeConstant.h"
@@ -276,6 +282,7 @@
 #include "WebAssemblyTablePrototype.h"
 #include "WebAssemblyTagConstructor.h"
 #include "WebAssemblyTagPrototype.h"
+#include "WrapForValidIteratorPrototypeInlines.h"
 #include "runtime/VM.h"
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/FixedVector.h>
@@ -657,6 +664,7 @@ const GlobalObjectMethodTable* JSGlobalObject::baseGlobalObjectMethodTable()
   Uint8ClampedArray     JSGlobalObject::m_typedArrayUint8Clamped     DontEnum|ClassStructure
   Uint16Array           JSGlobalObject::m_typedArrayUint16           DontEnum|ClassStructure
   Uint32Array           JSGlobalObject::m_typedArrayUint32           DontEnum|ClassStructure
+  Float16Array          JSGlobalObject::m_typedArrayFloat16          DontEnum|ClassStructure
   Float32Array          JSGlobalObject::m_typedArrayFloat32          DontEnum|ClassStructure
   Float64Array          JSGlobalObject::m_typedArrayFloat64          DontEnum|ClassStructure
   BigInt64Array         JSGlobalObject::m_typedArrayBigInt64         DontEnum|ClassStructure
@@ -886,7 +894,7 @@ void JSGlobalObject::init(VM& vm)
 
     m_promiseResolveFunction.initLater(
         [] (const Initializer<JSFunction>& init) {
-            init.set(JSFunction::create(init.vm, promiseConstructorResolveCodeGenerator(init.vm), init.owner));
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), promiseConstructorResolveCodeGenerator(init.vm), init.owner));
         });
 
     m_numberProtoToStringFunction.initLater(
@@ -1104,7 +1112,10 @@ void JSGlobalObject::init(VM& vm)
             init.setConstructor(JSSharedArrayBufferConstructor::create(init.vm, JSSharedArrayBufferConstructor::createStructure(init.vm, init.global, init.global->m_functionPrototype.get()), jsCast<JSArrayBufferPrototype*>(init.prototype)));
         });
 
-    m_iteratorPrototype.set(vm, this, IteratorPrototype::create(vm, this, IteratorPrototype::createStructure(vm, this, m_objectPrototype.get())));
+    m_iteratorPrototype.set(vm, this, JSIteratorPrototype::create(vm, this, JSIteratorPrototype::createStructure(vm, this, m_objectPrototype.get())));
+    if (Options::useIteratorHelpers())
+        m_iteratorStructure.set(vm, this, JSIterator::createStructure(vm, this, m_iteratorPrototype.get()));
+
     m_asyncIteratorPrototype.set(vm, this, AsyncIteratorPrototype::create(vm, this, AsyncIteratorPrototype::createStructure(vm, this, m_objectPrototype.get())));
 
     m_generatorPrototype.set(vm, this, GeneratorPrototype::create(vm, this, GeneratorPrototype::createStructure(vm, this, m_iteratorPrototype.get())));
@@ -1122,9 +1133,15 @@ void JSGlobalObject::init(VM& vm)
     m_setIteratorPrototype.set(vm, this, setIteratorPrototype);
     m_setIteratorStructure.set(vm, this, JSSetIterator::createStructure(vm, this, setIteratorPrototype));
 
+    if (Options::useIteratorHelpers()) {
+        auto* wrapForValidIteratorPrototype = WrapForValidIteratorPrototype::create(vm, this, WrapForValidIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
+        m_wrapForValidIteratorPrototype.set(vm, this, wrapForValidIteratorPrototype);
+        m_wrapForValidIteratorStructure.set(vm, this, JSWrapForValidIterator::createStructure(vm, this, wrapForValidIteratorPrototype));
+    }
+
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::sentinelString)].set(vm, this, vm.smallStrings.sentinelString());
 
-    JSFunction* defaultPromiseThen = JSFunction::create(vm, promisePrototypeThenCodeGenerator(vm), this);
+    JSFunction* defaultPromiseThen = JSFunction::create(vm, this, promisePrototypeThenCodeGenerator(vm), this);
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::defaultPromiseThen)].set(vm, this, defaultPromiseThen);
 
 #define CREATE_PROTOTYPE_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase, featureFlag) if (featureFlag) { \
@@ -1253,6 +1270,13 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     putDirectWithoutTransition(vm, vm.propertyNames->Array, arrayConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
     putDirectWithoutTransition(vm, vm.propertyNames->RegExp, regExpConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
 
+    if (Options::useIteratorHelpers()) {
+        JSIteratorConstructor* iteratorConstructor = JSIteratorConstructor::create(vm, this, JSIteratorConstructor::createStructure(vm, this, m_functionPrototype.get()), m_iteratorPrototype.get());
+        m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::Iterator)].set(vm, this, iteratorConstructor);
+        m_iteratorConstructor.set(vm, this, iteratorConstructor);
+        putDirectWithoutTransition(vm, vm.propertyNames->Iterator, iteratorConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    }
+
     if (Options::useSharedArrayBuffer())
         putDirectWithoutTransition(vm, vm.propertyNames->SharedArrayBuffer, m_sharedArrayBufferStructure.constructor(this), static_cast<unsigned>(PropertyAttribute::DontEnum));
 
@@ -1375,6 +1399,9 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
 
     IntlObject* intl = IntlObject::create(vm, this, IntlObject::createStructure(vm, this, m_objectPrototype.get()));
     putDirectWithoutTransition(vm, vm.propertyNames->Intl, intl, static_cast<unsigned>(PropertyAttribute::DontEnum));
+
+    if (Options::useFloat16Array())
+        putDirectWithoutTransition(vm, Identifier::fromString(vm, "Float16Array"_s), JSGlobalObject::m_typedArrayFloat16.constructor(this), static_cast<unsigned>(PropertyAttribute::DontEnum));
 
     if (Options::useTemporal()) {
         m_calendarStructure.initLater(
@@ -1499,7 +1526,7 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
 #define INIT_PRIVATE_GLOBAL(funcName, code) \
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::funcName)].initLater([] (const Initializer<JSCell>& init) { \
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner); \
-            init.set(JSFunction::create(init.vm, code ## CodeGenerator(init.vm), globalObject)); \
+            init.set(JSFunction::create(init.vm, globalObject, code ## CodeGenerator(init.vm), globalObject)); \
         });
     JSC_FOREACH_BUILTIN_LINK_TIME_CONSTANT(INIT_PRIVATE_GLOBAL)
 #undef INIT_PRIVATE_GLOBAL
@@ -1511,6 +1538,18 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
 
     JSObject* regExpStringIteratorPrototype = RegExpStringIteratorPrototype::create(vm, this, RegExpStringIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
     jsCast<JSObject*>(linkTimeConstant(LinkTimeConstant::RegExpStringIterator))->putDirect(vm, vm.propertyNames->prototype, regExpStringIteratorPrototype);
+
+    if (Options::useIteratorHelpers()) {
+        m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::wrapForValidIteratorCreate)].initLater([](const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "wrapForValidIteratorCreate"_s, wrapForValidIteratorPrivateFuncCreate, ImplementationVisibility::Private));
+        });
+        m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::wrapForValidIteratorGetIteratedIterator)].initLater([](const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "wrapForValidIteratorGetIteratedIterator"_s, wrapForValidIteratorPrivateFuncGetIteratedIterator, ImplementationVisibility::Private));
+        });
+        m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::wrapForValidIteratorGetIteratedNextMethod)].initLater([](const Initializer<JSCell>& init) {
+            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "wrapForValidIteratorGetIteratedNextMethod"_s, wrapForValidIteratorPrivateFuncGetIteratedNextMethod, ImplementationVisibility::Private));
+        });
+    }
 
     // Map and Set helpers.
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::Set)].initLater([] (const Initializer<JSCell>& init) {
@@ -2488,6 +2527,7 @@ void JSGlobalObject::visitChildrenImpl(JSCell* cell, Visitor& visitor)
     visitor.append(thisObject->m_regExpConstructor);
     visitor.append(thisObject->m_objectConstructor);
     visitor.append(thisObject->m_functionConstructor);
+    visitor.append(thisObject->m_iteratorConstructor);
     visitor.append(thisObject->m_promiseConstructor);
     visitor.append(thisObject->m_internalPromiseConstructor);
     visitor.append(thisObject->m_stringConstructor);
@@ -2553,6 +2593,7 @@ void JSGlobalObject::visitChildrenImpl(JSCell* cell, Visitor& visitor)
     visitor.append(thisObject->m_asyncGeneratorPrototype);
     visitor.append(thisObject->m_asyncIteratorPrototype);
     visitor.append(thisObject->m_asyncGeneratorFunctionPrototype);
+    visitor.append(thisObject->m_wrapForValidIteratorPrototype);
 
     thisObject->m_debuggerScopeStructure.visit(visitor);
     thisObject->m_withScopeStructure.visit(visitor);
@@ -2602,9 +2643,11 @@ void JSGlobalObject::visitChildrenImpl(JSCell* cell, Visitor& visitor)
     visitor.append(thisObject->m_asyncGeneratorFunctionStructure);
     visitor.append(thisObject->m_generatorStructure);
     visitor.append(thisObject->m_asyncGeneratorStructure);
+    visitor.append(thisObject->m_iteratorStructure);
     visitor.append(thisObject->m_arrayIteratorStructure);
     visitor.append(thisObject->m_mapIteratorStructure);
     visitor.append(thisObject->m_setIteratorStructure);
+    visitor.append(thisObject->m_wrapForValidIteratorStructure);
     thisObject->m_iteratorResultObjectStructure.visit(visitor);
     thisObject->m_dataPropertyDescriptorObjectStructure.visit(visitor);
     thisObject->m_accessorPropertyDescriptorObjectStructure.visit(visitor);

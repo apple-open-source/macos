@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
  * Copyright (C) 2006 Oliver Hunt <ojh16@student.canterbury.ac.nz>
  * Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
@@ -53,12 +53,12 @@
 #include "SVGVisitedRendererTracking.h"
 #include "TransformState.h"
 #include "VisiblePosition.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGText);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGText);
 
 RenderSVGText::RenderSVGText(SVGTextElement& element, RenderStyle&& style)
     : RenderSVGBlock(Type::SVGText, element, WTFMove(style))
@@ -83,7 +83,12 @@ Ref<SVGTextElement> RenderSVGText::protectedTextElement() const
 
 bool RenderSVGText::isChildAllowed(const RenderObject& child, const RenderStyle&) const
 {
-    return child.isInline();
+    auto isEmptySVGInlineText = [](const RenderObject* object) {
+        const auto svgInlineText = dynamicDowncast<RenderSVGInlineText>(object);
+        return svgInlineText && svgInlineText->hasEmptyText();
+    };
+
+    return child.isInline() && !isEmptySVGInlineText(&child);
 }
 
 RenderSVGText* RenderSVGText::locateRenderSVGTextAncestor(RenderObject& start)
@@ -493,13 +498,11 @@ void RenderSVGText::applyTransform(TransformationMatrix& transform, const Render
 
 VisiblePosition RenderSVGText::positionForPoint(const LayoutPoint& pointInContents, HitTestSource source, const RenderFragmentContainer* fragment)
 {
-    LegacyRootInlineBox* rootBox = firstRootBox();
+    auto* rootBox = legacyRootBox();
     if (!rootBox)
         return createVisiblePosition(0, Affinity::Downstream);
 
-    ASSERT(!rootBox->nextRootBox());
     ASSERT(childrenInline());
-
     LegacyInlineBox* closestBox = downcast<SVGRootInlineBox>(*rootBox).closestLeafChildForPosition(pointInContents);
     if (!closestBox)
         return createVisiblePosition(0, Affinity::Downstream);

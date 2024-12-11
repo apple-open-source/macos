@@ -39,6 +39,7 @@
 #include "WebProcessProxy.h"
 #include <WebCore/Region.h>
 #include <optional>
+#include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(GTK)
 #include <gtk/gtk.h>
@@ -50,6 +51,8 @@
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DrawingAreaProxyCoordinatedGraphics);
 
 DrawingAreaProxyCoordinatedGraphics::DrawingAreaProxyCoordinatedGraphics(WebPageProxy& webPageProxy, WebProcessProxy& webProcessProxy)
     : DrawingAreaProxy(DrawingAreaType::CoordinatedGraphics, webPageProxy, webProcessProxy)
@@ -104,7 +107,7 @@ bool DrawingAreaProxyCoordinatedGraphics::forceUpdateIfNeeded()
 
     SetForScope inForceUpdate(m_inForceUpdate, true);
     send(Messages::DrawingArea::ForceUpdate());
-    m_webProcessProxy->connection()->waitForAndDispatchImmediately<Messages::DrawingAreaProxy::Update>(identifier(), 500_ms);
+    m_webProcessProxy->connection().waitForAndDispatchImmediately<Messages::DrawingAreaProxy::Update>(identifier(), 500_ms);
     return !!m_backingStore;
 }
 
@@ -299,6 +302,8 @@ void DrawingAreaProxyCoordinatedGraphics::discardBackingStore()
     send(Messages::DrawingArea::DidDiscardBackingStore());
 }
 #endif
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(DrawingAreaProxyCoordinatedGraphicsDrawingMonitor, DrawingAreaProxyCoordinatedGraphics::DrawingMonitor);
 
 DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::DrawingMonitor(WebPageProxy& webPage)
     : m_timer(RunLoop::main(), this, &DrawingMonitor::stop)

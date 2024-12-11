@@ -1,8 +1,8 @@
 #!/bin/zsh
 
 #
-# Generates all configuration files and outputs them as a tar archive
-# with appropriate ownership and permissions.
+# Generates all configuration files and outputs them as a bzipped tar
+# archive with appropriate ownership and permissions.
 #
 set -e
 setopt pipefail
@@ -67,4 +67,4 @@ private type=dir mode=755
                 100-macos.conf content=${src}/conf/100-macos.conf
 EOF
 
-tar -cf - @${DERIVED_FILE_DIR}/ssh.mtree
+tar -jcf - @${DERIVED_FILE_DIR}/ssh.mtree

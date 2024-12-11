@@ -42,7 +42,7 @@ DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CStringBuffer);
 class CStringBuffer final : public RefCounted<CStringBuffer> {
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(CStringBuffer);
 public:
-    const char* data() { return mutableData(); }
+    const char* data() LIFETIME_BOUND { return mutableData(); }
     size_t length() const { return m_length; }
 
 private:
@@ -51,7 +51,7 @@ private:
     static Ref<CStringBuffer> createUninitialized(size_t length);
 
     CStringBuffer(size_t length) : m_length(length) { }
-    char* mutableData() { return reinterpret_cast_ptr<char*>(this + 1); }
+    char* mutableData() LIFETIME_BOUND { return reinterpret_cast_ptr<char*>(this + 1); }
 
     const size_t m_length;
 };
@@ -70,20 +70,20 @@ public:
     WTF_EXPORT_PRIVATE static CString newUninitialized(size_t length, char*& characterBuffer);
     CString(HashTableDeletedValueType) : m_buffer(HashTableDeletedValue) { }
 
-    const char* data() const;
+    const char* data() const LIFETIME_BOUND;
 
     std::string toStdString() const { return m_buffer ? std::string(m_buffer->data()) : std::string(); }
 
-    std::span<const uint8_t> span() const;
-    std::span<const char> spanIncludingNullTerminator() const;
+    std::span<const uint8_t> span() const LIFETIME_BOUND;
+    std::span<const char> spanIncludingNullTerminator() const LIFETIME_BOUND;
 
-    WTF_EXPORT_PRIVATE char* mutableData();
+    WTF_EXPORT_PRIVATE char* mutableData() LIFETIME_BOUND;
     size_t length() const;
 
     bool isNull() const { return !m_buffer; }
     bool isSafeToSendToAnotherThread() const;
 
-    CStringBuffer* buffer() const { return m_buffer.get(); }
+    CStringBuffer* buffer() const LIFETIME_BOUND { return m_buffer.get(); }
 
     bool isHashTableDeletedValue() const { return m_buffer.isHashTableDeletedValue(); }
 

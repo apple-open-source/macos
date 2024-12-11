@@ -36,11 +36,11 @@
 #import "CocoaHelpers.h"
 #import "FoundationSPI.h"
 #import "Logging.h"
+#import "WKWebExtensionInternal.h"
+#import "WKWebExtensionPermissionPrivate.h"
 #import "WebExtensionConstants.h"
 #import "WebExtensionUtilities.h"
-#import "_WKWebExtensionInternal.h"
 #import "_WKWebExtensionLocalization.h"
-#import "_WKWebExtensionPermissionPrivate.h"
 #import <CoreFoundation/CFBundle.h>
 #import <UniformTypeIdentifiers/UTCoreTypes.h>
 #import <UniformTypeIdentifiers/UTType.h>
@@ -77,6 +77,14 @@ static NSString * const versionNameManifestKey = @"version_name";
 static NSString * const descriptionManifestKey = @"description";
 
 static NSString * const iconsManifestKey = @"icons";
+
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+static NSString * const iconVariantsManifestKey = @"icon_variants";
+static NSString * const colorSchemesManifestKey = @"color_schemes";
+static NSString * const lightManifestKey = @"light";
+static NSString * const darkManifestKey = @"dark";
+static NSString * const anyManifestKey = @"any";
+#endif
 
 static NSString * const actionManifestKey = @"action";
 static NSString * const browserActionManifestKey = @"browser_action";
@@ -155,6 +163,14 @@ static NSString * const externallyConnectableManifestKey = @"externally_connecta
 static NSString * const externallyConnectableMatchesManifestKey = @"matches";
 static NSString * const externallyConnectableIDsManifestKey = @"ids";
 
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+static NSString * const sidebarActionManifestKey = @"sidebar_action";
+static NSString * const sidePanelManifestKey = @"side_panel";
+static NSString * const sidebarActionTitleManifestKey = @"default_title";
+static NSString * const sidebarActionPathManifestKey = @"default_panel";
+static NSString * const sidePanelPathManifestKey = @"default_path";
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+
 static const size_t maximumNumberOfShortcutCommands = 4;
 
 WebExtension::WebExtension(NSBundle *appExtensionBundle, NSError **outError)
@@ -231,9 +247,12 @@ NSDictionary *WebExtension::manifest()
 
     m_parsedManifest = true;
 
-    NSData *manifestData = resourceDataForPath(@"manifest.json");
-    if (!manifestData)
+    NSError *error;
+    NSData *manifestData = resourceDataForPath(@"manifest.json", &error);
+    if (!manifestData) {
+        recordError(error);
         return nil;
+    }
 
     if (!parseManifest(manifestData))
         return nil;
@@ -472,15 +491,15 @@ UTType *WebExtension::resourceTypeForPath(NSString *path)
             auto *mimeType = [path substringWithRange:NSMakeRange(5, mimeTypeRange.location - 5)];
             result = [UTType typeWithMIMEType:mimeType];
         }
-    } else {
-        auto *fileURL = resourceFileURLForPath(path);
+    } else if (auto *fileExtension = path.pathExtension; fileExtension.length)
+        result = [UTType typeWithFilenameExtension:fileExtension];
+    else if (auto *fileURL = resourceFileURLForPath(path))
         [fileURL getResourceValue:&result forKey:NSURLContentTypeKey error:nil];
-    }
 
     return result;
 }
 
-NSString *WebExtension::resourceStringForPath(NSString *path, CacheResult cacheResult, SuppressNotFoundErrors suppressErrors)
+NSString *WebExtension::resourceStringForPath(NSString *path, NSError **outError, CacheResult cacheResult, SuppressNotFoundErrors suppressErrors)
 {
     ASSERT(path);
 
@@ -498,7 +517,9 @@ NSString *WebExtension::resourceStringForPath(NSString *path, CacheResult cacheR
     if (isServiceWorker && [path isEqualToString:generatedBackgroundServiceWorkerFilename])
         return generatedBackgroundContent();
 
-    NSData *data = resourceDataForPath(path, CacheResult::No, suppressErrors);
+    NSData *data = resourceDataForPath(path, outError, CacheResult::No, suppressErrors);
+    if (!data)
+        return nil;
 
     NSString *string;
     [NSString stringEncodingForData:data encodingOptions:nil convertedString:&string usedLossyConversion:nil];
@@ -514,9 +535,12 @@ NSString *WebExtension::resourceStringForPath(NSString *path, CacheResult cacheR
     return string;
 }
 
-NSData *WebExtension::resourceDataForPath(NSString *path, CacheResult cacheResult, SuppressNotFoundErrors suppressErrors)
+NSData *WebExtension::resourceDataForPath(NSString *path, NSError **outError, CacheResult cacheResult, SuppressNotFoundErrors suppressErrors)
 {
     ASSERT(path);
+
+    if (outError)
+        *outError = nil;
 
     if ([path hasPrefix:@"data:"]) {
         if (auto base64Range = [path rangeOfString:@";base64,"]; base64Range.location != NSNotFound) {
@@ -565,23 +589,24 @@ NSData *WebExtension::resourceDataForPath(NSString *path, CacheResult cacheResul
 
     NSURL *resourceURL = resourceFileURLForPath(path);
     if (!resourceURL) {
-        if (suppressErrors == SuppressNotFoundErrors::No)
-            recordError(createError(Error::ResourceNotFound, WEB_UI_FORMAT_CFSTRING("Unable to find \"%@\" in the extension’s resources. It is an invalid path.", "WKWebExtensionErrorResourceNotFound description with invalid file path", (__bridge CFStringRef)path)));
+        if (suppressErrors == SuppressNotFoundErrors::No && outError)
+            *outError = createError(Error::ResourceNotFound, WEB_UI_FORMAT_CFSTRING("Unable to find \"%@\" in the extension’s resources. It is an invalid path.", "WKWebExtensionErrorResourceNotFound description with invalid file path", (__bridge CFStringRef)path));
         return nil;
     }
 
     NSError *fileReadError;
     NSData *resultData = [NSData dataWithContentsOfURL:resourceURL options:NSDataReadingMappedIfSafe error:&fileReadError];
     if (!resultData) {
-        if (suppressErrors == SuppressNotFoundErrors::No)
-            recordError(createError(Error::ResourceNotFound, WEB_UI_FORMAT_CFSTRING("Unable to find \"%@\" in the extension’s resources.", "WKWebExtensionErrorResourceNotFound description with file name", (__bridge CFStringRef)path), fileReadError));
+        if (suppressErrors == SuppressNotFoundErrors::No && outError)
+            *outError = createError(Error::ResourceNotFound, WEB_UI_FORMAT_CFSTRING("Unable to find \"%@\" in the extension’s resources.", "WKWebExtensionErrorResourceNotFound description with file name", (__bridge CFStringRef)path), fileReadError);
         return nil;
     }
 
 #if PLATFORM(MAC)
     NSError *validationError;
     if (!validateResourceData(resourceURL, resultData, &validationError)) {
-        recordError(createError(Error::InvalidResourceCodeSignature, WEB_UI_FORMAT_CFSTRING("Unable to validate \"%@\" with the extension’s code signature. It likely has been modified since the extension was built.", "WKWebExtensionErrorInvalidResourceCodeSignature description with file name", (__bridge CFStringRef)path), validationError));
+        if (outError)
+            *outError = createError(Error::InvalidResourceCodeSignature, WEB_UI_FORMAT_CFSTRING("Unable to validate \"%@\" with the extension’s code signature. It likely has been modified since the extension was built.", "WKWebExtensionErrorInvalidResourceCodeSignature description with file name", (__bridge CFStringRef)path), validationError);
         return nil;
     }
 #endif
@@ -600,51 +625,51 @@ bool WebExtension::hasRequestedPermission(NSString *permission) const
     return m_permissions.contains(permission);
 }
 
-static _WKWebExtensionError toAPI(WebExtension::Error error)
+static WKWebExtensionError toAPI(WebExtension::Error error)
 {
     switch (error) {
     case WebExtension::Error::Unknown:
-        return _WKWebExtensionErrorUnknown;
+        return WKWebExtensionErrorUnknown;
     case WebExtension::Error::ResourceNotFound:
-        return _WKWebExtensionErrorResourceNotFound;
+        return WKWebExtensionErrorResourceNotFound;
     case WebExtension::Error::InvalidManifest:
-        return _WKWebExtensionErrorInvalidManifest;
+        return WKWebExtensionErrorInvalidManifest;
     case WebExtension::Error::UnsupportedManifestVersion:
-        return _WKWebExtensionErrorUnsupportedManifestVersion;
+        return WKWebExtensionErrorUnsupportedManifestVersion;
     case WebExtension::Error::InvalidAction:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidActionIcon:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidBackgroundContent:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidCommands:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidContentScripts:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidContentSecurityPolicy:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidDeclarativeNetRequest:
-        return _WKWebExtensionErrorInvalidDeclarativeNetRequestEntry;
+        return WKWebExtensionErrorInvalidDeclarativeNetRequestEntry;
     case WebExtension::Error::InvalidDescription:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidExternallyConnectable:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidIcon:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidName:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidOptionsPage:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidURLOverrides:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidVersion:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidWebAccessibleResources:
-        return _WKWebExtensionErrorInvalidManifestEntry;
+        return WKWebExtensionErrorInvalidManifestEntry;
     case WebExtension::Error::InvalidBackgroundPersistence:
-        return _WKWebExtensionErrorInvalidBackgroundPersistence;
+        return WKWebExtensionErrorInvalidBackgroundPersistence;
     case WebExtension::Error::InvalidResourceCodeSignature:
-        return _WKWebExtensionErrorInvalidResourceCodeSignature;
+        return WKWebExtensionErrorInvalidResourceCodeSignature;
     }
 }
 
@@ -683,6 +708,14 @@ ALLOW_NONLITERAL_FORMAT_END
         break;
 
     case Error::InvalidActionIcon:
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+        if (m_actionDictionary.get()[iconVariantsManifestKey]) {
+            if (supportsManifestVersion(3))
+                localizedDescription = WEB_UI_STRING("Empty or invalid `icon_variants` for the `action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icon_variants in action only");
+            else
+                localizedDescription = WEB_UI_STRING("Empty or invalid `icon_variants` for the `browser_action` or `page_action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icon_variants in browser_action or page_action");
+        } else
+#endif
         if (supportsManifestVersion(3))
             localizedDescription = WEB_UI_STRING("Empty or invalid `default_icon` for the `action` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for default_icon in action only");
         else
@@ -723,7 +756,12 @@ ALLOW_NONLITERAL_FORMAT_END
         break;
 
     case Error::InvalidIcon:
-        localizedDescription = WEB_UI_STRING("Missing or empty `icons` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icons");
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+        if ([manifest() objectForKey:iconVariantsManifestKey])
+            localizedDescription = WEB_UI_STRING("Empty or invalid `icon_variants` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icon_variants");
+        else
+#endif
+            localizedDescription = WEB_UI_STRING("Missing or empty `icons` manifest entry.", "WKWebExtensionErrorInvalidManifestEntry description for icons");
         break;
 
     case Error::InvalidName:
@@ -770,34 +808,10 @@ ALLOW_NONLITERAL_FORMAT_END
     else
         userInfo = @{ NSLocalizedDescriptionKey: localizedDescription };
 
-    return [[NSError alloc] initWithDomain:_WKWebExtensionErrorDomain code:errorCode userInfo:userInfo];
+    return [[NSError alloc] initWithDomain:WKWebExtensionErrorDomain code:errorCode userInfo:userInfo];
 }
 
-void WebExtension::removeError(Error error, SuppressNotification suppressNotification)
-{
-    if (!m_errors)
-        return;
-
-    auto errorCode = toAPI(error);
-
-    NSIndexSet *indexes = [m_errors indexesOfObjectsPassingTest:^BOOL(NSError *error, NSUInteger, BOOL *) {
-        return error.code == errorCode;
-    }];
-
-    if (!indexes.count)
-        return;
-
-    [m_errors removeObjectsAtIndexes:indexes];
-
-    if (suppressNotification == SuppressNotification::Yes)
-        return;
-
-    dispatch_async(dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = Ref { *this }]() {
-        [NSNotificationCenter.defaultCenter postNotificationName:_WKWebExtensionErrorsWereUpdatedNotification object:wrapper() userInfo:nil];
-    }).get());
-}
-
-void WebExtension::recordError(NSError *error, SuppressNotification suppressNotification)
+void WebExtension::recordError(NSError *error)
 {
     ASSERT(error);
 
@@ -806,20 +820,18 @@ void WebExtension::recordError(NSError *error, SuppressNotification suppressNoti
 
     RELEASE_LOG_ERROR(Extensions, "Error recorded: %{public}@", privacyPreservingDescription(error));
 
-    [m_errors addObject:error];
-
-    if (suppressNotification == SuppressNotification::Yes)
+    // Only the first occurrence of each error is recorded in the array. This prevents duplicate errors,
+    // such as repeated "resource not found" errors, from being included multiple times.
+    if ([m_errors containsObject:error])
         return;
 
-    dispatch_async(dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = Ref { *this }]() {
-        [NSNotificationCenter.defaultCenter postNotificationName:_WKWebExtensionErrorsWereUpdatedNotification object:wrapper() userInfo:nil];
-    }).get());
+    [wrapper() willChangeValueForKey:@"errors"];
+    [m_errors addObject:error];
+    [wrapper() didChangeValueForKey:@"errors"];
 }
 
 NSArray *WebExtension::errors()
 {
-    // FIXME: <https://webkit.org/b/246493> Include runtime errors.
-
     populateDisplayStringsIfNeeded();
     populateActionPropertiesIfNeeded();
     populateBackgroundPropertiesIfNeeded();
@@ -1020,8 +1032,15 @@ CocoaImage *WebExtension::icon(CGSize size)
     if (!manifestParsedSuccessfully())
         return nil;
 
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    if (m_manifest.get()[iconVariantsManifestKey]) {
+        NSString *localizedErrorDescription = WEB_UI_STRING("Failed to load images in `icon_variants` manifest entry.", "WKWebExtensionErrorInvalidIcon description for failing to load image variants");
+        return bestImageForIconVariantsManifestKey(m_manifest.get(), iconVariantsManifestKey, size, m_iconsCache, Error::InvalidIcon, localizedErrorDescription);
+    }
+#endif
+
     NSString *localizedErrorDescription = WEB_UI_STRING("Failed to load images in `icons` manifest entry.", "WKWebExtensionErrorInvalidIcon description for failing to load images");
-    return bestImageForIconsDictionaryManifestKey(m_manifest.get(), iconsManifestKey, size, m_icon, Error::InvalidIcon, localizedErrorDescription);
+    return bestImageForIconsDictionaryManifestKey(m_manifest.get(), iconsManifestKey, size, m_iconsCache, Error::InvalidIcon, localizedErrorDescription);
 }
 
 CocoaImage *WebExtension::actionIcon(CGSize size)
@@ -1031,13 +1050,25 @@ CocoaImage *WebExtension::actionIcon(CGSize size)
 
     populateActionPropertiesIfNeeded();
 
+    if (m_defaultActionIcon)
+        return m_defaultActionIcon.get();
+
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    if (m_actionDictionary.get()[iconVariantsManifestKey]) {
+        NSString *localizedErrorDescription = WEB_UI_STRING("Failed to load images in `icon_variants` for the `action` manifest entry.", "WKWebExtensionErrorInvalidActionIcon description for failing to load image variants for action");
+        if (auto *result = bestImageForIconVariantsManifestKey(m_actionDictionary.get(), iconVariantsManifestKey, size, m_actionIconsCache, Error::InvalidActionIcon, localizedErrorDescription))
+            return result;
+        return icon(size);
+    }
+#endif
+
     NSString *localizedErrorDescription;
     if (supportsManifestVersion(3))
         localizedErrorDescription = WEB_UI_STRING("Failed to load images in `default_icon` for the `action` manifest entry.", "WKWebExtensionErrorInvalidActionIcon description for failing to load images for action only");
     else
         localizedErrorDescription = WEB_UI_STRING("Failed to load images in `default_icon` for the `browser_action` or `page_action` manifest entry.", "WKWebExtensionErrorInvalidActionIcon description for failing to load images for browser_action or page_action");
 
-    if (auto *result = bestImageForIconsDictionaryManifestKey(m_actionDictionary.get(), defaultIconManifestKey, size, m_actionIcon, Error::InvalidActionIcon, localizedErrorDescription))
+    if (auto *result = bestImageForIconsDictionaryManifestKey(m_actionDictionary.get(), defaultIconManifestKey, size, m_actionIconsCache, Error::InvalidActionIcon, localizedErrorDescription))
         return result;
     return icon(size);
 }
@@ -1095,11 +1126,13 @@ void WebExtension::populateActionPropertiesIfNeeded()
         return;
 
     // Look for the "default_icon" as a string, which is useful for SVG icons. Only supported by Firefox currently.
-    NSString *defaultIconPath = objectForKey<NSString>(m_actionDictionary, defaultIconManifestKey);
-    if (defaultIconPath.length) {
-        m_actionIcon = imageForPath(defaultIconPath);
+    if (auto *defaultIconPath = objectForKey<NSString>(m_actionDictionary, defaultIconManifestKey)) {
+        NSError *resourceError;
+        m_defaultActionIcon = imageForPath(defaultIconPath, &resourceError);
 
-        if (!m_actionIcon) {
+        if (!m_defaultActionIcon) {
+            recordError(resourceError);
+
             NSString *localizedErrorDescription;
             if (supportsManifestVersion(3))
                 localizedErrorDescription = WEB_UI_STRING("Failed to load image for `default_icon` in the `action` manifest entry.", "WKWebExtensionErrorInvalidActionIcon description for failing to load single image for action");
@@ -1114,13 +1147,79 @@ void WebExtension::populateActionPropertiesIfNeeded()
     m_actionPopupPath = objectForKey<NSString>(m_actionDictionary, defaultPopupManifestKey);
 }
 
-CocoaImage *WebExtension::imageForPath(NSString *imagePath)
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+bool WebExtension::hasSidebar()
+{
+    return objectForKey<NSDictionary>(m_manifest, sidebarActionManifestKey) || hasRequestedPermission(WKWebExtensionPermissionSidePanel);
+}
+
+CocoaImage *WebExtension::sidebarIcon(CGSize idealSize)
+{
+    // FIXME: <https://webkit.org/b/276833> implement this
+    return nil;
+}
+
+NSString *WebExtension::sidebarDocumentPath()
+{
+    populateSidebarPropertiesIfNeeded();
+    return m_sidebarDocumentPath.get();
+}
+
+NSString *WebExtension::sidebarTitle()
+{
+    populateSidebarPropertiesIfNeeded();
+    return m_sidebarTitle.get();
+}
+
+void WebExtension::populateSidebarPropertiesIfNeeded()
+{
+    if (!manifestParsedSuccessfully())
+        return;
+
+    if (m_parsedManifestSidebarProperties)
+        return;
+
+    // sidePanel documentation: https://developer.chrome.com/docs/extensions/reference/manifest#side-panel
+    // see "Examples" header -> "Side Panel" tab (doesn't mention `default_path` key elsewhere)
+    // sidebarAction documentation: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/sidebar_action
+
+    auto sidebarActionDictionary = objectForKey<NSDictionary>(m_manifest, sidebarActionManifestKey);
+    if (sidebarActionDictionary) {
+        populateSidebarActionProperties(sidebarActionDictionary);
+        return;
+    }
+
+    auto sidePanelDictionary = objectForKey<NSDictionary>(m_manifest, sidePanelManifestKey);
+    if (sidePanelDictionary)
+        populateSidePanelProperties(sidePanelDictionary);
+}
+
+void WebExtension::populateSidebarActionProperties(RetainPtr<NSDictionary> sidebarActionDictionary)
+{
+    // FIXME: <https://webkit.org/b/276833> implement sidebar icon parsing
+    m_sidebarIconsCache = nil;
+    m_sidebarTitle = objectForKey<NSString>(sidebarActionDictionary, sidebarActionTitleManifestKey);
+    m_sidebarDocumentPath = objectForKey<NSString>(sidebarActionDictionary, sidebarActionPathManifestKey);
+}
+
+void WebExtension::populateSidePanelProperties(RetainPtr<NSDictionary> sidePanelDictionary)
+{
+    // Since sidePanel cannot set a default title or icon from the manifest, setting these nil here is intentional.
+    m_sidebarIconsCache = nil;
+    m_sidebarTitle = nil;
+    m_sidebarDocumentPath = objectForKey<NSString>(sidePanelDictionary, sidePanelPathManifestKey);
+}
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+
+CocoaImage *WebExtension::imageForPath(NSString *imagePath, NSError **outError, CGSize sizeForResizing)
 {
     ASSERT(imagePath);
 
-    NSData *imageData = resourceDataForPath(imagePath, CacheResult::Yes);
+    NSData *imageData = resourceDataForPath(imagePath, outError);
     if (!imageData)
         return nil;
+
+    CocoaImage *result;
 
 #if !USE(NSIMAGE_FOR_SVG_SUPPORT)
     UTType *imageType = resourceTypeForPath(imagePath);
@@ -1133,59 +1232,75 @@ CocoaImage *WebExtension::imageForPath(NSString *imagePath)
         if (!imageRep)
             return nil;
 
-        NSImage *result = [[NSImage alloc] init];
+        result = [[NSImage alloc] init];
         [result addRepresentation:imageRep];
         result.size = imageRep.size;
-
-        return result;
 #else
         CGSVGDocumentRef document = CGSVGDocumentCreateFromData(bridge_cast(imageData), nullptr);
         if (!document)
             return nil;
 
-        UIImage *result = [UIImage _imageWithCGSVGDocument:document];
+        // Since we need to rasterize, scale the image for the densest display, so it will have enough pixels to be sharp.
+        result = [UIImage _imageWithCGSVGDocument:document scale:largestDisplayScale() orientation:UIImageOrientationUp];
         CGSVGDocumentRelease(document);
-
-        return result;
 #endif // not USE(APPKIT)
     }
 #endif // !USE(NSIMAGE_FOR_SVG_SUPPORT)
 
-    return [[CocoaImage alloc] initWithData:imageData];
+    if (!result)
+        result = [[CocoaImage alloc] initWithData:imageData];
+
+#if USE(APPKIT)
+    if (!CGSizeEqualToSize(sizeForResizing, CGSizeZero)) {
+        // Proportionally scale the size.
+        auto originalSize = result.size;
+        auto aspectWidth = sizeForResizing.width / originalSize.width;
+        auto aspectHeight = sizeForResizing.height / originalSize.height;
+        auto aspectRatio = std::min(aspectWidth, aspectHeight);
+
+        result.size = CGSizeMake(originalSize.width * aspectRatio, originalSize.height * aspectRatio);
+    }
+
+    return result;
+#else
+    // Rasterization is needed because UIImageAsset will not register the image unless it is a CGImage.
+    // If the image is already a CGImage bitmap, this operation is a no-op.
+    result = result._rasterizedImage;
+
+    if (!CGSizeEqualToSize(sizeForResizing, CGSizeZero) && !CGSizeEqualToSize(result.size, sizeForResizing))
+        result = [result imageByPreparingThumbnailOfSize:sizeForResizing];
+
+    return result;
+#endif // not USE(APPKIT)
 }
 
-NSString *WebExtension::pathForBestImageInIconsDictionary(NSDictionary *iconsDictionary, size_t idealPixelSize)
+size_t WebExtension::bestSizeInIconsDictionary(NSDictionary *iconsDictionary, size_t idealPixelSize)
 {
     if (!iconsDictionary.count)
-        return nil;
+        return 0;
+
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    // Check if the "any" size exists (typically a vector image), and prefer it.
+    if (iconsDictionary[anyManifestKey]) {
+        // Return max to ensure it takes precedence over all other sizes.
+        return std::numeric_limits<size_t>::max();
+    }
+#endif
 
     // Check if the ideal size exists, if so return it.
     NSString *idealSizeString = @(idealPixelSize).stringValue;
-    if (NSString *resultPath = iconsDictionary[idealSizeString])
-        return resultPath;
+    if (iconsDictionary[idealSizeString])
+        return idealPixelSize;
 
-    // Check if the ideal retina size exists, if so return it. This will cause downsampling to the ideal size,
-    // but it is an even multiplier so it is better than a fractional scaling.
-    idealSizeString = @(idealPixelSize * 2).stringValue;
-    if (NSString *resultPath = iconsDictionary[idealSizeString])
-        return resultPath;
-
-#if PLATFORM(IOS) || PLATFORM(VISION)
-    // Check if the ideal 3x retina size exists. This will usually be called on 2x iOS devices when a 3x image might exist.
-    // Since the ideal size is likly already 2x, multiply by 1.5x to get the 3x pixel size.
-    idealSizeString = @(idealPixelSize * 1.5).stringValue;
-    if (NSString *resultPath = iconsDictionary[idealSizeString])
-        return resultPath;
-#endif
-
-    // Since the ideal size does not exist, sort the keys and return the next largest size. This could cause
-    // fractional scaling when the final image is displayed. Better than nothing.
+    // Sort the remaining keys and find the next largest size.
     NSArray<NSString *> *sizeKeys = filterObjects(iconsDictionary.allKeys, ^bool(id, id value) {
-        return [value isKindOfClass:NSString.class];
+        // Filter the values to only include numeric strings representing sizes. This will exclude non-numeric string
+        // values such as "any", "color_schemes", and any other strings that cannot be converted to a positive integer.
+        return dynamic_objc_cast<NSString>(value).integerValue > 0;
     });
 
     if (!sizeKeys.count)
-        return nil;
+        return 0;
 
     NSSortDescriptor *sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"self" ascending:YES selector:@selector(localizedStandardCompare:)];
     NSArray<NSString *> *sortedKeys = [sizeKeys sortedArrayUsingDescriptors:@[ sortDescriptor ]];
@@ -1197,59 +1312,120 @@ NSString *WebExtension::pathForBestImageInIconsDictionary(NSDictionary *iconsDic
             break;
     }
 
-    ASSERT(bestSize);
+    return bestSize;
+}
+
+NSString *WebExtension::pathForBestImageInIconsDictionary(NSDictionary *iconsDictionary, size_t idealPixelSize)
+{
+    size_t bestSize = bestSizeInIconsDictionary(iconsDictionary, idealPixelSize);
+    if (!bestSize)
+        return nil;
+
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    if (bestSize == std::numeric_limits<size_t>::max())
+        return iconsDictionary[anyManifestKey];
+#endif
 
     return iconsDictionary[@(bestSize).stringValue];
 }
 
-CocoaImage *WebExtension::bestImageInIconsDictionary(NSDictionary *iconsDictionary, size_t idealPointSize)
+CocoaImage *WebExtension::bestImageInIconsDictionary(NSDictionary *iconsDictionary, CGSize idealSize, const Function<void(NSError *)>& reportError)
 {
     if (!iconsDictionary.count)
         return nil;
 
-    NSUInteger standardPixelSize = idealPointSize;
-#if PLATFORM(IOS) || PLATFORM(VISION)
-    standardPixelSize *= UIScreen.mainScreen.scale;
+    auto idealPointSize = idealSize.width > idealSize.height ? idealSize.width : idealSize.height;
+    auto *screenScales = availableScreenScales();
+    auto *uniquePaths = [NSMutableSet set];
+#if PLATFORM(IOS_FAMILY)
+    auto *scalePaths = [NSMutableDictionary dictionary];
 #endif
 
-    NSString *standardIconPath = pathForBestImageInIconsDictionary(iconsDictionary, standardPixelSize);
-    if (!standardIconPath.length)
-        return nil;
+    for (NSNumber *scale in screenScales) {
+        auto pixelSize = idealPointSize * scale.doubleValue;
+        auto *iconPath = pathForBestImageInIconsDictionary(iconsDictionary, pixelSize);
+        if (!iconPath)
+            continue;
 
-    CocoaImage *resultImage = imageForPath(standardIconPath);
-    if (!resultImage)
-        return nil;
+        [uniquePaths addObject:iconPath];
 
-#if PLATFORM(MAC)
-    static Class svgImageRep = NSClassFromString(@"_NSSVGImageRep");
-    RELEASE_ASSERT(svgImageRep);
-
-    BOOL isVectorImage = [resultImage.representations indexOfObjectPassingTest:^BOOL(NSImageRep *imageRep, NSUInteger, BOOL *) {
-        return [imageRep isKindOfClass:svgImageRep];
-    }] != NSNotFound;
-
-    if (isVectorImage)
-        return resultImage;
-
-    NSUInteger retinaPixelSize = standardPixelSize * 2;
-    NSString *retinaIconPath = pathForBestImageInIconsDictionary(iconsDictionary, retinaPixelSize);
-    if (retinaIconPath.length && ![retinaIconPath isEqualToString:standardIconPath]) {
-        if (CocoaImage *retinaImage = imageForPath(retinaIconPath))
-            [resultImage addRepresentations:retinaImage.representations];
+#if PLATFORM(IOS_FAMILY)
+        scalePaths[scale] = iconPath;
+#endif
     }
-#endif // PLATFORM(MAC)
+
+    if (!uniquePaths.count)
+        return nil;
+
+#if USE(APPKIT)
+    // Return a combined image so the system can select the most appropriate representation based on the current screen scale.
+    NSImage *resultImage;
+
+    for (NSString *iconPath in uniquePaths) {
+        NSError *resourceError;
+        if (auto *image = imageForPath(iconPath, &resourceError, idealSize)) {
+            if (!resultImage)
+                resultImage = image;
+            else
+                [resultImage addRepresentations:image.representations];
+        } else if (reportError && resourceError)
+            reportError(resourceError);
+    }
 
     return resultImage;
+#else
+    if (uniquePaths.count == 1) {
+        [scalePaths removeAllObjects];
+
+        // Add a single value back that has 0 for the scale, which is the
+        // unspecified (universal) trait value for display scale.
+        scalePaths[@0] = uniquePaths.anyObject;
+    }
+
+    auto *images = mapObjects<NSDictionary>(scalePaths, ^id(NSNumber *scale, NSString *path) {
+        NSError *resourceError;
+        if (auto *image = imageForPath(path, &resourceError, idealSize))
+            return image;
+
+        if (reportError && resourceError)
+            reportError(resourceError);
+
+        return nil;
+    });
+
+    if (images.count == 1)
+        return images.allValues.firstObject;
+
+    // Make a dynamic image asset that returns an image based on the trait collection.
+    auto *imageAsset = [UIImageAsset _dynamicAssetNamed:NSUUID.UUID.UUIDString generator:^(UIImageAsset *, UIImageConfiguration *configuration, UIImage *) {
+        return images[@(configuration.traitCollection.displayScale)] ?: images[@0];
+    }];
+
+    // The returned image retains its link to the image asset and adapts to trait changes,
+    // automatically displaying the correct variant based on the current traits.
+    return [imageAsset imageWithTraitCollection:UITraitCollection.currentTraitCollection];
+#endif // not USE(APPKIT)
 }
 
-CocoaImage *WebExtension::bestImageForIconsDictionaryManifestKey(NSDictionary *dictionary, NSString *manifestKey, CGSize idealSize, RetainPtr<CocoaImage>& cacheLocation, Error error, NSString *customLocalizedDescription)
+CocoaImage *WebExtension::bestImageForIconsDictionaryManifestKey(NSDictionary *dictionary, NSString *manifestKey, CGSize idealSize, RetainPtr<NSMutableDictionary>& cacheLocation, Error error, NSString *customLocalizedDescription)
 {
-    if (cacheLocation)
-        return cacheLocation.get();
+    // Clear the cache if the display scales change (connecting display, etc.)
+    auto *currentScales = availableScreenScales();
+    auto *cachedScales = objectForKey<NSSet>(cacheLocation, @"scales");
+    if (!cacheLocation || ![currentScales isEqualToSet:cachedScales])
+        cacheLocation = [NSMutableDictionary dictionaryWithObject:currentScales forKey:@"scales"];
 
-    CGFloat idealPointSize = idealSize.width > idealSize.height ? idealSize.width : idealSize.height;
-    NSDictionary *iconDictionary = objectForKey<NSDictionary>(dictionary, manifestKey);
-    CocoaImage *result = bestImageInIconsDictionary(iconDictionary, idealPointSize);
+    auto *cacheKey = @(idealSize);
+    if (id cachedResult = cacheLocation.get()[cacheKey])
+        return dynamic_objc_cast<CocoaImage>(cachedResult);
+
+    auto *iconDictionary = objectForKey<NSDictionary>(dictionary, manifestKey);
+    auto *result = bestImageInIconsDictionary(iconDictionary, idealSize, [&](auto *error) {
+        recordError(error);
+    });
+
+    cacheLocation.get()[cacheKey] = result ?: NSNull.null;
+
     if (!result) {
         if (iconDictionary.count) {
             // Record an error if the dictionary had values, meaning the likely failure is the images were missing on disk or bad format.
@@ -1262,12 +1438,162 @@ CocoaImage *WebExtension::bestImageForIconsDictionaryManifestKey(NSDictionary *d
         return nil;
     }
 
-    // Cache the icon if there is only one size, usually this is a vector icon or a large bitmap.
-    if (iconDictionary.count == 1)
-        cacheLocation = result;
+    return result;
+}
+
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+static OptionSet<WebExtension::ColorScheme> toColorSchemes(id value)
+{
+    using ColorScheme = WebExtension::ColorScheme;
+
+    if (!value) {
+        // A nil value counts as all color schemes.
+        return { ColorScheme::Light, ColorScheme::Dark };
+    }
+
+    OptionSet<ColorScheme> result;
+
+    auto *array = dynamic_objc_cast<NSArray>(value);
+    if ([array containsObject:lightManifestKey])
+        result.add(ColorScheme::Light);
+
+    if ([array containsObject:darkManifestKey])
+        result.add(ColorScheme::Dark);
 
     return result;
 }
+
+NSDictionary *WebExtension::iconsDictionaryForBestIconVariant(NSArray *variants, size_t idealPixelSize, ColorScheme idealColorScheme)
+{
+    if (!variants.count)
+        return nil;
+
+    if (variants.count == 1)
+        return variants.firstObject;
+
+    NSDictionary *bestVariant;
+    NSDictionary *fallbackVariant;
+    bool foundIdealFallbackVariant = false;
+
+    size_t bestSize = 0;
+    size_t fallbackSize = 0;
+
+    // Pick the first variant matching color scheme and/or size.
+    for (NSDictionary *variant in variants) {
+        auto colorSchemes = toColorSchemes(variant[colorSchemesManifestKey]);
+        auto currentBestSize = bestSizeInIconsDictionary(variant, idealPixelSize);
+
+        if (colorSchemes.contains(idealColorScheme)) {
+            if (currentBestSize >= idealPixelSize) {
+                // Found the best variant, return it.
+                return variant;
+            }
+
+            if (currentBestSize > bestSize) {
+                // Found a larger ideal variant.
+                bestSize = currentBestSize;
+                bestVariant = variant;
+            }
+        } else if (!foundIdealFallbackVariant && currentBestSize >= idealPixelSize) {
+            // Found an ideal fallback variant, based only on size.
+            fallbackSize = currentBestSize;
+            fallbackVariant = variant;
+            foundIdealFallbackVariant = true;
+        } else if (!foundIdealFallbackVariant && currentBestSize > fallbackSize) {
+            // Found a smaller fallback variant.
+            fallbackSize = currentBestSize;
+            fallbackVariant = variant;
+        }
+    }
+
+    return bestVariant ?: fallbackVariant;
+}
+
+CocoaImage *WebExtension::bestImageForIconVariants(NSArray *variants, CGSize idealSize, const Function<void(NSError *)>& reportError)
+{
+    auto idealPointSize = idealSize.width > idealSize.height ? idealSize.width : idealSize.height;
+    auto *lightIconsDictionary = iconsDictionaryForBestIconVariant(variants, idealPointSize, ColorScheme::Light);
+    auto *darkIconsDictionary = iconsDictionaryForBestIconVariant(variants, idealPointSize, ColorScheme::Dark);
+
+    // If the light and dark icons dictionaries are the same, or if either is nil, return the available image directly.
+    if (!lightIconsDictionary || !darkIconsDictionary || [lightIconsDictionary isEqualToDictionary:darkIconsDictionary])
+        return bestImageInIconsDictionary(lightIconsDictionary ?: darkIconsDictionary, idealSize, reportError);
+
+    auto *lightImage = bestImageInIconsDictionary(lightIconsDictionary, idealSize, reportError);
+    auto *darkImage = bestImageInIconsDictionary(darkIconsDictionary, idealSize, reportError);
+
+    // If either the light or dark icon is nil, return the available image directly.
+    if (!lightImage || !darkImage)
+        return lightImage ?: darkImage;
+
+#if USE(APPKIT)
+    // The images need to be the same size to draw correctly in the block.
+    auto imageSize = lightImage.size.width >= darkImage.size.width ? lightImage.size : darkImage.size;
+    lightImage.size = imageSize;
+    darkImage.size = imageSize;
+
+    // Make a dynamic image that draws the light or dark image based on the current appearance.
+    return [NSImage imageWithSize:imageSize flipped:NO drawingHandler:^BOOL(NSRect rect) {
+        static auto *darkAppearanceNames = @[
+            NSAppearanceNameDarkAqua,
+            NSAppearanceNameVibrantDark,
+            NSAppearanceNameAccessibilityHighContrastDarkAqua,
+            NSAppearanceNameAccessibilityHighContrastVibrantDark,
+        ];
+
+        if ([NSAppearance.currentDrawingAppearance bestMatchFromAppearancesWithNames:darkAppearanceNames])
+            [darkImage drawInRect:rect];
+        else
+            [lightImage drawInRect:rect];
+
+        return YES;
+    }];
+#else
+    // Make a dynamic image asset that returns the light or dark image based on the trait collection.
+    auto *imageAsset = [UIImageAsset _dynamicAssetNamed:NSUUID.UUID.UUIDString generator:^(UIImageAsset *, UIImageConfiguration *configuration, UIImage *) {
+        return configuration.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? darkImage : lightImage;
+    }];
+
+    // The returned image retains its link to the image asset and adapts to trait changes,
+    // automatically displaying the correct variant based on the current traits.
+    return [imageAsset imageWithTraitCollection:UITraitCollection.currentTraitCollection];
+#endif // not USE(APPKIT)
+}
+
+CocoaImage *WebExtension::bestImageForIconVariantsManifestKey(NSDictionary *dictionary, NSString *manifestKey, CGSize idealSize, RetainPtr<NSMutableDictionary>& cacheLocation, Error error, NSString *customLocalizedDescription)
+{
+    // Clear the cache if the display scales change (connecting display, etc.)
+    auto *currentScales = availableScreenScales();
+    auto *cachedScales = objectForKey<NSSet>(cacheLocation, @"scales");
+    if (!cacheLocation || ![currentScales isEqualToSet:cachedScales])
+        cacheLocation = [NSMutableDictionary dictionaryWithObject:currentScales forKey:@"scales"];
+
+    auto *cacheKey = @(idealSize);
+    if (id cachedResult = cacheLocation.get()[cacheKey])
+        return dynamic_objc_cast<CocoaImage>(cachedResult);
+
+    auto *variants = objectForKey<NSArray>(dictionary, manifestKey, false, NSDictionary.class);
+    auto *result = bestImageForIconVariants(variants, idealSize, [&](auto *error) {
+        recordError(error);
+    });
+
+    cacheLocation.get()[cacheKey] = result ?: NSNull.null;
+
+    if (!result) {
+        if (variants.count) {
+            // Record an error if the array had values, meaning the likely failure is the images were missing on disk or bad format.
+            recordError(createError(error, customLocalizedDescription));
+        } else if ((variants && !variants.count) || dictionary[manifestKey]) {
+            // Record an error if the key had an array that was empty, or the key had a value of the wrong type.
+            recordError(createError(error));
+        }
+
+        return nil;
+    }
+
+    return result;
+}
+#endif // ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
 
 bool WebExtension::hasBackgroundContent()
 {
@@ -1459,10 +1785,13 @@ void WebExtension::populateBackgroundPropertiesIfNeeded()
         m_backgroundContentIsPersistent = false;
     }
 
-    if (!m_backgroundContentIsPersistent && hasRequestedPermission(_WKWebExtensionPermissionWebRequest))
+    if (!m_backgroundContentIsPersistent && hasRequestedPermission(WKWebExtensionPermissionWebRequest))
         recordError(createError(Error::InvalidBackgroundPersistence, WEB_UI_STRING("Non-persistent background content cannot listen to `webRequest` events.", "WKWebExtensionErrorInvalidBackgroundPersistence description for webRequest events")));
 
-#if PLATFORM(IOS) || PLATFORM(VISION)
+#if PLATFORM(VISION)
+    if (m_backgroundContentIsPersistent)
+        recordError(createError(Error::InvalidBackgroundPersistence, WEB_UI_STRING("Invalid `persistent` manifest entry. A non-persistent background is required on visionOS.", "WKWebExtensionErrorInvalidBackgroundPersistence description for visionOS")));
+#elif PLATFORM(IOS)
     if (m_backgroundContentIsPersistent)
         recordError(createError(Error::InvalidBackgroundPersistence, WEB_UI_STRING("Invalid `persistent` manifest entry. A non-persistent background is required on iOS and iPadOS.", "WKWebExtensionErrorInvalidBackgroundPersistence description for iOS")));
 #endif
@@ -1670,9 +1999,10 @@ void WebExtension::populateCommandsIfNeeded()
 
     auto *commandsDictionary = objectForKey<NSDictionary>(m_manifest, commandsManifestKey, false, NSDictionary.class);
     if (!commandsDictionary) {
-        if (id value = [m_manifest objectForKey:commandsManifestKey]; value && ![value isKindOfClass:NSDictionary.class])
+        if (id value = [m_manifest objectForKey:commandsManifestKey]; value && ![value isKindOfClass:NSDictionary.class]) {
             recordError(createError(Error::InvalidCommands));
-        return;
+            return;
+        }
     }
 
     if (id value = [m_manifest objectForKey:commandsManifestKey]; commandsDictionary.count != dynamic_objc_cast<NSDictionary>(value).count) {
@@ -1835,13 +2165,13 @@ std::optional<WebExtension::DeclarativeNetRequestRulesetData> WebExtension::pars
 
     NSString *rulesetID = objectForKey<NSString>(rulesetDictionary, declarativeNetRequestRulesetIDManifestKey);
     if (!rulesetID.length) {
-        *error = createError(WebExtension::Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Empty `declarative_net_request` ruleset id.", "_WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for empty ruleset id"));
+        *error = createError(WebExtension::Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Empty `declarative_net_request` ruleset id.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for empty ruleset id"));
         return std::nullopt;
     }
 
     NSString *jsonPath = objectForKey<NSString>(rulesetDictionary, declarativeNetRequestRulePathManifestKey);
     if (!jsonPath.length) {
-        *error = createError(WebExtension::Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Empty `declarative_net_request` JSON path.", "_WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for empty JSON path"));
+        *error = createError(WebExtension::Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Empty `declarative_net_request` JSON path.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for empty JSON path"));
         return std::nullopt;
 
     }
@@ -1867,8 +2197,8 @@ void WebExtension::populateDeclarativeNetRequestPropertiesIfNeeded()
 
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/declarative_net_request
 
-    if (!supportedPermissions().contains(_WKWebExtensionPermissionDeclarativeNetRequest) && !supportedPermissions().contains(_WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess)) {
-        recordError(createError(Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Manifest has no `declarativeNetRequest` permission.", "_WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for missing declarativeNetRequest permission")));
+    if (!supportedPermissions().contains(WKWebExtensionPermissionDeclarativeNetRequest) && !supportedPermissions().contains(WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess)) {
+        recordError(createError(Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Manifest has no `declarativeNetRequest` permission.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for missing declarativeNetRequest permission")));
         return;
     }
 
@@ -1887,7 +2217,7 @@ void WebExtension::populateDeclarativeNetRequestPropertiesIfNeeded()
     }
 
     if (declarativeNetRequestRulesets.count > webExtensionDeclarativeNetRequestMaximumNumberOfStaticRulesets)
-        recordError(createError(Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Exceeded maximum number of `declarative_net_request` rulesets. Ignoring extra rulesets.", "_WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for too many rulesets")));
+        recordError(createError(Error::InvalidDeclarativeNetRequest, WEB_UI_STRING("Exceeded maximum number of `declarative_net_request` rulesets. Ignoring extra rulesets.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for too many rulesets")));
 
     NSUInteger rulesetCount = 0;
     NSUInteger enabledRulesetCount = 0;
@@ -1906,12 +2236,12 @@ void WebExtension::populateDeclarativeNetRequestPropertiesIfNeeded()
 
         auto ruleset = optionalRuleset.value();
         if (seenRulesetIDs.contains(ruleset.rulesetID)) {
-            recordError(createError(Error::InvalidDeclarativeNetRequest, WEB_UI_FORMAT_STRING("`declarative_net_request` ruleset with id \"%@\" is invalid. Ruleset id must be unique.", "_WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for duplicate ruleset id", (NSString *)ruleset.rulesetID)));
+            recordError(createError(Error::InvalidDeclarativeNetRequest, WEB_UI_FORMAT_STRING("`declarative_net_request` ruleset with id \"%@\" is invalid. Ruleset id must be unique.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for duplicate ruleset id", (NSString *)ruleset.rulesetID)));
             continue;
         }
 
         if (ruleset.enabled && ++enabledRulesetCount > webExtensionDeclarativeNetRequestMaximumNumberOfEnabledRulesets && !recordedTooManyRulesetsManifestError) {
-            recordError(createError(Error::InvalidDeclarativeNetRequest, WEB_UI_FORMAT_STRING("Exceeded maximum number of enabled `declarative_net_request` static rulesets. The first %lu will be applied, the remaining will be ignored.", "_WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for too many enabled static rulesets", webExtensionDeclarativeNetRequestMaximumNumberOfEnabledRulesets)));
+            recordError(createError(Error::InvalidDeclarativeNetRequest, WEB_UI_FORMAT_STRING("Exceeded maximum number of enabled `declarative_net_request` static rulesets. The first %lu will be applied, the remaining will be ignored.", "WKWebExtensionErrorInvalidDeclarativeNetRequestEntry description for too many enabled static rulesets", webExtensionDeclarativeNetRequestMaximumNumberOfEnabledRulesets)));
             recordedTooManyRulesetsManifestError = true;
             continue;
         }
@@ -2100,10 +2430,14 @@ void WebExtension::populateContentScriptPropertiesIfNeeded()
 
 const WebExtension::PermissionsSet& WebExtension::supportedPermissions()
 {
-    static MainThreadNeverDestroyed<PermissionsSet> permissions = std::initializer_list<String> { _WKWebExtensionPermissionActiveTab, _WKWebExtensionPermissionAlarms, _WKWebExtensionPermissionClipboardWrite,
-        _WKWebExtensionPermissionContextMenus, _WKWebExtensionPermissionCookies, _WKWebExtensionPermissionDeclarativeNetRequest, _WKWebExtensionPermissionDeclarativeNetRequestFeedback,
-        _WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess, _WKWebExtensionPermissionMenus, _WKWebExtensionPermissionNativeMessaging, _WKWebExtensionPermissionNotifications, _WKWebExtensionPermissionScripting,
-        _WKWebExtensionPermissionStorage, _WKWebExtensionPermissionTabs, _WKWebExtensionPermissionUnlimitedStorage, _WKWebExtensionPermissionWebNavigation, _WKWebExtensionPermissionWebRequest };
+    static MainThreadNeverDestroyed<PermissionsSet> permissions = std::initializer_list<String> { WKWebExtensionPermissionActiveTab, WKWebExtensionPermissionAlarms, WKWebExtensionPermissionClipboardWrite,
+        WKWebExtensionPermissionContextMenus, WKWebExtensionPermissionCookies, WKWebExtensionPermissionDeclarativeNetRequest, WKWebExtensionPermissionDeclarativeNetRequestFeedback,
+        WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess, WKWebExtensionPermissionMenus, WKWebExtensionPermissionNativeMessaging, WKWebExtensionPermissionNotifications, WKWebExtensionPermissionScripting,
+        WKWebExtensionPermissionStorage, WKWebExtensionPermissionTabs, WKWebExtensionPermissionUnlimitedStorage, WKWebExtensionPermissionWebNavigation, WKWebExtensionPermissionWebRequest,
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+        WKWebExtensionPermissionSidePanel,
+#endif
+    };
     return permissions;
 }
 

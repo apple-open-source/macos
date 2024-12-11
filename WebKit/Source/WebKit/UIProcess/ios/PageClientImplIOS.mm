@@ -78,14 +78,6 @@
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/SpanCocoa.h>
 
-#define MESSAGE_CHECK(assertion) do { \
-    if (auto webView = this->webView()) { \
-        MESSAGE_CHECK_BASE(assertion, webView->_page->legacyMainFrameProcess().connection()); \
-    } else { \
-        ASSERT_NOT_REACHED(); \
-    } \
-while (0)
-
 @interface UIWindow ()
 - (BOOL)_isHostedInAnotherProcess;
 @end
@@ -575,22 +567,22 @@ void PageClientImpl::makeViewBlank(bool makeBlank)
     [contentView() layer].opacity = makeBlank ? 0 : 1;
 }
 
-void PageClientImpl::showSafeBrowsingWarning(const SafeBrowsingWarning& warning, CompletionHandler<void(std::variant<WebKit::ContinueUnsafeLoad, URL>&&)>&& completionHandler)
+void PageClientImpl::showBrowsingWarning(const BrowsingWarning& warning, CompletionHandler<void(std::variant<WebKit::ContinueUnsafeLoad, URL>&&)>&& completionHandler)
 {
     if (auto webView = this->webView())
-        [webView _showSafeBrowsingWarning:warning completionHandler:WTFMove(completionHandler)];
+        [webView _showBrowsingWarning:warning completionHandler:WTFMove(completionHandler)];
     else
         completionHandler(ContinueUnsafeLoad::No);
 }
 
-void PageClientImpl::clearSafeBrowsingWarning()
+void PageClientImpl::clearBrowsingWarning()
 {
-    [webView() _clearSafeBrowsingWarning];
+    [webView() _clearBrowsingWarning];
 }
 
-void PageClientImpl::clearSafeBrowsingWarningIfForMainFrameNavigation()
+void PageClientImpl::clearBrowsingWarningIfForMainFrameNavigation()
 {
-    [webView() _clearSafeBrowsingWarningIfForMainFrameNavigation];
+    [webView() _clearBrowsingWarningIfForMainFrameNavigation];
 }
 
 void PageClientImpl::exitAcceleratedCompositingMode()
@@ -1189,7 +1181,7 @@ bool PageClientImpl::isTextRecognitionInFullscreenVideoEnabled() const
     return [contentView() isTextRecognitionInFullscreenVideoEnabled];
 }
 
-#if ENABLE(VIDEO)
+#if ENABLE(IMAGE_ANALYSIS) && ENABLE(VIDEO)
 void PageClientImpl::beginTextRecognitionForVideoInElementFullscreen(ShareableBitmap::Handle&& bitmapHandle, FloatRect bounds)
 {
     [contentView() beginTextRecognitionForVideoInElementFullscreen:WTFMove(bitmapHandle) bounds:bounds];
@@ -1250,5 +1242,3 @@ void PageClientImpl::scheduleVisibleContentRectUpdate()
 } // namespace WebKit
 
 #endif // PLATFORM(IOS_FAMILY)
-
-#undef MESSAGE_CHECK

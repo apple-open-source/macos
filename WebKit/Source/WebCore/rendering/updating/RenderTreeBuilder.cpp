@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -87,14 +88,14 @@ static void invalidateLineLayout(RenderObject& renderer, IsRemoval isRemoval)
     CheckedPtr container = LayoutIntegration::LineLayout::blockContainer(renderer);
     if (!container)
         return;
-    auto shouldInvalidateLineLayoutPath = [&](auto& inlinLayout) {
-        if (LayoutIntegration::LineLayout::shouldInvalidateLineLayoutPathAfterTreeMutation(*container, renderer, inlinLayout, isRemoval == IsRemoval::Yes))
+    auto shouldInvalidateLineLayoutPath = [&](auto& inlineLayout) {
+        if (LayoutIntegration::LineLayout::shouldInvalidateLineLayoutPathAfterTreeMutation(*container, renderer, inlineLayout, isRemoval == IsRemoval::Yes))
             return true;
         if (isRemoval == IsRemoval::Yes)
-            return !inlinLayout.removedFromTree(*renderer.parent(), renderer);
-        return !inlinLayout.insertedIntoTree(*renderer.parent(), renderer);
+            return !inlineLayout.removedFromTree(*renderer.parent(), renderer);
+        return !inlineLayout.insertedIntoTree(*renderer.parent(), renderer);
     };
-    if (auto* inlinLayout = container->modernLineLayout(); inlinLayout && shouldInvalidateLineLayoutPath(*inlinLayout))
+    if (auto* inlineLayout = container->inlineLayout(); inlineLayout && shouldInvalidateLineLayoutPath(*inlineLayout))
         container->invalidateLineLayoutPath(RenderBlockFlow::InvalidationReason::InsertionOrRemoval);
 }
 
@@ -474,14 +475,25 @@ void RenderTreeBuilder::attachToRenderElementInternal(RenderElement& parent, Ren
 
     if (!parent.normalChildNeedsLayout()) {
         if (isOutOfFlowBox) {
-            // setNeedsLayoutAndPrefWidthsRecalc above already takes care of propagating dirty bits on the ancestor chain, but
-            // in order to compute static position for out of flow boxes, the parent has to run normal flow layout as well (as opposed to simplified)
-            // FIXME: Introduce a dirty bit to bridge the gap between parent and containing block which would
-            // not trigger layout but a simple traversal all the way to the direct parent and also expand it non-direct parent cases.
-            // FIXME: RenderVideo's setNeedsLayout pattern does not play well with this optimization: see webkit.org/b/276253
-            if (newChild->containingBlock() == &parent && !is<RenderVideo>(*newChild))
+            auto isEligibleForStaticPositionLayoutOnly = [&] {
+                // setNeedsLayoutAndPrefWidthsRecalc above already takes care of propagating dirty bits on the ancestor chain, but
+                // in order to compute static position for out of flow boxes, the parent has to run normal flow layout as well (as opposed to simplified)
+                if (newChild->containingBlock() != &parent)
+                    return false;
+                // FIXME: RenderVideo's setNeedsLayout pattern does not play well with this optimization: see webkit.org/b/276253
+                if (is<RenderVideo>(*newChild))
+                    return false;
+                // Since we can't actually run static position only layout for a block container (RenderBlockFlow::layoutBlock() does not have such fine grained layout flow)
+                // floats get rebuilt which assumes (see intruding floats) parent block containers do the same.
+                if (auto* renderBlock = dynamicDowncast<RenderBlock>(parent))
+                    return !renderBlock->containsFloats();
+                return true;
+            };
+            if (isEligibleForStaticPositionLayoutOnly()) {
+                // FIXME: Introduce a dirty bit to bridge the gap between parent and containing block which would
+                // not trigger layout but a simple traversal all the way to the direct parent and also expand it non-direct parent cases.
                 parent.setOutOfFlowChildNeedsStaticPositionLayout();
-            else
+            } else
                 parent.setChildNeedsLayout();
         } else
             parent.setChildNeedsLayout();
@@ -503,6 +515,8 @@ void RenderTreeBuilder::move(RenderBoxModelObject& from, RenderBoxModelObject& t
 
     ASSERT(&from == child.parent());
     ASSERT(!beforeChild || &to == beforeChild->parent());
+    if (normalizeAfterInsertion == NormalizeAfterInsertion::Yes && is<RenderBlock>(from) && child.isRenderBox())
+        RenderBlock::removePercentHeightDescendantIfNeeded(downcast<RenderBox>(child));
     if (normalizeAfterInsertion == NormalizeAfterInsertion::Yes && (to.isRenderBlock() || to.isRenderInline())) {
         // Takes care of adding the new child correctly if toBlock and fromBlock
         // have different kind of children (block vs inline).
@@ -559,6 +573,7 @@ void RenderTreeBuilder::moveChildren(RenderBoxModelObject& from, RenderBoxModelO
     if (normalizeAfterInsertion == NormalizeAfterInsertion::Yes) {
         if (CheckedPtr blockFlow = dynamicDowncast<RenderBlock>(from)) {
             blockFlow->removePositionedObjects(nullptr);
+            RenderBlock::removePercentHeightDescendantIfNeeded(*blockFlow);
             removeFloatingObjects(*blockFlow);
         }
     }
@@ -974,8 +989,8 @@ static void resetRendererStateOnDetach(RenderElement& parent, RenderObject& chil
         downcast<RenderBox>(child).removeFloatingOrPositionedChildFromBlockLists();
     else if (CheckedPtr parentFlexibleBox = dynamicDowncast<RenderFlexibleBox>(parent)) {
         if (CheckedPtr childBox = dynamicDowncast<RenderBox>(child)) {
-            parentFlexibleBox->clearCachedChildIntrinsicContentLogicalHeight(*childBox);
-            parentFlexibleBox->clearCachedMainSizeForChild(*childBox);
+            parentFlexibleBox->clearCachedFlexItemIntrinsicContentLogicalHeight(*childBox);
+            parentFlexibleBox->clearCachedMainSizeForFlexItem(*childBox);
         }
     }
 
@@ -984,7 +999,7 @@ static void resetRendererStateOnDetach(RenderElement& parent, RenderObject& chil
 
     // If we have a line box wrapper, delete it.
     if (CheckedPtr textRenderer = dynamicDowncast<RenderText>(child))
-        textRenderer->removeAndDestroyTextBoxes();
+        textRenderer->removeAndDestroyLegacyTextBoxes();
 
     if (CheckedPtr listItemRenderer = dynamicDowncast<RenderListItem>(child); listItemRenderer && isInternalMove == RenderTreeBuilder::IsInternalMove::No)
         listItemRenderer->updateListMarkerNumbers();

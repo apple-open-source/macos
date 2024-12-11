@@ -1,2 +1,86 @@
+module CUPS [system] {
+  header "cups/cups.h"
+  export *
+  link "cups"
+
+#ifdef BUILD_FOR_MACOS
+  module adminutil {
+    header "cups/adminutil.h"
+    export *
+  }
+#endif
+
+  module array {
+    header "cups/array.h"
+    export *
+  }
+
+#ifdef BUILD_FOR_MACOS
+  module backend {
+    header "cups/backend.h"
+    export *
+  }
+#endif
+
+  module dir {
+    header "cups/dir.h"
+    export *
+  }
+
+  module file {
+    header "cups/file.h"
+    export *
+  }
+
+  explicit module http {
+    header "cups/http.h"
+    export *
+  }
+
+  explicit module ipp {
+    header "cups/ipp.h"
+    export *
+  }
+
+  module language {
+    header "cups/language.h"
+    export *
+  }
+
+#ifdef BUILD_FOR_MACOS
+  explicit module ppd {
+    header "cups/ppd.h"
+    export *
+  }
+#endif
+
+  explicit module pwg {
+    header "cups/pwg.h"
+    export *
+  }
+
+  module raster {
+    header "cups/raster.h"
+    export *
+  }
+
+#ifdef BUILD_FOR_MACOS
+  module sidechannel {
+    header "cups/sidechannel.h"
+    export *
+  }
+#endif
+
+  module transcode {
+    header "cups/transcode.h"
+    export *
+  }
+
+  module versioning {
+    header "cups/versioning.h"
+    export *
+  }
+}
+
 module CUPS_Placeholder_NewFile [system] {
 }

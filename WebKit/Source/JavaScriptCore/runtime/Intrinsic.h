@@ -60,6 +60,7 @@ namespace JSC {
     macro(ArrayValuesIntrinsic) \
     macro(ArrayKeysIntrinsic) \
     macro(ArrayEntriesIntrinsic) \
+    macro(AsyncIteratorIntrinsic) \
     macro(BooleanConstructorIntrinsic) \
     macro(CharCodeAtIntrinsic) \
     macro(CharAtIntrinsic) \
@@ -127,6 +128,7 @@ namespace JSC {
     macro(IMulIntrinsic) \
     macro(RandomIntrinsic) \
     macro(FRoundIntrinsic) \
+    macro(F16RoundIntrinsic) \
     macro(ToIntegerOrInfinityIntrinsic) \
     macro(ToLengthIntrinsic) \
     macro(TruncIntrinsic) \
@@ -136,6 +138,7 @@ namespace JSC {
     macro(IsTypedArrayViewIntrinsic) \
     macro(BoundFunctionCallIntrinsic) \
     macro(RemoteFunctionCallIntrinsic) \
+    macro(IteratorIntrinsic) \
     macro(JSMapGetIntrinsic) \
     macro(JSMapHasIntrinsic) \
     macro(JSMapSetIntrinsic) \
@@ -214,6 +217,7 @@ namespace JSC {
     macro(DataViewGetUint16) \
     macro(DataViewGetInt32) \
     macro(DataViewGetUint32) \
+    macro(DataViewGetFloat16) \
     macro(DataViewGetFloat32) \
     macro(DataViewGetFloat64) \
     macro(DataViewSetInt8) \
@@ -222,6 +226,7 @@ namespace JSC {
     macro(DataViewSetUint16) \
     macro(DataViewSetInt32) \
     macro(DataViewSetUint32) \
+    macro(DataViewSetFloat16) \
     macro(DataViewSetFloat32) \
     macro(DataViewSetFloat64) \
     \

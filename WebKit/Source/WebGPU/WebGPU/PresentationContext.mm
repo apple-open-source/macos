@@ -30,6 +30,7 @@
 #import "Adapter.h"
 #import "PresentationContextCoreAnimation.h"
 #import "PresentationContextIOSurface.h"
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebGPU {
 
@@ -38,6 +39,8 @@ Ref<PresentationContext> Device::createSwapChain(PresentationContext& presentati
     presentationContext.configure(*this, descriptor);
     return presentationContext;
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PresentationContext);
 
 Ref<PresentationContext> PresentationContext::create(const WGPUSurfaceDescriptor& descriptor, const Instance& instance)
 {
@@ -129,7 +132,7 @@ void wgpuSwapChainPresent(WGPUSwapChain swapChain)
     WebGPU::fromAPI(swapChain).present();
 }
 
-RetainPtr<CGImageRef> wgpuSwapChainGetTextureAsNativeImage(WGPUSwapChain swapChain, uint32_t bufferIndex)
+RetainPtr<CGImageRef> wgpuSwapChainGetTextureAsNativeImage(WGPUSwapChain swapChain, uint32_t bufferIndex, bool& isIOSurfaceSupportedFormat)
 {
-    return WebGPU::fromAPI(swapChain).getTextureAsNativeImage(bufferIndex);
+    return WebGPU::fromAPI(swapChain).getTextureAsNativeImage(bufferIndex, isIOSurfaceSupportedFormat);
 }

@@ -89,6 +89,7 @@ static const char copyAllSQL[] = "SELECT data,tset FROM tsettings WHERE uuid=? O
 #endif // TARGET_OS_IPHONE
 static const char countAllSQL[] = "SELECT COUNT(*) FROM tsettings WHERE uuid=?";
 #if !TARGET_OS_OSX
+static const char countAllV1SQL[] = "SELECT COUNT(*) FROM tsettings";
 static const char findUUIDColSQL[] = "SELECT INSTR(sql,'uuid') FROM sqlite_master WHERE type='table' AND name='tsettings'";
 static const char copyToTmpSQL[] = "INSERT OR REPLACE INTO tmp_tsettings(sha256,subj,tset,data) SELECT sha256,subj,tset,data FROM tsettings";
 static const char updateUUIDSQL[] = "UPDATE tsettings SET uuid=? WHERE uuid=''";
@@ -375,19 +376,24 @@ static void SecTrustStoreInitSystem(void) {
        its cf type has been checked.
  */
 SecTrustStoreRef SecTrustStoreForDomainName(CFStringRef domainName, CFErrorRef *error) {
+    SecTrustStoreRef ts = NULL;
 	if (CFEqualSafe(CFSTR("user"), domainName)) {
 		dispatch_once(&kSecTrustStoreUserOnce, ^{ SecTrustStoreInitUser(); });
-		return kSecTrustStoreUser;
+		ts = kSecTrustStoreUser;
     } else if (CFEqualSafe(CFSTR("admin"), domainName)) {
         dispatch_once(&kSecTrustStoreAdminOnce, ^{ SecTrustStoreInitAdmin(); });
-        return kSecTrustStoreAdmin;
+        ts = kSecTrustStoreAdmin;
     } else if (CFEqualSafe(CFSTR("system"), domainName)) {
         dispatch_once(&kSecTrustStoreSystemOnce, ^{ SecTrustStoreInitSystem(); });
-        return kSecTrustStoreSystem;
+        ts = kSecTrustStoreSystem;
 	} else {
         SecError(errSecParam, error, CFSTR("unknown domain: %@"), domainName);
 		return NULL;
 	}
+    if (ts == NULL) {
+        SecError(errSecInternal, error, CFSTR("unable to initialize trust store for %@ domain"), domainName);
+    }
+    return ts;
 }
 
 /* AUDIT[securityd](done):
@@ -944,7 +950,7 @@ static bool _SecTrustStoreUpdateSchema(const char *path, CFErrorRef *error)
     }
     require_noerr(s3e, errSql);
     // are there any existing rows in old table to copy?
-    require_noerr_action(s3e = sqlite3_prepare_v3(s3h, countAllSQL, sizeof(countAllSQL),
+    require_noerr_action(s3e = sqlite3_prepare_v3(s3h, countAllV1SQL, sizeof(countAllV1SQL),
                          0, &countAllStmt, NULL), errSql,
                          ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to prepare countAllStmt")));
     s3e = sqlite3_step(countAllStmt);
@@ -1026,13 +1032,16 @@ errOut:
         require_noerr_action(s3e = sqlite3_finalize(findColStmt), errExit,
                              ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to finalize findColStmt")));
     }
-    if (s3h) {
-        require_noerr_action(s3e = sqlite3_close(s3h), errExit,
-                             ok = SecDbError(s3e, error, CFSTR("failed to close trust store after schema update")));
-    }
 errExit:
     if (!ok) {
         secerror("Failed to update schema (uuid %@)", uuid);
+        // We won't be able to add entries to the table. Remove it so it can be recreated from scratch.
+        require_noerr_action(s3e = sqlite3_exec(s3h, "DROP TABLE tsettings;", NULL, NULL, NULL), errSql,
+                             ok = SecDbErrorWithDb(s3e, s3h, error, CFSTR("failed to drop tsettings table")));
+    }
+    if (s3h) {
+        require_noerr_action(s3e = sqlite3_close(s3h), errExit,
+                             ok = SecDbError(s3e, error, CFSTR("failed to close trust store after schema update")));
     }
     CFReleaseNull(uuid);
 

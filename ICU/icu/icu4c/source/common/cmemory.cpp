@@ -25,6 +25,9 @@
 #include "putilimp.h"
 #include "uassert.h"
 #include <stdlib.h>
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED // rdar://133066316
+#include <os/log.h>
+#endif
 
 /* uprv_malloc(0) returns a pointer to this read-only data. */
 static const int32_t zeroMem[] = {0, 0, 0, 0, 0, 0};
@@ -115,6 +118,12 @@ uprv_calloc(size_t num, size_t size) {
 U_CAPI void U_EXPORT2
 u_setMemoryFunctions(const void *context, UMemAllocFn *a, UMemReallocFn *r, UMemFreeFn *f,  UErrorCode *status)
 {
+#if APPLE_ICU_CHANGES // rdar://133066316
+#if U_PLATFORM_IS_DARWIN_BASED
+    os_log_error(OS_LOG_DEFAULT, "ICU's u_setMemoryFunctions() is not safe and has been disabled. Please remove calls to it from your code.");
+#endif
+    return;
+#else
     if (U_FAILURE(*status)) {
         return;
     }
@@ -126,6 +135,7 @@ u_setMemoryFunctions(const void *context, UMemAllocFn *a, UMemReallocFn *r, UMem
     pAlloc    = a;
     pRealloc  = r;
     pFree     = f;
+#endif
 }
 
 

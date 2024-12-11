@@ -29,12 +29,15 @@
 
 #if PLATFORM(X11)
 
+#include <wtf/TZoneMalloc.h>
+
 namespace WebKit {
 
 class WebPageProxy;
 
 class PointerLockManagerX11 final : public PointerLockManager {
-    WTF_MAKE_NONCOPYABLE(PointerLockManagerX11); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(PointerLockManagerX11);
+    WTF_MAKE_NONCOPYABLE(PointerLockManagerX11);
 public:
     PointerLockManagerX11(WebPageProxy&, const WebCore::FloatPoint&, const WebCore::FloatPoint&, WebMouseEventButton, unsigned short, OptionSet<WebEventModifier>);
     ~PointerLockManagerX11() = default;
@@ -43,8 +46,6 @@ private:
     bool lock() override;
     bool unlock() override;
     void didReceiveMotionEvent(const WebCore::FloatPoint&) override;
-
-    WebCore::IntPoint m_x11RootInitialPoint;
 };
 
 } // namespace WebKit

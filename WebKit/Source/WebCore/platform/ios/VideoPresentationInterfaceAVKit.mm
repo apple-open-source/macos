@@ -43,6 +43,7 @@
 #import <pal/spi/cocoa/AVKitSPI.h>
 #import <pal/spi/ios/UIKitSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/WeakObjCPtr.h>
 
 #if HAVE(PIP_CONTROLLER)
@@ -761,6 +762,8 @@ static const NSTimeInterval startPictureInPictureTimeInterval = 5.0;
 
 namespace WebCore {
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(VideoPresentationInterfaceAVKit);
+
 Ref<VideoPresentationInterfaceAVKit> VideoPresentationInterfaceAVKit::create(PlaybackSessionInterfaceIOS& playbackSessionInterface)
 {
     return adoptRef(*new VideoPresentationInterfaceAVKit(playbackSessionInterface));
@@ -794,7 +797,8 @@ void VideoPresentationInterfaceAVKit::setupFullscreen(UIView& videoView, const F
 {
     [playerController() setContentDimensions:videoDimensions];
     VideoPresentationInterfaceIOS::setupFullscreen(videoView, initialRect, videoDimensions, parentView, mode, allowsPictureInPicturePlayback, standby, blocksReturnToFullscreenFromPictureInPicture);
-    playerLayer().captionsLayer = captionsLayer();
+    if (playerLayer().captionsLayer != captionsLayer())
+        playerLayer().captionsLayer = captionsLayer();
 }
 
 void VideoPresentationInterfaceAVKit::updateRouteSharingPolicy()

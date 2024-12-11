@@ -216,9 +216,17 @@
         XCTSkip(); /* asset currently unavailable */
     } else {
         NSCharacterSet *asciiDigits = [NSCharacterSet characterSetWithRange:NSMakeRange('0', '9')];
-        NSString *testStr = [tsAssetVersion stringByTrimmingCharactersInSet:asciiDigits];
-        /* valid asset version looks like "1.0.0.11.1234,0", so if we trim all digits, we expect the string "....," as the result. */
-        XCTAssertEqualObjects(testStr, @"....,", "expected remainder after trimming digits");
+        NSMutableString *testString = [NSMutableString stringWithString:tsAssetVersion];
+        while (true) {
+            NSRange range = [testString rangeOfCharacterFromSet:asciiDigits];
+            if (range.location == NSNotFound || range.length <= 0) {
+                break;
+            }
+            [testString replaceCharactersInRange:range withString:@""];
+        }
+        /* valid asset version format looks like "1.0.0.11.1234,0", where the actual numbers vary.
+           If we remove all digits, we expect the string "....," as the result. */
+        XCTAssertEqualObjects(testString, @"....,", "expected remainder after removing digits");
     }
 #endif
 }

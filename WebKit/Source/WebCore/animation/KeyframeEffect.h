@@ -61,7 +61,7 @@ struct ResolutionContext;
 }
 
 class KeyframeEffect final : public AnimationEffect, public CSSPropertyBlendingClient, public KeyframeInterpolation {
-    WTF_MAKE_ISO_ALLOCATED(KeyframeEffect);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(KeyframeEffect);
 public:
     static ExceptionOr<Ref<KeyframeEffect>> create(JSC::JSGlobalObject&, Document&, Element*, JSC::Strong<JSC::JSObject>&&, std::optional<std::variant<double, KeyframeEffectOptions>>&&);
     static Ref<KeyframeEffect> create(Ref<KeyframeEffect>&&);
@@ -212,7 +212,7 @@ private:
         ~CanBeAcceleratedMutationScope();
 
     private:
-        KeyframeEffect* m_effect;
+        RefPtr<KeyframeEffect> m_effect;
         bool m_couldOriginallyPreventAcceleration;
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
         bool m_couldOriginallyBeAccelerated;
@@ -226,7 +226,7 @@ private:
     void addPendingAcceleratedAction(AcceleratedAction);
     bool isCompletelyAccelerated() const { return m_acceleratedPropertiesState == AcceleratedProperties::All; }
     void updateAcceleratedActions();
-    void setAnimatedPropertiesInStyle(RenderStyle&, double iterationProgress, double currentIteration);
+    void setAnimatedPropertiesInStyle(RenderStyle&, const ComputedEffectTiming&);
     const TimingFunction* timingFunctionForKeyframeAtIndex(size_t) const;
     const TimingFunction* timingFunctionForBlendingKeyframe(const BlendingKeyframe&) const;
     Ref<const Animation> backingAnimationForCompositedRenderer() const;

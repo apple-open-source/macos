@@ -169,6 +169,82 @@
     CFReleaseNull(password);
 }
 
+#if TARGET_OS_OSX
+-(void)testPKCS12ImportDuplicateNotInSearchList {
+    // test that SecPKCS12Import succeeds with a duplicate item
+    // in the legacy keychain (i.e. does *not* create a new key,
+    // nor return an error), where the specified keychain is not
+    // in the keychain search list.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    SecKeychainRef keychain = NULL;
+    NSUUID *testUUID = [NSUUID UUID];
+    NSString *fileName = [NSString stringWithFormat:@"Tests-%@.keychain", [testUUID UUIDString]];
+    NSURL *fileURL = [[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] URLByAppendingPathComponent:fileName];
+    XCTAssertEqual(errSecSuccess, SecKeychainCreate([fileURL fileSystemRepresentation], 8, "password", false, NULL, &keychain), @"make keychain");
+    // --> note that we do not add this keychain to the search list!
+#pragma clang diagnostic pop
+
+    CFDataRef message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, _Benjy_132880027_p12, sizeof(_Benjy_132880027_p12), kCFAllocatorNull);
+    CFArrayRef items = NULL;
+    SecCertificateRef cert = NULL;
+    SecKeyRef pkey = NULL;
+    CFMutableDictionaryRef options = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(options, kSecImportExportPassphrase, CFSTR("test"));
+    CFDictionarySetValue(options, kSecImportExportKeychain, keychain);
+
+    XCTAssertEqual(SecPKCS12Import(message, options, &items), errSecSuccess, @"import attempt #1");
+
+    XCTAssertEqual(CFArrayGetCount(items), 1, @"one identity");
+    CFDictionaryRef item = CFArrayGetValueAtIndex(items, 0);
+    SecIdentityRef identity = (SecIdentityRef)CFDictionaryGetValue(item, kSecImportItemIdentity);
+    XCTAssertNotNil((__bridge id)identity, @"pull identity from imported data");
+
+    XCTAssertEqual(CFGetTypeID(identity), SecIdentityGetTypeID(), @"this is a SecIdentityRef");
+    XCTAssertEqual(SecIdentityCopyPrivateKey(identity, &pkey), errSecSuccess, @"get private key");
+    XCTAssertEqual(SecIdentityCopyCertificate(identity, &cert), errSecSuccess, @"get certificate");
+
+    CFReleaseNull(items);
+    CFReleaseNull(cert);
+    CFReleaseNull(pkey);
+
+    /* Identity has been imported to the custom legacy keychain on macOS.
+     We want to make sure re-importing will still return the identity, and
+     not return "duplicate item" (we want to ignore the duplicate item and
+     return the existing item to match previous import behavior) or
+     "not found", due to not being in the search list. */
+
+    XCTAssertEqual(SecPKCS12Import(message, options, &items), errSecSuccess, @"import attempt #2");
+
+    XCTAssertEqual(CFArrayGetCount(items), 1, @"one identity");
+    item = CFArrayGetValueAtIndex(items, 0);
+    identity = (SecIdentityRef)CFDictionaryGetValue(item, kSecImportItemIdentity);
+    XCTAssertNotNil((__bridge id)identity, @"pull identity from imported data");
+    CFArrayRef chain = (CFArrayRef)CFDictionaryGetValue(item, kSecImportItemCertChain);
+    XCTAssertNotNil((__bridge id)chain, @"pull chain from imported data");
+
+    XCTAssertEqual(CFGetTypeID(identity), SecIdentityGetTypeID(), @"this is a SecIdentityRef");
+    XCTAssertEqual(SecIdentityCopyPrivateKey(identity, &pkey), errSecSuccess, @"get private key");
+    XCTAssertEqual(SecIdentityCopyCertificate(identity, &cert), errSecSuccess, @"get certificate");
+
+    /* all done with the imported identity, so remove it from the keychain (if added) */
+    [self delete_identity:identity];
+
+    CFReleaseNull(items);
+    CFReleaseNull(cert);
+    CFReleaseNull(pkey);
+
+    CFReleaseNull(message);
+    CFReleaseNull(options);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    SecKeychainDelete(keychain);
+    CFReleaseNull(keychain);
+    [[NSFileManager defaultManager] removeItemAtURL:fileURL error:nil];
+#pragma clang diagnostic pop
+}
+#endif // TARGET_OS_OSX
+
 -(void)testPKCS12CertDecodeFailure {
     CFDataRef message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, _cert_decode_error_p12,
                                                     sizeof(_cert_decode_error_p12), kCFAllocatorNull);
@@ -282,6 +358,8 @@ typedef struct {
     uint8_t *p12;
     size_t p12Len;
     NSString *pwd;
+    OSStatus expected;  // expected result on all platforms except macOS
+    OSStatus expected_macos; // expected result on macOS (for legacy compatibility)
 } PKCS12TestVector;
 
 static PKCS12TestVector p12TestVectors[] = {
@@ -290,24 +368,40 @@ static PKCS12TestVector p12TestVectors[] = {
         .p12 = _user_one_p12,
         .p12Len = sizeof(_user_one_p12),
         .pwd = @"user-one",
+        .expected = errSecSuccess,
+        .expected_macos = errSecSuccess,
     },
     {
         // MAC: sha1, PBES1, PBKDF, pbeWithSHA1And3-KeyTripleDES-CBC
         .p12 = _user_two_p12,
         .p12Len = sizeof(_user_two_p12),
         .pwd = @"user-two",
+        .expected = errSecSuccess,
+        .expected_macos = errSecSuccess,
     },
     {
         // MAC: sha1, PBES1, PBKDF, pbeWithSHA1And3-KeyTripleDES-CBC
         .p12 = ECDSA_fails_import_p12,
         .p12Len = sizeof(ECDSA_fails_import_p12),
         .pwd = @"test",
+        .expected = errSecSuccess,
+        .expected_macos = errSecSuccess,
+    },
+    {
+        // MAC: sha1, PBES1, PBKDF, pbeWithSHA1And3-KeyTripleDES-CBC
+        .p12 = ECDSA_fails_import_p12,
+        .p12Len = sizeof(ECDSA_fails_import_p12),
+        .pwd = @"test_extraCharsAfterRealPW",
+        .expected = errSecAuthFailed,
+        .expected_macos = errSecAuthFailed,
     },
     {
         // MAC: sha1, PBES1, PBKDF, pbeWithSHA1And3-KeyTripleDES-CBC
         .p12 = ec521_host_pfx,
         .p12Len = sizeof(ec521_host_pfx),
         .pwd = @"test!123",
+        .expected = errSecSuccess,
+        .expected_macos = errSecSuccess,
     },
     {
         // test new implementation (PBES2) with new KDF, PRF, and AES-256-CBC
@@ -315,6 +409,8 @@ static PKCS12TestVector p12TestVectors[] = {
         .p12 = _test_HMAC_SHA256_p12,
         .p12Len = sizeof(_test_HMAC_SHA256_p12),
         .pwd = @"test",
+        .expected = errSecSuccess,
+        .expected_macos = errSecSuccess,
     },
     {
         // test that we can handle a sha256 MAC while using old-style PBES1
@@ -322,6 +418,8 @@ static PKCS12TestVector p12TestVectors[] = {
         .p12 = _test_p12_pbes1,
         .p12Len = sizeof(_test_p12_pbes1),
         .pwd = @"secret",
+        .expected = errSecSuccess,
+        .expected_macos = errSecSuccess,
     },
     {
         // three certs (leaf, intermediate, root) + private key
@@ -329,13 +427,25 @@ static PKCS12TestVector p12TestVectors[] = {
         .p12 = _threeCertsAndKey_p12,
         .p12Len = sizeof(_threeCertsAndKey_p12),
         .pwd = @"test",
+        .expected = errSecSuccess,
+        .expected_macos = errSecSuccess,
+    },
+    {
+        // cert + private key + CA cert, empty password
+        // MAC: sha1, PBES1, PBKDF, Iteration 2000, pbeWithSHA1And3-KeyTripleDES-CBC
+        // NOTE: failure expected on iOS, success on macOS
+        .p12 = _emptyPW_p12,
+        .p12Len = sizeof(_emptyPW_p12),
+        .pwd = @"",
+        .expected = errSecAuthFailed,
+        .expected_macos = errSecSuccess,
     },
 };
 
 static size_t p12TestVectorsCount = sizeof(p12TestVectors) / sizeof(PKCS12TestVector);
 
-- (void)runImportToMemoryTest:(NSData *)p12data password:(NSString *)password {
-    CFArrayRef cfItems;
+- (void)runImportToMemoryTest:(NSData *)p12data password:(NSString *)password expect:(OSStatus)expect {
+    CFArrayRef cfItems = NULL;
     SecCertificateRef cert = NULL;
     SecKeyRef pkey = NULL;
     NSDictionary *options = @{
@@ -343,8 +453,11 @@ static size_t p12TestVectorsCount = sizeof(p12TestVectors) / sizeof(PKCS12TestVe
         (__bridge NSString*)kSecImportToMemoryOnly : @YES,
     };
 
-    XCTAssertEqual(SecPKCS12Import((__bridge CFDataRef)p12data, (__bridge CFDictionaryRef)options, &cfItems),
-                   errSecSuccess, @"import p12");
+    XCTAssertEqual(SecPKCS12Import((__bridge CFDataRef)p12data, (__bridge CFDictionaryRef)options, &cfItems), expect, @"import p12");
+    if (expect != errSecSuccess) {
+        CFReleaseSafe(cfItems);
+        return; // expected failure, nothing further to test here
+    }
     NSArray *items = CFBridgingRelease(cfItems);
 
     // verify that we successfully imported items to memory
@@ -397,8 +510,8 @@ static size_t p12TestVectorsCount = sizeof(p12TestVectors) / sizeof(PKCS12TestVe
     CFReleaseNull(pkey);
 }
 
-- (void)runImportToDPKeychainTest:(NSData *)p12data password:(NSString *)password {
-    CFArrayRef cfItems;
+- (void)runImportToDPKeychainTest:(NSData *)p12data password:(NSString *)password expect:(OSStatus)expect {
+    CFArrayRef cfItems = NULL;
     SecCertificateRef cert = NULL;
     SecKeyRef pkey = NULL;
     NSDictionary *options = @{
@@ -406,8 +519,11 @@ static size_t p12TestVectorsCount = sizeof(p12TestVectors) / sizeof(PKCS12TestVe
         (__bridge NSString*)kSecUseDataProtectionKeychain : @YES,
     };
 
-    XCTAssertEqual(SecPKCS12Import((__bridge CFDataRef)p12data, (__bridge CFDictionaryRef)options, &cfItems),
-                   errSecSuccess, @"import p12");
+    XCTAssertEqual(SecPKCS12Import((__bridge CFDataRef)p12data, (__bridge CFDictionaryRef)options, &cfItems), expect, @"import p12");
+    if (expect != errSecSuccess) {
+        CFReleaseSafe(cfItems);
+        return; // expected failure, nothing further to test here
+    }
     NSArray *items = CFBridgingRelease(cfItems);
 
     // verify that we successfully imported items to memory
@@ -443,16 +559,19 @@ static size_t p12TestVectorsCount = sizeof(p12TestVectors) / sizeof(PKCS12TestVe
     CFReleaseNull(pkey);
 }
 
-- (void)runDefaultImportTest:(NSData *)p12data password:(NSString *)password {
-    CFArrayRef cfItems;
+- (void)runDefaultImportTest:(NSData *)p12data password:(NSString *)password expect:(OSStatus)expect {
+    CFArrayRef cfItems = NULL;
     SecCertificateRef cert = NULL;
     SecKeyRef pkey = NULL;
     NSDictionary *options = @{
         (__bridge NSString*)kSecImportExportPassphrase : password,
     };
 
-    XCTAssertEqual(SecPKCS12Import((__bridge CFDataRef)p12data, (__bridge CFDictionaryRef)options, &cfItems),
-                   errSecSuccess, @"import p12");
+    XCTAssertEqual(SecPKCS12Import((__bridge CFDataRef)p12data, (__bridge CFDictionaryRef)options, &cfItems), expect, @"import p12");
+    if (expect != errSecSuccess) {
+        CFReleaseSafe(cfItems);
+        return; // expected failure, nothing further to test here
+    }
     NSArray *items = CFBridgingRelease(cfItems);
 
     // verify that we successfully imported items to memory
@@ -507,8 +626,8 @@ static size_t p12TestVectorsCount = sizeof(p12TestVectors) / sizeof(PKCS12TestVe
 }
 
 #if TARGET_OS_OSX
-- (void)runExplicitKeychainTest:(NSData *)p12data password:(NSString *)password keychain:(SecKeychainRef)keychain {
-    CFArrayRef cfItems;
+- (void)runExplicitKeychainTest:(NSData *)p12data password:(NSString *)password keychain:(SecKeychainRef)keychain expect:(OSStatus)expect {
+    CFArrayRef cfItems = NULL;
     SecCertificateRef cert = NULL;
     SecKeyRef pkey = NULL;
     NSDictionary *options = @{
@@ -516,8 +635,11 @@ static size_t p12TestVectorsCount = sizeof(p12TestVectors) / sizeof(PKCS12TestVe
         (__bridge NSString*)kSecImportExportKeychain : (__bridge id)keychain,
     };
 
-    XCTAssertEqual(SecPKCS12Import((__bridge CFDataRef)p12data, (__bridge CFDictionaryRef)options, &cfItems),
-                   errSecSuccess, @"import p12");
+    XCTAssertEqual(SecPKCS12Import((__bridge CFDataRef)p12data, (__bridge CFDictionaryRef)options, &cfItems), expect, @"import p12");
+    if (expect != errSecSuccess) {
+        CFReleaseSafe(cfItems);
+        return; // expected failure, nothing further to test here
+    }
     NSArray *items = CFBridgingRelease(cfItems);
 
     // verify that we successfully imported items to memory
@@ -598,12 +720,18 @@ static size_t p12TestVectorsCount = sizeof(p12TestVectors) / sizeof(PKCS12TestVe
     for (size_t i = 0; i < p12TestVectorsCount; i++) {
         PKCS12TestVector testVector = p12TestVectors[i];
         NSData *p12Data = [NSData dataWithBytes:testVector.p12 length:testVector.p12Len];
-
-        [self runImportToMemoryTest:p12Data password:testVector.pwd];
-        [self runImportToDPKeychainTest:p12Data password:testVector.pwd];
-        [self runDefaultImportTest:p12Data password:testVector.pwd];
 #if TARGET_OS_OSX
-        [self runExplicitKeychainTest:p12Data password:testVector.pwd keychain:keychain];
+        OSStatus expect = testVector.expected_macos;
+#else
+        OSStatus expect = testVector.expected;
+#endif // TARGET_OS_OSX
+        // Common tests for all platforms
+        [self runImportToMemoryTest:p12Data password:testVector.pwd expect:expect];
+        [self runImportToDPKeychainTest:p12Data password:testVector.pwd expect:expect];
+        [self runDefaultImportTest:p12Data password:testVector.pwd expect:expect];
+#if TARGET_OS_OSX
+        // Explicit legacy keychain test (macOS only)
+        [self runExplicitKeychainTest:p12Data password:testVector.pwd keychain:keychain expect:expect];
 #endif // TARGET_OS_OSX
     }
 

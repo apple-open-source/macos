@@ -58,11 +58,11 @@
 #include "UserGestureIndicator.h"
 #include <JavaScriptCore/CatchScope.h>
 #include <JavaScriptCore/JSGlobalObjectInlines.h>
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLPlugInImageElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLPlugInImageElement);
 
 HTMLPlugInImageElement::HTMLPlugInImageElement(const QualifiedName& tagName, Document& document)
     : HTMLPlugInElement(tagName, document, TypeFlag::HasDidMoveToNewDocument)
@@ -103,7 +103,7 @@ bool HTMLPlugInImageElement::canLoadURL(const URL& completeURL) const
         if (is<RemoteFrame>(contentFrame()))
             return false;
         RefPtr<Document> contentDocument = this->contentDocument();
-        if (contentDocument && !document().securityOrigin().isSameOriginDomain(contentDocument->securityOrigin()))
+        if (contentDocument && !document().protectedSecurityOrigin()->isSameOriginDomain(contentDocument->securityOrigin()))
             return false;
     }
 

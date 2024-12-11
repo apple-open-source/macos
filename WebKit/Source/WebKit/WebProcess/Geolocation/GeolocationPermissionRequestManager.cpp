@@ -41,9 +41,12 @@
 #include <WebCore/LocalFrame.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GeolocationPermissionRequestManager);
 
 GeolocationPermissionRequestManager::GeolocationPermissionRequestManager(WebPage& page)
     : m_page(page)
@@ -80,10 +83,8 @@ void GeolocationPermissionRequestManager::revokeAuthorizationToken(const String&
 
 void GeolocationPermissionRequestManager::cancelRequestForGeolocation(Geolocation& geolocation)
 {
-    GeolocationIdentifier geolocationID = m_geolocationToIDMap.take(&geolocation);
-    if (!geolocationID)
-        return;
-    m_idToGeolocationMap.remove(geolocationID);
+    if (auto geolocationID = m_geolocationToIDMap.takeOptional(geolocation))
+        m_idToGeolocationMap.remove(*geolocationID);
 }
 
 void GeolocationPermissionRequestManager::didReceiveGeolocationPermissionDecision(GeolocationIdentifier geolocationID, const String& authorizationToken)

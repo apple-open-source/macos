@@ -551,7 +551,12 @@
 				 (offsetInDirBlock < dirBlockSize) && continueIterating;
 				 offsetInDirBlock += sizeof(struct dosdirentry), currentDirOffset += sizeof(struct dosdirentry)) {
 				struct dosdirentry *currentDirEntry = (struct dosdirentry *)[dirBlock getBytesAtOffset:offsetInDirBlock];
-				
+
+                if (currentDirEntry == NULL) {
+                    os_log_fault(fskit_std_log(), "%s: Got NULL dir entry from dir block", __FUNCTION__);
+                    reply(fs_errorForPOSIXError(EFAULT), FATDirEntryUnknown, 0, nil, nil);
+                    return iterateClustersStop;
+                }
 				if (currentDirEntry->deName[0] == SLOT_EMPTY) {
 					[longNameCtx invalidate];
 					status = reply(nil, FATDirEntryEmpty, currentDirOffset, nil, nil);
@@ -568,6 +573,7 @@
 						if (longNameCtx.numLongNameEntriesLeft > 0) {
 							// Make sure we don't have any long name entries left.
 							// If we do, this directory is corrupted. In that case, just skip this entry.
+                            os_log_error(fskit_std_log(), "%s: (offset = %llu) Reached a short-name entry while we still have long-name entries left. Skipping entry.", __func__, currentDirOffset);
 							[longNameCtx invalidate];
 							continue;
 						}
@@ -596,6 +602,7 @@
 						if (!(longNameEntry->weCnt & WIN_LAST)) {
 							// All valid sets of long dir entries must begin with an entry having this mask.
 							// In case this mask isn't set, we just skip this dir entry.
+                            os_log_error(fskit_std_log(), "%s: (offset = %llu) First long-name entry doesn't have the WIN_LAST mask. Skipping entry.", __func__, currentDirOffset);
 							continue;
 						}
 						[longNameCtx fillWithFirstLongNameEntry:(struct winentry *)currentDirEntry];
@@ -607,6 +614,7 @@
 					{
 						// All long name entries must have the same checksum value.
 						// If it's not the case, we just skip this dir entry.
+                        os_log_error(fskit_std_log(), "%s: (offset = %llu) long-name entry has an invalid checksum value. Skipping entry.", __func__, currentDirOffset);
 						[longNameCtx invalidate];
 						continue;
 					}
@@ -625,6 +633,7 @@
 					}
 					if (res == parseCharacterResultError) {
 						/* We failed parsing the name. Continue to the next dir entry */
+                        os_log_error(fskit_std_log(), "%s: (offset = %llu) Failed to parse long-name entry's characters. Skipping entry.", __func__, currentDirOffset);
 						[longNameCtx invalidate];
 						continue;
 					}
@@ -955,7 +964,7 @@
 {
     FSItemAttributes *attrs = [super getAttributes:desired];
 
-    if ([desired isWanted:FSItemAttributeType]) {
+    if ([desired isAttributeWanted:FSItemAttributeType]) {
         attrs.type = FSItemTypeDirectory;
     }
 
@@ -965,23 +974,23 @@
     }
 
     if ([self isFat1216RootDir]) {
-        if ([desired isWanted:FSItemAttributeAllocSize]) {
+        if ([desired isAttributeWanted:FSItemAttributeAllocSize]) {
             attrs.allocSize = [self.volume.systemInfo rootDirBytes];
         }
 
-        if ([desired isWanted:FSItemAttributeParentID]) {
-            /* For FAT12/16 root dir, we should put parentID = fileID = FILENO_ROOT. */
+        if ([desired isAttributeWanted:FSItemAttributeParentID]) {
+            /* For FAT12/16 root dir, we should put parentID = fileID = FSItemIDParentOfRoot. */
             attrs.parentID = [self getFileID];
         }
 
-        if ([desired isWanted:FSItemAttributeSize]) {
+        if ([desired isAttributeWanted:FSItemAttributeSize]) {
             attrs.size = [self.volume.systemInfo rootDirBytes];
         }
 
-        bool timeWanted = ([desired isWanted:FSItemAttributeAccessTime] ||
-                           [desired isWanted:FSItemAttributeModifyTime] ||
-                           [desired isWanted:FSItemAttributeChangeTime] ||
-                           [desired isWanted:FSItemAttributeBirthTime]);
+        bool timeWanted = ([desired isAttributeWanted:FSItemAttributeAccessTime] ||
+                           [desired isAttributeWanted:FSItemAttributeModifyTime] ||
+                           [desired isAttributeWanted:FSItemAttributeChangeTime] ||
+                           [desired isAttributeWanted:FSItemAttributeBirthTime]);
 
         if (timeWanted && (self.entryData == nil)) {
             struct timespec sEpochTimespec;
@@ -993,19 +1002,19 @@
 
             msdosfs_dos2unixtime(epochDate, epochTime, 0, &sEpochTimespec);
 
-            if ([desired isWanted:FSItemAttributeAccessTime]) {
+            if ([desired isAttributeWanted:FSItemAttributeAccessTime]) {
                 attrs.accessTime = sEpochTimespec;
             }
 
-            if ([desired isWanted:FSItemAttributeModifyTime]) {
+            if ([desired isAttributeWanted:FSItemAttributeModifyTime]) {
                 attrs.modifyTime = sEpochTimespec;
             }
 
-            if ([desired isWanted:FSItemAttributeChangeTime]) {
+            if ([desired isAttributeWanted:FSItemAttributeChangeTime]) {
                 attrs.changeTime = sEpochTimespec;
             }
 
-            if ([desired isWanted:FSItemAttributeBirthTime]) {
+            if ([desired isAttributeWanted:FSItemAttributeBirthTime]) {
                 attrs.birthTime = sEpochTimespec;
             }
         }
@@ -1024,22 +1033,22 @@
                                                                                                 length:sizeof(struct dosdirentry)]];
     struct timespec timeSpec;
 
-    if ([desired isWanted:FSItemAttributeAccessTime]) {
+    if ([desired isAttributeWanted:FSItemAttributeAccessTime]) {
         [dotDirEntryData getAccessTime:&timeSpec];
         attrs.accessTime = timeSpec;
     }
 
-    if ([desired isWanted:FSItemAttributeModifyTime]) {
+    if ([desired isAttributeWanted:FSItemAttributeModifyTime]) {
         [dotDirEntryData getModifyTime:&timeSpec];
         attrs.modifyTime = timeSpec;
     }
 
-    if ([desired isWanted:FSItemAttributeChangeTime]) {
+    if ([desired isAttributeWanted:FSItemAttributeChangeTime]) {
         [dotDirEntryData getChangeTime:&timeSpec];
         attrs.changeTime = timeSpec;
     }
 
-    if ([desired isWanted:FSItemAttributeBirthTime]) {
+    if ([desired isAttributeWanted:FSItemAttributeBirthTime]) {
         [dotDirEntryData getBirthTime:&timeSpec];
         attrs.birthTime = timeSpec;
     }

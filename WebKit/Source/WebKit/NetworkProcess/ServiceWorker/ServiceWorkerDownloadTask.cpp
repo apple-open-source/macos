@@ -34,6 +34,7 @@
 #include "WebErrors.h"
 #include "WebSWContextManagerConnectionMessages.h"
 #include "WebSWServerToContextConnection.h"
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/WorkQueue.h>
 
 namespace WebKit {
@@ -45,6 +46,8 @@ static WorkQueue& sharedServiceWorkerDownloadTaskQueue()
     static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("Shared ServiceWorkerDownloadTask Queue"_s));
     return queue.get();
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ServiceWorkerDownloadTask);
 
 ServiceWorkerDownloadTask::ServiceWorkerDownloadTask(NetworkSession& session, NetworkDataTaskClient& client, WebSWServerToContextConnection& serviceWorkerConnection, ServiceWorkerIdentifier serviceWorkerIdentifier, SWServerConnectionIdentifier serverConnectionIdentifier, FetchIdentifier fetchIdentifier, const WebCore::ResourceRequest& request, const ResourceResponse& response, DownloadID downloadID)
     : NetworkDataTask(session, client, request, StoredCredentialsPolicy::DoNotUse, false, false)
@@ -199,7 +202,7 @@ void ServiceWorkerDownloadTask::didReceiveData(const IPC::SharedBufferReference&
 
     callOnMainRunLoop([this, protectedThis = Ref { *this }, bytesWritten] {
         m_downloadBytesWritten += bytesWritten;
-        if (auto* download = m_networkProcess->downloadManager().download(m_pendingDownloadID))
+        if (auto* download = m_networkProcess->downloadManager().download(*m_pendingDownloadID))
             download->didReceiveData(bytesWritten, m_downloadBytesWritten, std::max(m_expectedContentLength.value_or(0), m_downloadBytesWritten));
     });
 }
@@ -227,7 +230,7 @@ void ServiceWorkerDownloadTask::didFinish()
         if (RefPtr sandboxExtension = std::exchange(m_sandboxExtension, nullptr))
             sandboxExtension->revoke();
 
-        if (auto download = m_networkProcess->downloadManager().download(m_pendingDownloadID))
+        if (auto download = m_networkProcess->downloadManager().download(*m_pendingDownloadID))
             download->didFinish();
 
         if (m_client)
@@ -262,7 +265,7 @@ void ServiceWorkerDownloadTask::didFailDownload(std::optional<ResourceError>&& e
             sandboxExtension->revoke();
 
         auto resourceError = error.value_or(cancelledError(firstRequest()));
-        if (auto download = m_networkProcess->downloadManager().download(m_pendingDownloadID))
+        if (auto download = m_networkProcess->downloadManager().download(*m_pendingDownloadID))
             download->didFail(resourceError, { });
 
         if (m_client)

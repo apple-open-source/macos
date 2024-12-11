@@ -39,11 +39,14 @@
 #import "SwapBuffersDisplayRequirement.h"
 #import <WebCore/IOSurfacePool.h>
 #import <WebCore/ImageBuffer.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/TextStream.h>
 
 const Seconds volatilityTimerInterval = 200_ms;
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLayerBackingStoreCollection);
 
 RemoteLayerBackingStoreCollection::RemoteLayerBackingStoreCollection(RemoteLayerTreeContext& layerTreeContext)
     : m_layerTreeContext(layerTreeContext)
@@ -64,8 +67,8 @@ void RemoteLayerBackingStoreCollection::prepareBackingStoresForDisplay(RemoteLay
     auto& remoteRenderingBackend = layerTreeContext().ensureRemoteRenderingBackendProxy();
 
     for (auto& backingStore : m_backingStoresNeedingDisplay) {
-        backingStore.layer()->properties().notePropertiesChanged(LayerChange::BackingStoreChanged);
-        transaction.layerPropertiesChanged(*backingStore.layer());
+        backingStore.layer().properties().notePropertiesChanged(LayerChange::BackingStoreChanged);
+        transaction.layerPropertiesChanged(backingStore.layer());
 
         if (auto* remoteBackingStore = dynamicDowncast<RemoteLayerWithRemoteRenderingBackingStore>(&backingStore)) {
             if (remoteBackingStore->performDelegatedLayerDisplay())
@@ -134,7 +137,7 @@ void RemoteLayerBackingStoreCollection::willCommitLayerTree(RemoteLayerTreeTrans
     Vector<WebCore::PlatformLayerIdentifier> newlyUnreachableLayerIDs;
     for (auto& backingStore : m_liveBackingStore) {
         if (!m_reachableBackingStoreInLatestFlush.contains(backingStore))
-            newlyUnreachableLayerIDs.append(backingStore.layer()->layerID());
+            newlyUnreachableLayerIDs.append(backingStore.layer().layerID());
     }
 
     transaction.setLayerIDsWithNewlyUnreachableBackingStore(newlyUnreachableLayerIDs);
@@ -300,8 +303,6 @@ bool RemoteLayerBackingStoreCollection::markInProcessBackingStoreVolatile(Remote
 
 void RemoteLayerBackingStoreCollection::backingStoreBecameUnreachable(RemoteLayerBackingStore& backingStore)
 {
-    ASSERT(backingStore.layer());
-
     auto backingStoreIter = m_liveBackingStore.find(backingStore);
     if (backingStoreIter == m_liveBackingStore.end())
         return;

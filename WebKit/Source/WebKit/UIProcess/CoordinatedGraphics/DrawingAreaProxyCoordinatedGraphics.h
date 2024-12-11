@@ -30,6 +30,7 @@
 #include "DrawingAreaProxy.h"
 #include "LayerTreeContext.h"
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMalloc.h>
 
 #if !PLATFORM(WPE)
 #include "BackingStore.h"
@@ -51,6 +52,9 @@ class Region;
 namespace WebKit {
 
 class DrawingAreaProxyCoordinatedGraphics final : public DrawingAreaProxy {
+    WTF_MAKE_TZONE_ALLOCATED(DrawingAreaProxyCoordinatedGraphics);
+    WTF_MAKE_NONCOPYABLE(DrawingAreaProxyCoordinatedGraphics);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DrawingAreaProxyCoordinatedGraphics);
 public:
     DrawingAreaProxyCoordinatedGraphics(WebPageProxy&, WebProcessProxy&);
     virtual ~DrawingAreaProxyCoordinatedGraphics();
@@ -103,7 +107,8 @@ private:
 #endif
 
     class DrawingMonitor {
-        WTF_MAKE_NONCOPYABLE(DrawingMonitor); WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED(DrawingMonitor);
+        WTF_MAKE_NONCOPYABLE(DrawingMonitor);
     public:
         DrawingMonitor(WebPageProxy&);
         ~DrawingMonitor();

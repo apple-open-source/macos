@@ -464,7 +464,7 @@ static bool to_bool_error_request(enum SecXPCOperation op, CFErrorRef *error) {
 }
 
 Boolean SecTrustFlushResponseCache(CFErrorRef *error) {
-    return SecTrustResetSettings(kSecTrustResetOCSPCache, error);
+    return SecTrustResetSettings(kSecTrustResetOCSPCache | kSecTrustResetValidDB, error);
 }
 
 OSStatus SecTrustSetOCSPResponse(SecTrustRef trust, CFTypeRef responseData) {

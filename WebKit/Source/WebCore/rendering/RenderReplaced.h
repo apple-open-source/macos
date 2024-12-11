@@ -26,7 +26,7 @@
 namespace WebCore {
 
 class RenderReplaced : public RenderBox {
-    WTF_MAKE_ISO_ALLOCATED(RenderReplaced);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderReplaced);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderReplaced);
 public:
     virtual ~RenderReplaced();
@@ -72,6 +72,8 @@ protected:
     LayoutRect localSelectionRect(bool checkWhetherSelected = true) const; // This is in local coordinates, but it's a physical rect (so the top left corner is physical top left).
 
     void willBeDestroyed() override;
+
+    virtual void layoutShadowContent(const LayoutSize&);
 
 private:
     LayoutUnit computeConstrainedLogicalWidth(ShouldComputePreferred) const;

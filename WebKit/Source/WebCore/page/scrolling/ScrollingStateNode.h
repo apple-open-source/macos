@@ -29,8 +29,10 @@
 
 #include "GraphicsLayer.h"
 #include "ScrollingCoordinator.h"
+#include "ScrollingPlatformLayer.h"
 #include <stdint.h>
 #include <wtf/CheckedPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
@@ -63,18 +65,18 @@ public:
 
     LayerRepresentation(GraphicsLayer* graphicsLayer)
         : m_graphicsLayer(graphicsLayer)
-        , m_layerID(graphicsLayer ? graphicsLayer->primaryLayerID() : PlatformLayerIdentifier { })
+        , m_layerID(graphicsLayer ? std::optional { graphicsLayer->primaryLayerID() } : std::nullopt)
         , m_representation(GraphicsLayerRepresentation)
     { }
 
-    LayerRepresentation(PlatformLayer* platformLayer)
+    LayerRepresentation(ScrollingPlatformLayer* platformLayer)
         : m_typelessPlatformLayer(makePlatformLayerTypeless(platformLayer))
         , m_representation(PlatformLayerRepresentation)
     {
         retainPlatformLayer(m_typelessPlatformLayer);
     }
 
-    LayerRepresentation(PlatformLayerIdentifier layerID)
+    LayerRepresentation(std::optional<PlatformLayerIdentifier> layerID)
         : m_layerID(layerID)
         , m_representation(PlatformLayerIDRepresentation)
     {
@@ -101,27 +103,15 @@ public:
         return m_graphicsLayer.get();
     }
 
-    explicit operator PlatformLayer*() const
+    explicit operator ScrollingPlatformLayer*() const
     {
         ASSERT(m_representation == PlatformLayerRepresentation);
         return makePlatformLayerTyped(m_typelessPlatformLayer);
     }
     
-    PlatformLayerIdentifier layerID() const
+    std::optional<PlatformLayerIdentifier> layerID() const
     {
-        return m_layerID;
-    }
-
-    std::optional<PlatformLayerIdentifier> layerIDForEncoding() const
-    {
-        ASSERT(m_representation != PlatformLayerRepresentation);
-        return m_layerID ? std::optional<PlatformLayerIdentifier>(m_layerID) : std::nullopt;
-    }
-
-    explicit operator PlatformLayerIdentifier() const
-    {
-        ASSERT(m_representation != PlatformLayerRepresentation);
-        return m_layerID;
+        return m_layerID.asOptional();
     }
 
     LayerRepresentation& operator=(const LayerRepresentation& other)
@@ -181,7 +171,7 @@ public:
             ASSERT(m_representation == GraphicsLayerRepresentation);
             return LayerRepresentation(m_graphicsLayer.get());
         case PlatformLayerRepresentation:
-            return m_graphicsLayer ? m_graphicsLayer->platformLayer() : nullptr;
+            return m_graphicsLayer ? platformLayerFromGraphicsLayer(*m_graphicsLayer) : nullptr;
         case PlatformLayerIDRepresentation:
             return LayerRepresentation(m_layerID);
         }
@@ -195,12 +185,13 @@ public:
 private:
     WEBCORE_EXPORT static void retainPlatformLayer(void* typelessPlatformLayer);
     WEBCORE_EXPORT static void releasePlatformLayer(void* typelessPlatformLayer);
-    WEBCORE_EXPORT static PlatformLayer* makePlatformLayerTyped(void* typelessPlatformLayer);
-    WEBCORE_EXPORT static void* makePlatformLayerTypeless(PlatformLayer*);
+    WEBCORE_EXPORT static ScrollingPlatformLayer* makePlatformLayerTyped(void* typelessPlatformLayer);
+    WEBCORE_EXPORT static void* makePlatformLayerTypeless(ScrollingPlatformLayer*);
+    WEBCORE_EXPORT static ScrollingPlatformLayer* platformLayerFromGraphicsLayer(GraphicsLayer&);
 
     RefPtr<GraphicsLayer> m_graphicsLayer;
     void* m_typelessPlatformLayer { nullptr };
-    PlatformLayerIdentifier m_layerID;
+    Markable<PlatformLayerIdentifier> m_layerID;
     Type m_representation { EmptyRepresentation };
 };
 
@@ -235,8 +226,9 @@ enum class ScrollingStateNodeProperty : uint64_t {
     ScrollbarHoverState                         = MouseActivityState << 1,
     ScrollbarEnabledState                       = ScrollbarHoverState << 1,
     ScrollbarLayoutDirection                    = ScrollbarEnabledState << 1,
+    ScrollbarWidth                              = ScrollbarLayoutDirection << 1,
     // ScrollingStateFrameScrollingNode
-    KeyboardScrollData                          = ScrollbarLayoutDirection << 1,
+    KeyboardScrollData                          = ScrollbarWidth << 1,
     FrameScaleFactor                            = KeyboardScrollData << 1,
     EventTrackingRegion                         = FrameScaleFactor << 1,
     RootContentsLayer                           = EventTrackingRegion << 1,
@@ -272,7 +264,7 @@ enum class ScrollingStateNodeProperty : uint64_t {
 };
 
 class ScrollingStateNode : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ScrollingStateNode> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(ScrollingStateNode, WEBCORE_EXPORT);
 public:
     virtual ~ScrollingStateNode();
 

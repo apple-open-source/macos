@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "WasmOMGPlan.h"
+#include "JSToWasm.h"
 
 #if ENABLE(WEBASSEMBLY_OMGJIT)
 
@@ -86,7 +87,7 @@ void OMGPlan::dumpDisassembly(CompilationContext& context, LinkBuffer& linkBuffe
         auto forEachInst = scopedLambda<void(B3::Air::Inst&)>([&] (B3::Air::Inst& inst) {
             if (inst.origin && inst.origin != prevOrigin && context.procedure->code().shouldPreserveB3Origins()) {
                 if (String string = inst.origin->compilerConstructionSite(); !string.isNull())
-                    dataLogLn("\033[1;37m", string, "\033[0m");
+                    dataLogLn(string);
                 dataLog(b3Prefix);
                 inst.origin->deepDump(context.procedure.get(), WTF::dataFile());
                 dataLogLn();
@@ -184,18 +185,56 @@ void OMGPlan::work(CompilationEffort)
                 bbqCallee->setReplacement(callee.copyRef());
                 bbqCallee->tierUpCount()->setCompilationStatusForOMG(mode(), TierUpCount::CompilationStatus::Compiled);
             }
-            if (Options::useWebAssemblyIPInt() && m_calleeGroup->m_ipintCallees) {
+            if (Options::useWasmIPInt() && m_calleeGroup->m_ipintCallees) {
                 IPIntCallee& ipintCallee = m_calleeGroup->m_ipintCallees->at(m_functionIndex).get();
                 Locker locker { ipintCallee.tierUpCounter().m_lock };
                 ipintCallee.setReplacement(callee.copyRef(), mode());
                 ipintCallee.tierUpCounter().setCompilationStatus(mode(), IPIntTierUpCounter::CompilationStatus::Compiled);
             }
-            if (!Options::useWebAssemblyIPInt() && m_calleeGroup->m_llintCallees) {
+            if (!Options::useWasmIPInt() && m_calleeGroup->m_llintCallees) {
                 LLIntCallee& llintCallee = m_calleeGroup->m_llintCallees->at(m_functionIndex).get();
                 Locker locker { llintCallee.tierUpCounter().m_lock };
                 llintCallee.setReplacement(callee.copyRef(), mode());
                 llintCallee.tierUpCounter().setCompilationStatus(mode(), LLIntTierUpCounter::CompilationStatus::Compiled);
             }
+        }
+    }
+
+    // Replace the LLInt interpreted entry callee. Note that we can do this after we publish our
+    // callee because calling into the LLInt should still work.
+    auto* jsEntrypointCallee = m_calleeGroup->m_jsEntrypointCallees.get(m_functionIndex);
+    if (jsEntrypointCallee && jsEntrypointCallee->compilationMode() == CompilationMode::JITLessJSEntrypointMode && !static_cast<JITLessJSEntrypointCallee*>(jsEntrypointCallee)->hasReplacement()) {
+        ASSERT(!m_entrypoint);
+        Locker locker { m_lock };
+        TypeIndex typeIndex = m_moduleInformation->internalFunctionTypeIndices[m_functionIndex];
+        const TypeDefinition& signature = TypeInformation::get(typeIndex).expand();
+
+        auto callee = JSEntrypointJITCallee::create();
+        context.jsEntrypointJIT = makeUnique<CCallHelpers>();
+        Vector<UnlinkedWasmToWasmCall> newCall;
+        auto jsToWasmInternalFunction = createJSToWasmWrapper(*context.jsEntrypointJIT, callee.get(), nullptr, signature, &newCall, m_moduleInformation.get(), m_mode, m_functionIndex);
+        auto linkBuffer = makeUnique<LinkBuffer>(*context.jsEntrypointJIT, &callee.get(), LinkBuffer::Profile::WasmBBQ, JITCompilationCanFail);
+
+        if (linkBuffer->isValid()) {
+            jsToWasmInternalFunction->entrypoint.compilation = makeUnique<Compilation>(
+                FINALIZE_WASM_CODE(*linkBuffer, JITCompilationPtrTag, nullptr, "(ipint upgrade edition) JS->WebAssembly entrypoint[%i] %s", m_functionIndex, signature.toString().ascii().data()),
+                nullptr);
+
+            for (auto& call : newCall) {
+                CodePtr<WasmEntryPtrTag> entrypoint;
+                if (call.functionIndexSpace < m_moduleInformation->importFunctionCount())
+                    entrypoint = m_calleeGroup->m_wasmToWasmExitStubs[call.functionIndexSpace].code();
+                else
+                    entrypoint = m_calleeGroup->wasmEntrypointCalleeFromFunctionIndexSpace(locker, call.functionIndexSpace).entrypoint().retagged<WasmEntryPtrTag>();
+
+                MacroAssembler::repatchNearCall(call.callLocation, CodeLocationLabel<WasmEntryPtrTag>(entrypoint));
+            }
+
+            callee->setEntrypoint(WTFMove(jsToWasmInternalFunction->entrypoint));
+            // Note that we can compile the same function with multiple memory modes, which can cause this
+            // race. That's fine, both stubs should do the same thing.
+            static_cast<JITLessJSEntrypointCallee*>(jsEntrypointCallee)->setReplacement(callee.ptr());
+            m_entrypoint = WTFMove(callee);
         }
     }
 

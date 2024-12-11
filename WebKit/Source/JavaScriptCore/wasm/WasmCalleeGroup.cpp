@@ -76,7 +76,7 @@ CalleeGroup::CalleeGroup(VM& vm, MemoryMode mode, ModuleInformation& moduleInfor
     , m_callsiteCollection(m_calleeCount)
 {
     RefPtr<CalleeGroup> protectedThis = this;
-    if (Options::useWebAssemblyLLInt()) {
+    if (Options::useWasmLLInt()) {
         m_plan = adoptRef(*new LLIntPlan(vm, moduleInformation, m_llintCallees->data(), createSharedTask<Plan::CallbackType>([this, protectedThis = WTFMove(protectedThis)] (Plan&) {
             if (!m_plan) {
                 m_errorMessage = makeString("Out of memory while creating LLInt CalleeGroup"_s);
@@ -137,6 +137,11 @@ CalleeGroup::CalleeGroup(VM& vm, MemoryMode mode, ModuleInformation& moduleInfor
     }
 #endif
     m_plan->setMode(mode);
+    if (Options::useWasmLLInt()) {
+        Ref plan { *m_plan };
+        if (plan->completeSyncIfPossible())
+            return;
+    }
 
     auto& worklist = Wasm::ensureWorklist();
     // Note, immediately after we enqueue the plan, there is a chance the above callback will be called.
@@ -150,7 +155,7 @@ CalleeGroup::CalleeGroup(VM& vm, MemoryMode mode, ModuleInformation& moduleInfor
     , m_callsiteCollection(m_calleeCount)
 {
     RefPtr<CalleeGroup> protectedThis = this;
-    if (Options::useWebAssemblyIPInt()) {
+    if (Options::useWasmIPInt()) {
         m_plan = adoptRef(*new IPIntPlan(vm, moduleInformation, m_ipintCallees->data(), createSharedTask<Plan::CallbackType>([this, protectedThis = WTFMove(protectedThis)] (Plan&) {
             Locker locker { m_lock };
             if (m_plan->failed()) {
@@ -206,6 +211,11 @@ CalleeGroup::CalleeGroup(VM& vm, MemoryMode mode, ModuleInformation& moduleInfor
     }
 #endif
     m_plan->setMode(mode);
+    if (Options::useWasmIPInt()) {
+        Ref plan { *m_plan };
+        if (plan->completeSyncIfPossible())
+            return;
+    }
 
     auto& worklist = Wasm::ensureWorklist();
     // Note, immediately after we enqueue the plan, there is a chance the above callback will be called.
@@ -237,15 +247,18 @@ void CalleeGroup::compileAsync(VM& vm, AsyncCompilationCallback&& task)
         plan = m_plan;
     }
 
-    if (plan) {
+    bool isAsync = plan;
+    if (isAsync) {
         // We don't need to keep a RefPtr on the Plan because the worklist will keep
         // a RefPtr on the Plan until the plan finishes notifying all of its callbacks.
-        RefPtr<CalleeGroup> protectedThis = this;
-        plan->addCompletionTask(vm, createSharedTask<Plan::CallbackType>([this, task = WTFMove(task), protectedThis = WTFMove(protectedThis)] (Plan&) {
-            task->run(Ref { *this });
+        isAsync = plan->addCompletionTaskIfNecessary(vm, createSharedTask<Plan::CallbackType>([this, task, protectedThis = Ref { *this }, isAsync](Plan&) {
+            task->run(Ref { *this }, isAsync);
         }));
-    } else
-        task->run(Ref { *this });
+        if (isAsync)
+            return;
+    }
+
+    task->run(Ref { *this }, isAsync);
 }
 
 bool CalleeGroup::isSafeToRun(MemoryMode memoryMode)

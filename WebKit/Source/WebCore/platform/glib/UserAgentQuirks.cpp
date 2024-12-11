@@ -139,6 +139,11 @@ static bool urlRequiresMacintoshPlatform(const String& domain, const String& bas
     if (baseDomain == "atlassian.net"_s)
         return true;
 
+    // Rosetta Stone discriminates against WebKitGTK's standard mobile user agent
+    // by redirecting to an intent:// URL, which will of course fail to load.
+    if (domain == "totale.rosettastone.com"_s)
+        return true;
+
     return false;
 }
 
@@ -188,10 +193,9 @@ String UserAgentQuirks::stringForQuirk(UserAgentQuirk quirk)
 {
     switch (quirk) {
     case NeedsChromeBrowser:
-        // Get versions from https://chromium.googlesource.com/chromium/src.git
-        return "Chrome/97.0.4669.2"_s;
+        return "Chrome/300.0.0.0"_s;
     case NeedsFirefoxBrowser:
-        return "; rv:95.0) Gecko/20100101 Firefox/95.0"_s;
+        return "; rv:300.0) Gecko/20100101 Firefox/300.0"_s;
     case NeedsMacintoshPlatform:
         return "Macintosh; Intel Mac OS X 10_15"_s;
     case NeedsUnbrandedUserAgent:

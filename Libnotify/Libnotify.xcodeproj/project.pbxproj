@@ -320,6 +320,8 @@
 		C0FF3C23234516ED00ABBA89 /* notify_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_matching.c; sourceTree = "<group>"; };
 		C0FF3C242345172700ABBA89 /* notify_leaks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_leaks.c; sourceTree = "<group>"; };
 		E6481E7E2165785F00C04412 /* notify_probes.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; path = notify_probes.d; sourceTree = "<group>"; };
+		EEA783202CAC657F004D0C62 /* notify_restrict_post.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_restrict_post.c; sourceTree = "<group>"; };
+		EEA783212CAC657F004D0C62 /* notify_restrict_post.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = notify_restrict_post.entitlements; sourceTree = "<group>"; };
 		F74F76AC25DB8EF8008B3BB8 /* notify_old_ipc.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; path = notify_old_ipc.defs; sourceTree = "<group>"; };
 		FC7B7A52155781930064D203 /* notify_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_internal.h; sourceTree = "<group>"; usesTabs = 1; };
 /* End PBXFileReference section */
@@ -561,6 +563,8 @@
 				9502BC1C2BB2495E0028E81D /* launchd_plists */,
 				95BA11042BB72BB100CE6202 /* notify_introspect.entitlements */,
 				95ECB2F52BAB98FF00548214 /* notify_introspect.c */,
+				EEA783212CAC657F004D0C62 /* notify_restrict_post.entitlements */,
+				EEA783202CAC657F004D0C62 /* notify_restrict_post.c */,
 				955DB9292BA3991A00D816AE /* notify_loopback_test_helper.entitlements */,
 				955DB9122B990BF800D816AE /* com.apple.notify-test-lockdown.sb */,
 				950AE1D72B22831500C9874D /* notify_loopback.c */,

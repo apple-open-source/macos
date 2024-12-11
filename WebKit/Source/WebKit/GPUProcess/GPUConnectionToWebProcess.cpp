@@ -71,6 +71,7 @@
 #include <WebCore/MediaPlayer.h>
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/NowPlayingManager.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(COCOA)
 #include "RemoteLayerTreeDrawingAreaProxyMessages.h"
@@ -173,14 +174,14 @@
 #include "RemoteVideoFrameObjectHeap.h"
 #endif
 
-#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, (protectedConnection().ptr()))
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, protectedConnection().get())
 
 namespace WebKit {
 using namespace WebCore;
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 class GPUProxyForCapture final : public UserMediaCaptureManagerProxy::ConnectionProxy {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(GPUProxyForCapture);
 public:
     explicit GPUProxyForCapture(GPUConnectionToWebProcess& process)
         : m_process(process)
@@ -204,7 +205,7 @@ private:
         case CaptureDevice::DeviceType::Camera:
             if (!m_process.get()->allowsVideoCapture())
                 return false;
-#if PLATFORM(IOS) || PLATFORM(VISION)
+#if PLATFORM(IOS_FAMILY)
             MediaSessionManageriOS::providePresentingApplicationPID();
 #endif
             return true;
@@ -255,6 +256,16 @@ private:
 
     RemoteVideoFrameObjectHeap* remoteVideoFrameObjectHeap() final { return &m_process.get()->videoFrameObjectHeap(); }
 
+    void startMonitoringCaptureDeviceRotation(WebCore::PageIdentifier pageIdentifier, const String& persistentId) final
+    {
+        m_process.get()->startMonitoringCaptureDeviceRotation(pageIdentifier, persistentId);
+    }
+
+    void stopMonitoringCaptureDeviceRotation(WebCore::PageIdentifier pageIdentifier, const String& persistentId) final
+    {
+        m_process.get()->stopMonitoringCaptureDeviceRotation(pageIdentifier, persistentId);
+    }
+
     ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_process;
 };
 
@@ -293,7 +304,7 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
     , m_routingArbitrator(LocalAudioSessionRoutingArbitrator::create(*this))
 #endif
-    , m_preferences(parameters.preferences)
+    , m_sharedPreferencesForWebProcess(WTFMove(parameters.sharedPreferencesForWebProcess))
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
@@ -490,7 +501,7 @@ bool GPUConnectionToWebProcess::allowsExitUnderMemoryPressure() const
     if (hasOutstandingRenderingResourceUsage())
         return false;
 
-    if (m_preferences.isDOMRenderingEnabled)
+    if (sharedPreferencesForWebProcess().useGPUProcessForDOMRenderingEnabled)
         return false;
 
 #if ENABLE(WEB_AUDIO)
@@ -532,7 +543,7 @@ Logger& GPUConnectionToWebProcess::logger()
 {
     if (!m_logger) {
         m_logger = Logger::create(this);
-        m_logger->setEnabled(this, m_sessionID.isAlwaysOnLoggingAllowed());
+        m_logger->setEnabled(this, isAlwaysOnLoggingAllowed());
     }
 
     return *m_logger;
@@ -667,7 +678,7 @@ void GPUConnectionToWebProcess::createRenderingBackend(RenderingBackendIdentifie
     auto streamConnection = IPC::StreamServerConnection::tryCreate(WTFMove(connectionHandle), params);
     MESSAGE_CHECK(streamConnection);
 
-    auto addResult = m_remoteRenderingBackendMap.ensure(identifier, [&, streamConnection] () mutable {
+    auto addResult = m_remoteRenderingBackendMap.ensure(identifier, [&] {
         return IPC::ScopedActiveMessageReceiveQueue { RemoteRenderingBackend::create(*this, identifier, streamConnection.releaseNonNull()) };
     });
     if (!addResult.isNewEntry) {
@@ -700,7 +711,7 @@ void GPUConnectionToWebProcess::createGraphicsContextGL(GraphicsContextGLIdentif
     auto streamConnection = IPC::StreamServerConnection::tryCreate(WTFMove(connectionHandle), params);
     MESSAGE_CHECK(streamConnection);
 
-    auto addResult = m_remoteGraphicsContextGLMap.ensure(identifier, [&, streamConnection = WTFMove(streamConnection)] () mutable {
+    auto addResult = m_remoteGraphicsContextGLMap.ensure(identifier, [&] {
         return IPC::ScopedActiveMessageReceiveQueue { RemoteGraphicsContextGL::create(*this, WTFMove(attributes), identifier, *renderingBackend, streamConnection.releaseNonNull()) };
     });
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
@@ -746,7 +757,7 @@ void GPUConnectionToWebProcess::performWithMediaPlayerOnMainThread(MediaPlayerId
 
 void GPUConnectionToWebProcess::createGPU(WebGPUIdentifier identifier, RenderingBackendIdentifier renderingBackendIdentifier, IPC::StreamServerConnection::Handle&& connectionHandle)
 {
-    MESSAGE_CHECK(isWebGPUEnabled());
+    MESSAGE_CHECK(sharedPreferencesForWebProcess().webGPUEnabled);
 
     auto it = m_remoteRenderingBackendMap.find(renderingBackendIdentifier);
     if (it == m_remoteRenderingBackendMap.end())
@@ -760,7 +771,7 @@ void GPUConnectionToWebProcess::createGPU(WebGPUIdentifier identifier, Rendering
     auto streamConnection = IPC::StreamServerConnection::tryCreate(WTFMove(connectionHandle), params);
     MESSAGE_CHECK(streamConnection);
 
-    auto addResult = m_remoteGPUMap.ensure(identifier, [&, streamConnection = WTFMove(streamConnection)] () mutable {
+    auto addResult = m_remoteGPUMap.ensure(identifier, [&] {
         return IPC::ScopedActiveMessageReceiveQueue { RemoteGPU::create(identifier, *this, *renderingBackend, streamConnection.releaseNonNull()) };
     });
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
@@ -1117,6 +1128,36 @@ void GPUConnectionToWebProcess::setOrientationForMediaCapture(IntDegrees orienta
 #endif
 }
 
+void GPUConnectionToWebProcess::startMonitoringCaptureDeviceRotation(WebCore::PageIdentifier pageIdentifier, const String& persistentId)
+{
+#if PLATFORM(COCOA)
+    gpuProcess().protectedParentProcessConnection()->send(Messages::GPUProcessProxy::StartMonitoringCaptureDeviceRotation(pageIdentifier, persistentId), 0);
+#else
+    UNUSED_PARAM(pageIdentifier);
+    UNUSED_PARAM(persistentId);
+#endif
+}
+
+void GPUConnectionToWebProcess::stopMonitoringCaptureDeviceRotation(WebCore::PageIdentifier pageIdentifier, const String& persistentId)
+{
+#if PLATFORM(COCOA)
+    gpuProcess().protectedParentProcessConnection()->send(Messages::GPUProcessProxy::StopMonitoringCaptureDeviceRotation(pageIdentifier, persistentId), 0);
+#else
+    UNUSED_PARAM(pageIdentifier);
+    UNUSED_PARAM(persistentId);
+#endif
+}
+
+void GPUConnectionToWebProcess::rotationAngleForCaptureDeviceChanged(const String& persistentId, WebCore::VideoFrameRotation rotation)
+{
+#if PLATFORM(COCOA)
+    userMediaCaptureManagerProxy().rotationAngleForCaptureDeviceChanged(persistentId, rotation);
+#else
+    UNUSED_PARAM(persistentId);
+    UNUSED_PARAM(rotation);
+#endif
+}
+
 void GPUConnectionToWebProcess::updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture)
 {
 #if PLATFORM(MAC) && ENABLE(MEDIA_STREAM)
@@ -1163,25 +1204,6 @@ RemoteVideoFrameObjectHeap& GPUConnectionToWebProcess::videoFrameObjectHeap() co
 }
 #endif
 
-#if PLATFORM(MAC)
-void GPUConnectionToWebProcess::displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags flags)
-{
-#if ENABLE(WEBGL)
-    if (flags & kCGDisplaySetModeFlag)
-        dispatchDisplayWasReconfigured();
-#else
-    UNUSED_VARIABLE(flags);
-#endif
-}
-#endif
-
-#if PLATFORM(MAC) && ENABLE(WEBGL)
-void GPUConnectionToWebProcess::dispatchDisplayWasReconfigured()
-{
-    for (auto& context : m_remoteGraphicsContextGLMap.values())
-        context->displayWasReconfigured();
-}
-#endif
 
 #if ENABLE(MEDIA_SOURCE)
 void GPUConnectionToWebProcess::enableMockMediaSource()
@@ -1199,6 +1221,11 @@ void GPUConnectionToWebProcess::updateSampleBufferDisplayLayerBoundsAndPosition(
     protectedSampleBufferDisplayLayerManager()->updateSampleBufferDisplayLayerBoundsAndPosition(identifier, bounds, WTFMove(fence));
 }
 #endif
+
+bool GPUConnectionToWebProcess::isAlwaysOnLoggingAllowed() const
+{
+    return m_sessionID.isAlwaysOnLoggingAllowed() || m_sharedPreferencesForWebProcess.allowPrivacySensitiveOperationsInNonPersistentDataStores;
+}
 
 } // namespace WebKit
 

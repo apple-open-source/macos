@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2018 Google Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2011-2012. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -25,6 +26,7 @@
 #include "RenderReplaced.h"
 
 #include "BackgroundPainter.h"
+#include "BorderShape.h"
 #include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
 #include "ElementRuleCollector.h"
@@ -46,20 +48,22 @@
 #include "RenderHighlight.h"
 #include "RenderImage.h"
 #include "RenderLayer.h"
+#include "RenderLayoutState.h"
 #include "RenderStyleInlines.h"
+#include "RenderStyleSetters.h"
 #include "RenderTheme.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
 #include "RenderedDocumentMarker.h"
 #include "Settings.h"
 #include "VisiblePosition.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/TypeCasts.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderReplaced);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderReplaced);
 
 const int cDefaultWidth = 300;
 const int cDefaultHeight = 150;
@@ -93,7 +97,7 @@ RenderReplaced::~RenderReplaced() = default;
 void RenderReplaced::willBeDestroyed()
 {
     if (!renderTreeBeingDestroyed() && parent())
-        parent()->dirtyLinesFromChangedChild(*this);
+        parent()->dirtyLineFromChangedChild();
 
     RenderBox::willBeDestroyed();
 }
@@ -234,8 +238,8 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
         if (visibleToHitTesting()) {
 #endif
             auto borderRect = LayoutRect(adjustedPaintOffset, size());
-            auto borderRoundedRect = style().getRoundedBorderFor(borderRect);
-            paintInfo.eventRegionContext()->unite(FloatRoundedRect(borderRoundedRect), *this, style());
+            auto borderShape = BorderShape::shapeForBorderRect(style(), borderRect);
+            paintInfo.eventRegionContext()->unite(borderShape.deprecatedPixelSnappedRoundedRect(document().deviceScaleFactor()), *this, style());
         }
         return;
     }
@@ -302,8 +306,7 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
         if (!completelyClippedOut) {
             // Push a clip if we have a border radius, since we want to round the foreground content that gets painted.
             paintInfo.context().save();
-            auto pixelSnappedRoundedRect = roundedContentBoxRect(paintRect).pixelSnappedRoundedRectForPainting(document().deviceScaleFactor());
-            BackgroundPainter::clipRoundedInnerRect(paintInfo.context(), paintRect, pixelSnappedRoundedRect);
+            clipToContentBoxShape(paintInfo.context(), adjustedPaintOffset, document().deviceScaleFactor());
         }
     }
 
@@ -391,10 +394,12 @@ bool RenderReplaced::hasReplacedLogicalHeight() const
 bool RenderReplaced::setNeedsLayoutIfNeededAfterIntrinsicSizeChange()
 {
     setPreferredLogicalWidthsDirty(true);
-    
+
     // If the actual area occupied by the image has changed and it is not constrained by style then a layout is required.
-    bool imageSizeIsConstrained = style().logicalWidth().isSpecified() && style().logicalHeight().isSpecified() && !style().logicalMinWidth().isIntrinsic() && !style().logicalMaxWidth().isIntrinsic();
-    
+    bool imageSizeIsConstrained = style().logicalWidth().isSpecified() && style().logicalHeight().isSpecified()
+        && !style().logicalMinWidth().isIntrinsic() && !style().logicalMaxWidth().isIntrinsic()
+        && !hasAutoHeightOrContainingBlockWithAutoHeight(UpdatePercentageHeightDescendants::No);
+
     // FIXME: We only need to recompute the containing block's preferred size
     // if the containing block's size depends on the image's size (i.e., the container uses shrink-to-fit sizing).
     // There's no easy way to detect that shrink-to-fit is needed, always force a layout.
@@ -402,9 +407,9 @@ bool RenderReplaced::setNeedsLayoutIfNeededAfterIntrinsicSizeChange()
         style().logicalWidth().isPercentOrCalculated()
         || style().logicalMaxWidth().isPercentOrCalculated()
         || style().logicalMinWidth().isPercentOrCalculated();
-    
-    // Flex layout algorithm uses the intrinsic image width/height even if width/height are specified.
-    if (!imageSizeIsConstrained || containingBlockNeedsToRecomputePreferredSize || isFlexItem()) {
+
+    // Flex and grid layout use the intrinsic image width/height even if width/height are specified.
+    if (!imageSizeIsConstrained || containingBlockNeedsToRecomputePreferredSize || isFlexItem() || isGridItem()) {
         setNeedsLayout();
         return true;
     }
@@ -717,7 +722,7 @@ void RenderReplaced::computePreferredLogicalWidths()
     else
         m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = computeReplacedLogicalWidth(ComputePreferred);
 
-    bool ignoreMinMaxSizes = shouldIgnoreMinMaxSizes();
+    bool ignoreMinMaxSizes = shouldIgnoreLogicalMinMaxWidthSizes();
     const RenderStyle& styleToUse = style();
     if (styleToUse.logicalWidth().isPercentOrCalculated() || styleToUse.logicalMaxWidth().isPercentOrCalculated())
         m_minPreferredLogicalWidth = 0;
@@ -865,6 +870,39 @@ LayoutSize RenderReplaced::intrinsicSize() const
     if (isHorizontalWritingMode() ? shouldApplySizeContainment() : shouldApplySizeOrInlineSizeContainment())
         size.setHeight(explicitIntrinsicInnerHeight().value_or(0));
     return size;
+}
+
+void RenderReplaced::layoutShadowContent(const LayoutSize& oldSize)
+{
+    for (auto& renderBox : childrenOfType<RenderBox>(*this)) {
+        auto newSize = contentBoxRect().size();
+
+        if (is<RenderImage>(this)) {
+            bool childNeedsLayout = renderBox.needsLayout();
+            // If the region chain has changed we also need to relayout the children to update the region box info.
+            // FIXME: We can do better once we compute region box info for RenderReplaced, not only for RenderBlock.
+            auto* fragmentedFlow = enclosingFragmentedFlow();
+            if (fragmentedFlow && !childNeedsLayout) {
+                if (fragmentedFlow->pageLogicalSizeChanged())
+                    childNeedsLayout = true;
+            }
+
+            if (newSize == oldSize && !childNeedsLayout)
+                continue;
+        }
+
+        // When calling layout() on a child node, a parent must either push a LayoutStateMaintainer, or
+        // instantiate LayoutStateDisabler. Since using a LayoutStateMaintainer is slightly more efficient,
+        // and this method might be called many times per second during video playback, use a LayoutStateMaintainer:
+        LayoutStateMaintainer statePusher(*this, locationOffset(), isTransformed() || hasReflection() || style().isFlippedBlocksWritingMode());
+        renderBox.setLocation(LayoutPoint(borderLeft(), borderTop()) + LayoutSize(paddingLeft(), paddingTop()));
+        renderBox.mutableStyle().setHeight(Length(newSize.height(), LengthType::Fixed));
+        renderBox.mutableStyle().setWidth(Length(newSize.width(), LengthType::Fixed));
+        renderBox.setNeedsLayout(MarkOnlyThis);
+        renderBox.layout();
+    }
+
+    clearChildNeedsLayout();
 }
 
 }

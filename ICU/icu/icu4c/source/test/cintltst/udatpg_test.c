@@ -66,6 +66,7 @@ static void TestCloneAllowedHourFormats(void); // rdar://97391281
 static void TestRgSubtag(void); // rdar://106566783
 static void TestISO8601(void); // rdar://121454761
 static void TestPolishMonth(void); // rdar://119515016
+static void TestLongLocaleID(void); // rdar://134431716
 #endif  // APPLE_ICU_CHANGES
 
 void addDateTimePatternGeneratorTest(TestNode** root) {
@@ -89,6 +90,7 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestRgSubtag);
     TESTCASE(TestISO8601); // rdar://121454761
     TESTCASE(TestPolishMonth); // rdar://119515016
+    TESTCASE(TestLongLocaleID); // rdar://134431716
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -1291,6 +1293,16 @@ static void TestPolishMonth(void) {
         }
         udatpg_close(dtpg);
     }
+}
+
+// test for rdar://134431716
+static void TestLongLocaleID(void) {
+    // this test doesn't actually do anything or check any results-- the original failure was that udatpg_open()
+    // would crash
+    UErrorCode err = U_ZERO_ERROR;
+    UDateTimePatternGenerator* dtpg = udatpg_open(
+      "en-abcdefg0-abcdefg1-abcdefg2-abcdefg3-abcdefg4-abcdefg5-abcdefg6-abcdefg7-abcdefg8-abcdefg9-abcdefga-abcdefgb-abcdefgc-abcdefgd-abcdefge-abcdefgf-abcdefgg-abcdefgh-abcdefgi-abcdefgj", &err);
+    udatpg_close(dtpg);
 }
 
 #endif  // APPLE_ICU_CHANGES

@@ -276,6 +276,7 @@ function mac_process_webpushd_entitlements()
 {
     plistbuddy Add :com.apple.private.aps-connection-initiate bool YES
     plistbuddy Add :com.apple.private.launchservices.entitledtoaccessothersessions bool YES
+    plistbuddy Add :com.apple.usernotification.notificationschedulerproxy bool YES
 }
 
 # ========================================
@@ -440,7 +441,7 @@ fi
 
 function ios_family_process_webcontent_entitlements()
 {
-    if [[ "${PLATFORM_NAME}" != watchos ]]; then
+    if [[ "${PLATFORM_NAME}" != watchos && "${PLATFORM_NAME}" != appletvos ]]; then
         plistbuddy Add :com.apple.private.verified-jit bool YES
         if [[ "${PLATFORM_NAME}" == iphoneos ]]; then
             if (( $(( ${SDK_VERSION_ACTUAL} )) >= 170400 )); then
@@ -474,6 +475,8 @@ function ios_family_process_webcontent_captiveportal_entitlements()
 
 function ios_family_process_gpu_entitlements()
 {
+    plistbuddy add :application-identifier string "${PRODUCT_BUNDLE_IDENTIFIER}"
+
     plistbuddy Add :com.apple.security.fatal-exceptions array
     plistbuddy Add :com.apple.security.fatal-exceptions:0 string jit
 
@@ -483,6 +486,7 @@ function ios_family_process_gpu_entitlements()
     plistbuddy Add :com.apple.developer.coremedia.allow-alternate-video-decoder-selection bool YES
     plistbuddy Add :com.apple.mediaremote.set-playback-state bool YES
     plistbuddy Add :com.apple.mediaremote.external-artwork-validation bool YES
+    plistbuddy add :com.apple.mediaremote.ui-control bool YES
     plistbuddy Add :com.apple.private.allow-explicit-graphics-priority bool YES
     plistbuddy Add :com.apple.private.coremedia.extensions.audiorecording.allow bool YES
     plistbuddy Add :com.apple.private.mediaexperience.startrecordinginthebackground.allow bool YES
@@ -545,10 +549,19 @@ function ios_family_process_webpushd_entitlements()
     plistbuddy Add :com.apple.private.launchservices.allowopenwithanyhandler bool YES
     plistbuddy Add :com.apple.springboard.opensensitiveurl bool YES
     plistbuddy Add :com.apple.private.launchservices.canspecifysourceapplication bool YES
+    plistbuddy Add :com.apple.usernotification.notificationschedulerproxy bool YES
+    plistbuddy Add :com.apple.uikitservices.app.value-access bool YES
+    plistbuddy Add :com.apple.private.usernotifications.app-management-domain.proxy string com.apple.WebKit.PushBundles
+    plistbuddy Add :com.apple.frontboard.launchapplications bool YES
+    plistbuddy Add :com.apple.private.security.storage.os_eligibility.readonly bool YES
+    plistbuddy Add :com.apple.security.exception.files.absolute-path.read-only array
+    plistbuddy Add :com.apple.security.exception.files.absolute-path.read-only:0 string /private/var/db/os_eligibility/eligibility.plist
 }
 
 function ios_family_process_network_entitlements()
 {
+    plistbuddy add :application-identifier string "${PRODUCT_BUNDLE_IDENTIFIER}"
+
     plistbuddy Add :com.apple.private.coreservices.canmaplsdatabase bool YES
     plistbuddy Add :com.apple.private.webkit.adattributiond bool YES
     plistbuddy Add :com.apple.private.webkit.webpush bool YES

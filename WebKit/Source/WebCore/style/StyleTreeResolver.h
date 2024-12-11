@@ -26,6 +26,7 @@
 #pragma once
 
 #include "AnchorPositionEvaluator.h"
+#include "PropertyCascade.h"
 #include "SelectorChecker.h"
 #include "SelectorMatchingState.h"
 #include "StyleChange.h"
@@ -82,6 +83,10 @@ private:
 
     ElementUpdate createAnimatedElementUpdate(ResolvedStyle&&, const Styleable&, Change, const ResolutionContext&, IsInDisplayNoneTree = IsInDisplayNoneTree::No);
     std::unique_ptr<RenderStyle> resolveStartingStyle(const ResolvedStyle&, const Styleable&, const ResolutionContext&) const;
+    std::unique_ptr<RenderStyle> resolveAfterChangeStyleForNonAnimated(const ResolvedStyle&, const Styleable&, const ResolutionContext&) const;
+    std::unique_ptr<RenderStyle> resolveAgainWithParentStyle(const ResolvedStyle&, const Styleable&, const RenderStyle& parentStyle,  OptionSet<PropertyCascade::PropertyType>, const ResolutionContext&) const;
+    const RenderStyle& parentAfterChangeStyle(const Styleable&, const ResolutionContext&) const;
+
     HashSet<AnimatableCSSProperty> applyCascadeAfterAnimation(RenderStyle&, const HashSet<AnimatableCSSProperty>&, bool isTransition, const MatchResult&, const Element&, const ResolutionContext&);
 
     std::optional<ElementUpdate> resolvePseudoElement(Element&, const PseudoElementIdentifier&, const ElementUpdate&, IsInDisplayNoneTree);
@@ -142,16 +147,13 @@ private:
     const RenderStyle* parentBoxStyleForPseudoElement(const ElementUpdate&) const;
 
     AnchorPositionedElementAction updateAnchorPositioningState(Element&, const RenderStyle*);
-    void findAnchorsForAnchorPositionedElement(const Element& anchorPositionedElement, const Element* containingBlock);
-    std::optional<Ref<Element>> findLastAcceptableAnchorWithName(String anchorName, const Element* containingBlock);
-    void updateAnchorPositioningStateInInitialContainingBlock();
 
     struct QueryContainerState {
         Change change { Change::None };
         DescendantsToResolve descendantsToResolve { DescendantsToResolve::None };
     };
 
-    Document& m_document;
+    CheckedRef<Document> m_document;
     std::unique_ptr<RenderStyle> m_documentElementStyle;
 
     Vector<Ref<Scope>, 4> m_scopeStack;
@@ -161,12 +163,6 @@ private:
     HashMap<Ref<Element>, std::optional<QueryContainerState>> m_queryContainerStates;
     bool m_hasUnresolvedQueryContainers { false };
 
-    AnchorPositionedStateMap m_anchorPositionedStateMap;
-
-    HashSet<Ref<Element>> m_anchorElements;
-    HashMap<String, Vector<Ref<Element>>> m_anchorsForAnchorName;
-    HashMap<Ref<Element>, Vector<Ref<Element>>> m_unresolvedAnchorPositionedElementsForContainingBlock;
-    Vector<Ref<Element>> m_unresolvedAnchorPositionedElementsForInitialContainingBlock;
     bool m_hasUnresolvedAnchorPositionedElements { false };
     bool m_canFindAnchorsForNextAnchorPositionedElement { false };
 

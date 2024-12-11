@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Alliance for Open Media. All rights reserved
+ * Copyright (c) 2016, Alliance for Open Media. All rights reserved.
  *
  * This source code is subject to the terms of the BSD 2 Clause License and
  * the Alliance for Open Media Patent License 1.0. If the BSD 2 Clause License
@@ -3790,6 +3790,7 @@ AV1_COMP *av1_get_parallel_frame_enc_data(AV1_PRIMARY *const ppi,
 int av1_init_parallel_frame_context(const AV1_COMP_DATA *const first_cpi_data,
                                     AV1_PRIMARY *const ppi,
                                     int *ref_buffers_used_map);
+
 /*!\endcond */
 
 /*!\brief Obtain the raw frame data
@@ -3876,7 +3877,10 @@ int av1_set_internal_size(AV1EncoderConfig *const oxcf,
 
 int av1_get_quantizer(struct AV1_COMP *cpi);
 
-int av1_convert_sect5obus_to_annexb(uint8_t *buffer, size_t *input_size);
+// This function assumes that the input buffer contains valid OBUs. It should
+// not be called on untrusted input.
+int av1_convert_sect5obus_to_annexb(uint8_t *buffer, size_t buffer_size,
+                                    size_t *input_size);
 
 void av1_alloc_mb_wiener_var_pred_buf(AV1_COMMON *cm, ThreadData *td);
 
@@ -4104,6 +4108,15 @@ static INLINE int use_rtc_reference_structure_one_layer(const AV1_COMP *cpi) {
   return is_one_pass_rt_params(cpi) && cpi->ppi->number_spatial_layers == 1 &&
          cpi->ppi->number_temporal_layers == 1 &&
          !cpi->ppi->rtc_ref.set_ref_frame_config;
+}
+
+// Check if postencode drop is allowed.
+static INLINE int allow_postencode_drop_rtc(const AV1_COMP *cpi) {
+  const AV1_COMMON *const cm = &cpi->common;
+  return is_one_pass_rt_params(cpi) && cpi->oxcf.rc_cfg.mode == AOM_CBR &&
+         cpi->oxcf.rc_cfg.drop_frames_water_mark > 0 &&
+         !cpi->rc.rtc_external_ratectrl && !frame_is_intra_only(cm) &&
+         cpi->svc.spatial_layer_id == 0;
 }
 
 // Function return size of frame stats buffer

@@ -31,10 +31,14 @@
 #import "SFAnalyticsCollection.h"
 #import "SFSQLite.h"
 #import "SECSFARules.h"
-#import "SECSFARule.h"
+#import "SECSFAEventRule.h"
 #import "SECSFAAction.h"
+#import "SECSFAEventFilter.h"
 #import "SECSFAActionAutomaticBugCapture.h"
 #import "SECSFAActionDropEvent.h"
+#import "SECSFAVersion.h"
+#import "SECSFAVersionMatch.h"
+
 #import <Prequelite/Prequelite.h>
 #import <CoreFoundation/CFPriv.h>
 #import <notify.h>
@@ -45,6 +49,11 @@
 + (NSString*)databasePath;
 + (void)setDatabasePath:(NSString*)path;
 @end
+
+@interface SFAnalytics (unittests)
+@property (readwrite) SFAnalyticsCollection *collection;
+@end
+
 
 // MARK: SFAnalytics subclass for custom DB
 
@@ -1020,7 +1029,7 @@ static NSString* modelID = nil;
     abc.domain = @"domain";
     abc.type = @"type";
 
-    SECSFARule *r1 = [[SECSFARule alloc] init];
+    SECSFAEventRule *r1 = [[SECSFAEventRule alloc] init];
     r1.eventType = @"event";
     r1.match = [NSPropertyListSerialization dataWithPropertyList:match1 format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
     r1.action = [[SECSFAAction alloc] init];
@@ -1031,7 +1040,7 @@ static NSString* modelID = nil;
         @"attribute": @"2",
     };
     
-    SECSFARule *r2 = [[SECSFARule alloc] init];
+    SECSFAEventRule *r2 = [[SECSFAEventRule alloc] init];
     r2.eventType = @"soft";
     r2.eventClass = SECSFAEventClass_Errors;
     r2.match = [NSPropertyListSerialization dataWithPropertyList:match2 format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
@@ -1039,7 +1048,7 @@ static NSString* modelID = nil;
     r2.action.radarnumber = @"2";
     r2.action.abc = abc;
     
-    SECSFARule *r3 = [[SECSFARule alloc] init];
+    SECSFAEventRule *r3 = [[SECSFAEventRule alloc] init];
     r3.eventType = @"hard";
     r3.eventClass = SECSFAEventClass_HardFailure;
     r3.match = [NSPropertyListSerialization dataWithPropertyList:match2 format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
@@ -1047,7 +1056,7 @@ static NSString* modelID = nil;
     r3.action.radarnumber = @"2";
     r3.action.abc = abc;
     
-    SECSFARule *r4 = [[SECSFARule alloc] init];
+    SECSFAEventRule *r4 = [[SECSFAEventRule alloc] init];
     r4.eventType = @"hard2";
     r4.eventClass = SECSFAEventClass_HardFailure;
     r4.match = [NSPropertyListSerialization dataWithPropertyList:match2 format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
@@ -1056,31 +1065,68 @@ static NSString* modelID = nil;
     r4.action.abc = abc;
 
     
-    SECSFARule *r5 = [[SECSFARule alloc] init];
+    SECSFAEventRule *r5 = [[SECSFAEventRule alloc] init];
     r5.eventType = @"default";
     r5.match = [NSPropertyListSerialization dataWithPropertyList:match2 format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
     r5.action = [[SECSFAAction alloc] init];
     r5.action.radarnumber = @"2";
     r5.action.abc = abc;
+    
+    SECSFAEventRule *r6 = [[SECSFAEventRule alloc] init];
+    r6.eventType = @"mac2B1";
+    r6.match = [NSPropertyListSerialization dataWithPropertyList:match2 format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+    r6.action = [[SECSFAAction alloc] init];
+    r6.action.radarnumber = @"2";
+    r6.action.abc = abc;
+    SECSFAVersion *v = [[SECSFAVersion alloc] init];
+    v.productName = SECSFAProductName_macOS;
+    v.major = 2;
+    v.minor = 2;
+    v.build = 1;
 
+    r6.versions = [[SECSFAVersionMatch alloc] init];
+    [r6.versions addVersions:v];
+    
+    SECSFAEventRule *r7 = [[SECSFAEventRule alloc] init];
+    r7.eventType = @"match-on-first-failure";
+    r7.match = [NSPropertyListSerialization dataWithPropertyList:@{} format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+    r7.action = [[SECSFAAction alloc] init];
+    r7.action.radarnumber = @"2";
+    r7.action.abc = abc;
+    r7.matchOnFirstFailure = YES;
+    
+    SECSFAEventRule *r8 = [[SECSFAEventRule alloc] init];
+    r8.eventType = @"processname";
+    r8.match = [NSPropertyListSerialization dataWithPropertyList:@{} format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+    r8.processName = @"processName-foo";
+    r8.action = [[SECSFAAction alloc] init];
+    r8.action.radarnumber = @"2";
+    r8.action.abc = abc;
 
     SECSFARules *dr = [[SECSFARules alloc] init];
-    [dr addRules:r1];
-    [dr addRules:r2];
-    [dr addRules:r3];
-    [dr addRules:r4];
-    [dr addRules:r5];
 
     SECSFAActionDropEvent *drop = [[SECSFAActionDropEvent alloc] init];
     drop.excludeEvent = true;
 
-    SECSFARule *ruleDrop = [[SECSFARule alloc] init];
+    SECSFAEventRule *ruleDrop = [[SECSFAEventRule alloc] init];
     ruleDrop.eventType = @"drop-event";
     ruleDrop.match = nil;
     ruleDrop.action = [[SECSFAAction alloc] init];
     ruleDrop.action.drop = drop;
 
-    [dr addRules:ruleDrop];
+    for (SECSFAEventRule *r in @[r1, r2, r3, r4, r5, r6, r7, r8, ruleDrop]) {
+        [dr addEventRules:r];
+    }
+
+    SECSFAEventFilter *f1 = [[SECSFAEventFilter alloc] init];
+    f1.event = @"allowedEvent";
+    
+    SECSFAEventFilter *f2 = [[SECSFAEventFilter alloc] init];
+    f2.event = @"99drop";
+    f2.dropRate = 99;
+    
+    [dr addEventFilter:f1];
+    [dr addEventFilter:f2];
 
     return [dr.data compressedDataUsingAlgorithm:NSDataCompressionAlgorithmLZFSE error:nil];
 }
@@ -1100,7 +1146,7 @@ static NSString* modelID = nil;
     abca.domain = @"domain";
     abca.type = @"type";
 
-    SECSFARule *r = [[SECSFARule alloc] init];
+    SECSFAEventRule *r = [[SECSFAEventRule alloc] init];
     r.eventType = @"event-array";
     r.match = [NSPropertyListSerialization dataWithPropertyList:matchA format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
     r.action = [[SECSFAAction alloc] init];
@@ -1108,24 +1154,37 @@ static NSString* modelID = nil;
     r.action.abc = abca;
 
     SECSFARules *dr = [[SECSFARules alloc] init];
-    [dr addRules:r];
+    [dr addEventRules:r];
 
     SECSFAActionAutomaticBugCapture *abcd = [[SECSFAActionAutomaticBugCapture alloc] init];
     abcd.domain = @"domain";
     abcd.type = @"type";
 
-    SECSFARule *rd = [[SECSFARule alloc] init];
+    SECSFAEventRule *rd = [[SECSFAEventRule alloc] init];
     rd.eventType = @"event-dictionary";
     rd.match = [NSPropertyListSerialization dataWithPropertyList:matchD format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
     rd.action = [[SECSFAAction alloc] init];
     rd.action.radarnumber = @"1";
     rd.action.abc = abcd;
 
-    [dr addRules:rd];
+    [dr addEventRules:rd];
 
     return [dr.data compressedDataUsingAlgorithm:NSDataCompressionAlgorithmLZFSE error:nil];
 }
 
+- (NSData *)xrosOnlySFARules {
+    
+    SECSFARules *dr = [[SECSFARules alloc] init];
+    dr.allowedBuilds = [[SECSFAVersionMatch alloc] init];
+    SECSFAVersion *v = [[SECSFAVersion alloc] init];
+    v.productName = SECSFAProductName_xrOS;
+    v.major = 1;
+    v.minor = 1;
+    v.build = 1;
+    [dr.allowedBuilds addVersions:v];
+    
+    return [dr.data compressedDataUsingAlgorithm:NSDataCompressionAlgorithmLZFSE error:nil];
+}
 
 - (void)testMetricsCollection
 {
@@ -1135,12 +1194,10 @@ static NSString* modelID = nil;
     NSData *data = [self basicSFARules];
     XCTAssertNotNil(data);
 
-    NSMutableDictionary<NSString*, NSMutableSet<SFAnalyticsMatchingRule*>*>* rules;
-
-    rules = [c parseCollection:data logger:_analytics];
+    SecSFAParsedCollection* rules = [c parseCollection:data logger:_analytics];
     XCTAssertNotNil(rules);
 
-    NSMutableSet<SFAnalyticsMatchingRule*>* items = rules[@"event"];
+    NSMutableSet<SFAnalyticsMatchingRule*>* items = rules.matchingRules[@"event"];
     XCTAssertNotNil(items);
     XCTAssertEqual(items.count, 1);
 
@@ -1155,7 +1212,7 @@ static NSString* modelID = nil;
 - (void)testCollectionMatchItem
 {
     TestCollectionActions *actions = [[TestCollectionActions alloc] init];
-    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
     XCTAssertNotNil(collection);
 
     NSData *data =[self basicSFARules];
@@ -1180,7 +1237,7 @@ static NSString* modelID = nil;
 - (void)testCollectionMatchItemArray
 {
     TestCollectionActions *actions = [[TestCollectionActions alloc] init];
-    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
     XCTAssertNotNil(collection);
 
     NSData *data =[self complextSFARules];
@@ -1204,7 +1261,7 @@ static NSString* modelID = nil;
 - (void)testCollectionMatchItemDictionary
 {
     TestCollectionActions *actions = [[TestCollectionActions alloc] init];
-    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
     XCTAssertNotNil(collection);
 
     [collection storeCollection:[self complextSFARules] logger:nil];
@@ -1259,7 +1316,7 @@ static NSString* modelID = nil;
 - (void)testCollectionRateLimitWorkingForTTR
 {
     TestCollectionActions *actions = [[TestCollectionActions alloc] init];
-    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
     XCTAssertNotNil(collection);
 
     [collection storeCollection:[self basicSFARules] logger:nil];
@@ -1296,7 +1353,7 @@ static NSString* modelID = nil;
 - (void)testCollectionRateLimitWorkingForSkip
 {
     TestCollectionActions *actions = [[TestCollectionActions alloc] init];
-    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
     XCTAssertNotNil(collection);
 
     [collection storeCollection:[self basicSFARules] logger:nil];
@@ -1329,7 +1386,7 @@ static NSString* modelID = nil;
 - (void)testCollectionNotMatchEvent
 {
     TestCollectionActions *actions = [[TestCollectionActions alloc] init];
-    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
     XCTAssertNotNil(collection);
 
     [collection storeCollection:[self basicSFARules] logger:nil];
@@ -1354,7 +1411,7 @@ static NSString* modelID = nil;
 - (void)testCollectionNotMatchEventAttributes
 {
     TestCollectionActions *actions = [[TestCollectionActions alloc] init];
-    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
     XCTAssertNotNil(collection);
 
     [collection storeCollection:[self basicSFARules] logger:nil];
@@ -1379,7 +1436,7 @@ static NSString* modelID = nil;
 - (void)testCollectionNotMatchingEventType
 {
     TestCollectionActions *actions = [[TestCollectionActions alloc] init];
-    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
     XCTAssertNotNil(collection);
 
     [collection storeCollection:[self basicSFARules] logger:nil];
@@ -1581,7 +1638,7 @@ static NSString* modelID = nil;
 
     NSData *binary = [SFAnalytics encodeSFACollection:json error:&error];
     XCTAssertNotNil(binary, @"encodeSFACollection: %@", error);
-    XCTAssertEqual(binary.length, 267);
+    XCTAssertEqual(binary.length, 271);
 }
 
 
@@ -1650,6 +1707,20 @@ static NSString* modelID = nil;
                     @"subtype": @"abc-subtype",
                 }
             },
+            @{
+                @"eventType": @"sfaEvent7",
+                @"eventClass": @"softfail",
+                @"match": @{},
+                @"processName": @"processName-foo",
+                @"action": @{
+                    @"radarNumber": @"1",
+                    @"actionType": @"abc",
+                    @"domain": @"abc-domain",
+                    @"type": @"abc-type",
+                    @"subtype": @"abc-subtype",
+                }
+            },
+
         ],
     };
     NSData *json = [NSJSONSerialization dataWithJSONObject:collection options:0 error:&error];
@@ -1657,9 +1728,46 @@ static NSString* modelID = nil;
 
     NSData *binary = [SFAnalytics encodeSFACollection:json error:&error];
     XCTAssertNotNil(binary, @"encodeSFACollection: %@", error);
-    XCTAssertEqual(binary.length, 135);
+    XCTAssertEqual(binary.length, 167);
 }
 
+- (void)testCollectionParseMatchOnFirstFailure {
+
+    NSError *error;
+    NSDictionary *collection = @{
+        @"rules": @[
+            @{
+                @"eventType": @"matchOnFirstFailureEvent",
+                @"match": @{
+                    @"key3": @"value5",
+                },
+                @"action": @{
+                    @"actionType": @"drop",
+                },
+                @"matchOnFirstFailure": @YES,
+            },
+        ],
+    };
+    NSData *json = [NSJSONSerialization dataWithJSONObject:collection options:0 error:&error];
+    XCTAssert(json, "dataWithJSONObject: %@", error);
+
+    NSData *binary = [SFAnalytics encodeSFACollection:json error:&error];
+    XCTAssertNotNil(binary, @"encodeSFACollection: %@", error);
+    XCTAssertEqual(binary.length, 109);
+    
+    SFAnalyticsCollection *c = [[SFAnalyticsCollection alloc] init];
+    SecSFAParsedCollection* rules = [c parseCollection:binary logger:_analytics];
+    XCTAssertNotNil(rules);
+    
+    NSSet<SFAnalyticsMatchingRule*> *r = rules.matchingRules[@"matchOnFirstFailureEvent"];
+    XCTAssertNotNil(r);
+    XCTAssertEqual(r.count, 1);
+
+    SFAnalyticsMatchingRule *rule = r.anyObject;
+    XCTAssertEqual(rule.rule.matchOnFirstFailure, 1);
+    XCTAssertEqualObjects(rule.rule.eventType, @"matchOnFirstFailureEvent");
+    XCTAssertEqual(rule.rule.match.length, 58);
+}
 
 - (void)testCollectionJSON {
 
@@ -1669,7 +1777,7 @@ static NSString* modelID = nil;
     NSData *jsonData = [NSData dataWithBytes:json length:sizeof(json)-1];
     NSData *binary = [SFAnalytics encodeSFACollection:jsonData error:&error];
     XCTAssertNotNil(binary, @"encodeSFACollection: %@", error);
-    XCTAssertEqual(binary.length, 110);
+    XCTAssertEqual(binary.length, 112);
 }
 
 - (void)testLaunchSeqence {
@@ -1724,6 +1832,317 @@ static NSString* modelID = nil;
     XCTAssertTrue([result next], @"Got a count from rockwell");
     XCTAssertEqual([result unsignedIntAtIndex:0], 0, @"Should have zero rockwell events");
 }
+
+- (void)testReleaseMac1A1 {
+    SECSFAVersion *v = [SFAnalyticsCollection parseVersion:@"1A1" platform:@"macOS"];
+    XCTAssertEqual(v.productName, SECSFAProductName_macOS);
+    XCTAssertEqual(v.major, 1);
+    XCTAssertEqual(v.minor, 1);
+    XCTAssertEqual(v.build, 1);
+}
+
+- (void)testReleaseiPhone2B100 {
+    SECSFAVersion *v = [SFAnalyticsCollection parseVersion:@"2B100" platform:@"iPhone OS"];
+    XCTAssertEqual(v.productName, SECSFAProductName_iphoneOS);
+    XCTAssertEqual(v.major, 2);
+    XCTAssertEqual(v.minor, 2);
+    XCTAssertEqual(v.build, 100);
+}
+
+- (void)testReleaseXR0Z10a {
+    SECSFAVersion *v = [SFAnalyticsCollection parseVersion:@"30Z10a" platform:@"xrOS"];
+    XCTAssertEqual(v.productName, SECSFAProductName_xrOS);
+    XCTAssertEqual(v.major, 30);
+    XCTAssertEqual(v.minor, 26);
+    XCTAssertEqual(v.build, 10);
+}
+
+- (void)testReleaseiTVOS10F99z {
+    SECSFAVersion *v = [SFAnalyticsCollection parseVersion:@"10F99z" platform:@"Apple TVOS"];
+    XCTAssertEqual(v.productName, SECSFAProductName_tvOS);
+    XCTAssertEqual(v.major, 10);
+    XCTAssertEqual(v.minor, 6);
+    XCTAssertEqual(v.build, 99);
+}
+
+- (void)testReleaseiWatchOS10F99z {
+    SECSFAVersion *v = [SFAnalyticsCollection parseVersion:@"10F99zz" platform:@"Watch OS"];
+    XCTAssertEqual(v.productName, SECSFAProductName_watchOS);
+    XCTAssertEqual(v.major, 10);
+    XCTAssertEqual(v.minor, 6);
+    XCTAssertEqual(v.build, 99);
+}
+
+- (void)testBlockedRelease {
+
+    TestCollectionActions *actions = [[TestCollectionActions alloc] init];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
+    XCTAssertNotNil(collection);
+
+    NSData *data = [self xrosOnlySFARules];
+    XCTAssertNotNil(data);
+
+    SecSFAParsedCollection* rules = [collection parseCollection:data logger:_analytics];
+    XCTAssertNotNil(rules);
+    
+    XCTAssertEqual(rules.excludedVersion, YES, "should be excluded");
+}
+
+- (void)testAllowedRelease {
+
+    TestCollectionActions *actions = [[TestCollectionActions alloc] init];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"xrOS" build:@"1A1"];
+    XCTAssertNotNil(collection);
+
+    NSData *data = [self xrosOnlySFARules];
+    XCTAssertNotNil(data);
+
+    SecSFAParsedCollection* rules = [collection parseCollection:data logger:_analytics];
+    XCTAssertNotNil(rules);
+    
+    XCTAssertEqual(rules.excludedVersion, NO, "should NOT be excluded");
+}
+
+- (void)testBlockMetricByVersion {
+    
+    TestCollectionActions *actions = [[TestCollectionActions alloc] init];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
+    XCTAssertNotNil(collection);
+
+    [collection storeCollection:[self basicSFARules] logger:nil];
+
+    XCTAssertEqual(collection.excludedVersion, NO, "should not be excluded");
+    
+    NSDictionary *attributesMatch2 = @{
+        @"attribute": @"2",
+    };
+    
+    /* Check that we match with event */
+    actions.abcExpectation = [self expectationWithDescription:@"expected abc for hard error"];
+    actions.abcExpectation.inverted = YES;
+
+    [collection match:@"mac2B1"
+           eventClass:SFAnalyticsEventClassHardFailure
+           attributes:attributesMatch2
+               bucket:SFAnalyticsTimestampBucketSecond
+               logger:_analytics];
+    
+    [self waitForExpectations:@[actions.abcExpectation] timeout:0.1];
+    
+    NSMutableSet<SFAnalyticsMatchingRule*>* items = collection.matchingRules[@"mac2B1"];
+    XCTAssertNil(items);
+}
+
+- (void)testAllowMetricByVersion {
+    
+    TestCollectionActions *actions = [[TestCollectionActions alloc] init];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"3C10"];
+    XCTAssertNotNil(collection);
+
+    [collection storeCollection:[self basicSFARules] logger:nil];
+
+    XCTAssertEqual(collection.excludedVersion, NO, "should not be excluded");
+    
+    NSDictionary *attributesMatch2 = @{
+        @"attribute": @"2",
+    };
+    
+    /* Check that we match with event */
+    actions.abcExpectation = [self expectationWithDescription:@"expected abc for hard error"];
+
+    [collection match:@"mac2B1"
+           eventClass:SFAnalyticsEventClassHardFailure
+           attributes:attributesMatch2
+               bucket:SFAnalyticsTimestampBucketSecond
+               logger:_analytics];
+    
+    [self waitForExpectations:@[actions.abcExpectation] timeout:0.1];
+    
+    NSMutableSet<SFAnalyticsMatchingRule*>* items = collection.matchingRules[@"mac2B1"];
+    XCTAssertNotNil(items);
+    XCTAssertEqual(items.count, 1);
+}
+
+- (void)testAllowByProcessName {
+    
+    TestCollectionActions *actions = [[TestCollectionActions alloc] init];
+    SFAnalyticsCollection *collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"3C10"];
+    XCTAssertNotNil(collection);
+    
+    collection.processName = @"processName-foo";
+
+    [collection storeCollection:[self basicSFARules] logger:nil];
+
+    XCTAssertEqual(collection.excludedVersion, NO, "should not be excluded");
+    
+    NSDictionary *attributesMatch2 = @{
+        @"attribute": @"2",
+    };
+    
+    /* Check that we match with event */
+    actions.abcExpectation = [self expectationWithDescription:@"expected abc for hard error"];
+
+    [collection match:@"processname"
+           eventClass:SFAnalyticsEventClassHardFailure
+           attributes:attributesMatch2
+               bucket:SFAnalyticsTimestampBucketSecond
+               logger:_analytics];
+    
+    [self waitForExpectations:@[actions.abcExpectation] timeout:0.1];
+    
+    collection.processName = @"processName-bar";
+
+    /* Check that we match with event */
+    actions.abcExpectation = [self expectationWithDescription:@"expected not abc for hard error"];
+    actions.abcExpectation.inverted = YES;
+
+    [collection match:@"processname"
+           eventClass:SFAnalyticsEventClassHardFailure
+           attributes:attributesMatch2
+               bucket:SFAnalyticsTimestampBucketSecond
+               logger:_analytics];
+    
+    [self waitForExpectations:@[actions.abcExpectation] timeout:0.1];
+
+}
+
+
+- (void)testSupressionOfEvents {
+    
+    TestCollectionActions *actions = [[TestCollectionActions alloc] init];
+    _analytics.collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
+
+    [_analytics updateCollectionConfigurationWithData:[self basicSFARules]];
+    [_analytics.collection drainSetupQueue];
+    
+    [_analytics logHardFailureForEventNamed:@"unittestevent" withAttributes:nil];
+    [self assertNoSoftFailures];
+    [self assertNoHardFailures];
+    
+    [self checkSuccessCountsForEvent:@"unittestevent" success:0 hard:1 soft:0];
+}
+
+
+- (void)testNonSupressionOfExplicitAddedAllowsEvents {
+    TestCollectionActions *actions = [[TestCollectionActions alloc] init];
+    _analytics.collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
+
+    [_analytics updateCollectionConfigurationWithData:[self basicSFARules]];
+    [_analytics.collection drainSetupQueue];
+
+    [_analytics logHardFailureForEventNamed:@"allowedEvent" withAttributes:nil];
+    [self assertNoSoftFailures];
+    
+    PQLResultSet* result = [_db fetch:@"select * from hard_failures"];
+    [self properEventLogged:result eventType:@"allowedEvent" class:SFAnalyticsEventClassHardFailure];
+    
+    [self checkSuccessCountsForEvent:@"allowedEvent" success:0 hard:1 soft:0];
+}
+
+- (void)testNonSupressionOfImplicitAddedAllowsEvents {
+    [_analytics updateCollectionConfigurationWithData:[self basicSFARules]];
+    [_analytics.collection drainSetupQueue];
+
+    [_analytics logHardFailureForEventNamed:@"hard" withAttributes:nil];
+    [self assertNoSoftFailures];
+    
+    PQLResultSet* result = [_db fetch:@"select * from hard_failures"];
+    [self properEventLogged:result eventType:@"hard" class:SFAnalyticsEventClassHardFailure];
+    
+    [self checkSuccessCountsForEvent:@"hard" success:0 hard:1 soft:0];
+}
+
+- (void)testSupressionRatelimitedEvents {
+    TestCollectionActions *actions = [[TestCollectionActions alloc] init];
+    _analytics.collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
+    [_analytics updateCollectionConfigurationWithData:[self basicSFARules]];
+    [_analytics.collection drainSetupQueue];
+
+    NSString *eventType = @"99drop";
+    
+    const int count = 10;
+    
+    for (int n = 0; n < count; n++) {
+        [_analytics logHardFailureForEventNamed:eventType withAttributes:nil];
+    }
+    [self assertNoSoftFailures];
+    
+    [self checkSuccessCountsForEvent:eventType success:0 hard:10 soft:0];
+
+    PQLResultSet* result = [_db fetch:@"select count(*) from hard_failures"];
+    XCTAssert([result next]);
+    XCTAssertLessThan([result intAtIndex:0], count);
+
+    [result close];
+}
+
+
+- (void)testMatchFirstFailure {
+    TestCollectionActions *actions = [[TestCollectionActions alloc] init];
+    _analytics.collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
+    [_analytics updateCollectionConfigurationWithData:[self basicSFARules]];
+    [_analytics.collection drainSetupQueue];
+
+    NSString *armKey = [SFAnalyticsMatchingRule armKeyForEventName:@"match-on-first-failure"];
+    
+    XCTAssertNil([_analytics numberPropertyForKey:armKey], "should not have arm key yet");
+    [_analytics logSuccessForEventNamed:@"match-on-first-failure"];
+    
+    XCTAssertNotNil([_analytics numberPropertyForKey:armKey], "should have arm key");
+    
+    /*
+     * Should trigger on first try ...
+     */
+    actions.abcExpectation = [self expectationWithDescription:@"expected abc for hard error"];
+    [_analytics logHardFailureForEventNamed:@"match-on-first-failure" withAttributes:nil];
+    [self waitForExpectations:@[actions.abcExpectation] timeout:0.1];
+    
+    /*
+     * ... but not second
+     */
+    
+    XCTAssertNil([_analytics numberPropertyForKey:armKey], "should not longer have arm key");
+    actions.abcExpectation = [self expectationWithDescription:@"NOT expected abc for hard error"];
+    actions.abcExpectation.inverted = YES;
+    [_analytics logHardFailureForEventNamed:@"match-on-first-failure" withAttributes:nil];
+    [self waitForExpectations:@[actions.abcExpectation] timeout:0.1];
+    
+    XCTAssertNil([_analytics numberPropertyForKey:armKey], "should still not longer have arm key");
+}
+
+
+- (void)testPreArmedMatchFirstFailure {
+    NSString *armKey = [SFAnalyticsMatchingRule armKeyForEventName:@"match-on-first-failure"];
+    [_analytics setNumberProperty:@1 forKey:armKey];
+
+    TestCollectionActions *actions = [[TestCollectionActions alloc] init];
+    _analytics.collection = [[SFAnalyticsCollection alloc] initWithActionInterface:actions product:@"macOS" build:@"1A1"];
+    [_analytics updateCollectionConfigurationWithData:[self basicSFARules]];
+    [_analytics.collection drainSetupQueue];
+
+    
+    
+    /*
+     * Should trigger on first try ...
+     */
+    actions.abcExpectation = [self expectationWithDescription:@"expected abc for hard error"];
+    [_analytics logHardFailureForEventNamed:@"match-on-first-failure" withAttributes:nil];
+    [self waitForExpectations:@[actions.abcExpectation] timeout:0.1];
+    
+    /*
+     * ... but not second
+     */
+    
+    XCTAssertNil([_analytics numberPropertyForKey:armKey], "should not longer have arm key");
+    actions.abcExpectation = [self expectationWithDescription:@"NOT expected abc for hard error"];
+    actions.abcExpectation.inverted = YES;
+    [_analytics logHardFailureForEventNamed:@"match-on-first-failure" withAttributes:nil];
+    [self waitForExpectations:@[actions.abcExpectation] timeout:0.1];
+    
+    XCTAssertNil([_analytics numberPropertyForKey:armKey], "should still not longer have arm key");
+}
+
+
 
 
 @end

@@ -65,6 +65,9 @@
 
 namespace WebKit {
 
+static NSString* const WebKit2HTTPProxyDefaultsKey = @"WebKit2HTTPProxy";
+static NSString* const WebKit2HTTPSProxyDefaultsKey = @"WebKit2HTTPSProxy";
+
 static constexpr double defaultBrowserTotalQuotaRatio = 0.8;
 static constexpr double defaultBrowserOriginQuotaRatio = 0.6;
 static constexpr double defaultAppTotalQuotaRatio = 0.2;
@@ -177,9 +180,9 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
 #endif
     // FIXME: Remove these once Safari adopts _WKWebsiteDataStoreConfiguration.httpProxy and .httpsProxy.
     if (!httpProxy.isValid() && (isSafari || isMiniBrowser))
-        httpProxy = URL { [defaults stringForKey:(NSString *)WebKit2HTTPProxyDefaultsKey] };
+        httpProxy = URL { [defaults stringForKey:WebKit2HTTPProxyDefaultsKey] };
     if (!httpsProxy.isValid() && (isSafari || isMiniBrowser))
-        httpsProxy = URL { [defaults stringForKey:(NSString *)WebKit2HTTPSProxyDefaultsKey] };
+        httpsProxy = URL { [defaults stringForKey:WebKit2HTTPSProxyDefaultsKey] };
 
     auto& directories = resolvedDirectories();
 #if HAVE(ALTERNATIVE_SERVICE)
@@ -212,8 +215,8 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
     if (m_uiProcessCookieStorageIdentifier.isEmpty()) {
         auto utf8File = cookieFile.utf8();
         auto url = adoptCF(CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)utf8File.data(), (CFIndex)utf8File.length(), true));
-        m_cfCookieStorage = adoptCF(CFHTTPCookieStorageCreateFromFile(kCFAllocatorDefault, url.get(), nullptr));
-        m_uiProcessCookieStorageIdentifier = identifyingDataFromCookieStorage(m_cfCookieStorage.get());
+        RetainPtr cfCookieStorage = adoptCF(CFHTTPCookieStorageCreateFromFile(kCFAllocatorDefault, url.get(), nullptr));
+        m_uiProcessCookieStorageIdentifier = identifyingDataFromCookieStorage(cfCookieStorage.get());
     }
 
     parameters.uiProcessCookieStorageIdentifier = m_uiProcessCookieStorageIdentifier;
@@ -228,7 +231,7 @@ std::optional<bool> WebsiteDataStore::useNetworkLoader()
 
     [[maybe_unused]] const auto isSafari =
 #if PLATFORM(MAC)
-        MacApplication::isSafari();
+        WebCore::MacApplication::isSafari();
 #elif PLATFORM(IOS_FAMILY)
         WebCore::IOSApplication::isMobileSafari() || WebCore::IOSApplication::isSafariViewService();
 #else
@@ -882,7 +885,7 @@ void WebsiteDataStore::reinitializeManagedDomains()
 
 bool WebsiteDataStore::networkProcessHasEntitlementForTesting(const String& entitlement)
 {
-    return WTF::hasEntitlement(networkProcess().connection()->xpcConnection(), entitlement);
+    return WTF::hasEntitlement(networkProcess().connection().xpcConnection(), entitlement);
 }
 
 std::optional<double> WebsiteDataStore::defaultOriginQuotaRatio()

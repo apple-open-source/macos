@@ -77,9 +77,11 @@
 #import <WebCore/TextIterator.h>
 #import <WebCore/UTIRegistry.h>
 #import <WebCore/UTIUtilities.h>
+#import <WebCore/markup.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/SpanCocoa.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
 
@@ -488,8 +490,8 @@ WebPaymentCoordinator* WebPage::paymentCoordinator()
 
 void WebPage::getContentsAsAttributedString(CompletionHandler<void(const WebCore::AttributedString&)>&& completionHandler)
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
-    completionHandler(localFrame ? attributedString(makeRangeSelectingNodeContents(Ref { *localFrame->document() })) : AttributedString());
+    RefPtr localFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
+    completionHandler(localFrame ? attributedString(makeRangeSelectingNodeContents(Ref { *localFrame->document() }), IgnoreUserSelectNone::No) : AttributedString { });
 }
 
 void WebPage::setRemoteObjectRegistry(WebRemoteObjectRegistry* registry)
@@ -703,7 +705,7 @@ static String& replaceSelectionPasteboardName()
 
 class OverridePasteboardForSelectionReplacement {
     WTF_MAKE_NONCOPYABLE(OverridePasteboardForSelectionReplacement);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(OverridePasteboardForSelectionReplacement);
 public:
     OverridePasteboardForSelectionReplacement(const Vector<String>& types, std::span<const uint8_t> data)
         : m_types(types)
@@ -932,14 +934,21 @@ void WebPage::didBeginWritingToolsSession(const WebCore::WritingTools::Session& 
     corePage()->didBeginWritingToolsSession(session, contexts);
 }
 
-void WebPage::proofreadingSessionDidReceiveSuggestions(const WebCore::WritingTools::Session& session, const Vector<WebCore::WritingTools::TextSuggestion>& suggestions, const WebCore::WritingTools::Context& context, bool finished)
+void WebPage::proofreadingSessionDidReceiveSuggestions(const WebCore::WritingTools::Session& session, const Vector<WebCore::WritingTools::TextSuggestion>& suggestions, const WebCore::CharacterRange& processedRange, const WebCore::WritingTools::Context& context, bool finished, CompletionHandler<void()>&& completionHandler)
 {
-    corePage()->proofreadingSessionDidReceiveSuggestions(session, suggestions, context, finished);
+    corePage()->proofreadingSessionDidReceiveSuggestions(session, suggestions, processedRange, context, finished);
+    completionHandler();
 }
 
 void WebPage::proofreadingSessionDidUpdateStateForSuggestion(const WebCore::WritingTools::Session& session, WebCore::WritingTools::TextSuggestion::State state, const WebCore::WritingTools::TextSuggestion& suggestion, const WebCore::WritingTools::Context& context)
 {
     corePage()->proofreadingSessionDidUpdateStateForSuggestion(session, state, suggestion, context);
+}
+
+void WebPage::willEndWritingToolsSession(const WebCore::WritingTools::Session& session, bool accepted, CompletionHandler<void()>&& completionHandler)
+{
+    corePage()->willEndWritingToolsSession(session, accepted);
+    completionHandler();
 }
 
 void WebPage::didEndWritingToolsSession(const WebCore::WritingTools::Session& session, bool accepted)
@@ -1030,6 +1039,36 @@ void WebPage::enableTextAnimationTypeForElementWithID(const String& elementID)
     m_textAnimationController->enableTextAnimationTypeForElementWithID(elementID);
 }
 
+void WebPage::proofreadingSessionSuggestionTextRectsInRootViewCoordinates(const WebCore::CharacterRange& enclosingRangeRelativeToSessionRange, CompletionHandler<void(Vector<FloatRect>&&)>&& completionHandler) const
+{
+    auto rects = corePage()->proofreadingSessionSuggestionTextRectsInRootViewCoordinates(enclosingRangeRelativeToSessionRange);
+    completionHandler(WTFMove(rects));
+}
+
+void WebPage::updateTextVisibilityForActiveWritingToolsSession(const WebCore::CharacterRange& rangeRelativeToSessionRange, bool visible, const WTF::UUID& identifier, CompletionHandler<void()>&& completionHandler)
+{
+    corePage()->updateTextVisibilityForActiveWritingToolsSession(rangeRelativeToSessionRange, visible, identifier);
+    completionHandler();
+}
+
+void WebPage::textPreviewDataForActiveWritingToolsSession(const WebCore::CharacterRange& rangeRelativeToSessionRange, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
+{
+    auto data = corePage()->textPreviewDataForActiveWritingToolsSession(rangeRelativeToSessionRange);
+    completionHandler(WTFMove(data));
+}
+
+void WebPage::decorateTextReplacementsForActiveWritingToolsSession(const WebCore::CharacterRange& rangeRelativeToSessionRange, CompletionHandler<void(void)>&& completionHandler)
+{
+    corePage()->decorateTextReplacementsForActiveWritingToolsSession(rangeRelativeToSessionRange);
+    completionHandler();
+}
+
+void WebPage::setSelectionForActiveWritingToolsSession(const WebCore::CharacterRange& rangeRelativeToSessionRange, CompletionHandler<void(void)>&& completionHandler)
+{
+    corePage()->setSelectionForActiveWritingToolsSession(rangeRelativeToSessionRange);
+    completionHandler();
+}
+
 void WebPage::intelligenceTextAnimationsDidComplete()
 {
     corePage()->intelligenceTextAnimationsDidComplete();
@@ -1041,6 +1080,82 @@ void WebPage::didEndPartialIntelligenceTextAnimation()
 }
 
 #endif
+
+static std::optional<bool> elementHasHiddenVisibility(StyledElement* styledElement)
+{
+    auto* inlineStyle = styledElement->inlineStyle();
+    if (!inlineStyle)
+        return std::nullopt;
+
+    RefPtr value = inlineStyle->getPropertyCSSValue(CSSPropertyVisibility);
+    if (!value)
+        return false;
+
+    return value->valueID() == CSSValueHidden;
+}
+
+void WebPage::createTextIndicatorForElementWithID(const String& elementID, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
+{
+    RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
+    if (!frame) {
+        ASSERT_NOT_REACHED();
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    RefPtr document = frame->document();
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    RefPtr element = document->getElementById(elementID);
+    if (!element) {
+        ASSERT_NOT_REACHED();
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    RefPtr styledElement = dynamicDowncast<StyledElement>(element.get());
+    if (!styledElement) {
+        ASSERT_NOT_REACHED();
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    // Temporarily force the content to be visible so that it can be snapshotted.
+
+    auto isHiddenInitially = elementHasHiddenVisibility(styledElement.get());
+
+    styledElement->setInlineStyleProperty(CSSPropertyVisibility, CSSValueVisible, IsImportant::Yes);
+
+    auto elementRange = WebCore::makeRangeSelectingNodeContents(*styledElement);
+
+    std::optional<WebCore::TextIndicatorData> textIndicatorData;
+    constexpr OptionSet textIndicatorOptions {
+        WebCore::TextIndicatorOption::IncludeSnapshotOfAllVisibleContentWithoutSelection,
+        WebCore::TextIndicatorOption::ExpandClipBeyondVisibleRect,
+        WebCore::TextIndicatorOption::SkipReplacedContent,
+        WebCore::TextIndicatorOption::RespectTextColor
+    };
+
+    RefPtr textIndicator = WebCore::TextIndicator::createWithRange(elementRange, textIndicatorOptions, WebCore::TextIndicatorPresentationTransition::None, { });
+    if (!textIndicator) {
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    // If `initialVisibility` is an empty optional, this means there was no initial inline style.
+    // Ensure the state is idempotent after by removing the inline style if this is the case.
+
+    if (isHiddenInitially.has_value())
+        styledElement->setInlineStyleProperty(CSSPropertyVisibility, *isHiddenInitially ? CSSValueHidden : CSSValueVisible, IsImportant::Yes);
+    else
+        styledElement->removeInlineStyleProperty(CSSPropertyVisibility);
+
+    completionHandler(textIndicator->data());
+}
 
 } // namespace WebKit
 

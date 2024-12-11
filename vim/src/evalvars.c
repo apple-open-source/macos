@@ -159,6 +159,8 @@ static struct vimvar
     {VV_NAME("maxcol",		 VAR_NUMBER), NULL, VV_RO},
     {VV_NAME("python3_version",	 VAR_NUMBER), NULL, VV_RO},
     {VV_NAME("t_typealias",	 VAR_NUMBER), NULL, VV_RO},
+    {VV_NAME("t_enum",		 VAR_NUMBER), NULL, VV_RO},
+    {VV_NAME("t_enumvalue",	 VAR_NUMBER), NULL, VV_RO},
 };
 
 // shorthand
@@ -262,6 +264,8 @@ evalvars_init(void)
     set_vim_var_nr(VV_TYPE_CLASS,   VAR_TYPE_CLASS);
     set_vim_var_nr(VV_TYPE_OBJECT,  VAR_TYPE_OBJECT);
     set_vim_var_nr(VV_TYPE_TYPEALIAS,  VAR_TYPE_TYPEALIAS);
+    set_vim_var_nr(VV_TYPE_ENUM,  VAR_TYPE_ENUM);
+    set_vim_var_nr(VV_TYPE_ENUMVALUE,  VAR_TYPE_ENUMVALUE);
 
     set_vim_var_nr(VV_ECHOSPACE,    sc_col - 1);
 
@@ -658,7 +662,7 @@ eval_one_expr_in_str(char_u *p, garray_T *gap, int evaluate)
     if (evaluate)
     {
 	*block_end = NUL;
-	expr_val = eval_to_string(block_start, TRUE, FALSE);
+	expr_val = eval_to_string(block_start, FALSE, FALSE);
 	*block_end = '}';
 	if (expr_val == NULL)
 	    return NULL;
@@ -775,8 +779,17 @@ heredoc_get(exarg_T *eap, char_u *cmd, int script_get, int vim9compile)
     int		eval_failed = FALSE;
     cctx_T	*cctx = vim9compile ? eap->cookie : NULL;
     int		count = 0;
+    int		heredoc_in_string = FALSE;
+    char_u	*line_arg = NULL;
+    char_u	*nl_ptr = vim_strchr(cmd, '\n');
 
-    if (eap->getline == NULL)
+    if (nl_ptr != NULL)
+    {
+	heredoc_in_string = TRUE;
+	line_arg = nl_ptr + 1;
+	*nl_ptr = NUL;
+    }
+    else if (eap->ea_getline == NULL)
     {
 	emsg(_(e_cannot_use_heredoc_here));
 	return NULL;
@@ -855,12 +868,38 @@ heredoc_get(exarg_T *eap, char_u *cmd, int script_get, int vim9compile)
 	int	mi = 0;
 	int	ti = 0;
 
-	vim_free(theline);
-	theline = eap->getline(NUL, eap->cookie, 0, FALSE);
-	if (theline == NULL)
+	if (heredoc_in_string)
 	{
-	    semsg(_(e_missing_end_marker_str), marker);
-	    break;
+	    char_u	*next_line;
+
+	    // heredoc in a string separated by newlines.  Get the next line
+	    // from the string.
+
+	    if (*line_arg == NUL)
+	    {
+		semsg(_(e_missing_end_marker_str), marker);
+		break;
+	    }
+
+	    theline = line_arg;
+	    next_line = vim_strchr(theline, '\n');
+	    if (next_line == NULL)
+		line_arg += STRLEN(line_arg);
+	    else
+	    {
+		*next_line = NUL;
+		line_arg = next_line + 1;
+	    }
+	}
+	else
+	{
+	    vim_free(theline);
+	    theline = eap->ea_getline(NUL, eap->cookie, 0, FALSE);
+	    if (theline == NULL)
+	    {
+		semsg(_(e_missing_end_marker_str), marker);
+		break;
+	    }
 	}
 
 	// with "trim": skip the indent matching the :let line to find the
@@ -907,6 +946,8 @@ heredoc_get(exarg_T *eap, char_u *cmd, int script_get, int vim9compile)
 	}
 	else
 	{
+	    int	    free_str = FALSE;
+
 	    if (evalstr && !eap->skip)
 	    {
 		str = eval_all_expr_in_str(str);
@@ -916,15 +957,20 @@ heredoc_get(exarg_T *eap, char_u *cmd, int script_get, int vim9compile)
 		    eval_failed = TRUE;
 		    continue;
 		}
-		vim_free(theline);
-		theline = str;
+		free_str = TRUE;
 	    }
 
 	    if (list_append_string(l, str, -1) == FAIL)
 		break;
+	    if (free_str)
+		vim_free(str);
 	}
     }
-    vim_free(theline);
+    if (heredoc_in_string)
+	// Next command follows the heredoc in the string.
+	eap->nextcmd = line_arg;
+    else
+	vim_free(theline);
     vim_free(text_indent);
 
     if (vim9compile && cctx->ctx_skip != SKIP_YES && !eval_failed)
@@ -1836,11 +1882,8 @@ ex_let_one(
 	return NULL;
     }
 
-    if (tv->v_type == VAR_TYPEALIAS)
-    {
-	semsg(_(e_using_typealias_as_value), tv->vval.v_typealias->ta_name);
+    if (check_typval_is_value(tv) == FAIL)
 	return NULL;
-    }
 
     if (*arg == '$')
     {
@@ -3297,12 +3340,31 @@ find_var(char_u *name, hashtab_T **htp, int no_autoload)
 	}
     }
 
+    // and finally try
+    return find_var_autoload_prefix(name, 0, htp, NULL);
+}
+
+/*
+ * Find variable "name" with sn_autoload_prefix.
+ * Return a pointer to it if found, NULL if not found.
+ * When "sid" > 0, use it otherwise use "current_sctx.sc_sid".
+ * When "htp" is not NULL  set "htp" to the hashtab_T used.
+ * When "namep" is not NULL set "namep" to the generated name, and
+ * then the caller gets ownership and is responsible for freeing the name.
+ */
+    dictitem_T *
+find_var_autoload_prefix(char_u *name, int sid, hashtab_T **htp,
+							    char_u **namep)
+{
+    hashtab_T	*ht;
+    dictitem_T	*ret = NULL;
     // When using "vim9script autoload" script-local items are prefixed but can
     // be used with s:name.
-    if (SCRIPT_ID_VALID(current_sctx.sc_sid)
+    int check_sid = sid > 0 ? sid : current_sctx.sc_sid;
+    if (SCRIPT_ID_VALID(check_sid)
 		   && (in_vim9script() || (name[0] == 's' && name[1] == ':')))
     {
-	scriptitem_T *si = SCRIPT_ITEM(current_sctx.sc_sid);
+	scriptitem_T *si = SCRIPT_ITEM(check_sid);
 
 	if (si->sn_autoload_prefix != NULL)
 	{
@@ -3312,20 +3374,26 @@ find_var(char_u *name, hashtab_T **htp, int no_autoload)
 
 	    if (auto_name != NULL)
 	    {
+		int free_auto_name = TRUE;
 		ht = &globvarht;
 		ret = find_var_in_ht(ht, 'g', auto_name, TRUE);
-		vim_free(auto_name);
 		if (ret != NULL)
 		{
 		    if (htp != NULL)
 			*htp = ht;
-		    return ret;
+		    if (namep != NULL)
+		    {
+			free_auto_name = FALSE;
+			*namep = auto_name;
+		    }
 		}
+		if (free_auto_name)
+		    vim_free(auto_name);
 	    }
 	}
     }
 
-    return NULL;
+    return ret;
 }
 
 /*
@@ -3335,7 +3403,7 @@ find_var(char_u *name, hashtab_T **htp, int no_autoload)
     dictitem_T *
 find_var_also_in_script(char_u *name, hashtab_T **htp, int no_autoload)
 {
-    if (STRNCMP(name, "<SNR>", 5) == 0 && isdigit(name[5]))
+    if (STRNCMP(name, "<SNR>", 5) == 0 && SAFE_isdigit(name[5]))
     {
 	char_u	    *p = name + 5;
 	int	    sid = getdigits(&p);
@@ -3465,7 +3533,11 @@ lookup_scriptitem(
     hi = hash_find(ht, p);
     res = HASHITEM_EMPTY(hi) ? FAIL : OK;
 
-    // if not script-local, then perhaps imported
+    // if not script-local, then perhaps autoload-exported
+    if (res == FAIL && find_var_autoload_prefix(p, 0, NULL, NULL) != NULL)
+	res = OK;
+
+    // if not script-local or autoload, then perhaps imported
     if (res == FAIL && find_imported(p, 0, FALSE) != NULL)
 	res = OK;
     if (p != buffer)
@@ -3833,7 +3905,7 @@ set_var(
  * If the variable already exists and "is_const" is FALSE the value is updated.
  * Otherwise the variable is created.
  */
-    void
+    int
 set_var_const(
     char_u	*name,
     scid_T	sid,
@@ -3857,26 +3929,44 @@ set_var_const(
     int		var_in_autoload = FALSE;
     int		flags = flags_arg;
     int		free_tv_arg = !copy;  // free tv_arg if not used
+    int		rc = FAIL;
 
     if (sid != 0)
     {
+	varname = NULL;
 	if (SCRIPT_ID_VALID(sid))
-	    ht = &SCRIPT_VARS(sid);
-	varname = name;
+	{
+	    char_u	*auto_name = NULL;
+	    if (find_var_autoload_prefix(name, sid, &ht, &auto_name) != NULL)
+	    {
+		var_in_autoload = TRUE;
+		varname = auto_name;
+		name_tofree = varname;
+	    }
+	    else
+		ht = &SCRIPT_VARS(sid);
+	}
+	if (varname == NULL)
+	    varname = name;
     }
     else
     {
-	scriptitem_T *si;
+	scriptitem_T	*si;
+	char_u		*auto_name = NULL;
 
-	if (in_vim9script() && is_export
-		&& SCRIPT_ID_VALID(current_sctx.sc_sid)
-		&& (si = SCRIPT_ITEM(current_sctx.sc_sid))
-						  ->sn_autoload_prefix != NULL)
+	if (in_vim9script()
+	    && SCRIPT_ID_VALID(current_sctx.sc_sid)
+	    && (si = SCRIPT_ITEM(current_sctx.sc_sid))
+					      ->sn_autoload_prefix != NULL
+	    && (is_export
+		|| find_var_autoload_prefix(name, 0, NULL, &auto_name)
+								    != NULL))
 	{
 	    // In a vim9 autoload script an exported variable is put in the
 	    // global namespace with the autoload prefix.
 	    var_in_autoload = TRUE;
-	    varname = concat_str(si->sn_autoload_prefix, name);
+	    varname = auto_name != NULL ? auto_name
+		      : concat_str(si->sn_autoload_prefix, name);
 	    if (varname == NULL)
 		goto failed;
 	    name_tofree = varname;
@@ -3977,15 +4067,17 @@ set_var_const(
 		goto failed;
 	    }
 
-	    if (di->di_tv.v_type == VAR_TYPEALIAS)
-	    {
-		semsg(_(e_cannot_modify_typealias),
-					    di->di_tv.vval.v_typealias->ta_name);
-		clear_tv(&di->di_tv);
+	    if (check_typval_is_value(&di->di_tv) == FAIL)
 		goto failed;
-	    }
 
-	    if (var_in_vim9script && (flags & ASSIGN_FOR_LOOP) == 0)
+	    // List and Blob types can be modified in-place using the "+="
+	    // compound operator.  For other types, this is not allowed.
+	    int type_inplace_modifiable =
+		(di->di_tv.v_type == VAR_LIST || di->di_tv.v_type == VAR_BLOB);
+
+	    if (var_in_vim9script && (flags & ASSIGN_FOR_LOOP) == 0
+		    && ((flags & ASSIGN_COMPOUND_OP) == 0
+			|| !type_inplace_modifiable))
 	    {
 		where_T where = WHERE_INIT;
 		svar_T  *sv = find_typval_in_script(&di->di_tv, sid, TRUE);
@@ -4006,7 +4098,11 @@ set_var_const(
 		}
 	    }
 
-	    if ((flags & ASSIGN_FOR_LOOP) == 0
+	    // Modifying a final variable with a List value using the "+="
+	    // operator is allowed.  For other types, it is not allowed.
+	    if ((((flags & ASSIGN_FOR_LOOP) == 0 || (flags & ASSIGN_DECL) == 0)
+			&& ((flags & ASSIGN_COMPOUND_OP) == 0
+			    || !type_inplace_modifiable))
 				 ? var_check_permission(di, name) == FAIL
 				 : var_check_ro(di->di_flags, name, FALSE))
 		goto failed;
@@ -4124,10 +4220,14 @@ set_var_const(
 	// values.
 	item_lock(dest_tv, DICT_MAXNEST, TRUE, TRUE);
 
+    rc = OK;
+
 failed:
     vim_free(name_tofree);
     if (free_tv_arg)
 	clear_tv(tv_arg);
+
+    return rc;
 }
 
 /*
@@ -4135,6 +4235,7 @@ failed:
  * - Whether the variable is read-only
  * - Whether the variable value is locked
  * - Whether the variable is locked
+ * NOTE: "name" is only used for error messages.
  */
     int
 var_check_permission(dictitem_T *di, char_u *name)
@@ -4840,6 +4941,7 @@ f_settabvar(typval_T *argvars, typval_T *rettv UNUSED)
 {
     tabpage_T	*save_curtab;
     tabpage_T	*tp;
+    tabpage_T	*save_lu_tp;
     char_u	*varname, *tabvarname;
     typval_T	*varp;
 
@@ -4859,6 +4961,7 @@ f_settabvar(typval_T *argvars, typval_T *rettv UNUSED)
 	return;
 
     save_curtab = curtab;
+    save_lu_tp = lastused_tabpage;
     goto_tabpage_tp(tp, FALSE, FALSE);
 
     tabvarname = alloc(STRLEN(varname) + 3);
@@ -4870,9 +4973,13 @@ f_settabvar(typval_T *argvars, typval_T *rettv UNUSED)
 	vim_free(tabvarname);
     }
 
-    // Restore current tabpage
+    // Restore current tabpage and last accessed tabpage.
     if (valid_tabpage(save_curtab))
+    {
 	goto_tabpage_tp(save_curtab, FALSE, FALSE);
+	if (valid_tabpage(save_lu_tp))
+	    lastused_tabpage = save_lu_tp;
+    }
 }
 
 /*
@@ -4932,6 +5039,10 @@ f_setbufvar(typval_T *argvars, typval_T *rettv UNUSED)
     if (*varname == '&')
     {
 	aco_save_T	aco;
+	// safe the current window position, it could
+	// change because of 'scrollbind' window-local
+	// options
+	linenr_T	old_topline = curwin->w_topline;
 
 	// Set curbuf to be our buf, temporarily.
 	aucmd_prepbuf(&aco, buf);
@@ -4943,6 +5054,7 @@ f_setbufvar(typval_T *argvars, typval_T *rettv UNUSED)
 	    // reset notion of buffer
 	    aucmd_restbuf(&aco);
 	}
+	curwin->w_topline = old_topline;
     }
     else
     {
@@ -4983,7 +5095,7 @@ get_callback(typval_T *arg)
     else
     {
 	if (arg->v_type == VAR_STRING && arg->vval.v_string != NULL
-					       && isdigit(*arg->vval.v_string))
+					       && SAFE_isdigit(*arg->vval.v_string))
 	    r = FAIL;
 	else if (arg->v_type == VAR_FUNC || arg->v_type == VAR_STRING)
 	{

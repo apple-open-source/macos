@@ -46,6 +46,7 @@ class LegacyRootInlineBox;
 typedef SingleThreadWeakListHashSet<RenderFragmentContainer> RenderFragmentContainerList;
 typedef Vector<SingleThreadWeakPtr<RenderLayer>> RenderLayerList;
 typedef HashMap<const LegacyRootInlineBox*, SingleThreadWeakPtr<RenderFragmentContainer>> ContainingFragmentMap;
+typedef PODIntervalTree<LayoutUnit, SingleThreadWeakPtr<RenderFragmentContainer>> FragmentIntervalTree;
 
 // RenderFragmentedFlow is used to collect all the render objects that participate in a
 // flow thread. It will also help in doing the layout. However, it will not render
@@ -54,7 +55,7 @@ typedef HashMap<const LegacyRootInlineBox*, SingleThreadWeakPtr<RenderFragmentCo
 // of the RenderFragmentedFlow.
 
 class RenderFragmentedFlow : public RenderBlockFlow {
-    WTF_MAKE_ISO_ALLOCATED(RenderFragmentedFlow);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderFragmentedFlow);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderFragmentedFlow);
 public:
     virtual ~RenderFragmentedFlow();
@@ -250,7 +251,6 @@ protected:
     RenderBoxToFragmentMap m_breakBeforeToFragmentMap;
     RenderBoxToFragmentMap m_breakAfterToFragmentMap;
 
-    using FragmentIntervalTree = PODIntervalTree<LayoutUnit, SingleThreadWeakPtr<RenderFragmentContainer>>;
     FragmentIntervalTree m_fragmentIntervalTree;
 
     CurrentRenderFragmentContainerMaintainer* m_currentFragmentMaintainer;

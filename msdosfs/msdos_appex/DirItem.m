@@ -774,7 +774,7 @@
     /*
      * The inner loop goes through the allocated clusters,
      * and saves up-to MAX_META_BLOCK_RANGES ranges in the array.
-     * The outer loop calls synchronousMetadataPurge: for these ranges.
+     * The outer loop calls metadataPurge: for these ranges.
      * We exit both loops once we reach the end of the cluster chain.
      */
     while ([self.volume.systemInfo isClusterValid:startCluster]) {

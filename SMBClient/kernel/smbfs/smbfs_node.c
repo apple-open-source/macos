@@ -852,7 +852,7 @@ done:
 	return rt_value;
 }
 
-static int
+int
 smbfs_is_ancestor(vnode_t potential_ancestor, struct smbnode *np)
 {
     vnode_t tmp = NULLVP;

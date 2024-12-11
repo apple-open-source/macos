@@ -46,6 +46,7 @@
 #include "ContextMenuClient.h"
 #include "ContextMenuController.h"
 #include "CookieJar.h"
+#include "CredentialRequestCoordinator.h"
 #include "CryptoClient.h"
 #include "DOMRect.h"
 #include "DOMRectList.h"
@@ -93,6 +94,7 @@
 #include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorInstrumentation.h"
+#include "IntelligenceTextEffectsSupport.h"
 #include "LayoutDisallowedScope.h"
 #include "LegacySchemeRegistry.h"
 #include "LoaderStrategy.h"
@@ -170,6 +172,7 @@
 #include "ThermalMitigationNotifier.h"
 #include "UserContentProvider.h"
 #include "UserContentURLPattern.h"
+#include "UserMediaController.h"
 #include "UserScript.h"
 #include "UserStyleSheet.h"
 #include "ValidationMessageClient.h"
@@ -189,6 +192,7 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringHash.h>
@@ -231,6 +235,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Page);
 
 static HashSet<WeakRef<Page>>& allPages()
 {
@@ -398,6 +404,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
 #endif
 #if ENABLE(WEB_AUTHN)
     , m_authenticatorCoordinator(makeUniqueRef<AuthenticatorCoordinator>(WTFMove(pageConfiguration.authenticatorCoordinatorClient)))
+    , m_credentialRequestCoordinator(makeUniqueRef<CredentialRequestCoordinator>(WTFMove(pageConfiguration.credentialRequestCoordinatorClient)))
 #endif
 #if ENABLE(APPLICATION_MANIFEST)
     , m_applicationManifest(pageConfiguration.applicationManifest)
@@ -1926,6 +1933,12 @@ void Page::updateRendering()
         initialDocuments.append(document);
     });
 
+    runProcessingStep(RenderingUpdateStep::Reveal, [] (Document& document) {
+        // FIXME: Bug 278193 - Hidden docs should already be excluded.
+        if (document.visibilityState() != VisibilityState::Hidden)
+            document.reveal();
+    });
+
     runProcessingStep(RenderingUpdateStep::FlushAutofocusCandidates, [] (Document& document) {
         if (document.isTopDocument())
             document.flushAutofocusCandidates();
@@ -1992,7 +2005,7 @@ void Page::updateRendering()
     });
 
     runProcessingStep(RenderingUpdateStep::Images, [] (Document& document) {
-        for (auto& image : document.cachedResourceLoader().allCachedSVGImages()) {
+        for (auto& image : document.protectedCachedResourceLoader()->allCachedSVGImages()) {
             if (RefPtr page = image->internalPage())
                 page->isolatedUpdateRendering();
         }
@@ -2757,14 +2770,66 @@ void Page::mediaEngineChanged(HTMLMediaElement& mediaElement)
 
 #endif
 
-void Page::setMuted(MediaProducerMutedStateFlags muted)
+void Page::setMuted(MediaProducerMutedStateFlags mutedState)
 {
-    m_mutedState = muted;
+#if ENABLE(MEDIA_STREAM) && ENABLE(MEDIA_SESSION)
+    bool cameraCaptureStateDidChange = mutedState.contains(MediaProducerMutedState::VideoCaptureIsMuted) != m_mutedState.contains(MediaProducerMutedState::VideoCaptureIsMuted);
+    bool microphoneCaptureStateDidChange = mutedState.contains(MediaProducerMutedState::AudioCaptureIsMuted) != m_mutedState.contains(MediaProducerMutedState::AudioCaptureIsMuted);
+    bool screenshareCaptureStateDidChange = (mutedState.contains(MediaProducerMutedState::ScreenCaptureIsMuted) || mutedState.contains(MediaProducerMutedState::WindowCaptureIsMuted)) != (m_mutedState.contains(MediaProducerMutedState::ScreenCaptureIsMuted) || m_mutedState.contains(MediaProducerMutedState::WindowCaptureIsMuted));
+#endif
 
-    forEachDocument([] (Document& document) {
+    m_mutedState = mutedState;
+
+    forEachDocument([&] (Document& document) {
+#if ENABLE(MEDIA_STREAM) && ENABLE(MEDIA_SESSION)
+        if (cameraCaptureStateDidChange)
+            document.cameraCaptureStateDidChange();
+        if (microphoneCaptureStateDidChange)
+            document.microphoneCaptureStateDidChange();
+        if (screenshareCaptureStateDidChange)
+            document.screenshareCaptureStateDidChange();
+#endif
         document.pageMutedStateDidChange();
     });
 }
+
+#if ENABLE(MEDIA_STREAM)
+static inline MediaProducerMutedStateFlags toMediaProducerMutedStateFlags(MediaProducerMediaCaptureKind kind)
+{
+    switch (kind) {
+    case MediaProducerMediaCaptureKind::Microphone:
+        return MediaProducerMutedState::AudioCaptureIsMuted;
+    case MediaProducerMediaCaptureKind::Camera:
+        return MediaProducerMutedState::VideoCaptureIsMuted;
+    case MediaProducerMediaCaptureKind::Display:
+        return { MediaProducerMutedState::ScreenCaptureIsMuted, MediaProducerMutedState::WindowCaptureIsMuted };
+    case MediaProducerMediaCaptureKind::SystemAudio:
+    case MediaProducerMediaCaptureKind::EveryKind:
+        ASSERT_NOT_REACHED();
+    }
+    return { };
+}
+
+static inline MediaProducerMutedStateFlags computeCaptureMutedState(MediaProducerMutedStateFlags currentState, bool isActive, MediaProducerMediaCaptureKind kind)
+{
+    auto flagsToUpdate = toMediaProducerMutedStateFlags(kind);
+    return isActive ? (currentState - flagsToUpdate) : (currentState | flagsToUpdate);
+}
+
+void Page::updateCaptureState(bool isActive, MediaProducerMediaCaptureKind kind)
+{
+    m_mutedState = computeCaptureMutedState(m_mutedState, isActive, kind);
+    forEachDocument([&] (Document& document) {
+        document.pageMutedStateDidChange();
+    });
+}
+
+void Page::voiceActivityDetected()
+{
+    if (auto* controller = UserMediaController::from(this))
+        controller->voiceActivityDetected();
+}
+#endif
 
 void Page::stopMediaCapture(MediaProducerMediaCaptureKind kind)
 {
@@ -2821,7 +2886,7 @@ MediaSessionGroupIdentifier Page::mediaSessionGroupIdentifier() const
 {
     if (!m_mediaSessionGroupIdentifier) {
         if (auto identifier = this->identifier())
-            m_mediaSessionGroupIdentifier = ObjectIdentifier<MediaSessionGroupIdentifierType>(identifier->toUInt64());
+            m_mediaSessionGroupIdentifier = LegacyNullableObjectIdentifier<MediaSessionGroupIdentifierType>(identifier->toUInt64());
     }
     return m_mediaSessionGroupIdentifier;
 }
@@ -3770,7 +3835,7 @@ void Page::setResourceUsageOverlayVisible(bool visible)
     }
 
     if (!m_resourceUsageOverlay && m_settings->acceleratedCompositingEnabled())
-        m_resourceUsageOverlay = makeUnique<ResourceUsageOverlay>(*this);
+        m_resourceUsageOverlay = ResourceUsageOverlay::create(*this);
 }
 #endif
 
@@ -4026,6 +4091,8 @@ void Page::forEachRenderableDocument(const Function<void(Document&)>& functor) c
             continue;
         if (document->renderingIsSuppressedForViewTransition())
             continue;
+        if (!document->visualUpdatesAllowed())
+            continue;
         documents.append(*document);
     }
     for (auto& document : documents)
@@ -4113,8 +4180,6 @@ void Page::applicationWillResignActive()
 
 void Page::applicationDidEnterBackground()
 {
-    m_webRTCProvider->setActive(false);
-
 #if ENABLE(WEBXR)
     if (auto session = this->activeImmersiveXRSession())
         session->applicationDidEnterBackground();
@@ -4123,8 +4188,6 @@ void Page::applicationDidEnterBackground()
 
 void Page::applicationWillEnterForeground()
 {
-    m_webRTCProvider->setActive(true);
-
 #if ENABLE(WEBXR)
     if (auto session = this->activeImmersiveXRSession())
         session->applicationWillEnterForeground();
@@ -4270,7 +4333,7 @@ void Page::configureLoggingChannel(const String& channelName, WTFLogChannelState
 
 #if USE(LIBWEBRTC)
         RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
-        if (channel == &LogWebRTC && localMainFrame && localMainFrame->document() && !sessionID().isEphemeral())
+        if (channel == &LogWebRTC && localMainFrame && localMainFrame->document() && isAlwaysOnLoggingAllowed())
             webRTCProvider().setLoggingLevel(LogWebRTC.level);
 #endif
     }
@@ -4442,6 +4505,7 @@ SpeechRecognitionConnection& Page::speechRecognitionConnection()
 WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
 {
     switch (step) {
+    case RenderingUpdateStep::Reveal: ts << "Reveal"; break;
     case RenderingUpdateStep::FlushAutofocusCandidates: ts << "FlushAutofocusCandidates"; break;
     case RenderingUpdateStep::Resize: ts << "Resize"; break;
     case RenderingUpdateStep::Scroll: ts << "Scroll"; break;
@@ -4910,14 +4974,19 @@ void Page::didBeginWritingToolsSession(const WritingTools::Session& session, con
     m_writingToolsController->didBeginWritingToolsSession(session, contexts);
 }
 
-void Page::proofreadingSessionDidReceiveSuggestions(const WritingTools::Session& session, const Vector<WritingTools::TextSuggestion>& suggestions, const WritingTools::Context& context, bool finished)
+void Page::proofreadingSessionDidReceiveSuggestions(const WritingTools::Session& session, const Vector<WritingTools::TextSuggestion>& suggestions, const CharacterRange& processedRange, const WritingTools::Context& context, bool finished)
 {
-    m_writingToolsController->proofreadingSessionDidReceiveSuggestions(session, suggestions, context, finished);
+    m_writingToolsController->proofreadingSessionDidReceiveSuggestions(session, suggestions, processedRange, context, finished);
 }
 
 void Page::proofreadingSessionDidUpdateStateForSuggestion(const WritingTools::Session& session, WritingTools::TextSuggestion::State state, const WritingTools::TextSuggestion& suggestion, const WritingTools::Context& context)
 {
     m_writingToolsController->proofreadingSessionDidUpdateStateForSuggestion(session, state, suggestion, context);
+}
+
+void Page::willEndWritingToolsSession(const WritingTools::Session& session, bool accepted)
+{
+    m_writingToolsController->willEndWritingToolsSession(session, accepted);
 }
 
 void Page::didEndWritingToolsSession(const WritingTools::Session& session, bool accepted)
@@ -4950,6 +5019,101 @@ void Page::respondToReappliedWritingToolsEditing(EditCommandComposition* command
     m_writingToolsController->respondToReappliedEditing(command);
 }
 
+Vector<FloatRect> Page::proofreadingSessionSuggestionTextRectsInRootViewCoordinates(const CharacterRange& enclosingRangeRelativeToSessionRange) const
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        return { };
+    }
+
+    auto scope = m_writingToolsController->activeSessionRange();
+    if (!scope) {
+        ASSERT_NOT_REACHED();
+        return { };
+    }
+
+    return IntelligenceTextEffectsSupport::writingToolsTextSuggestionRectsInRootViewCoordinates(*document, *scope, enclosingRangeRelativeToSessionRange);
+}
+
+void Page::updateTextVisibilityForActiveWritingToolsSession(const CharacterRange& rangeRelativeToSessionRange, bool visible, const WTF::UUID& identifier)
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto scope = m_writingToolsController->activeSessionRange();
+    if (!scope) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    IntelligenceTextEffectsSupport::updateTextVisibility(*document, *scope, rangeRelativeToSessionRange, visible, identifier);
+}
+
+std::optional<TextIndicatorData> Page::textPreviewDataForActiveWritingToolsSession(const CharacterRange& rangeRelativeToSessionRange)
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        return std::nullopt;
+    }
+
+    auto scope = m_writingToolsController->activeSessionRange();
+    if (!scope) {
+        ASSERT_NOT_REACHED();
+        return std::nullopt;
+    }
+
+    return IntelligenceTextEffectsSupport::textPreviewDataForRange(*document, *scope, rangeRelativeToSessionRange);
+}
+
+void Page::decorateTextReplacementsForActiveWritingToolsSession(const CharacterRange& rangeRelativeToSessionRange)
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto scope = m_writingToolsController->activeSessionRange();
+    if (!scope) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    IntelligenceTextEffectsSupport::decorateWritingToolsTextReplacements(*document, *scope, rangeRelativeToSessionRange);
+}
+
+void Page::setSelectionForActiveWritingToolsSession(const CharacterRange& rangeRelativeToSessionRange)
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    RefPtr document = localMainFrame ? localMainFrame->document() : nullptr;
+    if (!document) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto scope = m_writingToolsController->activeSessionRange();
+    if (!scope) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto resolvedRange = resolveCharacterRange(*scope, rangeRelativeToSessionRange);
+    auto visibleSelection = VisibleSelection { resolvedRange };
+    if (visibleSelection.isNoneOrOrphaned())
+        return;
+
+    document->selection().setSelection(visibleSelection);
+}
+
 std::optional<SimpleRange> Page::contextRangeForActiveWritingToolsSession() const
 {
     return m_writingToolsController->activeSessionRange();
@@ -4975,6 +5139,27 @@ void Page::activeNowPlayingSessionUpdateTimerFired()
 
     m_hasActiveNowPlayingSession = hasActiveNowPlayingSession;
     chrome().client().hasActiveNowPlayingSessionChanged(hasActiveNowPlayingSession);
+}
+
+void Page::setLastAuthentication(LoginStatus::AuthenticationType authType)
+{
+    auto loginStatus = LoginStatus::create(RegistrableDomain(mainFrameURL()), emptyString(), LoginStatus::CredentialTokenType::HTTPStateToken, authType, LoginStatus::TimeToLiveAuthentication);
+    if (loginStatus.hasException())
+        return;
+    m_lastAuthentication = loginStatus.releaseReturnValue();
+}
+
+#if ENABLE(FULLSCREEN_API)
+bool Page::isFullscreenManagerEnabled() const
+{
+    Ref settings = protectedSettings();
+    return settings->fullScreenEnabled() || settings->videoFullscreenRequiresElementFullscreen();
+}
+#endif
+
+bool Page::isAlwaysOnLoggingAllowed() const
+{
+    return m_sessionID.isAlwaysOnLoggingAllowed() || protectedSettings()->allowPrivacySensitiveOperationsInNonPersistentDataStores();
 }
 
 } // namespace WebCore

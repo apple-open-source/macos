@@ -258,7 +258,7 @@ static CFStringRef SWCAGetOperationDescription(enum SWCAXPCOperation op)
         case swca_copy_request_id:
             return CFSTR("swc copy");
         case swca_select_request_id:
-            return CFSTR("swc select");
+            return CFSTR("swc select (deprecated)");
         case swca_copy_pairs_request_id:
             return CFSTR("swc copy pairs");
         case swca_set_selection_request_id:
@@ -465,96 +465,6 @@ static bool swca_confirm_delete(CFDictionaryRef attributes, Client* client, CFAr
     return swca_process_response(response, result);
 }
 
-static bool swca_select_item(CFArrayRef items, Client* client, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error)
-{
-    CFUserNotificationRef notification = NULL;
-    NSMutableDictionary *notification_dictionary = NULL;
-    NSString *request_title_format;
-    NSString *info_message_key;
-    NSString *default_button_key;
-    NSString *alternate_button_key;
-    CFOptionFlags response = 0 | kCFUserNotificationCancelResponse;
-    CFIndex item_count = (items) ? CFArrayGetCount(items) : (CFIndex) 0;
-    BOOL alert_sem_held = NO;
-
-    if (item_count < 1) {
-        return false;
-    }
-
-entry:
-    ;
-    /* Only display one alert at a time. */
-    static dispatch_semaphore_t select_alert_sem;
-    static dispatch_once_t select_alert_once;
-    dispatch_once(&select_alert_once, ^{
-        if (!(select_alert_sem = dispatch_semaphore_create(1)))
-            abort();
-    });
-    if (!alert_sem_held) {
-        alert_sem_held = YES;
-        if (dispatch_semaphore_wait(select_alert_sem, DISPATCH_TIME_NOW)) {
-            /* Wait for the active alert */
-            dispatch_semaphore_wait(select_alert_sem, DISPATCH_TIME_FOREVER);
-            goto entry;
-        }
-    }
-
-    CFRetainSafe(items);
-    CFReleaseSafe(gActiveArray);
-    gActiveArray = items;
-    CFReleaseSafe(gActiveItem);
-    gActiveItem = NULL;  // selection will be set by remote view controller
-    //gActiveItem = CFArrayGetValueAtIndex(items, 0);
-    //CFRetainSafe(gActiveItem);
-
-    notification_dictionary = [NSMutableDictionary dictionary];
-    request_title_format = NSLocalizedStringFromTableInBundle(@"SWC_ALERT_TITLE", swca_string_table, swca_get_security_bundle(), nil);
-    default_button_key = @"SWC_ALLOW_USE";
-    alternate_button_key = @"SWC_CANCEL";
-    info_message_key = @"SWC_INFO_MESSAGE";
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertHeaderKey] = [NSString stringWithFormat: request_title_format, client.client_name];
-#pragma clang diagnostic pop
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertMessageKey] = NSLocalizedStringFromTableInBundle(info_message_key, swca_string_table, swca_get_security_bundle(), nil);
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationDefaultButtonTitleKey] = NSLocalizedStringFromTableInBundle(default_button_key, swca_string_table, swca_get_security_bundle(), nil);
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlternateButtonTitleKey] = NSLocalizedStringFromTableInBundle(alternate_button_key, swca_string_table, swca_get_security_bundle(), nil);
-
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationLocalizationURLKey] = [swca_get_security_bundle() bundleURL];
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertTopMostKey] = [NSNumber numberWithBool:YES];
-
-    // additional keys for remote view controller
-    notification_dictionary[(__bridge NSString *)SBUserNotificationDismissOnLock] = [NSNumber numberWithBool:YES];
-    notification_dictionary[(__bridge NSString *)SBUserNotificationDontDismissOnUnlock] = [NSNumber numberWithBool:YES];
-    notification_dictionary[(__bridge NSString *)SBUserNotificationRemoteServiceBundleIdentifierKey] = @"com.apple.SharedWebCredentialViewService";
-    notification_dictionary[(__bridge NSString *)SBUserNotificationRemoteViewControllerClassNameKey] = @"SWCViewController";
-    notification_dictionary[(__bridge NSString *)SBUserNotificationAllowedApplicationsKey] = client.client;
-
-    SInt32 err;
-    if (!(notification = CFUserNotificationCreate(NULL, 0, 0, &err, (__bridge CFDictionaryRef)notification_dictionary)) ||
-        err)
-        goto out;
-    if (CFUserNotificationReceiveResponse(notification, 0, &response))
-        goto out;
-
-    //NSLog(@"Selection: %@, Response: %lu", gActiveItem, (unsigned long)response);
-    if (result && response == kCFUserNotificationDefaultResponse) {
-        CFRetainSafe(gActiveItem);
-        *result = gActiveItem;
-    }
-
-out:
-    if (alert_sem_held) {
-        dispatch_semaphore_signal(select_alert_sem);
-    }
-    CFReleaseSafe(notification);
-    CFReleaseNull(gActiveArray);
-    CFReleaseNull(gActiveItem);
-
-    return (result && *result);
-}
-
 /*
  * Return a SecTaskRef iff orignal client have the entitlement kSecEntitlementAssociatedDomains
  */
@@ -703,38 +613,8 @@ static void swca_xpc_dictionary_handler(const xpc_connection_t connection, xpc_o
             case swca_select_request_id:
             {
                 CFArrayRef items = SecXPCDictionaryCopyArray(event, kSecXPCKeyQuery, &error);
-                secdebug("ipc", "swcagent: got swca_select_request_id, items: %@", items);
-                if (items) {
-                    CFTypeRef result = NULL;
-                    // select a dictionary from an input array of dictionaries
-                    if (swca_select_item(items, client, accessGroups, &result, &error) && result) {
-#if TARGET_OS_IOS
-                        LAContext *ctx = [LAContext new];
-#if TARGET_OS_VISION
-                        if ([ctx canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:nil] &&
-#else
-                        if ([ctx canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometricsOrCompanion error:nil] &&
-#endif
-                            [[MCProfileConnection sharedConnection] isAuthenticationBeforeAutoFillRequired]) {
-                            NSString *subTitle = NSLocalizedStringFromTableInBundle(@"SWC_FILLPWD", swca_string_table, swca_get_security_bundle(), nil);
-                            dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-                            [ctx evaluatePolicy:LAPolicyDeviceOwnerAuthentication localizedReason:subTitle reply:^(BOOL success, NSError * _Nullable laError) {
-                                if (success || ([laError.domain isEqual:LAErrorDomain] && laError.code == LAErrorPasscodeNotSet)) {
-                                    SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
-                                }
-                                dispatch_semaphore_signal(sema);
-                            }];
-                            dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
-                        } else {
-#endif
-                            SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
-#if TARGET_OS_IOS
-                        }
-#endif
-                        CFRelease(result);
-                    }
-                    CFRelease(items);
-                }
+                secerror("swcagent: unexpectedly got swca_select_request_id, items: %@", items);
+                CFReleaseSafe(items);
                 break;
             }
             case swca_copy_pairs_request_id:

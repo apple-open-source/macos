@@ -98,19 +98,19 @@ MTLScissorRect GetScissorRect(const gl::Rectangle &rect,
 uint32_t GetDeviceVendorId(id<MTLDevice> metalDevice);
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
-    const mtl::ContextDevice &metalDevice,
+    id<MTLDevice> metalDevice,
     const std::string &source,
     const std::map<std::string, std::string> &substitutionDictionary,
     bool disableFastMath,
     bool usesInvariance,
     AutoObjCPtr<NSError *> *error);
 
-AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(const mtl::ContextDevice &metalDevice,
+AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(id<MTLDevice> metalDevice,
                                                 const std::string &source,
                                                 AutoObjCPtr<NSError *> *error);
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
-    const mtl::ContextDevice &metalDevice,
+    id<MTLDevice> metalDevice,
     const char *source,
     size_t sourceLen,
     const std::map<std::string, std::string> &substitutionDictionary,
@@ -165,13 +165,11 @@ MTLStencilOperation GetStencilOp(GLenum op);
 
 MTLWinding GetFrontfaceWinding(GLenum frontFaceMode, bool invert);
 
-PrimitiveTopologyClass GetPrimitiveTopologyClass(gl::PrimitiveMode mode);
+MTLPrimitiveTopologyClass GetPrimitiveTopologyClass(gl::PrimitiveMode mode);
 MTLPrimitiveType GetPrimitiveType(gl::PrimitiveMode mode);
 MTLIndexType GetIndexType(gl::DrawElementsType type);
 
-#if ANGLE_MTL_SWIZZLE_AVAILABLE
 MTLTextureSwizzle GetTextureSwizzle(GLenum swizzle);
-#endif
 
 // Get color write mask for a specified format. Some formats such as RGB565 doesn't have alpha
 // channel but is emulated by a RGBA8 format, we need to disable alpha write for this format.

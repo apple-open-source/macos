@@ -31,12 +31,12 @@
 #include "JSWebCodecsVideoFrame.h"
 #include "Logging.h"
 #include "ReadableStream.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Seconds.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaStreamTrackProcessor);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MediaStreamTrackProcessor);
 
 ExceptionOr<Ref<MediaStreamTrackProcessor>> MediaStreamTrackProcessor::create(ScriptExecutionContext& context, Init&& init)
 {
@@ -124,6 +124,8 @@ void MediaStreamTrackProcessor::VideoFrameObserverWrapper::start()
     });
 }
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(MediaStreamTrackProcessorVideoFrameObserver, MediaStreamTrackProcessor::VideoFrameObserver);
+
 MediaStreamTrackProcessor::VideoFrameObserver::VideoFrameObserver(ScriptExecutionContextIdentifier identifier, WeakPtr<MediaStreamTrackProcessor>&& processor, Ref<RealtimeMediaSource>&& source, unsigned short maxVideoFramesCount)
     : m_contextIdentifier(identifier)
     , m_processor(WTFMove(processor))
@@ -184,7 +186,7 @@ void MediaStreamTrackProcessor::VideoFrameObserver::videoFrameAvailable(VideoFra
 }
 
 using MediaStreamTrackProcessorSource = MediaStreamTrackProcessor::Source;
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaStreamTrackProcessorSource);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MediaStreamTrackProcessorSource);
 
 MediaStreamTrackProcessor::Source::Source(Ref<MediaStreamTrack>&& track, MediaStreamTrackProcessor& processor)
     : m_track(WTFMove(track))

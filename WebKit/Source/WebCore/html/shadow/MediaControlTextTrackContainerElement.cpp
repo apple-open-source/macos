@@ -48,6 +48,7 @@
 #include "Page.h"
 #include "PageGroup.h"
 #include "RenderLayer.h"
+#include "RenderLayerInlines.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
 #include "Settings.h"
@@ -57,12 +58,12 @@
 #include "TextTrackList.h"
 #include "UserAgentParts.h"
 #include "VTTRegionList.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlTextTrackContainerElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MediaControlTextTrackContainerElement);
 
 using namespace HTMLNames;
 
@@ -290,7 +291,7 @@ void MediaControlTextTrackContainerElement::updateTextStrokeStyle()
 
     // FIXME: find a way to set this property in the stylesheet like the other user style preferences, see <https://bugs.webkit.org/show_bug.cgi?id=169874>.
     if (document().page()->group().ensureCaptionPreferences().captionStrokeWidthForFont(m_fontSize, language, strokeWidth, important))
-        setInlineStyleProperty(CSSPropertyStrokeWidth, strokeWidth, CSSUnitType::CSS_PX, important);
+        setInlineStyleProperty(CSSPropertyStrokeWidth, strokeWidth, CSSUnitType::CSS_PX, important ? IsImportant::Yes : IsImportant::No);
 }
 
 void MediaControlTextTrackContainerElement::updateTextTrackRepresentationIfNeeded()

@@ -43,11 +43,15 @@
 #include "RemoteSamplerProxy.h"
 #include "RemoteShaderModuleProxy.h"
 #include "RemoteTextureProxy.h"
+#include "RemoteXRBindingProxy.h"
 #include "SharedVideoFrame.h"
 #include "WebGPUCommandEncoderDescriptor.h"
 #include "WebGPUConvertToBackingContext.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit::WebGPU {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteDeviceProxy);
 
 RemoteDeviceProxy::RemoteDeviceProxy(Ref<WebCore::WebGPU::SupportedFeatures>&& features, Ref<WebCore::WebGPU::SupportedLimits>&& limits, RemoteAdapterProxy& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier, WebGPUIdentifier queueIdentifier)
     : Device(WTFMove(features), WTFMove(limits))
@@ -73,6 +77,16 @@ void RemoteDeviceProxy::destroy()
 {
     auto sendResult = send(Messages::RemoteDevice::Destroy());
     UNUSED_PARAM(sendResult);
+}
+
+RefPtr<WebCore::WebGPU::XRBinding> RemoteDeviceProxy::createXRBinding()
+{
+    auto identifier = WebGPUIdentifier::generate();
+    auto sendResult = send(Messages::RemoteDevice::CreateXRBinding(identifier));
+    if (sendResult != IPC::Error::NoError)
+        return nullptr;
+
+    return RemoteXRBindingProxy::create(*this, m_convertToBackingContext, identifier);
 }
 
 RefPtr<WebCore::WebGPU::Buffer> RemoteDeviceProxy::createBuffer(const WebCore::WebGPU::BufferDescriptor& descriptor)
@@ -102,7 +116,7 @@ RefPtr<WebCore::WebGPU::Texture> RemoteDeviceProxy::createTexture(const WebCore:
     if (sendResult != IPC::Error::NoError)
         return nullptr;
 
-    auto result = RemoteTextureProxy::create(root(), m_convertToBackingContext, identifier);
+    auto result = RemoteTextureProxy::create(protectedRoot().get(), m_convertToBackingContext, identifier);
     result->setLabel(WTFMove(convertedDescriptor->label));
     return result;
 }
@@ -155,6 +169,14 @@ RefPtr<WebCore::WebGPU::ExternalTexture> RemoteDeviceProxy::importExternalTextur
     result->setLabel(WTFMove(convertedDescriptor->label));
     return result;
 }
+
+#if PLATFORM(COCOA) && ENABLE(VIDEO)
+void RemoteDeviceProxy::updateExternalTexture(const WebCore::WebGPU::ExternalTexture& externalTexture, const WebCore::MediaPlayerIdentifier& mediaPlayerIdentifier)
+{
+    auto sendResult = send(Messages::RemoteDevice::UpdateExternalTexture(m_convertToBackingContext->convertToBacking(externalTexture), mediaPlayerIdentifier));
+    UNUSED_PARAM(sendResult);
+}
+#endif
 
 RefPtr<WebCore::WebGPU::BindGroupLayout> RemoteDeviceProxy::createBindGroupLayout(const WebCore::WebGPU::BindGroupLayoutDescriptor& descriptor)
 {

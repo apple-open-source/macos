@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2023 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2024 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -130,6 +130,7 @@ class Heap;
     v(numberObjectSpace, cellHeapCellType, NumberObject) \
     v(plainObjectSpace, cellHeapCellType, JSNonFinalObject) \
     v(promiseSpace, cellHeapCellType, JSPromise) \
+    v(iteratorSpace, cellHeapCellType, JSIterator) \
     v(propertyNameEnumeratorSpace, cellHeapCellType, JSPropertyNameEnumerator) \
     v(propertyTableSpace, destructibleCellHeapCellType, PropertyTable) \
     v(regExpSpace, destructibleCellHeapCellType, RegExp) \
@@ -210,6 +211,7 @@ class Heap;
     v(debuggerScopeSpace, cellHeapCellType, DebuggerScope) \
     v(errorInstanceSpace, errorInstanceHeapCellType, ErrorInstance) \
     v(finalizationRegistrySpace, finalizationRegistryCellType, JSFinalizationRegistry) \
+    v(float16ArraySpace, cellHeapCellType, JSFloat16Array) \
     v(float32ArraySpace, cellHeapCellType, JSFloat32Array) \
     v(float64ArraySpace, cellHeapCellType, JSFloat64Array) \
     v(functionRareDataSpace, destructibleCellHeapCellType, FunctionRareData) \
@@ -272,6 +274,7 @@ class Heap;
     v(weakMapSpace, weakMapHeapCellType, JSWeakMap) \
     v(weakSetSpace, weakSetHeapCellType, JSWeakSet) \
     v(withScopeSpace, cellHeapCellType, JSWithScope) \
+    v(wrapForValidIteratorSpace, cellHeapCellType, JSWrapForValidIterator) \
     \
     FOR_EACH_JSC_WEBASSEMBLY_DYNAMIC_ISO_SUBSPACE(v)
 
@@ -627,6 +630,8 @@ private:
     JS_EXPORT_PRIVATE void reportExtraMemoryAllocatedSlowCase(GCDeferralContext*, const JSCell*, size_t);
     JS_EXPORT_PRIVATE void deprecatedReportExtraMemorySlowCase(size_t);
     
+    size_t totalBytesAllocatedThisCycle() { return m_nonOversizedBytesAllocatedThisCycle + m_oversizedBytesAllocatedThisCycle; }
+
     bool shouldCollectInCollectorThread(const AbstractLocker&);
     void collectInCollectorThread();
     
@@ -776,7 +781,10 @@ private:
     size_t m_sizeAfterLastEdenCollect { 0 };
     size_t m_sizeBeforeLastEdenCollect { 0 };
 
-    size_t m_bytesAllocatedThisCycle { 0 };
+    size_t m_oversizedBytesAllocatedThisCycle { 0 };
+    size_t m_lastOversidedAllocationThisCycle { 0 };
+
+    size_t m_nonOversizedBytesAllocatedThisCycle { 0 };
     size_t m_bytesAbandonedSinceLastFullCollect { 0 };
     size_t m_maxEdenSize;
     size_t m_maxEdenSizeWhenCritical;

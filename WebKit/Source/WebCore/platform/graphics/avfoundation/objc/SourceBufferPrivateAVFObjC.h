@@ -65,7 +65,7 @@ namespace WebCore {
 
 class CDMInstance;
 class CDMInstanceFairPlayStreamingAVFObjC;
-class CDMSessionMediaSourceAVFObjC;
+class CDMSessionAVContentKeySession;
 class MediaPlayerPrivateMediaSourceAVFObjC;
 class MediaSourcePrivateAVFObjC;
 class TimeRanges;
@@ -173,6 +173,7 @@ private:
     bool precheckInitializationSegment(const InitializationSegment&) final;
     void processInitializationSegment(std::optional<InitializationSegment>&&) final;
     void processFormatDescriptionForTrackId(Ref<TrackInfo>&&, TrackID) final;
+    void updateTrackIds(Vector<std::pair<TrackID, TrackID>>&&) final;
 
     // WebAVSampleBufferListenerClient
     void videoRendererDidReceiveError(WebSampleBufferVideoRendering *, NSError *) final;
@@ -196,6 +197,7 @@ private:
     bool requiresFlush() const;
     void flushVideo();
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+    RetainPtr<AVSampleBufferAudioRenderer> audioRendererForTrackID(TrackID) const;
     void flushAudio(AVSampleBufferAudioRenderer *);
 ALLOW_NEW_API_WITHOUT_GUARDS_END
 
@@ -237,7 +239,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<SharedBuffer> m_initData;
-    WeakPtr<CDMSessionMediaSourceAVFObjC> m_session { nullptr };
+    WeakPtr<CDMSessionAVContentKeySession> m_session { nullptr };
 #endif
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
     using KeyIDs = Vector<Ref<SharedBuffer>>;

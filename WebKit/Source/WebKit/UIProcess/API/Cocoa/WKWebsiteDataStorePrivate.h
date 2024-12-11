@@ -28,9 +28,11 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class UNNotificationResponse;
 @class WKSecurityOrigin;
 @class WKWebView;
 @class _WKResourceLoadStatisticsThirdParty;
+@class _WKWebPushAction;
 @class _WKWebsiteDataStoreConfiguration;
 
 @protocol _WKWebsiteDataStoreDelegate;
@@ -66,6 +68,7 @@ typedef NS_ENUM(uint8_t, _WKRestrictedOpenerType) {
 @property (nonatomic, setter=_setProxyConfiguration:) NSDictionary *_proxyConfiguration WK_API_DEPRECATED_WITH_REPLACEMENT("_WKWebsiteDataStoreConfiguration.proxyConfiguration", macos(10.14, 10.15.4), ios(12.0, 13.4));
 @property (nonatomic, setter=_setAllowsTLSFallback:) BOOL _allowsTLSFallback WK_API_AVAILABLE(macos(10.15), ios(13.0));
 @property (nonatomic, setter=_setStorageSiteValidationEnabled:) BOOL _storageSiteValidationEnabled WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
+@property (nonatomic, setter=_setPersistedSites:) NSArray<NSURL *> *_persistedSites WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 
 - (void)_setResourceLoadStatisticsTimeAdvanceForTesting:(NSTimeInterval)time completionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(13.3), ios(16.4));
 - (void)_setResourceLoadStatisticsTestingCallback:(nullable void (^)(WKWebsiteDataStore *, NSString *))callback WK_API_AVAILABLE(macos(10.13), ios(11.0));
@@ -122,6 +125,7 @@ typedef NS_ENUM(uint8_t, _WKRestrictedOpenerType) {
 - (void)_countNonDefaultSessionSets:(void(^)(size_t))completionHandler;
 
 -(bool)_hasServiceWorkerBackgroundActivityForTesting WK_API_AVAILABLE(macos(13.0), ios(16.0));
+-(void)_getPendingPushMessage:(void(^)(NSDictionary *))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 -(void)_getPendingPushMessages:(void(^)(NSArray<NSDictionary *> *))completionHandler WK_API_AVAILABLE(macos(13.0), ios(16.0));
 -(void)_processPushMessage:(NSDictionary *)pushMessage completionHandler:(void(^)(bool))completionHandler WK_API_AVAILABLE(macos(13.0), ios(16.0));
 -(void)_processPersistentNotificationClick:(NSDictionary *)notificationDictionaryRepresentation completionHandler:(void(^)(bool))completionHandler WK_API_AVAILABLE(macos(13.0), ios(16.0));
@@ -140,10 +144,14 @@ typedef NS_ENUM(uint8_t, _WKRestrictedOpenerType) {
 -(void)_storeServiceWorkerRegistrations:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(14.0), ios(17.0));
 -(void)_setCompletionHandlerForRemovalFromNetworkProcess:(void(^)(NSError* error))completionHandler WK_API_AVAILABLE(macos(14.0), ios(17.0));
 
-- (void)_setRestrictedOpenerTypeForTesting:(_WKRestrictedOpenerType)type forDomain:(NSString *)domain WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
+-(void)_setRestrictedOpenerTypeForTesting:(_WKRestrictedOpenerType)type forDomain:(NSString *)domain WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
+-(void)_getAppBadgeForTesting:(void(^)(NSNumber *))completionHandler WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
 
 @property (nonatomic, readonly) NSUUID *_identifier;
 @property (nonatomic, readonly) NSString *_webPushPartition;
+
++ (void)_setWebPushActionHandler:(WKWebsiteDataStore *(^)(_WKWebPushAction *))handler WK_API_AVAILABLE(ios(WK_IOS_TBA));
++ (BOOL)handleNotificationResponse:(UNNotificationResponse *)response WK_API_AVAILABLE(ios(WK_IOS_TBA));
 
 @end
 

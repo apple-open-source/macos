@@ -42,10 +42,14 @@
 #include "PNGImageDecoder.h"
 
 #include "Color.h"
-#include "PlatformDisplay.h"
 #include <png.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/UniqueArray.h>
+
+#if USE(LCMS)
+#include "LCMSUniquePtr.h"
+#endif
 
 #if defined(PNG_LIBPNG_VER_MAJOR) && defined(PNG_LIBPNG_VER_MINOR) && (PNG_LIBPNG_VER_MAJOR > 1 || (PNG_LIBPNG_VER_MAJOR == 1 && PNG_LIBPNG_VER_MINOR >= 4))
 #define JMPBUF(png_ptr) png_jmpbuf(png_ptr)
@@ -113,7 +117,7 @@ static int PNGAPI readChunks(png_structp png, png_unknown_chunkp chunk)
 }
 
 class PNGImageReader {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(PNGImageReader);
 public:
     PNGImageReader(PNGImageDecoder* decoder)
         : m_png(png_create_read_struct(PNG_LIBPNG_VER_STRING, 0, decodingFailed, decodingWarning))
@@ -381,10 +385,9 @@ void PNGImageDecoder::headerAvailable()
         int compressionType;
         if (png_get_iCCP(png, info, &iccProfileTitle, &compressionType, &iccProfileData, &iccProfileDataSize)) {
             auto iccProfile = LCMSProfilePtr(cmsOpenProfileFromMem(iccProfileData, iccProfileDataSize));
-            if (iccProfile) {
-                auto* displayProfile = PlatformDisplay::sharedDisplay().colorProfile();
-                if (cmsGetColorSpace(iccProfile.get()) == cmsSigRgbData && cmsGetColorSpace(displayProfile) == cmsSigRgbData)
-                    m_iccTransform = LCMSTransformPtr(cmsCreateTransform(iccProfile.get(), TYPE_BGRA_8, displayProfile, TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, 0));
+            if (iccProfile && cmsGetColorSpace(iccProfile.get()) == cmsSigRgbData) {
+                auto srgbProfile = LCMSProfilePtr(cmsCreate_sRGBProfile());
+                m_iccTransform = LCMSTransformPtr(cmsCreateTransform(iccProfile.get(), TYPE_BGRA_8, srgbProfile.get(), TYPE_BGRA_8, INTENT_RELATIVE_COLORIMETRIC, 0));
             }
         }
     }

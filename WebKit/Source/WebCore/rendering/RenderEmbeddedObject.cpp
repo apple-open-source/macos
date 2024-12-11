@@ -56,14 +56,14 @@
 #include "SystemFontDatabase.h"
 #include "Text.h"
 #include "TextRun.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderEmbeddedObject);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderEmbeddedObject);
 
 static const float replacementTextRoundedRectHeight = 22;
 static const float replacementTextRoundedRectLeftTextMargin = 10;
@@ -89,10 +89,8 @@ RenderEmbeddedObject::RenderEmbeddedObject(HTMLFrameOwnerElement& element, Rende
     ASSERT(isRenderEmbeddedObject());
 }
 
-RenderEmbeddedObject::~RenderEmbeddedObject()
-{
-    // Do not add any code here. Add it to willBeDestroyed() instead.
-}
+// Do not add any code in below destructor. Add it to willBeDestroyed() instead.
+RenderEmbeddedObject::~RenderEmbeddedObject() = default;
 
 void RenderEmbeddedObject::willBeDestroyed()
 {
@@ -378,7 +376,8 @@ void RenderEmbeddedObject::layout()
     updateLogicalWidth();
     updateLogicalHeight();
 
-    RenderWidget::layout();
+    LayoutSize oldSize = contentBoxRect().size();
+    RenderReplaced::layout();
 
     clearOverflow();
     addVisualEffectOverflow();
@@ -389,6 +388,9 @@ void RenderEmbeddedObject::layout()
         view().frameView().addEmbeddedObjectToUpdate(*this);
 
     clearNeedsLayout();
+
+    if (m_hasShadowContent)
+        layoutShadowContent(oldSize);
 }
 
 bool RenderEmbeddedObject::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction)

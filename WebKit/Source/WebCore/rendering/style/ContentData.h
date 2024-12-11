@@ -27,6 +27,7 @@
 #include "CounterContent.h"
 #include "StyleImage.h"
 #include "RenderPtr.h"
+#include <wtf/TZoneMalloc.h>
 #include <wtf/TypeCasts.h>
 
 namespace WebCore {
@@ -36,7 +37,7 @@ class RenderObject;
 class RenderStyle;
 
 class ContentData {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(ContentData);
 public:
     enum Type {
         CounterDataType,
@@ -78,6 +79,7 @@ private:
 };
 
 class ImageContentData final : public ContentData {
+    WTF_MAKE_TZONE_ALLOCATED(ImageContentData);
 public:
     explicit ImageContentData(Ref<StyleImage>&& image)
         : ContentData(ImageDataType)
@@ -109,6 +111,7 @@ inline bool operator==(const ImageContentData& a, const ImageContentData& b)
 }
 
 class TextContentData final : public ContentData {
+    WTF_MAKE_TZONE_ALLOCATED(TextContentData);
 public:
     explicit TextContentData(const String& text)
         : ContentData(TextDataType)
@@ -132,6 +135,7 @@ inline bool operator==(const TextContentData& a, const TextContentData& b)
 }
 
 class CounterContentData final : public ContentData {
+    WTF_MAKE_TZONE_ALLOCATED(CounterContentData);
 public:
     explicit CounterContentData(std::unique_ptr<CounterContent> counter)
         : ContentData(CounterDataType)
@@ -163,6 +167,7 @@ inline bool operator==(const CounterContentData& a, const CounterContentData& b)
 }
 
 class QuoteContentData final : public ContentData {
+    WTF_MAKE_TZONE_ALLOCATED(QuoteContentData);
 public:
     explicit QuoteContentData(QuoteType quote)
         : ContentData(QuoteDataType)

@@ -32,6 +32,7 @@
 #import "APIHitTestResult.h"
 #import "APIInspectorConfiguration.h"
 #import "CompletionHandlerCallChecker.h"
+#import "FrameProcess.h"
 #import "MediaPermissionUtilities.h"
 #import "MediaUtilities.h"
 #import "NativeWebWheelEvent.h"
@@ -70,6 +71,7 @@
 #import <WebCore/FontAttributes.h>
 #import <WebCore/SecurityOrigin.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/URL.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
@@ -82,6 +84,8 @@
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(UIDelegate);
 
 UIDelegate::UIDelegate(WKWebView *webView)
     : m_webView(webView)
@@ -126,6 +130,7 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
     m_delegateMethods.webViewDidResignInputElementStrongPasswordAppearanceWithUserInfo = [delegate respondsToSelector:@selector(_webView:didResignInputElementStrongPasswordAppearanceWithUserInfo:)];
     m_delegateMethods.webViewTakeFocus = [delegate respondsToSelector:@selector(_webView:takeFocus:)];
     m_delegateMethods.webViewHandleAutoplayEventWithFlags = [delegate respondsToSelector:@selector(_webView:handleAutoplayEvent:withFlags:)];
+    m_delegateMethods.focusWebViewFromServiceWorker = [delegate respondsToSelector:@selector(_focusWebViewFromServiceWorker:)];
 #if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     m_delegateMethods.webViewMouseDidMoveOverElementWithFlagsUserInfo = [delegate respondsToSelector:@selector(_webView:mouseDidMoveOverElement:withFlags:userInfo:)];
 #endif
@@ -133,7 +138,6 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
 #if PLATFORM(MAC)
     m_delegateMethods.showWebView = [delegate respondsToSelector:@selector(_showWebView:)];
     m_delegateMethods.focusWebView = [delegate respondsToSelector:@selector(_focusWebView:)];
-    m_delegateMethods.focusWebViewFromServiceWorker = [delegate respondsToSelector:@selector(_focusWebViewFromServiceWorker:)];
     m_delegateMethods.unfocusWebView = [delegate respondsToSelector:@selector(_unfocusWebView:)];
     m_delegateMethods.webViewRunModal = [delegate respondsToSelector:@selector(_webViewRunModal:)];
     m_delegateMethods.webViewDidScroll = [delegate respondsToSelector:@selector(_webViewDidScroll:)];
@@ -329,25 +333,26 @@ void UIDelegate::UIClient::createNewPage(WebKit::WebPageProxy&, Ref<API::PageCon
     ASSERT(delegate);
 
     auto apiWindowFeatures = API::WindowFeatures::create(windowFeatures);
-    RefPtr openerProcess = configuration->openerProcess();
+    auto openerInfo = configuration->openerInfo();
 
     if (m_uiDelegate->m_delegateMethods.webViewCreateWebViewWithConfigurationForNavigationActionWindowFeaturesAsync) {
         auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:completionHandler:));
 
-        [(id<WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() createWebViewWithConfiguration:wrapper(configuration) forNavigationAction:wrapper(navigationAction) windowFeatures:wrapper(apiWindowFeatures) completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker), relatedWebView = m_uiDelegate->m_webView.get(), openerProcess] (WKWebView *webView) mutable {
+        [(id<WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() createWebViewWithConfiguration:wrapper(configuration) forNavigationAction:wrapper(navigationAction) windowFeatures:wrapper(apiWindowFeatures) completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker), relatedWebView = m_uiDelegate->m_webView.get(), openerInfo] (WKWebView *webView) mutable {
             if (checker->completionHandlerHasBeenCalled())
                 return;
             checker->didCallCompletionHandler();
 
-            if (!webView) {
-                completionHandler(nullptr);
-                return;
-            }
+            if (!webView)
+                return completionHandler(nullptr);
 
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if ([webView->_configuration _relatedWebView] != relatedWebView.get())
                 [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
+            ALLOW_DEPRECATED_DECLARATIONS_END
 
-            if (openerProcess != webView->_configuration->_pageConfiguration->openerProcess())
+            // FIXME: Move this to WebPageProxy once rdar://134317255 and rdar://134317400 are resolved.
+            if (openerInfo != webView->_configuration->_pageConfiguration->openerInfo())
                 [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
 
             completionHandler(webView->_page.get());
@@ -361,9 +366,13 @@ void UIDelegate::UIClient::createNewPage(WebKit::WebPageProxy&, Ref<API::PageCon
     if (!webView)
         return completionHandler(nullptr);
 
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if ([webView.get()->_configuration _relatedWebView] != m_uiDelegate->m_webView.get().get())
         [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
-    if (openerProcess != webView.get()->_configuration->_pageConfiguration->openerProcess())
+    ALLOW_DEPRECATED_DECLARATIONS_END
+
+    // FIXME: Move this to WebPageProxy once rdar://134317255 and rdar://134317400 are resolved.
+    if (openerInfo != webView.get()->_configuration->_pageConfiguration->openerInfo())
         [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
     completionHandler(webView->_page.get());
 }
@@ -815,6 +824,26 @@ void UIDelegate::UIClient::requestCookieConsent(CompletionHandler<void(WebCore::
     }).get()];
 }
 
+bool UIDelegate::UIClient::focusFromServiceWorker(WebKit::WebPageProxy& proxy)
+{
+    bool hasImplementation = m_uiDelegate && m_uiDelegate->m_delegateMethods.focusWebViewFromServiceWorker && m_uiDelegate->m_delegate.get();
+    if (!hasImplementation) {
+#if PLATFORM(MAC)
+        auto* webView = m_uiDelegate ? m_uiDelegate->m_webView.get().get() : nullptr;
+        if (!webView || !webView.window)
+            return false;
+
+
+        [webView.window makeKeyAndOrderFront:nil];
+        [[webView window] makeFirstResponder:webView];
+        return true;
+#else
+        return false;
+#endif
+    }
+    return [(id<WKUIDelegatePrivate>)m_uiDelegate->m_delegate.get() _focusWebViewFromServiceWorker:m_uiDelegate->m_webView.get().get()];
+}
+
 #if PLATFORM(MAC)
 bool UIDelegate::UIClient::canRunModal() const
 {
@@ -912,26 +941,6 @@ void UIDelegate::UIClient::pageDidScroll(WebPageProxy*)
         return;
     
     [(id <WKUIDelegatePrivate>)delegate _webViewDidScroll:m_uiDelegate->m_webView.get().get()];
-}
-
-bool UIDelegate::UIClient::focusFromServiceWorker(WebKit::WebPageProxy& proxy)
-{
-    bool hasImplementation = m_uiDelegate && m_uiDelegate->m_delegateMethods.focusWebViewFromServiceWorker && m_uiDelegate->m_delegate.get();
-    if (!hasImplementation) {
-        auto* webView = m_uiDelegate ? m_uiDelegate->m_webView.get().get() : nullptr;
-        if (!webView || !webView.window)
-            return false;
-
-#if PLATFORM(MAC)
-        [webView.window makeKeyAndOrderFront:nil];
-#else
-        [webView.window makeKeyAndVisible];
-#endif
-        [[webView window] makeFirstResponder:webView];
-        return true;
-    }
-
-    return [(id <WKUIDelegatePrivate>)m_uiDelegate->m_delegate.get() _focusWebViewFromServiceWorker:m_uiDelegate->m_webView.get().get()];
 }
 
 void UIDelegate::UIClient::focus(WebPageProxy*)

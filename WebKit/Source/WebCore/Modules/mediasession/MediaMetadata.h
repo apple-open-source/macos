@@ -32,6 +32,8 @@
 #include "MediaMetadataInit.h"
 #include "MediaSession.h"
 #include <wtf/Function.h>
+#include <wtf/TZoneMalloc.h>
+#include <wtf/URL.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 
@@ -45,7 +47,7 @@ struct MediaImage;
 using MediaSessionMetadata = MediaMetadataInit;
 
 class ArtworkImageLoader final : public CachedImageClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(ArtworkImageLoader, WEBCORE_EXPORT);
 public:
     using ArtworkImageLoaderCallback = Function<void(Image*)>;
     // The callback will only be called upon success or explicit failure to retrieve the image. If the operation is interrupted following the
@@ -65,9 +67,10 @@ private:
     CachedResourceHandle<CachedImage> m_cachedImage;
 };
 
-class MediaMetadata : public RefCounted<MediaMetadata> {
+class MediaMetadata final : public RefCounted<MediaMetadata> {
 public:
     static ExceptionOr<Ref<MediaMetadata>> create(ScriptExecutionContext&, std::optional<MediaMetadataInit>&&);
+    static Ref<MediaMetadata> create(MediaSession&, Vector<URL>&&);
     ~MediaMetadata();
 
     void setMediaSession(MediaSession&);
@@ -115,6 +118,7 @@ private:
     std::unique_ptr<ArtworkImageLoader> m_artworkLoader;
     String m_artworkImageSrc;
     RefPtr<Image> m_artworkImage;
+    Vector<URL> m_defaultImages;
 };
 
 }

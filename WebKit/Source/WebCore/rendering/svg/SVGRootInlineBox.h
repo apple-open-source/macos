@@ -31,7 +31,7 @@ class RenderSVGText;
 class SVGInlineTextBox;
 
 class SVGRootInlineBox final : public LegacyRootInlineBox {
-    WTF_MAKE_ISO_ALLOCATED(SVGRootInlineBox);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SVGRootInlineBox);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SVGRootInlineBox);
 public:
     explicit SVGRootInlineBox(RenderSVGText&);
@@ -53,7 +53,7 @@ private:
     bool isSVGRootInlineBox() const override { return true; }
     void reorderValueListsToLogicalOrder(Vector<SVGTextLayoutAttributes*>&);
     void layoutCharactersInTextBoxes(LegacyInlineFlowBox*, SVGTextLayoutEngine&);
-    void layoutChildBoxes(LegacyInlineFlowBox*, FloatRect* = nullptr);
+    FloatRect layoutChildBoxes(LegacyInlineFlowBox* start, SVGTextFragmentMap&);
     void layoutRootBox(const FloatRect&);
 
     float m_logicalHeight;

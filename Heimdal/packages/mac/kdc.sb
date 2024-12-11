@@ -49,6 +49,7 @@
        (literal "/private/etc/services")
        (literal "/private/etc/localtime")
        (literal "/private/etc/openldap/ldap.conf")
+       (literal "/private/etc/krb5.conf")
        (subpath "/private/var/db/krb5kdc")
        (subpath "/private/var/db/mds")
        (subpath "/System/Library/KerberosPlugins")

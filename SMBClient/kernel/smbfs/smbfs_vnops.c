@@ -8528,6 +8528,17 @@ smbfs_vnop_rename(struct vnop_rename_args *ap)
 		VTOSMB(tvp)->n_lastvop = smbfs_vnop_rename;
     }
     
+    /* 
+     * If moving/renaming a dir, check to make sure that they are not trying to
+     * move a parent dir into a child sub dir.
+     */
+    if (vnode_isdir(fvp)) {
+        if (smbfs_is_ancestor(fvp, tdnp)) {
+            error = EINVAL;
+            goto out;
+        }
+    }
+
     lck_rw_lock_shared(&fnp->n_parent_rwlock);  /* do our own locking */
     
     from_par_vp = smbfs_smb_get_parent(fnp, 0); /* do our own locking */

@@ -33,7 +33,7 @@ static char *(p_briopt_values[]) = {"shift:", "min:", "sbr", "list:", "column:",
 static char *(p_dip_values[]) = {"filler", "context:", "iblank", "icase", "iwhite", "iwhiteall", "iwhiteeol", "horizontal", "vertical", "closeoff", "hiddenoff", "foldcolumn:", "followwrap", "internal", "indent-heuristic", "algorithm:", NULL};
 static char *(p_dip_algorithm_values[]) = {"myers", "minimal", "patience", "histogram", NULL};
 #endif
-static char *(p_nf_values[]) = {"bin", "octal", "hex", "alpha", "unsigned", NULL};
+static char *(p_nf_values[]) = {"bin", "octal", "hex", "alpha", "unsigned", "blank", NULL};
 static char *(p_ff_values[]) = {FF_UNIX, FF_DOS, FF_MAC, NULL};
 #ifdef FEAT_CLIPBOARD
 // Note: Keep this in sync with did_set_clipboard()
@@ -81,6 +81,8 @@ static char *(p_ssop_values[]) = {"buffers", "winpos", "resize", "winsize",
 static char *(p_swb_values[]) = {"useopen", "usetab", "split", "newtab", "vsplit", "uselast", NULL};
 static char *(p_spk_values[]) = {"cursor", "screen", "topline", NULL};
 static char *(p_tc_values[]) = {"followic", "ignore", "match", "followscs", "smart", NULL};
+// Keep in sync with TCL_ flags in option.h
+static char *(p_tcl_values[]) = {"left", "uselast", NULL};
 #if defined(FEAT_TOOLBAR) && !defined(FEAT_GUI_MSWIN)
 static char *(p_toolbar_values[]) = {"text", "icons", "tooltips", "horiz", NULL};
 #endif
@@ -118,7 +120,7 @@ static char *(p_fdm_values[]) = {"manual", "expr", "marker", "indent", "syntax",
 				NULL};
 static char *(p_fcl_values[]) = {"all", NULL};
 #endif
-static char *(p_cot_values[]) = {"menu", "menuone", "longest", "preview", "popup", "popuphidden", "noinsert", "noselect", NULL};
+static char *(p_cot_values[]) = {"menu", "menuone", "longest", "preview", "popup", "popuphidden", "noinsert", "noselect", "fuzzy", NULL};
 #ifdef BACKSLASH_IN_FILENAME
 static char *(p_csl_values[]) = {"slash", "backslash", NULL};
 #endif
@@ -144,6 +146,7 @@ didset_string_options(void)
     (void)opt_strings_flags(p_cmp, p_cmp_values, &cmp_flags, TRUE);
     (void)opt_strings_flags(p_bkc, p_bkc_values, &bkc_flags, TRUE);
     (void)opt_strings_flags(p_bo, p_bo_values, &bo_flags, TRUE);
+    (void)opt_strings_flags(p_cot, p_cot_values, &cot_flags, TRUE);
 #ifdef FEAT_SESSION
     (void)opt_strings_flags(p_ssop, p_ssop_values, &ssop_flags, TRUE);
     (void)opt_strings_flags(p_vop, p_ssop_values, &vop_flags, TRUE);
@@ -165,6 +168,7 @@ didset_string_options(void)
     (void)opt_strings_flags(p_tbis, p_tbis_values, &tbis_flags, FALSE);
 #endif
     (void)opt_strings_flags(p_swb, p_swb_values, &swb_flags, TRUE);
+    (void)opt_strings_flags(p_tcl, p_tcl_values, &tcl_flags, TRUE);
 }
 
 #if defined(FEAT_EVAL) || defined(PROTO)
@@ -229,11 +233,11 @@ trigger_optionset_string(
 #endif
 
     static char *
-illegal_char(char *errbuf, int errbuflen, int c)
+illegal_char(char *errbuf, size_t errbuflen, int c)
 {
     if (errbuf == NULL)
 	return "";
-    snprintf((char *)errbuf, errbuflen, _(e_illegal_character_str),
+    vim_snprintf(errbuf, errbuflen, _(e_illegal_character_str),
 		    (char *)transchar(c));
     return errbuf;
 }
@@ -301,6 +305,7 @@ check_buf_options(buf_T *buf)
     check_string_option(&buf->b_p_lop);
     check_string_option(&buf->b_p_ft);
     check_string_option(&buf->b_p_cinw);
+    check_string_option(&buf->b_p_cot);
     check_string_option(&buf->b_p_cpt);
 #ifdef FEAT_COMPL_FUNC
     check_string_option(&buf->b_p_cfu);
@@ -527,7 +532,7 @@ set_string_option(
     char_u	*value,
     int		opt_flags,	// OPT_LOCAL and/or OPT_GLOBAL
     char	*errbuf,
-    int		errbuflen)
+    size_t	errbuflen)
 {
     char_u	*s;
     char_u	**varp;
@@ -726,7 +731,7 @@ did_set_option_listflag(
 	char_u *val,
 	char_u *flags,
 	char *errbuf,
-	int errbuflen)
+	size_t errbuflen)
 {
     char_u	*s;
 
@@ -1050,10 +1055,14 @@ expand_set_ambiwidth(optexpand_T *args, int *numMatches, char_u ***matches)
  * The 'background' option is changed.
  */
     char *
-did_set_background(optset_T *args UNUSED)
+did_set_background(optset_T *args)
 {
     if (check_opt_strings(p_bg, p_bg_values, FALSE) == FAIL)
 	return e_invalid_argument;
+
+    if (args->os_oldval.string != NULL && args->os_oldval.string[0] == *p_bg)
+	// Value was not changed
+	return NULL;
 
 #ifdef FEAT_EVAL
     int dark = (*p_bg == 'd');
@@ -1204,6 +1213,25 @@ expand_set_belloff(optexpand_T *args, int *numMatches, char_u ***matches)
 
 #if defined(FEAT_LINEBREAK) || defined(PROTO)
 /*
+ * The 'breakat' option is changed.
+ */
+    char *
+did_set_breakat(optset_T *args UNUSED)
+{
+    char_u	*p;
+    int		i;
+
+    for (i = 0; i < 256; i++)
+	breakat_flags[i] = FALSE;
+
+    if (p_breakat != NULL)
+	for (p = p_breakat; *p; p++)
+	    breakat_flags[*p] = TRUE;
+
+    return NULL;
+}
+
+/*
  * The 'breakindentopt' option is changed.
  */
     char *
@@ -1346,7 +1374,8 @@ expand_set_clipboard(optexpand_T *args, int *numMatches, char_u ***matches)
  * The global 'listchars' or 'fillchars' option is changed.
  */
     static char *
-did_set_global_listfillchars(char_u *val, int opt_lcs, int opt_flags)
+did_set_global_listfillchars(char_u *val, int opt_lcs, int opt_flags,
+						char *errbuf, size_t errbuflen)
 {
     char	*errmsg = NULL;
     char_u	**local_ptr = opt_lcs ? &curwin->w_p_lcs : &curwin->w_p_fcs;
@@ -1355,10 +1384,12 @@ did_set_global_listfillchars(char_u *val, int opt_lcs, int opt_flags)
     // local value
     if (opt_lcs)
 	errmsg = set_listchars_option(curwin, val,
-		**local_ptr == NUL || !(opt_flags & OPT_GLOBAL));
+		**local_ptr == NUL || !(opt_flags & OPT_GLOBAL),
+							    errbuf, errbuflen);
     else
 	errmsg = set_fillchars_option(curwin, val,
-		**local_ptr == NUL || !(opt_flags & OPT_GLOBAL));
+		**local_ptr == NUL || !(opt_flags & OPT_GLOBAL),
+							    errbuf, errbuflen);
     if (errmsg != NULL)
 	return errmsg;
 
@@ -1378,12 +1409,12 @@ did_set_global_listfillchars(char_u *val, int opt_lcs, int opt_flags)
 	if (opt_lcs)
 	{
 	    if (*wp->w_p_lcs == NUL)
-		(void)set_listchars_option(wp, wp->w_p_lcs, TRUE);
+		(void)set_listchars_option(wp, wp->w_p_lcs, TRUE, NULL, 0);
 	}
 	else
 	{
 	    if (*wp->w_p_fcs == NUL)
-		(void)set_fillchars_option(wp, wp->w_p_fcs, TRUE);
+		(void)set_fillchars_option(wp, wp->w_p_fcs, TRUE, NULL, 0);
 	}
     }
 
@@ -1404,11 +1435,13 @@ did_set_chars_option(optset_T *args)
     if (   varp == &p_lcs		// global 'listchars'
 	|| varp == &p_fcs)		// global 'fillchars'
 	errmsg = did_set_global_listfillchars(*varp, varp == &p_lcs,
-							       args->os_flags);
+			  args->os_flags, args->os_errbuf, args->os_errbuflen);
     else if (varp == &curwin->w_p_lcs)	// local 'listchars'
-	errmsg = set_listchars_option(curwin, *varp, TRUE);
+	errmsg = set_listchars_option(curwin, *varp, TRUE,
+					  args->os_errbuf, args->os_errbuflen);
     else if (varp == &curwin->w_p_fcs)	// local 'fillchars'
-	errmsg = set_fillchars_option(curwin, *varp, TRUE);
+	errmsg = set_fillchars_option(curwin, *varp, TRUE,
+					  args->os_errbuf, args->os_errbuflen);
 
     return errmsg;
 }
@@ -1541,7 +1574,7 @@ did_set_complete(optset_T *args)
 	    {
 		if (args->os_errbuf != NULL)
 		{
-		    snprintf((char *)args->os_errbuf, args->os_errbuflen,
+		    vim_snprintf((char *)args->os_errbuf, args->os_errbuflen,
 			    _(e_illegal_character_after_chr), *--s);
 		    return args->os_errbuf;
 		}
@@ -1573,10 +1606,21 @@ expand_set_complete(optexpand_T *args, int *numMatches, char_u ***matches)
     char *
 did_set_completeopt(optset_T *args UNUSED)
 {
-    if (check_opt_strings(p_cot, p_cot_values, TRUE) != OK)
+    char_u	*cot = p_cot;
+    unsigned	*flags = &cot_flags;
+
+    if (args->os_flags & OPT_LOCAL)
+    {
+	cot = curbuf->b_p_cot;
+	flags = &curbuf->b_cot_flags;
+    }
+
+    if (check_opt_strings(cot, p_cot_values, TRUE) != OK)
 	return e_invalid_argument;
 
-    completeopt_was_set();
+    if (opt_strings_flags(cot, p_cot_values, flags, TRUE) != OK)
+	return e_invalid_argument;
+
     return NULL;
 }
 
@@ -1589,6 +1633,58 @@ expand_set_completeopt(optexpand_T *args, int *numMatches, char_u ***matches)
 	    ARRAY_LENGTH(p_cot_values) - 1,
 	    numMatches,
 	    matches);
+}
+
+/*
+ * The 'completeitemalign' option is changed.
+ */
+    char *
+did_set_completeitemalign(optset_T *args UNUSED)
+{
+    char_u	*p = p_cia;
+    unsigned	new_cia_flags = 0;
+    int		seen[3] = { FALSE, FALSE, FALSE };
+    int		count = 0;
+    char_u	buf[10];
+
+    while (*p)
+    {
+	copy_option_part(&p, buf, sizeof(buf), ",");
+	if (count >= 3)
+	    return e_invalid_argument;
+
+	if (STRCMP(buf, "abbr") == 0)
+	{
+	    if (seen[CPT_ABBR])
+		return e_invalid_argument;
+	    new_cia_flags = new_cia_flags * 10 + CPT_ABBR;
+	    seen[CPT_ABBR] = TRUE;
+	    count++;
+	}
+	else if (STRCMP(buf, "kind") == 0)
+	{
+	    if (seen[CPT_KIND])
+		return e_invalid_argument;
+	    new_cia_flags = new_cia_flags * 10 + CPT_KIND;
+	    seen[CPT_KIND] = TRUE;
+	    count++;
+	}
+	else if (STRCMP(buf, "menu") == 0)
+	{
+	    if (seen[CPT_MENU])
+		return e_invalid_argument;
+	    new_cia_flags = new_cia_flags * 10 + CPT_MENU;
+	    seen[CPT_MENU] = TRUE;
+	    count++;
+	}
+	else
+	    return e_invalid_argument;
+    }
+    if (new_cia_flags == 0 || count != 3)
+	return e_invalid_argument;
+
+    cia_flags = new_cia_flags;
+    return NULL;
 }
 
 #if (defined(FEAT_PROP_POPUP) && defined(FEAT_QUICKFIX)) || defined(PROTO)
@@ -2410,7 +2506,7 @@ did_set_guifontwide(optset_T *args UNUSED)
 }
 #endif
 
-#if defined(FEAT_GUI_GTK) || defined(PROTO)
+#if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_MSWIN) || defined(PROTO)
 /*
  * The 'guiligatures' option is changed.
  */
@@ -2956,7 +3052,7 @@ did_set_mousemodel(optset_T *args UNUSED)
     if (check_opt_strings(p_mousem, p_mousem_values, FALSE) != OK)
 	return e_invalid_argument;
 #if defined(FEAT_GUI_MOTIF) && defined(FEAT_MENU) && (XmVersion <= 1002)
-    else if (*p_mousem != *oldval)
+    else if (*p_mousem != *args->os_oldval.string)
 	// Changed from "extend" to "popup" or "popup_setpos" or vv: need
 	// to create or delete the popup menus.
 	gui_motif_update_mousemodel(root_menu);
@@ -3412,7 +3508,12 @@ did_set_showbreak(optset_T *args)
     char *
 did_set_showcmdloc(optset_T *args UNUSED)
 {
-    return did_set_opt_strings(p_sloc, p_sloc_values, FALSE);
+    char	*errmsg = did_set_opt_strings(p_sloc, p_sloc_values, FALSE);
+
+    if (errmsg == NULL)
+	comp_col();
+
+    return errmsg;
 }
 
     int
@@ -3619,6 +3720,26 @@ expand_set_switchbuf(optexpand_T *args, int *numMatches, char_u ***matches)
 	    args,
 	    p_swb_values,
 	    ARRAY_LENGTH(p_swb_values) - 1,
+	    numMatches,
+	    matches);
+}
+
+/*
+ * The 'tabclose' option is changed.
+ */
+    char *
+did_set_tabclose(optset_T *args UNUSED)
+{
+    return did_set_opt_flags(p_tcl, p_tcl_values, &tcl_flags, TRUE);
+}
+
+    int
+expand_set_tabclose(optexpand_T *args, int *numMatches, char_u ***matches)
+{
+    return expand_set_opt_string(
+	    args,
+	    p_tcl_values,
+	    ARRAY_LENGTH(p_tcl_values) - 1,
 	    numMatches,
 	    matches);
 }
@@ -4069,7 +4190,7 @@ did_set_viminfo(optset_T *args)
 	    {
 		if (args->os_errbuf != NULL)
 		{
-		    snprintf(args->os_errbuf, args->os_errbuflen,
+		    vim_snprintf(args->os_errbuf, args->os_errbuflen,
 			    _(e_missing_number_after_angle_str_angle),
 			    transchar_byte(*(s - 1)));
 		    errmsg = args->os_errbuf;
@@ -4299,7 +4420,7 @@ do_filetype_autocmd(char_u **varp, int opt_flags, int value_changed)
     secure = 0;
 
     ++ft_recursive;
-    did_filetype = TRUE;
+    curbuf->b_did_filetype = TRUE;
     // Only pass TRUE for "force" when the value changed or not
     // used recursively, to avoid endless recurrence.
     apply_autocmds(EVENT_FILETYPE, curbuf->b_p_ft, curbuf->b_fname,
@@ -4354,7 +4475,7 @@ did_set_string_option(
     char_u	*oldval,		// previous value of the option
     char_u	*value,			// new value of the option
     char	*errbuf,		// buffer for errors, or NULL
-    int		errbuflen,		// length of error buffer
+    size_t	errbuflen,		// length of error buffer
     int		opt_flags,		// OPT_LOCAL and/or OPT_GLOBAL
     set_op_T    op,			// OP_ADDING/OP_PREPENDING/OP_REMOVING
     int		*value_checked)		// value was checked to be safe, no
@@ -4482,7 +4603,8 @@ did_set_string_option(
 #endif
 
     if (curwin->w_curswant != MAXCOL
-		   && (get_option_flags(opt_idx) & (P_CURSWANT | P_RALL)) != 0)
+		   && (get_option_flags(opt_idx) & (P_CURSWANT | P_RALL)) != 0
+				&& (get_option_flags(opt_idx) & P_HLONLY) == 0)
 	curwin->w_set_curswant = TRUE;
 
     if ((opt_flags & OPT_NO_REDRAW) == 0)
@@ -4501,7 +4623,7 @@ did_set_string_option(
 		|| varp == &p_guifontset	// 'guifontset'
 # endif
 		|| varp == &p_guifontwide	// 'guifontwide'
-# ifdef FEAT_GUI_GTK
+# if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_MSWIN)
 		|| varp == &p_guiligatures	// 'guiligatures'
 # endif
 	    )

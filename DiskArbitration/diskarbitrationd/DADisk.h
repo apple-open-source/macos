@@ -56,6 +56,7 @@ enum
     kDADiskStateStagedMount         = 0x00040000,
     kDADiskStateStagedAppear        = 0x00080000,
     kDADiskStateStagedUnrepairable  = 0x00100000,
+    kDADiskStateMountOngoing        = 0x00200000,
     kDADiskStateZombie              = 0x10000000
 };
 
@@ -88,6 +89,7 @@ extern Boolean            DADiskGetState( DADiskRef disk, DADiskState state );
 extern CFTypeID           DADiskGetTypeID( void );
 extern gid_t              DADiskGetUserGID( DADiskRef disk );
 extern uid_t              DADiskGetUserUID( DADiskRef disk );
+extern uid_t              DADiskGetMountedByUserUID( DADiskRef disk );
 extern void               DADiskInitialize( void );
 extern Boolean            DADiskMatch( DADiskRef disk, CFDictionaryRef match );
 extern void               DADiskSetBusy( DADiskRef disk, CFAbsoluteTime busy );
@@ -104,6 +106,7 @@ extern void               DADiskSetOptions( DADiskRef disk, DADiskOptions option
 extern void               DADiskSetPropertyNotification( DADiskRef disk, io_object_t notification );
 extern void               DADiskSetState( DADiskRef disk, DADiskState state, Boolean value );
 extern void               DADiskSetContainerId( DADiskRef disk, char * containerId );
+extern void               DADiskSetMountedByUserUID( DADiskRef disk, uid_t uid );
 extern char *             DADiskGetContainerId( DADiskRef disk );
 extern DADiskRef          DADiskGetContainerDisk( DADiskRef disk );
 #if TARGET_OS_OSX || TARGET_OS_IOS /* Should be DA_FSKIT but can't */

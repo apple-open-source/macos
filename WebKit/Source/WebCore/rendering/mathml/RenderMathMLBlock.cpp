@@ -29,7 +29,7 @@
 
 #if ENABLE(MATHML)
 
-#include "CSSHelper.h"
+#include "CSSUnits.h"
 #include "GraphicsContext.h"
 #include "LayoutRepainter.h"
 #include "MathMLElement.h"
@@ -38,7 +38,7 @@
 #include "RenderBoxInlines.h"
 #include "RenderTableInlines.h"
 #include "RenderView.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(DEBUG_MATH_LAYOUT)
 #include "PaintInfo.h"
@@ -48,8 +48,8 @@ namespace WebCore {
 
 using namespace MathMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLBlock);
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLTable);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderMathMLBlock);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderMathMLTable);
 
 RenderMathMLBlock::RenderMathMLBlock(Type type, MathMLPresentationElement& container, RenderStyle&& style)
     : RenderBlock(type, container, WTFMove(style), { })
@@ -145,15 +145,15 @@ LayoutUnit toUserUnits(const MathMLElement::Length& length, const RenderStyle& s
     switch (length.type) {
     // Zoom for physical units needs to be accounted for.
     case MathMLElement::LengthType::Cm:
-        return LayoutUnit(style.usedZoom() * length.value * cssPixelsPerInch / 2.54f);
+        return LayoutUnit(style.usedZoom() * length.value * static_cast<float>(CSS::pixelsPerCm));
     case MathMLElement::LengthType::In:
-        return LayoutUnit(style.usedZoom() * length.value * cssPixelsPerInch);
+        return LayoutUnit(style.usedZoom() * length.value * static_cast<float>(CSS::pixelsPerInch));
     case MathMLElement::LengthType::Mm:
-        return LayoutUnit(style.usedZoom() * length.value * cssPixelsPerInch / 25.4f);
+        return LayoutUnit(style.usedZoom() * length.value * static_cast<float>(CSS::pixelsPerMm));
     case MathMLElement::LengthType::Pc:
-        return LayoutUnit(style.usedZoom() * length.value * cssPixelsPerInch / 6);
+        return LayoutUnit(style.usedZoom() * length.value * static_cast<float>(CSS::pixelsPerPc));
     case MathMLElement::LengthType::Pt:
-        return LayoutUnit(style.usedZoom() * length.value * cssPixelsPerInch / 72);
+        return LayoutUnit(style.usedZoom() * length.value * static_cast<float>(CSS::pixelsPerPt));
     case MathMLElement::LengthType::Px:
         return LayoutUnit(style.usedZoom() * length.value);
 
@@ -257,25 +257,6 @@ void RenderMathMLBlock::layoutBlock(bool relayoutChildren, LayoutUnit)
 
     updateScrollInfoAfterLayout();
 
-    clearNeedsLayout();
-}
-
-void RenderMathMLBlock::layoutInvalidMarkup(bool relayoutChildren)
-{
-    // Invalid MathML subtrees are just renderered as empty boxes.
-    // FIXME: https://webkit.org/b/135460 - Should we display some "invalid" markup message instead?
-    ASSERT(needsLayout());
-    for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
-        if (child->isOutOfFlowPositioned()) {
-            child->containingBlock()->insertPositionedObject(*child);
-            continue;
-        }
-        child->layoutIfNeeded();
-    }
-    setLogicalWidth(0);
-    setLogicalHeight(0);
-    layoutPositionedObjects(relayoutChildren);
-    updateScrollInfoAfterLayout();
     clearNeedsLayout();
 }
 

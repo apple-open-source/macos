@@ -40,6 +40,7 @@
 #include <WebCore/NotImplemented.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(VIDEO)
 #include "RemoteVideoFrameObjectHeap.h"
@@ -78,6 +79,8 @@ Ref<RemoteGraphicsContextGL> RemoteGraphicsContextGL::create(GPUConnectionToWebP
 }
 #endif
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteGraphicsContextGL);
+
 RemoteGraphicsContextGL::RemoteGraphicsContextGL(GPUConnectionToWebProcess& gpuConnectionToWebProcess, GraphicsContextGLIdentifier graphicsContextGLIdentifier, RemoteRenderingBackend& renderingBackend, Ref<IPC::StreamServerConnection>&& streamConnection)
     : m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_workQueue(remoteGraphicsContextGLStreamWorkQueue())
@@ -93,6 +96,7 @@ RemoteGraphicsContextGL::RemoteGraphicsContextGL(GPUConnectionToWebProcess& gpuC
 #endif
     , m_renderingResourcesRequest(ScopedWebGLRenderingResourcesRequest::acquire())
     , m_webProcessIdentifier(gpuConnectionToWebProcess.webProcessIdentifier())
+    , m_sharedPreferencesForWebProcess(gpuConnectionToWebProcess.sharedPreferencesForWebProcess())
 {
     assertIsMainRunLoop();
 }
@@ -118,17 +122,6 @@ void RemoteGraphicsContextGL::stopListeningForIPC(Ref<RemoteGraphicsContextGL>&&
         protectedThis->workQueueUninitialize();
     });
 }
-
-#if PLATFORM(MAC)
-void RemoteGraphicsContextGL::displayWasReconfigured()
-{
-    assertIsMainRunLoop();
-    workQueue().dispatch([protectedThis = Ref { *this }] {
-        assertIsCurrent(protectedThis->workQueue());
-        protectedThis->m_context->updateContextOnDisplayReconfiguration();
-    });
-}
-#endif
 
 void RemoteGraphicsContextGL::workQueueInitialize(WebCore::GraphicsContextGLAttributes&& attributes)
 {

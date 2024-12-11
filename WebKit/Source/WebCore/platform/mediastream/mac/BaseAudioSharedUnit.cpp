@@ -34,12 +34,14 @@
 #include "DeprecatedGlobalSettings.h"
 #include "Logging.h"
 #include "PlatformMediaSessionManager.h"
-#include <wtf/FastMalloc.h>
 
 namespace WebCore {
 
+constexpr Seconds voiceActivityThrottlingDuration = 5_s;
+
 BaseAudioSharedUnit::BaseAudioSharedUnit()
     : m_sampleRate(AudioSession::sharedSession().sampleRate())
+    , m_voiceActivityThrottleTimer([] { })
 {
     RealtimeMediaSourceCenter::singleton().addDevicesChangedObserver(*this);
 }
@@ -95,8 +97,8 @@ void BaseAudioSharedUnit::startProducingData()
 
 #if PLATFORM(MAC)
     prewarmAudioUnitCreation([weakThis = WeakPtr { *this }] {
-        if (weakThis)
-            weakThis->continueStartProducingData();
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->continueStartProducingData();
     });
 #else
     continueStartProducingData();
@@ -172,6 +174,8 @@ void BaseAudioSharedUnit::setCaptureDevice(String&& persistentID, uint32_t captu
 
 void BaseAudioSharedUnit::devicesChanged()
 {
+    Ref protectedThis { *this };
+
     auto devices = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().audioCaptureDeviceManager().captureDevices();
     auto persistentID = this->persistentID();
     if (persistentID.isEmpty())
@@ -219,7 +223,7 @@ void BaseAudioSharedUnit::stopProducingData()
     if (m_producingCount && --m_producingCount)
         return;
 
-    if (m_isRenderingAudio) {
+    if (m_isRenderingAudio || isListeningToVoiceActivity()) {
         setIsProducingMicrophoneSamples(false);
         return;
     }
@@ -278,10 +282,11 @@ OSStatus BaseAudioSharedUnit::resume()
     ASSERT(!m_producingCount);
 
     callOnMainThread([weakThis = WeakPtr { this }] {
-        if (!weakThis || weakThis->m_suspended)
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || protectedThis->m_suspended)
             return;
 
-        weakThis->forEachClient([](auto& client) {
+        protectedThis->forEachClient([](auto& client) {
             if (client.canResumeAfterInterruption())
                 client.setMuted(false);
         });
@@ -340,6 +345,15 @@ void BaseAudioSharedUnit::handleNewCurrentMicrophoneDevice(CaptureDevice&& devic
     forEachClient([&device](auto& client) {
         client.handleNewCurrentMicrophoneDevice(device);
     });
+}
+
+void BaseAudioSharedUnit::voiceActivityDetected()
+{
+    if (m_voiceActivityThrottleTimer.isActive() || !m_voiceActivityCallback)
+        return;
+
+    m_voiceActivityCallback();
+    m_voiceActivityThrottleTimer.startOneShot(voiceActivityThrottlingDuration);
 }
 
 } // namespace WebCore

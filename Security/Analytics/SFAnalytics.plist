@@ -57,9 +57,9 @@
 		<key>splunk_allowInsecureCertificate</key>
 		<false/>
 		<key>splunk_topic</key>
-		<string>TransparencyAnalytics</string>
+		<string>SWTransparencyAnalytics</string>
 		<key>splunk_bagURL</key>
-		<string>https://metrics-config.icloud.com/config/TransparencyAnalytics</string>
+		<string>https://metrics-config.icloud.com/config/SWTransparencyAnalytics</string>
 	</dict>
 	<key>NetworkingTopic</key>
 	<dict>

@@ -2583,7 +2583,7 @@ AppleVTD::deviceMapperActivate(AppleVTDDeviceMapper * mapper, uint32_t options)
 
 		if (!mapper->fSpace)
 		{
-			mapper->fSpace = space_create(mapper->vsize, kBPagesLog2, (1 << kBPagesLog2));
+			mapper->fSpace = space_create(mapper->vsize, kBPagesLog2, kRPages);
 			created = true;
 		}
 		space = mapper->fSpace;

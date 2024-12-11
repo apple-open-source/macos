@@ -143,6 +143,8 @@
 
 @implementation SecKeyProxy {
     _Atomic NSInteger _clientCount;
+    void (^_clientConnectionHandler)(BOOL);
+    void (^_clientDisconnectionHandler)(BOOL);
 }
 - (instancetype)initWithKey:(SecKeyRef)key certificate:(nullable NSData *)certificate {
     if (self = [super init]) {
@@ -191,14 +193,19 @@
     [newConnection _setQueue:[_listener _queue]];
     
     NSInteger oldClientCount = _clientCount++;
-    if (self.clientConnectionHandler != nil) {
-        self.clientConnectionHandler(oldClientCount == 0);
+    @synchronized (self) {
+        if (self.clientConnectionHandler != nil) {
+            self.clientConnectionHandler(oldClientCount == 0);
+        }
     }
     __weak typeof(self) weakSelf = self;
     newConnection.invalidationHandler = ^{
         typeof(self) strongSelf = weakSelf;
-        if (strongSelf != nil) {
-            NSInteger currentClientCount = --strongSelf->_clientCount;
+        if (strongSelf == nil) {
+            return;
+        }
+        NSInteger currentClientCount = --strongSelf->_clientCount;
+        @synchronized (strongSelf) {
             if (strongSelf.clientDisconnectionHandler != nil) {
                 strongSelf.clientDisconnectionHandler(currentClientCount == 0);
             }
@@ -207,6 +214,30 @@
     
     [newConnection resume];
     return YES;
+}
+
+- (void (^)(BOOL))clientConnectionHandler {
+    @synchronized (self) {
+        return _clientConnectionHandler;
+    }
+}
+
+- (void)setClientConnectionHandler:(void (^)(BOOL))clientConnectionHandler {
+    @synchronized (self) {
+        _clientConnectionHandler = clientConnectionHandler;
+    }
+}
+
+- (void (^)(BOOL))clientDisconnectionHandler {
+    @synchronized (self) {
+        return _clientDisconnectionHandler;
+    }
+}
+
+- (void)setClientDisconnectionHandler:(void (^)(BOOL))clientDisconnectionHandler {
+    @synchronized (self) {
+        _clientDisconnectionHandler = clientDisconnectionHandler;
+    }
 }
 
 - (void)invalidate {

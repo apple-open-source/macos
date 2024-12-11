@@ -458,6 +458,9 @@ const FeatureSchema& orientation()
         "orientation"_s,
         FixedVector { CSSValueLandscape, CSSValuePortrait },
         [](auto& context) {
+            if (context.document->quirks().shouldPreventOrientationMediaQueryFromEvaluatingToLandscape())
+                return MatchingIdentifiers { CSSValuePortrait };
+
             Ref view = *context.document->view();
             // Square viewport is portrait.
             bool isPortrait = view->layoutHeight() >= view->layoutWidth();
@@ -484,7 +487,7 @@ const FeatureSchema& pointer()
             MatchingIdentifiers identifiers;
             if (pointerCharacteristics.contains(PointerCharacteristics::Fine))
                 identifiers.append(CSSValueFine);
-            if (pointerCharacteristics.contains(PointerCharacteristics::Coarse))
+            if (pointerCharacteristics.contains(PointerCharacteristics::Coarse) && !context.document->quirks().shouldHideCoarsePointerCharacteristics())
                 identifiers.append(CSSValueCoarse);
             if (identifiers.isEmpty())
                 identifiers.append(CSSValueNone);

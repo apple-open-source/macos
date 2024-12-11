@@ -106,6 +106,7 @@ class MediaSource;
 class MediaSourceHandle;
 class MediaSourceInterfaceProxy;
 class MediaStream;
+class PausableIntervalTimer;
 class RenderMedia;
 class ScriptController;
 class ScriptExecutionContext;
@@ -130,6 +131,16 @@ class RemotePlayback;
 
 using CueInterval = PODInterval<MediaTime, TextTrackCue*>;
 using CueList = Vector<CueInterval>;
+
+enum class HTMLMediaElementSourceType : uint8_t {
+    File,
+    HLS,
+    MediaSource,
+    ManagedMediaSource,
+    MediaStream,
+    LiveStream,
+    StoredStream,
+};
 
 using MediaProvider = std::optional < std::variant <
 #if ENABLE(MEDIA_STREAM)
@@ -167,7 +178,8 @@ class HTMLMediaElement
 #endif
     , public CanMakeWeakPtr<HTMLMediaElement, WeakPtrFactoryInitialization::Eager>
 {
-    WTF_MAKE_ISO_ALLOCATED(HTMLMediaElement);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(HTMLMediaElement);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLMediaElement);
 public:
     using CanMakeWeakPtr<HTMLMediaElement, WeakPtrFactoryInitialization::Eager>::weakPtrFactory;
     using CanMakeWeakPtr<HTMLMediaElement, WeakPtrFactoryInitialization::Eager>::WeakValueType;
@@ -669,15 +681,7 @@ public:
     void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRight&&);
     void updateMediaState();
 
-    enum class SourceType : uint8_t {
-        File,
-        HLS,
-        MediaSource,
-        ManagedMediaSource,
-        MediaStream,
-        LiveStream,
-        StoredStream,
-    };
+    using SourceType = HTMLMediaElementSourceType;
     std::optional<SourceType> sourceType() const;
     String localizedSourceType() const;
 
@@ -754,6 +758,8 @@ protected:
 
     bool videoFullscreenStandby() const { return m_videoFullscreenStandby; }
     void setVideoFullscreenStandbyInternal(bool videoFullscreenStandby) { m_videoFullscreenStandby = videoFullscreenStandby; }
+
+    void ignoreFullscreenPermissionPolicyOnNextCallToEnterFullscreen() { m_ignoreFullscreenPermissionsPolicy = true; }
 
 protected:
     // ActiveDOMObject
@@ -836,7 +842,7 @@ private:
     bool mediaPlayerPlatformVolumeConfigurationRequired() const override;
     bool mediaPlayerIsLooping() const override;
     CachedResourceLoader* mediaPlayerCachedResourceLoader() override;
-    RefPtr<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() override;
+    Ref<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() override;
     bool mediaPlayerShouldUsePersistentCache() const override;
     const String& mediaPlayerMediaCacheDirectory() const override;
 
@@ -1103,6 +1109,11 @@ private:
 #endif
 
     bool shouldDisableHDR() const;
+    bool isWatchtimeTimerActive() const;
+    void startWatchtimeTimer();
+    void pauseWatchtimeTimer();
+    void invalidateWatchtimeTimer();
+    void watchtimeTimerFired();
 
     Timer m_progressEventTimer;
     Timer m_playbackProgressTimer;
@@ -1407,6 +1418,10 @@ private:
 
     bool m_isChangingReadyStateWhileSuspended { false };
     Atomic<unsigned> m_remainingReadyStateChangedAttempts;
+
+    std::unique_ptr<PausableIntervalTimer> m_watchtimeTimer;
+
+    bool m_ignoreFullscreenPermissionsPolicy { false };
 };
 
 String convertEnumerationToString(HTMLMediaElement::AutoplayEventPlaybackState);

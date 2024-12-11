@@ -48,13 +48,13 @@
 #include "TextControlInnerElements.h"
 #include "TextIterator.h"
 #include "TextNodeTraversal.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLTextAreaElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLTextAreaElement);
 
 using namespace HTMLNames;
 
@@ -263,7 +263,7 @@ void HTMLTextAreaElement::subtreeHasChanged()
         frame->editor().textDidChangeInTextArea(*this);
     // When typing in a textarea, childrenChanged is not called, so we need to force the directionality check.
     if (selfOrPrecedingNodesAffectDirAuto())
-        updateEffectiveDirectionalityOfDirAuto();
+        updateEffectiveTextDirection();
 }
 
 void HTMLTextAreaElement::handleBeforeTextInsertedEvent(BeforeTextInsertedEvent& event) const
@@ -379,7 +379,7 @@ void HTMLTextAreaElement::setValueCommon(const String& newValue, TextFieldEventB
     updatePlaceholderVisibility();
     invalidateStyleForSubtree();
     if (selfOrPrecedingNodesAffectDirAuto())
-        updateEffectiveDirectionalityOfDirAuto();
+        updateEffectiveTextDirection();
     setFormControlValueMatchesRenderer(true);
 
     auto endOfString = m_value.length();

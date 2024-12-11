@@ -30,10 +30,10 @@
 #include "bmpset.h"
 #include "unisetspan.h"
 
-#if APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://104584675 Add logging to help diagnose rdar://101703819
 #include <os/log.h>
-#endif  // APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+#endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 
 // HIGH_VALUE > all valid values. 110000 for codepoints
 #define UNICODESET_HIGH 0x0110000
@@ -1836,13 +1836,13 @@ void UnicodeSet::add(const UChar32* other, int32_t otherLen, int8_t polarity) {
             break;
           case 1: // a second, b first; if b < a, overlap
             if (a < b) { // no overlap, take a
-                #if APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+                #if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
                 // rdar://104584675 Add logging to help diagnose rdar://101703819
                 if (k >= bufferCapacity || i >= capacity) {
                     os_log(OS_LOG_DEFAULT, "# UnicodeSet::add case 1, k %d bufCap %d i %d cap %d j %d otherLen %d a %04X b %04X",
                                                                         k, bufferCapacity, i, capacity, j, otherLen, a, b);
                 }
-                #endif  // APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED
+                #endif  // APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
                 buffer[k++] = a; a = list[i++]; polarity ^= 1;
             } else if (b < a) { // OVERLAP, drop b
                 b = other[j++];

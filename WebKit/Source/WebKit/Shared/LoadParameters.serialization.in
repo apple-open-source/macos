@@ -30,7 +30,7 @@ enum class WebKit::NavigatingToAppBoundDomain : bool;
     std::optional<WebCore::FrameIdentifier> frameIdentifier;
     [EncodeRequestBody] WebCore::ResourceRequest request;
     WebKit::SandboxExtensionHandle sandboxExtensionHandle;
-    std::span<const uint8_t> data;
+    RefPtr<WebCore::SharedBuffer> data;
 
     String MIMEType;
     String encodingName;
@@ -55,6 +55,7 @@ enum class WebKit::NavigatingToAppBoundDomain : bool;
     std::optional<double> dataDetectionReferenceDate;
 #endif
     bool isRequestFromClientOrUserInput;
+    bool isPerformingHTTPFallback;
 
     std::optional<OptionSet<WebCore::AdvancedPrivacyProtections>> advancedPrivacyProtections;
 };

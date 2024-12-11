@@ -38,8 +38,11 @@
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/WorkerFetchResult.h>
 #include <WebCore/WorkerOptions.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebSharedWorkerServer);
 
 WebSharedWorkerServer::WebSharedWorkerServer(NetworkSession& session)
     : m_session(session)
@@ -50,7 +53,7 @@ WebSharedWorkerServer::~WebSharedWorkerServer() = default;
 
 PAL::SessionID WebSharedWorkerServer::sessionID()
 {
-    return m_session.sessionID();
+    return m_session->sessionID();
 }
 
 void WebSharedWorkerServer::requestSharedWorker(WebCore::SharedWorkerKey&& sharedWorkerKey, WebCore::SharedWorkerObjectIdentifier sharedWorkerObjectIdentifier, WebCore::TransferredMessagePort&& port, WebCore::WorkerOptions&& workerOptions)
@@ -149,7 +152,7 @@ void WebSharedWorkerServer::createContextConnection(const WebCore::RegistrableDo
     RELEASE_LOG(SharedWorker, "WebSharedWorkerServer::createContextConnection will create a connection");
 
     m_pendingContextConnectionDomains.add(registrableDomain);
-    m_session.networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::EstablishRemoteWorkerContextConnectionToNetworkProcess { RemoteWorkerType::SharedWorker, registrableDomain, requestingProcessIdentifier, std::nullopt, m_session.sessionID() }, [this, weakThis = WeakPtr { *this }, registrableDomain] (auto remoteProcessIdentifier) {
+    m_session->networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::EstablishRemoteWorkerContextConnectionToNetworkProcess { RemoteWorkerType::SharedWorker, registrableDomain, requestingProcessIdentifier, std::nullopt, m_session->sessionID() }, [this, weakThis = WeakPtr { *this }, registrableDomain] (auto remoteProcessIdentifier) {
         if (!weakThis)
             return;
 

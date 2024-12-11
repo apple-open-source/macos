@@ -74,19 +74,21 @@ struct CSSParserContext {
     bool shouldIgnoreImportRules : 1 { false };
 
     // Settings, excluding those affecting properties.
-    bool colorContrastEnabled : 1 { false };
     bool counterStyleAtRuleImageSymbolsEnabled : 1 { false };
     bool springTimingFunctionEnabled : 1 { false };
 #if ENABLE(CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
     bool transformStyleOptimized3DEnabled : 1 { false };
 #endif
     bool masonryEnabled : 1 { false };
+    bool cssAppearanceBaseEnabled : 1 { false };
     bool cssNestingEnabled : 1 { false };
     bool cssPaintingAPIEnabled : 1 { false };
     bool cssScopeAtRuleEnabled : 1 { false };
+    bool cssShapeFunctionEnabled : 1 { false };
     bool cssStartingStyleAtRuleEnabled : 1 { false };
     bool cssStyleQueriesEnabled : 1 { false };
     bool cssTextUnderlinePositionLeftRightEnabled : 1 { false };
+    bool cssBackgroundClipBorderAreaEnabled : 1 { false };
     bool cssWordBreakAutoPhraseEnabled : 1 { false };
     bool popoverAttributeEnabled : 1 { false };
     bool sidewaysWritingModesEnabled : 1 { false };
@@ -98,7 +100,10 @@ struct CSSParserContext {
 #if ENABLE(SERVICE_CONTROLS)
     bool imageControlsEnabled : 1 { false };
 #endif
+    bool colorLayersEnabled : 1 { false };
     bool lightDarkEnabled : 1 { false };
+    bool targetTextPseudoElementEnabled : 1 { false };
+    bool viewTransitionTypesEnabled : 1 { false };
 
     // Settings, those affecting properties.
     CSSPropertySettings propertySettings;

@@ -43,6 +43,7 @@
 #include "StorageAccessStatus.h"
 #include "UnifiedOriginStorageLevel.h"
 #include "WebBackForwardCache.h"
+#include "WebFrameProxy.h"
 #include "WebKit2Initialize.h"
 #include "WebNotificationManagerProxy.h"
 #include "WebPageProxy.h"
@@ -97,6 +98,10 @@
 #if ENABLE(WEB_AUTHN)
 #include "VirtualAuthenticatorManager.h"
 #endif // ENABLE(WEB_AUTHN)
+
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+#include <WebKitAdditions/DownloadProgressAdditions.h>
+#endif
 
 namespace WebKit {
 
@@ -1325,11 +1330,6 @@ void WebsiteDataStore::insertExpiredStatisticForTesting(const URL& url, unsigned
     protectedNetworkProcess()->insertExpiredStatisticForTesting(m_sessionID, WebCore::RegistrableDomain { url }, numberOfOperatingDaysPassed, hadUserInteraction, isScheduledForAllButCookieDataRemoval, isPrevalent, WTFMove(completionHandler));
 }
 
-void WebsiteDataStore::setNotifyPagesWhenDataRecordsWereScanned(bool value, CompletionHandler<void()>&& completionHandler)
-{
-    protectedNetworkProcess()->setNotifyPagesWhenDataRecordsWereScanned(m_sessionID, value, WTFMove(completionHandler));
-}
-
 void WebsiteDataStore::setResourceLoadStatisticsTimeAdvanceForTesting(Seconds time, CompletionHandler<void()>&& completionHandler)
 {
     protectedNetworkProcess()->setResourceLoadStatisticsTimeAdvanceForTesting(m_sessionID, time, WTFMove(completionHandler));
@@ -1829,6 +1829,18 @@ void WebsiteDataStore::setStorageSiteValidationEnabled(bool enabled)
         networkProcess->send(Messages::NetworkProcess::SetStorageSiteValidationEnabled(sessionID(), m_storageSiteValidationEnabled), 0);
 }
 
+void WebsiteDataStore::setPersistedSiteURLs(HashSet<URL>&& urls)
+{
+    m_persistedSiteURLs = WTFMove(urls);
+
+    HashSet<WebCore::RegistrableDomain> domains;
+    for (auto& url : m_persistedSiteURLs)
+        domains.add(WebCore::RegistrableDomain { url });
+
+    if (RefPtr networkProcess = networkProcessIfExists())
+        networkProcess->send(Messages::NetworkProcess::SetPersistedDomains(sessionID(), domains), 0);
+}
+
 void WebsiteDataStore::closeDatabases(CompletionHandler<void()>&& completionHandler)
 {
     Ref callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
@@ -1951,6 +1963,9 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     if (managedDomainsOptional)
         managedDomains = *managedDomainsOptional;
 #endif
+    HashSet<WebCore::RegistrableDomain> persistedDomains;
+    for (auto& url : m_persistedSiteURLs)
+        persistedDomains.add(WebCore::RegistrableDomain { url });
     WebCore::RegistrableDomain resourceLoadStatisticsManualPrevalentResource;
     ResourceLoadStatisticsParameters resourceLoadStatisticsParameters = {
         WTFMove(resourceLoadStatisticsDirectory),
@@ -1965,6 +1980,7 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
         WTFMove(standaloneApplicationDomain),
         WTFMove(appBoundDomains),
         WTFMove(managedDomains),
+        WTFMove(persistedDomains),
         WTFMove(resourceLoadStatisticsManualPrevalentResource),
     };
 
@@ -2413,7 +2429,14 @@ void WebsiteDataStore::openWindowFromServiceWorker(const String& urlString, cons
             return;
         }
 
-        newPage->setServiceWorkerOpenWindowCompletionCallback(WTFMove(callback));
+        if (RefPtr mainFrame = newPage->mainFrame()) {
+            mainFrame->setNavigationCallback([callback = WTFMove(callback)](auto pageID, auto) mutable {
+                callback(pageID);
+            });
+            return;
+        }
+
+        callback(std::nullopt);
     };
 
     m_client->openWindowFromServiceWorker(urlString, serviceWorkerOrigin, WTFMove(innerCallback));
@@ -2489,7 +2512,12 @@ void WebsiteDataStore::resumeDownload(const DownloadProxy& downloadProxy, const 
             sandboxExtensionHandle = WTFMove(*handle);
     }
 
-    protectedNetworkProcess()->send(Messages::NetworkProcess::ResumeDownload(m_sessionID, downloadProxy.downloadID(), resumeData.span(), path, WTFMove(sandboxExtensionHandle), callDownloadDidStart), 0);
+    Vector<uint8_t> downloadProgressAccessToken;
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+    downloadProgressAccessToken = activityAccessToken();
+#endif
+
+    protectedNetworkProcess()->send(Messages::NetworkProcess::ResumeDownload(m_sessionID, downloadProxy.downloadID(), resumeData.span(), path, WTFMove(sandboxExtensionHandle), callDownloadDidStart, downloadProgressAccessToken.span()), 0);
 }
 
 bool WebsiteDataStore::hasActivePages()
@@ -2528,6 +2556,15 @@ void WebsiteDataStore::setOriginQuotaRatioEnabledForTesting(bool enabled, Comple
         return completionHandler();
 
     networkProcess->sendWithAsyncReply(Messages::NetworkProcess::SetOriginQuotaRatioEnabledForTesting(m_sessionID, enabled), WTFMove(completionHandler));
+}
+
+void WebsiteDataStore::getAppBadgeForTesting(CompletionHandler<void(std::optional<uint64_t>)>&& completionHandler)
+{
+    RefPtr networkProcess = networkProcessIfExists();
+    if (!networkProcess)
+        return completionHandler(std::nullopt);
+
+    networkProcess->sendWithAsyncReply(Messages::NetworkProcess::GetAppBadgeForTesting(m_sessionID), WTFMove(completionHandler));
 }
 
 void WebsiteDataStore::updateServiceWorkerInspectability()

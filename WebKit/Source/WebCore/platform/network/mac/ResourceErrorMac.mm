@@ -172,6 +172,7 @@ ResourceError::ErrorRecoveryMethod ResourceError::errorRecoveryMethod() const
         case NSURLErrorNetworkConnectionLost:
         case NSURLErrorHTTPTooManyRedirects:
         case NSURLErrorResourceUnavailable:
+        case NSURLErrorNotConnectedToInternet:
         case NSURLErrorRedirectToNonExistentLocation:
         case NSURLErrorBadServerResponse:
         case NSURLErrorZeroByteResource:
@@ -193,7 +194,7 @@ ResourceError::ErrorRecoveryMethod ResourceError::errorRecoveryMethod() const
         isRecoverableError = m_errorCode == httpsUpgradeRedirectLoop;
     }
 
-    if (isRecoverableError && m_failingURL.protocolIs("https"_s) && (!m_failingURL.port() || WTF::isDefaultPortForProtocol(m_failingURL.port().value(), m_failingURL.protocol())))
+    if (isRecoverableError && m_failingURL.protocolIs("https"_s))
         return ResourceError::ErrorRecoveryMethod::HTTPFallback;
     return ResourceError::ErrorRecoveryMethod::NoRecovery;
 }

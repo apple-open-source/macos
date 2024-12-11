@@ -27,6 +27,51 @@ const maxNonLiveDuration = 604800; // 604800 seconds == 1 week
 
 class MediaController
 {
+    static EmptyRanges = {
+        get length() { return 0; },
+        start: function(index) { return undefined; },
+        end: function(index) { return undefined; },
+    }
+
+    static NullMedia = {
+        get audioTracks() { return []; },
+        get autoplay() { return false; },
+        get buffered() { return EmptyRanges; },
+        get controls() { return false; },
+        get currentTime() { return 0; },
+        set currentTime(time) { },
+        get defaultPlaybackRate() { return 1; },
+        set defaultPlaybackRate(rate) { },
+        get duration() { return 0; },
+        get error() { return null; },
+        get muted() { return false; },
+        set muted(muted) { },
+        get networkState() { return HTMLMediaElement.NETWORK_NO_SOURCE; },
+        get paused() { return false; },
+        get playbackRate() { return 1; },
+        set playbackRate(rate) { },
+        get played() { return EmptyRanges; },
+        get readyState() { return HTMLMediaElement.HAVE_NOTHING; },
+        get seekable() { return EmptyRanges; },
+        get textTracks() { return []; },
+        get videoTracks() { return []; },
+        get volume() { return 1; },
+        set volume(volume) { },
+        get webkitCurrentPlaybackTargetIsWireless() { return false; },
+        get webkitPresentationMode() { return "inline"; },
+        get webkitSupportsFullscreen() { return false; },
+
+        pause: function() { },
+        play: function() { },
+        fastSeek: function(time) { },
+        requestPictureInPicture: function() { },
+        webkitEnterFullscreen: function() { },
+        webkitExitFullscreen: function() { },
+        webkitSetPresentationMode: function(mode) { },
+        webkitShowPlaybackTargetPicker: function() { },
+        webkitSupportsPresentationMode: function(mode) { return false; },
+    };
+
     constructor(shadowRoot, media, host)
     {
         this.shadowRootWeakRef = new WeakRef(shadowRoot);
@@ -61,6 +106,7 @@ class MediaController
         media.addEventListener(this.fullscreenChangeEventType, this);
         media.addEventListener("keydown", this);
         media.addEventListener("keyup", this);
+        media.addEventListener("click", this);
 
         window.addEventListener("keydown", this);
 
@@ -70,7 +116,7 @@ class MediaController
     // Public
     get media()
     {
-        return this.mediaWeakRef ? this.mediaWeakRef.deref() : null;
+        return this.mediaWeakRef.deref() ?? MediaController.NullMedia;
     }
 
     get shadowRoot()
@@ -221,6 +267,15 @@ class MediaController
             event.preventDefault();
         else if (event.type === this.fullscreenChangeEventType)
             this.host?.presentationModeChanged?.();
+        else if (event.type === "click" && event.target === this.media) {
+            // If the <video> receives a click event, and the <video> is also the target
+            // of this event, this means we have clicked outside the border of the
+            // media controls <div>, which covers the video content.
+            if (this.host && this.host.inWindowFullscreen) {
+                this.media.webkitExitFullscreen();
+                event.stopPropagation();
+            }
+        }
 
         if (event.currentTarget === this.media) {
             if (event.type === "play")
@@ -308,15 +363,6 @@ class MediaController
 
     // Private
 
-    _supportingObjectClasses()
-    {
-        let overridenSupportingObjectClasses = this.layoutTraits.overridenSupportingObjectClasses();
-        if (overridenSupportingObjectClasses)
-            return overridenSupportingObjectClasses;
-
-        return [AirplaySupport, AudioSupport, CloseSupport, ControlsVisibilitySupport, FullscreenSupport, MuteSupport, OverflowSupport, PiPSupport, PlacardSupport, PlaybackSupport, ScrubbingSupport, SeekBackwardSupport, SeekForwardSupport, SkipBackSupport, SkipForwardSupport, StartSupport, StatusSupport, TimeControlSupport, TracksSupport, VolumeSupport];
-    }
-
     _updateControlsIfNeeded()
     {
         const layoutTraits = this.layoutTraits;
@@ -354,7 +400,7 @@ class MediaController
         this._updateTextTracksClassList();
         this._updateControlsSize();
 
-        this._supportingObjects = this._supportingObjectClasses().map(SupportClass => new SupportClass(this), this);
+        this._supportingObjects = layoutTraits.supportingObjectClasses().map(SupportClass => new SupportClass(this), this);
 
         this.controls.shouldUseSingleBarLayout = this.controls instanceof InlineMediaControls && this.isYouTubeEmbedWithTitle;
 
@@ -365,9 +411,6 @@ class MediaController
 
         if (this.host && this.host.inWindowFullscreen) {
             this._stopPropagationOnClickEvents();
-            if (!this.host.supportsSeeking)
-                this.controls.timeControl.scrubber.disabled = true;
-
             if (!this.host.supportsRewind)
                 this.controls.rewindButton.dropped = true;
         }

@@ -1200,8 +1200,8 @@ flist_recv(struct sess *sess, int fdin, int fdout, struct flist **flp, size_t *s
 			}
 			ff->st.mtime = uival;	/* beyond 2038 */
 		} else if (fflast == NULL) {
-			ERRX("same time without last entry");
-			goto out;
+			WARNX1("same time without last entry");
+			ff->st.mtime = 0;
 		}  else
 			ff->st.mtime = fflast->st.mtime;
 
@@ -1214,8 +1214,8 @@ flist_recv(struct sess *sess, int fdin, int fdout, struct flist **flp, size_t *s
 			}
 			ff->st.mode = uival;
 		} else if (fflast == NULL) {
-			ERRX("same mode without last entry");
-			goto out;
+			WARNX1("same mode without last entry");
+			ff->st.mode = 0;
 		} else
 			ff->st.mode = fflast->st.mode;
 
@@ -1290,8 +1290,8 @@ flist_recv(struct sess *sess, int fdin, int fdout, struct flist **flp, size_t *s
 				}
 				ff->st.rdev = ival;
 			} else if (fflast == NULL) {
-				ERRX("same device without last entry");
-				goto out;
+				WARNX1("same device without last entry");
+				ff->st.rdev = 0;
 			} else {
 				ff->st.rdev = fflast->st.rdev;
 			}
@@ -1313,8 +1313,8 @@ flist_recv(struct sess *sess, int fdin, int fdout, struct flist **flp, size_t *s
 				}
 				dev_major = ival;
 			} else if (fflast == NULL) {
-				ERRX("same device major without last entry");
-				goto out;
+				WARNX1("same device major without last entry");
+				dev_major = 0;
 			} else {
 				dev_major = fflast->st.rdev;
 			}
@@ -1405,8 +1405,8 @@ flist_recv(struct sess *sess, int fdin, int fdout, struct flist **flp, size_t *s
 				}
 				ff->st.device = lval;
 			} else if (fflast == NULL) {
-				ERRX("same device without last entry");
-				goto out;
+				WARNX1("same device without last entry");
+				ff->st.device = 0;
 			} else {
 				ff->st.device = fflast->st.device;
 			}

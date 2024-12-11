@@ -73,9 +73,9 @@
 #import <SecurityFoundation/SFKey_Private.h>
 
 #import "CKKSAnalytics.h"
-#import "keychain/analytics/AAFAnalyticsEvent+Security.h"
-#import "keychain/analytics/SecurityAnalyticsConstants.h"
-#import "keychain/analytics/SecurityAnalyticsReporterRTC.h"
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #endif
 
@@ -770,7 +770,7 @@ dispatch_once_t globalZoneStateQueueOnce;
             // Keys provided by this function must have the key material loaded
             NSError* loadError = nil;
 
-            CKKSKeychainBackedKey* keycore = [keyset.tlk ensureKeyLoadedForContextID:CKKSDefaultContextID  error:&loadError];
+            CKKSKeychainBackedKey* keycore = [keyset.tlk ensureKeyLoadedForContextID:CKKSDefaultContextID cache:nil error:&loadError];
             if(keycore == nil || loadError) {
                 ckkserror_global("ckks", "Error loading key: %@", loadError);
                 if(error) {

@@ -42,6 +42,7 @@
 #include <WebCore/ScrollbarTheme.h>
 #include <windowsx.h>
 #include <wtf/HexNumber.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -73,6 +74,8 @@ static void translatePoint(LPARAM& lParam, HWND from, HWND to)
     ::MapWindowPoints(from, to, &pt, 1);
     lParam = MAKELPARAM(pt.x, pt.y);
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebPopupMenuProxyWin);
 
 LRESULT CALLBACK WebPopupMenuProxyWin::WebPopupMenuProxyWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -314,10 +317,11 @@ void WebPopupMenuProxyWin::showPopupMenu(const IntRect& rect, TextDirection, dou
     m_showPopup = false;
     ::ShowWindow(m_popup, SW_HIDE);
 
-    if (!WebPopupMenuProxy::m_client)
+    CheckedPtr client = this->client();
+    if (!client)
         return;
 
-    WebPopupMenuProxy::m_client->valueChangedForPopupMenu(this, m_newSelectedIndex);
+    client->valueChangedForPopupMenu(this, m_newSelectedIndex);
 
     // <https://bugs.webkit.org/show_bug.cgi?id=57904> In order to properly call the onClick()
     // handler on a <select> element, we need to fake a mouse up event in the main window.
@@ -327,10 +331,10 @@ void WebPopupMenuProxyWin::showPopupMenu(const IntRect& rect, TextDirection, dou
     // Thus, we are virtually clicking at the
     // same location where the mouse down event occurred. This allows the hit test to select
     // the correct element, and thereby call the onClick() JS handler.
-    if (!WebPopupMenuProxy::m_client->currentlyProcessedMouseDownEvent())
+    if (!client->currentlyProcessedMouseDownEvent())
         return;
 
-    const MSG* initiatingWinEvent = WebPopupMenuProxy::m_client->currentlyProcessedMouseDownEvent()->nativeEvent();
+    const MSG* initiatingWinEvent = client->currentlyProcessedMouseDownEvent()->nativeEvent();
     MSG fakeEvent = *initiatingWinEvent;
     fakeEvent.message = WM_LBUTTONUP;
     ::PostMessage(fakeEvent.hwnd, fakeEvent.message, fakeEvent.wParam, fakeEvent.lParam);
@@ -931,8 +935,8 @@ bool WebPopupMenuProxyWin::setFocusedIndex(int i, bool hotTracking)
     m_focusedIndex = i;
 
     if (!hotTracking) {
-        if (WebPopupMenuProxy::m_client)
-            WebPopupMenuProxy::m_client->setTextFromItemForPopupMenu(this, i);
+        if (CheckedPtr client = this->client())
+            client->setTextFromItemForPopupMenu(this, i);
     }
 
     scrollToRevealSelection();

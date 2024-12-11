@@ -377,6 +377,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/identity/IdentityCredentialProtocol.idl
     Modules/identity/IdentityRequestProvider.idl
     Modules/identity/Navigator+Identity.idl
+    Modules/identity/OpenID4VPRequest.idl
 
     Modules/indexeddb/IDBCursor.idl
     Modules/indexeddb/IDBCursorDirection.idl
@@ -928,6 +929,7 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSLayerStatementRule.idl
     css/CSSMediaRule.idl
     css/CSSNamespaceRule.idl
+    css/CSSNestedDeclarations.idl
     css/CSSPaintCallback.idl
     css/CSSPaintSize.idl
     css/CSSPageRule.idl
@@ -941,6 +943,7 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSStyleSheet.idl
     css/CSSSupportsRule.idl
     css/CSSUnknownRule.idl
+    css/CSSViewTransitionRule.idl
     css/DocumentOrShadowRoot+CSSOM.idl
     css/DOMCSSCustomPropertyDescriptor.idl
     css/DOMCSSNamespace+CSSNumericFactory.idl
@@ -1027,6 +1030,7 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/CheckVisibilityOptions.idl
     dom/ChildNode.idl
     dom/ClipboardEvent.idl
+    dom/CommandEvent.idl
     dom/Comment.idl
     dom/CompositionEvent.idl
     dom/ContentVisibilityAutoStateChangeEvent.idl
@@ -1103,8 +1107,8 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/IdleRequestOptions.idl
     dom/InnerHTML.idl
     dom/InputEvent.idl
-    dom/InvokeEvent.idl
     dom/KeyboardEvent.idl
+    dom/MapperCallback.idl
     dom/MessageChannel.idl
     dom/MessageEvent.idl
     dom/MessagePort.idl
@@ -1122,12 +1126,15 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/NodeList.idl
     dom/NonDocumentTypeChildNode.idl
     dom/NonElementParentNode.idl
-    dom/OverflowEvent.idl
+    dom/Observable.idl
+    dom/PageRevealEvent.idl
+    dom/PageSwapEvent.idl
     dom/PageTransitionEvent.idl
     dom/ParentNode.idl
     dom/PointerEvent.idl
     dom/PointerLockOptions.idl
     dom/PopStateEvent.idl
+    dom/PredicateCallback.idl
     dom/ProcessingInstruction.idl
     dom/ProgressEvent.idl
     dom/PromiseRejectionEvent.idl
@@ -1142,8 +1149,14 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/ShadowRootMode.idl
     dom/SlotAssignmentMode.idl
     dom/Slotable.idl
+    dom/StartViewTransitionOptions.idl
     dom/StaticRange.idl
     dom/StringCallback.idl
+    dom/SubscribeOptions.idl
+    dom/Subscriber.idl
+    dom/SubscriberCallback.idl
+    dom/SubscriptionObserver.idl
+    dom/SubscriptionObserverCallback.idl
     dom/Text.idl
     dom/TextDecoder.idl
     dom/TextDecoderStream.idl
@@ -1166,7 +1179,9 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/UIEvent.idl
     dom/UIEventInit.idl
     dom/ValidityStateFlags.idl
+    dom/ViewTransition+Types.idl
     dom/ViewTransition.idl
+    dom/ViewTransitionTypeSet.idl
     dom/ViewTransitionUpdateCallback.idl
     dom/VisibilityState.idl
     dom/WheelEvent.idl
@@ -1371,6 +1386,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/EventSource.idl
     page/FragmentDirective.idl
     page/History.idl
+    page/IsLoggedIn.idl
     page/IntersectionObserver.idl
     page/IntersectionObserverCallback.idl
     page/IntersectionObserverEntry.idl
@@ -1689,6 +1705,7 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/webxr/WebXRLayer.idl
     Modules/webxr/WebXRPose.idl
     Modules/webxr/WebXRReferenceSpace.idl
+    Modules/webxr/WebXRRenderState+Layers.idl
     Modules/webxr/WebXRRenderState.idl
     Modules/webxr/WebXRRigidTransform.idl
     Modules/webxr/WebXRSession+AR.idl
@@ -1699,23 +1716,46 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/webxr/WebXRViewerPose.idl
     Modules/webxr/WebXRViewport.idl
     Modules/webxr/WebXRWebGLLayer.idl
+    Modules/webxr/XRCompositionLayer.idl
+    Modules/webxr/XRCubeLayer.idl
+    Modules/webxr/XRCubeLayerInit.idl
+    Modules/webxr/XRCylinderLayer.idl
+    Modules/webxr/XRCylinderLayerInit.idl
+    Modules/webxr/XREquirectLayer.idl
+    Modules/webxr/XREquirectLayerInit.idl
     Modules/webxr/XREnvironmentBlendMode.idl
     Modules/webxr/XREye.idl
     Modules/webxr/XRFrameRequestCallback.idl
+    Modules/webxr/XRGPUBinding.idl
+    Modules/webxr/XRGPULayerInit.idl
+    Modules/webxr/XRGPUProjectionLayerInit.idl
+    Modules/webxr/XRGPUSubImage.idl
     Modules/webxr/XRHandJoint.idl
     Modules/webxr/XRHandedness.idl
     Modules/webxr/XRInputSourceEvent.idl
     Modules/webxr/XRInputSourcesChangeEvent.idl
     Modules/webxr/XRInteractionMode.idl
+    Modules/webxr/XRLayerEvent.idl
+    Modules/webxr/XRLayerInit.idl
+    Modules/webxr/XRLayerLayout.idl
+    Modules/webxr/XRLayerQuality.idl
+    Modules/webxr/XRProjectionLayer.idl
+    Modules/webxr/XRProjectionLayerInit.idl
+    Modules/webxr/XRQuadLayer.idl
+    Modules/webxr/XRQuadLayerInit.idl
     Modules/webxr/XRReferenceSpaceEvent.idl
     Modules/webxr/XRReferenceSpaceType.idl
     Modules/webxr/XRRenderStateInit.idl
     Modules/webxr/XRSessionEvent.idl
     Modules/webxr/XRSessionInit.idl
     Modules/webxr/XRSessionMode.idl
+    Modules/webxr/XRSubImage.idl
     Modules/webxr/XRTargetRayMode.idl
+    Modules/webxr/XRTextureType.idl
     Modules/webxr/XRVisibilityState.idl
+    Modules/webxr/XRWebGLBinding.idl
     Modules/webxr/XRWebGLLayerInit.idl
+    Modules/webxr/XRWebGLSubImage.idl
 )
 
 list(APPEND WebCore_NON_SVG_IDL_FILES
@@ -2359,16 +2399,10 @@ if (USE_THEME_ADWAITA)
     )
 endif ()
 
-if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.18)
-    set(CAT_PROGRAM ${CMAKE_COMMAND} -E cat)
-else ()
-    set(CAT_PROGRAM cat)
-endif ()
-
 add_custom_command(
     OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.css
     DEPENDS ${MODERN_MEDIA_CONTROLS_STYLE_SHEETS}
-    COMMAND ${CAT_PROGRAM} ${MODERN_MEDIA_CONTROLS_STYLE_SHEETS} > ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.css
+    COMMAND ${CMAKE_COMMAND} -E cat ${MODERN_MEDIA_CONTROLS_STYLE_SHEETS} > ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.css
     VERBATIM)
 
 set(MODERN_MEDIA_CONTROLS_SCRIPTS
@@ -2451,7 +2485,7 @@ set(MODERN_MEDIA_CONTROLS_SCRIPTS
 add_custom_command(
     OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.js
     DEPENDS ${MODERN_MEDIA_CONTROLS_SCRIPTS}
-    COMMAND ${CAT_PROGRAM} ${MODERN_MEDIA_CONTROLS_SCRIPTS} > ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.js
+    COMMAND ${CMAKE_COMMAND} -E cat ${MODERN_MEDIA_CONTROLS_SCRIPTS} > ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.js
     VERBATIM)
 
 # Modules that the bindings generator scripts may use

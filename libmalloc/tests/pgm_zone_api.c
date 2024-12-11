@@ -57,10 +57,11 @@ setup(void)
 {
 	T_ATEND(teardown);
 
-	wrapped_zone.version = 13;
+	wrapped_zone.version = 16;
 	wrapped_zone.calloc = malloc_default_zone()->calloc;
 	zone = (pgm_zone_t *)pgm_create_zone(&wrapped_zone);
 	wrapped_zone.calloc = NULL;
+	wrapped_zone.version = 0;
 }
 
 T_DECL(optional_apis, "Restrict zone API to what is supported by wrapped zone", T_META_TAG_VM_PREFERRED)
@@ -73,15 +74,16 @@ T_DECL(optional_apis, "Restrict zone API to what is supported by wrapped zone", 
 	T_EXPECT_NOTNULL(z->batch_malloc, NULL);
 	T_EXPECT_NOTNULL(z->batch_free, NULL);
 	T_EXPECT_NOTNULL(z->pressure_relief, NULL);
-	T_EXPECT_NOTNULL(z->malloc_with_options, NULL);
 
 	// Never supported
 	T_EXPECT_NULL(z->try_free_default, NULL);
 
 	// Supported if wrapped zone has it
 	T_EXPECT_NULL(z->memalign, NULL);
+	T_EXPECT_NULL(z->malloc_type_memalign, NULL);
 	T_EXPECT_NULL(z->free_definite_size, NULL);
 	T_EXPECT_NULL(z->claimed_address, NULL);
+	T_EXPECT_NULL(z->malloc_type_malloc_with_options, NULL);
 }
 
 static size_t wrapped_zone_malloc_expected_size = size;
@@ -185,14 +187,12 @@ wrapped_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size)
 	return ++wrapped_zone_memalign_ret_value;
 }
 
-T_DECL(memalign_invalid_alignment, "memalign delegates for invalid alignment", T_META_TAG_VM_PREFERRED)
+T_DECL(memalign_invalid_alignment, "memalign delegates for alignment greater than page size", T_META_TAG_VM_PREFERRED)
 {
 	wrapped_zone.memalign = wrapped_zone_memalign;
 	setup();
 
 	T_EXPECT_EQ(CALL(memalign, 2 * PAGE_SIZE, size), (void *)1, "alignment > page size");
-	T_EXPECT_EQ(CALL(memalign, 32+16, size), (void *)2, "alignment not a power of 2");
-	T_EXPECT_EQ(CALL(memalign, sizeof(void *) / 2, size), (void *)3, "alignment < sizeof(void *)");
 }
 
 static void *

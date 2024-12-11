@@ -81,6 +81,7 @@
 #include <jsc/JSCContextPrivate.h>
 #include <libsoup/soup.h>
 #include <wtf/SetForScope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/WTFGType.h>
@@ -243,7 +244,7 @@ enum {
 static GParamSpec* sObjProperties[N_PROPERTIES] = { nullptr, };
 
 class PageLoadStateObserver final : public PageLoadState::Observer {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(PageLoadStateObserver);
 public:
     PageLoadStateObserver(WebKitWebView* webView)
         : m_webView(webView)
@@ -801,6 +802,7 @@ static Ref<API::PageConfiguration> webkitWebViewCreatePageConfiguration(WebKitWe
     auto pageConfiguration = API::PageConfiguration::create();
     pageConfiguration->setProcessPool(&webkitWebContextGetProcessPool(priv->context.get()));
     pageConfiguration->setPreferences(webkitSettingsGetPreferences(priv->settings.get()));
+    pageConfiguration->preferences().setAllowTestOnlyIPC(pageConfiguration->allowTestOnlyIPC());
     pageConfiguration->setRelatedPage(priv->relatedView ? &webkitWebViewGetPage(priv->relatedView) : nullptr);
     pageConfiguration->setUserContentController(priv->userContentManager ? webkitUserContentManagerGetUserContentControllerProxy(priv->userContentManager.get()) : nullptr);
     pageConfiguration->setControlledByAutomation(priv->isControlledByAutomation);
@@ -2649,7 +2651,7 @@ void webkitWebViewSetIcon(WebKitWebView* webView, const LinkIcon& icon, API::Dat
 
 RefPtr<WebPageProxy> webkitWebViewCreateNewPage(WebKitWebView* webView, Ref<API::PageConfiguration>&& configuration, WindowFeatures&& windowFeatures, WebKitNavigationAction* navigationAction)
 {
-    RefPtr openerProcess = configuration->openerProcess();
+    auto& openerInfo = configuration->openerInfo();
 
     ASSERT(!webView->priv->configurationForNextRelatedView);
     SetForScope configurationScope(webView->priv->configurationForNextRelatedView, WTFMove(configuration));
@@ -2660,7 +2662,7 @@ RefPtr<WebPageProxy> webkitWebViewCreateNewPage(WebKitWebView* webView, Ref<API:
         return nullptr;
 
     Ref newPage = getPage(newWebView);
-    if (&getPage(webView) != newPage->configuration().relatedPage() || openerProcess != newPage->configuration().openerProcess()) {
+    if (&getPage(webView) != newPage->configuration().relatedPage() || openerInfo != newPage->configuration().openerInfo()) {
         g_warning("WebKitWebView returned by WebKitWebView::create signal was not created with the related WebKitWebView");
         return nullptr;
     }
@@ -3037,6 +3039,10 @@ void webkitWebViewRequestPointerLock(WebKitWebView* webView)
 #if PLATFORM(GTK)
     webkitWebViewBaseRequestPointerLock(WEBKIT_WEB_VIEW_BASE(webView));
 #endif
+
+#if PLATFORM(WPE)
+    webView->priv->view->requestPointerLock();
+#endif
 }
 
 void webkitWebViewDenyPointerLockRequest(WebKitWebView* webView)
@@ -3049,8 +3055,12 @@ void webkitWebViewDidLosePointerLock(WebKitWebView* webView)
 #if PLATFORM(GTK)
     webkitWebViewBaseDidLosePointerLock(WEBKIT_WEB_VIEW_BASE(webView));
 #endif
-}
+
+#if PLATFORM(WPE)
+    webView->priv->view->didLosePointerLock();
 #endif
+}
+#endif // ENABLE(POINTER_LOCK)
 
 static void webkitWebViewSynthesizeCompositionKeyPress(WebKitWebView* webView, const String& text, std::optional<Vector<CompositionUnderline>>&& underlines, std::optional<EditingRange>&& selectionRange)
 {
@@ -3362,7 +3372,7 @@ void webkit_web_view_load_html(WebKitWebView* webView, const gchar* content, con
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
     g_return_if_fail(content);
 
-    getPage(webView).loadData({ reinterpret_cast<const uint8_t*>(content), content ? strlen(content) : 0 }, "text/html"_s, "UTF-8"_s, String::fromUTF8(baseURI));
+    getPage(webView).loadData(WebCore::SharedBuffer::create(std::span { reinterpret_cast<const uint8_t*>(content), content ? strlen(content) : 0 }), "text/html"_s, "UTF-8"_s, String::fromUTF8(baseURI));
 }
 
 /**
@@ -3403,7 +3413,7 @@ void webkit_web_view_load_plain_text(WebKitWebView* webView, const gchar* plainT
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
     g_return_if_fail(plainText);
 
-    getPage(webView).loadData(span8(plainText), "text/plain"_s, "UTF-8"_s, aboutBlankURL().string());
+    getPage(webView).loadData(WebCore::SharedBuffer::create(span8(plainText)), "text/plain"_s, "UTF-8"_s, aboutBlankURL().string());
 }
 
 /**
@@ -3432,7 +3442,7 @@ void webkit_web_view_load_bytes(WebKitWebView* webView, GBytes* bytes, const cha
     gconstpointer bytesData = g_bytes_get_data(bytes, &bytesDataSize);
     g_return_if_fail(bytesDataSize);
 
-    getPage(webView).loadData({ reinterpret_cast<const uint8_t*>(bytesData), bytesDataSize }, mimeType ? String::fromUTF8(mimeType) : String::fromUTF8("text/html"),
+    getPage(webView).loadData(WebCore::SharedBuffer::create(std::span { reinterpret_cast<const uint8_t*>(bytesData), bytesDataSize }), mimeType ? String::fromUTF8(mimeType) : String::fromUTF8("text/html"),
         encoding ? String::fromUTF8(encoding) : String::fromUTF8("UTF-8"), String::fromUTF8(baseURI));
 }
 
@@ -4998,20 +5008,20 @@ void webkit_web_view_get_snapshot(WebKitWebView* webView, WebKitSnapshotRegion r
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
-    SnapshotOptions snapshotOptions = 0;
+    SnapshotOptions snapshotOptions;
     switch (region) {
     case WEBKIT_SNAPSHOT_REGION_VISIBLE:
-        snapshotOptions |= SnapshotOptionsVisibleContentRect;
+        snapshotOptions.add(SnapshotOption::VisibleContentRect);
         break;
     case WEBKIT_SNAPSHOT_REGION_FULL_DOCUMENT:
-        snapshotOptions |= SnapshotOptionsFullContentRect;
+        snapshotOptions.add(SnapshotOption::FullContentRect);
         break;
     }
 
     if (!(options & WEBKIT_SNAPSHOT_OPTIONS_INCLUDE_SELECTION_HIGHLIGHTING))
-        snapshotOptions |= SnapshotOptionsExcludeSelectionHighlighting;
+        snapshotOptions.add(SnapshotOption::ExcludeSelectionHighlighting);
     if (options & WEBKIT_SNAPSHOT_OPTIONS_TRANSPARENT_BACKGROUND)
-        snapshotOptions |= SnapshotOptionsTransparentBackground;
+        snapshotOptions.add(SnapshotOption::TransparentBackground);
 
     GRefPtr<GTask> task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
     getPage(webView).takeSnapshot({ }, { }, snapshotOptions, [task = WTFMove(task)](std::optional<ShareableBitmap::Handle>&& handle) {

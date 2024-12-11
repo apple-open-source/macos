@@ -24,6 +24,7 @@ messages -> NetworkProcess LegacyReceiver {
     InitializeNetworkProcess(struct WebKit::NetworkProcessCreationParameters processCreationParameters) -> ()
 
     CreateNetworkConnectionToWebProcess(WebCore::ProcessIdentifier processIdentifier, PAL::SessionID sessionID, struct WebKit::NetworkProcessConnectionParameters parameters) -> (std::optional<IPC::ConnectionHandle> connectionHandle, enum:uint8_t WebCore::HTTPCookieAcceptPolicy cookieAcceptPolicy) AllowedWhenWaitingForSyncReply
+    SharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier processIdentifier, struct WebKit::SharedPreferencesForWebProcess sharedPreferencesForWebProcess) -> ()
 
     AddAllowedFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, WebCore::RegistrableDomain firstPartyForCookies, enum:bool WebKit::LoadedWebArchive loadedWebArchive) -> ()
 
@@ -49,10 +50,15 @@ messages -> NetworkProcess LegacyReceiver {
     WebsiteDataOriginDirectoryForTesting(PAL::SessionID sessionID, struct WebCore::ClientOrigin origin, OptionSet<WebKit::WebsiteDataType> websiteDataType) -> (String directory)
 
     DownloadRequest(PAL::SessionID sessionID, WebKit::DownloadID downloadID, WebCore::ResourceRequest request, std::optional<WebCore::SecurityOriginData> topOrigin, std::optional<WebKit::NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, String suggestedFilename)
-    ResumeDownload(PAL::SessionID sessionID, WebKit::DownloadID downloadID, std::span<const uint8_t> resumeData, String path, WebKit::SandboxExtensionHandle sandboxExtensionHandle, enum:bool WebKit::CallDownloadDidStart callDownloadDidStart)
+    ResumeDownload(PAL::SessionID sessionID, WebKit::DownloadID downloadID, std::span<const uint8_t> resumeData, String path, WebKit::SandboxExtensionHandle sandboxExtensionHandle, enum:bool WebKit::CallDownloadDidStart callDownloadDidStart, std::span<const uint8_t> activityAccessToken)
     CancelDownload(WebKit::DownloadID downloadID) -> (std::span<const uint8_t> resumeData)
 #if PLATFORM(COCOA)
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+    PublishDownloadProgress(WebKit::DownloadID downloadID, URL url, std::span<const uint8_t> bookmarkData, enum:bool WebKit::UseDownloadPlaceholder useDownloadPlaceholder, std::span<const uint8_t> activityAccessToken)
+#endif
+#if !HAVE(MODERN_DOWNLOADPROGRESS)
     PublishDownloadProgress(WebKit::DownloadID downloadID, URL url, WebKit::SandboxExtensionHandle sandboxExtensionHandle)
+#endif
 #endif
     DataTaskWithRequest(WebKit::WebPageProxyIdentifier pageID, PAL::SessionID sessionID, WebCore::ResourceRequest request, std::optional<WebCore::SecurityOriginData> topOrigin, IPC::FormDataReference requestBody) -> (WebKit::DataTaskIdentifier taskIdentifier)
     CancelDataTask(WebKit::DataTaskIdentifier taskIdentifier, PAL::SessionID sessionID) -> ()
@@ -118,7 +124,6 @@ messages -> NetworkProcess LegacyReceiver {
     SetMinimumTimeBetweenDataRecordsRemoval(PAL::SessionID sessionID, Seconds seconds) -> ()
     SetPruneEntriesDownTo(PAL::SessionID sessionID, uint64_t maximumEntryCount) -> ()
     SetShouldClassifyResourcesBeforeDataRecordsRemoval(PAL::SessionID sessionID, bool value) -> ()
-    SetNotifyPagesWhenDataRecordsWereScanned(PAL::SessionID sessionID, bool value) -> ()
     SetResourceLoadStatisticsTimeAdvanceForTesting(PAL::SessionID sessionID, Seconds time) -> ()
     SetIsRunningResourceLoadStatisticsTest(PAL::SessionID sessionID, bool value) -> ()
     SetResourceLoadStatisticsDebugMode(PAL::SessionID sessionID, bool debugMode) -> ()
@@ -215,8 +220,12 @@ messages -> NetworkProcess LegacyReceiver {
     RemoveWebPageNetworkParameters(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier pageID)
     CountNonDefaultSessionSets(PAL::SessionID sessionID) -> (size_t count)
 
+    AllowFileAccessFromWebProcess(WebCore::ProcessIdentifier processIdentifier, String url) -> ()
+    AllowFilesAccessFromWebProcess(WebCore::ProcessIdentifier processIdentifier, Vector<String> urls) -> () ReplyCanDispatchOutOfOrder
+
     TerminateRemoteWorkerContextConnectionWhenPossible(enum:uint8_t WebKit::RemoteWorkerType workerType, PAL::SessionID sessionID,  WebCore::RegistrableDomain registrableDomain, WebCore::ProcessIdentifier processIdentifier);
 
+    GetPendingPushMessage(PAL::SessionID sessionID) -> (std::optional<WebKit::WebPushMessage> message)
     GetPendingPushMessages(PAL::SessionID sessionID) -> (Vector<WebKit::WebPushMessage> messages)
     ProcessPushMessage(PAL::SessionID sessionID, struct WebKit::WebPushMessage pushMessage, enum:uint8_t WebCore::PushPermissionState pushPermissionState) -> (bool didSucceed, std::optional<WebCore::NotificationPayload> displayPayload)
     ProcessNotificationEvent(struct WebCore::NotificationData data, enum:bool WebCore::NotificationEventType eventType) -> (bool didSucceed)
@@ -241,4 +250,7 @@ messages -> NetworkProcess LegacyReceiver {
 #endif
 
     SetStorageSiteValidationEnabled(PAL::SessionID sessionID, bool enabled)
+    SetPersistedDomains(PAL::SessionID sessionsID, HashSet<WebCore::RegistrableDomain> domains)
+
+    GetAppBadgeForTesting(PAL::SessionID sessionID) -> (std::optional<uint64_t> badge)
 }

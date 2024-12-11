@@ -563,12 +563,20 @@
             "issue": "http://crbug.com/1144207"
         },
         {
-            "name": "sync_vertex_arrays_to_default",
+            "name": "sync_all_vertex_arrays_to_default",
             "category": "Workarounds",
             "description": [
                 "Only use the default VAO because of missing support or driver bugs"
             ],
             "issue": "http://anglebug.com/40096758"
+        },
+        {
+            "name": "sync_default_vertex_arrays_to_default",
+            "category": "Workarounds",
+            "description": [
+                "Sync all frontend vertex array objects to the driver default vertex array"
+            ],
+            "issue": "http://anglebug.com/355034686"
         },
         {
             "name": "sanitize_AMDGPU_renderer_string",
@@ -803,6 +811,14 @@
             "issue": "https://crbug.com/40279678"
         },
         {
+            "name": "avoid_bind_frag_data_location",
+            "category": "Workarounds",
+            "description": [
+                "Qualcomm drivers fail to link after binding fragment data locations."
+            ],
+            "issue": "https://anglebug.com/8646"
+        },
+        {
             "name": "srgb_blending_broken",
             "category": "Workarounds",
             "description": [
@@ -828,6 +844,14 @@
                 "Disable QCOM_tiled_rendering on devices with rendering artifacts or which improperly expose the extension."
             ],
             "issue": "http://skbug.com/9491 https://github.com/flutter/flutter/issues/47164 https://github.com/flutter/flutter/issues/47804"
+        },
+        {
+            "name": "disable_blend_equation_advanced",
+            "category": "Workarounds",
+            "description": [
+                "Disable GL_KHR_blend_equation_advanced due to various driver issues."
+            ],
+            "issue": "https://anglebug.com/42267098"
         }
     ]
 }

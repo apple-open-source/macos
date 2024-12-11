@@ -270,7 +270,7 @@ op :call_direct_eval,
         argv: unsigned,
         thisValue: VirtualRegister,
         scope: VirtualRegister,
-        ecmaMode: ECMAMode,
+        lexicallyScopedFeatures: unsigned,
         valueProfile: unsigned,
     },
     metadata: {
@@ -1432,17 +1432,28 @@ op :op_construct_return_location
 op :op_call_varargs_return_location
 op :op_construct_varargs_return_location
 op :op_get_by_id_return_location
+op :op_get_by_id_direct_return_location
 op :op_get_length_return_location
 op :op_get_by_val_return_location
 op :op_put_by_id_return_location
 op :op_put_by_val_return_location
+op :op_put_by_val_direct_return_location
+op :op_in_by_id_return_location
+op :op_in_by_val_return_location
+op :op_enumerator_get_by_val_return_location
+op :op_enumerator_put_by_val_return_location
+op :op_enumerator_in_by_val_return_location
 op :op_iterator_open_return_location
 op :op_iterator_next_return_location
 op :op_call_direct_eval_slow_return_location
 op :wasm_function_prologue_trampoline
 op :wasm_function_prologue
+op :wasm_function_prologue_simd_trampoline
 op :wasm_function_prologue_simd
+op :js_to_wasm_wrapper_entry_crash_for_simd_parameters
 op :js_to_wasm_wrapper_entry
+op :wasm_to_wasm_wrapper_entry
+op :wasm_to_js_wrapper_entry
 
 op :js_trampoline_op_call
 op :js_trampoline_op_call_ignore_result
@@ -1461,6 +1472,7 @@ op :wasm_trampoline_wasm_call_indirect
 op :wasm_trampoline_wasm_call_ref
 op :wasm_trampoline_wasm_tail_call
 op :wasm_trampoline_wasm_tail_call_indirect
+op :wasm_trampoline_wasm_tail_call_ref
 
 end_section :NativeHelpers
 
@@ -1698,6 +1710,15 @@ op :call_ref,
         typeIndex: unsigned,
         stackOffset: unsigned,
         numberOfStackArgs: unsigned,
+    }
+
+op :tail_call_ref,
+    args: {
+        functionReference: VirtualRegister,
+        typeIndex: unsigned,
+        stackOffset: unsigned,
+        numberOfCalleeStackArgs: unsigned,
+        numberOfCallerStackArgs: unsigned,
     }
 
 op :call_builtin,

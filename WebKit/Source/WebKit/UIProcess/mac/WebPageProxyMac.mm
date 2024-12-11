@@ -37,6 +37,7 @@
 #import "MenuUtilities.h"
 #import "MessageSenderInlines.h"
 #import "NativeWebKeyboardEvent.h"
+#import "NetworkProcessMessages.h"
 #import "PDFContextMenu.h"
 #import "PageClient.h"
 #import "PageClientImplMac.h"
@@ -70,7 +71,8 @@
 #import <pal/spi/mac/NSMenuSPI.h>
 #import <wtf/ProcessPrivilege.h>
 
-#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, &connection)
+#define MESSAGE_CHECK(assertion, connection) MESSAGE_CHECK_BASE(assertion, connection)
+#define MESSAGE_CHECK_COMPLETION(assertion, connection, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, connection, completion)
 #define MESSAGE_CHECK_URL(url) MESSAGE_CHECK_BASE(checkURLReceivedFromCurrentOrPreviousWebProcess(m_legacyMainFrameProcess, url), m_legacyMainFrameProcess->connection())
 #define MESSAGE_CHECK_WITH_RETURN_VALUE(assertion, returnValue) MESSAGE_CHECK_WITH_RETURN_VALUE_BASE(assertion, process().connection(), returnValue)
 
@@ -237,7 +239,8 @@ bool WebPageProxy::readSelectionFromPasteboard(const String& pasteboardName)
     if (!hasRunningProcess())
         return false;
 
-    grantAccessToCurrentPasteboardData(pasteboardName);
+    if (auto replyID = grantAccessToCurrentPasteboardData(pasteboardName, [] () { }))
+        websiteDataStore().protectedNetworkProcess()->connection().waitForAsyncReplyAndDispatchImmediately<Messages::NetworkProcess::AllowFilesAccessFromWebProcess>(*replyID, 100_ms);
 
     const Seconds messageTimeout(20);
     auto sendResult = legacyMainFrameProcess().sendSync(Messages::WebPage::ReadSelectionFromPasteboard(pasteboardName), webPageIDInMainFrameProcess(), messageTimeout);
@@ -252,7 +255,7 @@ void WebPageProxy::setPromisedDataForImage(IPC::Connection& connection, const St
 {
     MESSAGE_CHECK_URL(url);
     MESSAGE_CHECK_URL(visibleURL);
-    MESSAGE_CHECK(extension == FileSystem::lastComponentOfPathIgnoringTrailingSlash(extension));
+    MESSAGE_CHECK(extension == FileSystem::lastComponentOfPathIgnoringTrailingSlash(extension), connection);
 
     auto sharedMemoryImage = SharedMemory::map(WTFMove(imageHandle), SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryImage)
@@ -268,21 +271,6 @@ void WebPageProxy::setPromisedDataForImage(IPC::Connection& connection, const St
 }
 
 #endif
-
-void WebPageProxy::uppercaseWord()
-{
-    legacyMainFrameProcess().send(Messages::WebPage::UppercaseWord(), webPageIDInMainFrameProcess());
-}
-
-void WebPageProxy::lowercaseWord()
-{
-    legacyMainFrameProcess().send(Messages::WebPage::LowercaseWord(), webPageIDInMainFrameProcess());
-}
-
-void WebPageProxy::capitalizeWord()
-{
-    legacyMainFrameProcess().send(Messages::WebPage::CapitalizeWord(), webPageIDInMainFrameProcess());
-}
 
 void WebPageProxy::setSmartInsertDeleteEnabled(bool isSmartInsertDeleteEnabled)
 {
@@ -305,7 +293,7 @@ void WebPageProxy::registerWebProcessAccessibilityToken(std::span<const uint8_t>
         return;
 
     // Note: The WebFrameProxy with this FrameIdentifier might not exist in the UI process. See rdar://130998804.
-    protectedPageClient()->accessibilityWebProcessTokenReceived(data, frameID, legacyMainFrameProcess().connection()->remoteProcessID());
+    protectedPageClient()->accessibilityWebProcessTokenReceived(data, frameID, legacyMainFrameProcess().connection().remoteProcessID());
 }
 
 void WebPageProxy::makeFirstResponder()
@@ -346,7 +334,7 @@ void WebPageProxy::registerUIProcessAccessibilityTokens(std::span<const uint8_t>
 
 void WebPageProxy::executeSavedCommandBySelector(IPC::Connection& connection, const String& selector, CompletionHandler<void(bool)>&& completionHandler)
 {
-    MESSAGE_CHECK(isValidKeypressCommandName(selector));
+    MESSAGE_CHECK_COMPLETION(isValidKeypressCommandName(selector), connection, completionHandler(false));
 
     completionHandler(protectedPageClient()->executeSavedCommandBySelector(selector));
 }
@@ -374,7 +362,7 @@ bool WebPageProxy::acceptsFirstMouse(int eventNumber, const WebKit::WebMouseEven
         return false;
 
     legacyMainFrameProcess().send(Messages::WebPage::RequestAcceptsFirstMouse(eventNumber, event), webPageIDInMainFrameProcess(), IPC::SendOption::DispatchMessageEvenWhenWaitingForUnboundedSyncReply);
-    bool receivedReply = m_legacyMainFrameProcess->connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::HandleAcceptsFirstMouse>(webPageIDInMainFrameProcess(), 3_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives) == IPC::Error::NoError;
+    bool receivedReply = m_legacyMainFrameProcess->connection().waitForAndDispatchImmediately<Messages::WebPageProxy::HandleAcceptsFirstMouse>(webPageIDInMainFrameProcess(), 3_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives) == IPC::Error::NoError;
 
     if (!receivedReply)
         return false;
@@ -607,15 +595,6 @@ _WKRemoteObjectRegistry *WebPageProxy::remoteObjectRegistry()
     return protectedPageClient()->remoteObjectRegistry();
 }
 
-#if ENABLE(APPLE_PAY)
-
-NSWindow *WebPageProxy::Internals::paymentCoordinatorPresentingWindow(const WebPaymentCoordinatorProxy&)
-{
-    return page.platformWindow();
-}
-
-#endif
-
 #if ENABLE(CONTEXT_MENUS)
 
 NSMenu *WebPageProxy::activeContextMenu() const
@@ -630,23 +609,23 @@ RetainPtr<NSEvent> WebPageProxy::createSyntheticEventForContextMenu(FloatPoint l
     return [NSEvent mouseEventWithType:NSEventTypeRightMouseUp location:location modifierFlags:0 timestamp:0 windowNumber:protectedPageClient()->platformWindow().windowNumber context:nil eventNumber:0 clickCount:0 pressure:0];
 }
 
-void WebPageProxy::platformDidSelectItemFromActiveContextMenu(const WebContextMenuItemData& item)
+void WebPageProxy::platformDidSelectItemFromActiveContextMenu(const WebContextMenuItemData& item, CompletionHandler<void()>&& completionHandler)
 {
     if (item.action() == ContextMenuItemTagPaste)
-        grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral);
+        grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral, WTFMove(completionHandler));
+    else
+        completionHandler();
 }
 
 #endif
 
-void WebPageProxy::willPerformPasteCommand(DOMPasteAccessCategory pasteAccessCategory, std::optional<FrameIdentifier> frameID)
+std::optional<IPC::AsyncReplyID> WebPageProxy::willPerformPasteCommand(DOMPasteAccessCategory pasteAccessCategory, CompletionHandler<void()>&& completionHandler, std::optional<FrameIdentifier> frameID)
 {
     switch (pasteAccessCategory) {
     case DOMPasteAccessCategory::General:
-        grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral, frameID);
-        return;
+        return grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral, WTFMove(completionHandler), frameID);
     case DOMPasteAccessCategory::Fonts:
-        grantAccessToCurrentPasteboardData(NSPasteboardNameFont, frameID);
-        return;
+        return grantAccessToCurrentPasteboardData(NSPasteboardNameFont, WTFMove(completionHandler), frameID);
     }
 }
 
@@ -847,4 +826,5 @@ void WebPageProxy::handleContextMenuWritingTools(WebCore::WritingTools::Requeste
 
 #undef MESSAGE_CHECK_WITH_RETURN_VALUE
 #undef MESSAGE_CHECK_URL
+#undef MESSAGE_CHECK_COMPLETION
 #undef MESSAGE_CHECK

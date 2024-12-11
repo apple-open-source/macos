@@ -76,6 +76,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RobinHoodHashSet.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
@@ -86,7 +87,7 @@ enum EFragmentType { EmptyFragment, SingleTextNodeFragment, TreeFragment };
 // --- ReplacementFragment helper class
 
 class ReplacementFragment {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(ReplacementFragment);
     WTF_MAKE_NONCOPYABLE(ReplacementFragment);
 public:
     ReplacementFragment(RefPtr<DocumentFragment>&&, const VisibleSelection&);
@@ -232,6 +233,8 @@ ReplacementFragment::ReplacementFragment(RefPtr<DocumentFragment>&& inputFragmen
         restoreAndRemoveTestRenderingNodesToFragment(holder.get());
     }
 }
+
+ReplaceSelectionCommand::~ReplaceSelectionCommand() = default;
 
 void ReplacementFragment::removeContentsWithSideEffects()
 {
@@ -747,9 +750,9 @@ void ReplaceSelectionCommand::removeRedundantStylesAndKeepStyleSpanInline(Insert
 
             // Mutate using the CSSOM wrapper so we get the same event behavior as a script.
             if (isBlock(*element))
-                element->cssomStyle().setPropertyInternal(CSSPropertyDisplay, "inline"_s, false);
+                element->cssomStyle().setPropertyInternal(CSSPropertyDisplay, "inline"_s, IsImportant::No);
             if (element->renderer() && element->renderer()->style().isFloating())
-                element->cssomStyle().setPropertyInternal(CSSPropertyFloat, noneAtom(), false);
+                element->cssomStyle().setPropertyInternal(CSSPropertyFloat, noneAtom(), IsImportant::No);
         }
     }
 }

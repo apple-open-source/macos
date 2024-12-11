@@ -33,6 +33,7 @@ cmdline_info_T *get_cmdline_info(void);
 void f_getcmdcompltype(typval_T *argvars, typval_T *rettv);
 void f_getcmdline(typval_T *argvars, typval_T *rettv);
 void f_getcmdpos(typval_T *argvars, typval_T *rettv);
+void f_getcmdprompt(typval_T *argvars, typval_T *rettv);
 void f_getcmdscreenpos(typval_T *argvars, typval_T *rettv);
 void f_getcmdtype(typval_T *argvars, typval_T *rettv);
 void f_setcmdline(typval_T *argvars, typval_T *rettv);

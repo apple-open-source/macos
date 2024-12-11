@@ -197,7 +197,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason
                        reply:(nonnull void (^)(NSError * _Nullable))reply;
 
-- (void)performCKServerUnreadableDataRemoval:(void (^)(NSError* _Nullable error))reply;
+- (void)performCKServerUnreadableDataRemoval:(NSString*)altDSID
+                                       reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)localReset:(nonnull void (^)(NSError * _Nullable))reply;
 
@@ -247,7 +248,7 @@ NS_ASSUME_NONNULL_BEGIN
                                  BOOL isExcluded,
                                  BOOL isLocked,
                                  NSError * _Nullable))reply;
-- (void)rpcFetchDeviceNamesByPeerID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply;
+- (void)fetchTrustedDeviceNamesByPeerID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply;
 - (void)rpcFetchAllViableBottlesFromSource:(OTEscrowRecordFetchSource)source
                                      reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs,
                                                      NSArray<NSString*>* _Nullable sortedPartialEscrowRecordIDs,
@@ -355,7 +356,7 @@ NS_ASSUME_NONNULL_BEGIN
 // For reporting
 - (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;
 - (TrustedPeersHelperEgoPeerStatus* _Nullable)egoPeerStatus:(NSError**)error;
-- (NSNumber* _Nullable)currentlyEnforcingIDMSTDL:(NSError**)error;
+- (NSNumber* _Nullable)currentlyEnforcingIDMSTDL_testOnly:(NSError**)error;
 
 - (BOOL)fetchSendingMetricsPermitted:(NSError**)error;
 - (BOOL)persistSendingMetricsPermitted:(BOOL)sendingMetricsPermitted error:(NSError**)error;

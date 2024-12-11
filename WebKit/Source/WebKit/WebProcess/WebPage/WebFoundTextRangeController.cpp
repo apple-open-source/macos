@@ -47,9 +47,12 @@
 #include <WebCore/SimpleRange.h>
 #include <WebCore/TextIterator.h>
 #include <wtf/Scope.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebFoundTextRangeController);
 
 WebFoundTextRangeController::WebFoundTextRangeController(WebPage& webPage)
     : m_webPage(webPage)
@@ -190,7 +193,7 @@ void WebFoundTextRangeController::didBeginTextSearchOperation()
     m_findPageOverlay->setNeedsDisplay();
 }
 
-void WebFoundTextRangeController::addLayerForFindOverlay(CompletionHandler<void(WebCore::PlatformLayerIdentifier)>&& completionHandler)
+void WebFoundTextRangeController::addLayerForFindOverlay(CompletionHandler<void(std::optional<WebCore::PlatformLayerIdentifier>)>&& completionHandler)
 {
     if (!m_findPageOverlay) {
         m_findPageOverlay = WebCore::PageOverlay::create(*this, WebCore::PageOverlay::OverlayType::Document, WebCore::PageOverlay::AlwaysTileOverlayLayer::Yes);

@@ -40,7 +40,7 @@ struct RawResolverBase {
     static std::optional<AngleRaw> resolve(AngleRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static std::optional<LengthRaw> resolve(LengthRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static std::optional<NumberRaw> resolve(NumberRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
-    static std::optional<PercentRaw> resolve(PercentRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
+    static std::optional<PercentageRaw> resolve(PercentageRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static std::optional<ResolutionRaw> resolve(ResolutionRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static std::optional<TimeRaw> resolve(TimeRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static std::optional<NoneRaw> resolve(NoneRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
@@ -57,16 +57,21 @@ struct RawResolverBase {
     static std::optional<AngleRaw> resolve(UnevaluatedCalc<AngleRaw>, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static std::optional<LengthRaw> resolve(UnevaluatedCalc<LengthRaw>, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static std::optional<NumberRaw> resolve(UnevaluatedCalc<NumberRaw>, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
-    static std::optional<PercentRaw> resolve(UnevaluatedCalc<PercentRaw>, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
+    static std::optional<PercentageRaw> resolve(UnevaluatedCalc<PercentageRaw>, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static std::optional<ResolutionRaw> resolve(UnevaluatedCalc<ResolutionRaw>, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static std::optional<TimeRaw> resolve(UnevaluatedCalc<TimeRaw>, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
 
     template<typename IntType, IntegerValueRange integerRange>
     static std::optional<IntegerRaw<IntType, integerRange>> resolve(UnevaluatedCalc<IntegerRaw<IntType, integerRange>> calc, const CSSCalcSymbolTable& symbolTable, CSSPropertyParserOptions)
     {
+        // FIXME: This should not be eagerly resolving the calc. Instead, callers
+        // should resolve and round at style resolution. This will be incorrect calc
+        // expressions that contain relative lengths (which can appear in any calc
+        // expression, not just length expressions).
+
         // https://drafts.csswg.org/css-values-4/#integers
         // Rounding to the nearest integer requires rounding in the direction of +∞ when the fractional portion is exactly 0.5.
-        return {{ clampTo<IntType>(std::floor(std::max(calc.calc->doubleValue(symbolTable), computeMinimumValue(integerRange)) + 0.5)) }};
+        return { { clampTo<IntType>(std::floor(std::max(calc.calc->doubleValueDeprecated(symbolTable), computeMinimumValue(integerRange)) + 0.5)) } };
     }
 };
 
@@ -76,7 +81,7 @@ using RawResolverVariantWrapper = typename std::variant<Ts...>;
 template<typename... Ts>
 struct RawResolverResultType {
     /// The result of a resolver that resolves all the way down to the `raw` representation.
-    /// To be used with a list of `raw` types. e.g. `RawResolvedResultType<AngleRaw, PercentRaw, NoneRaw>`.
+    /// To be used with a list of `raw` types. e.g. `RawResolvedResultType<AngleRaw, PercentageRaw, NoneRaw>`.
     using TypeList = brigand::list<Ts...>;
     using ResultTypeList = brigand::remove_if<TypeList, std::is_same<SymbolRaw, brigand::_1>>;
 

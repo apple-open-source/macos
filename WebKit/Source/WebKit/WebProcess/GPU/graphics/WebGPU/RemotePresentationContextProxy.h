@@ -31,6 +31,7 @@
 #include "WebGPUIdentifier.h"
 #include <WebCore/WebGPUIntegralTypes.h>
 #include <WebCore/WebGPUPresentationContext.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 class NativeImage;
@@ -42,7 +43,7 @@ class ConvertToBackingContext;
 class RemoteTextureProxy;
 
 class RemotePresentationContextProxy final : public WebCore::WebGPU::PresentationContext {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemotePresentationContextProxy);
 public:
     static Ref<RemotePresentationContextProxy> create(RemoteGPUProxy& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
     {
@@ -67,13 +68,12 @@ private:
     RemotePresentationContextProxy& operator=(RemotePresentationContextProxy&&) = delete;
 
     WebGPUIdentifier backing() const { return m_backing; }
-    RefPtr<WebCore::NativeImage> getMetalTextureAsNativeImage(uint32_t) final;
+    RefPtr<WebCore::NativeImage> getMetalTextureAsNativeImage(uint32_t, bool& isIOSurfaceSupportedFormat) final;
 
-    static inline constexpr Seconds defaultSendTimeout = 30_s;
     template<typename T>
     WARN_UNUSED_RETURN IPC::Error send(T&& message)
     {
-        return root().streamClientConnection().send(WTFMove(message), backing(), defaultSendTimeout);
+        return root().streamClientConnection().send(WTFMove(message), backing());
     }
 
     bool configure(const WebCore::WebGPU::CanvasConfiguration&) final;

@@ -53,7 +53,7 @@ public:
     void clearObserver() { m_observer = nullptr; }
 
     // GraphicsLayer
-    WebCore::PlatformLayerIdentifier primaryLayerID() const override;
+    std::optional<WebCore::PlatformLayerIdentifier> primaryLayerID() const override;
     void setNeedsDisplay() override;
     void setNeedsDisplayInRect(const WebCore::FloatRect&, ShouldClipToLayer) override;
     void setContentsNeedsDisplay() override;
@@ -134,6 +134,7 @@ private:
     WebCore::Color m_debugBorderColor;
     OptionSet<WCLayerChange> m_uncommittedChanges;
     float m_debugBorderWidth { 0 };
+    bool m_isFlushing { false };
 };
 
 } // namespace WebKit

@@ -984,7 +984,7 @@ MAN1DIR = /man1
 
 ### Vim version (adjusted by a script)
 VIMMAJOR = 9
-VIMMINOR = 0
+VIMMINOR = 1
 
 ### Location of Vim files (should not need to be changed, and  {{{1
 ### some things might not work when they are changed!)
@@ -1520,6 +1520,7 @@ BASIC_SRC = \
 	float.c \
 	fold.c \
 	getchar.c \
+	gc.c \
 	gui_xim.c \
 	hardcopy.c \
 	hashtab.c \
@@ -1682,6 +1683,7 @@ OBJ_COMMON = \
 	objects/float.o \
 	objects/fold.o \
 	objects/getchar.o \
+	objects/gc.o \
 	objects/gui_xim.o \
 	objects/hardcopy.o \
 	objects/hashtab.o \
@@ -1860,6 +1862,7 @@ PRO_AUTO = \
 	float.pro \
 	fold.pro \
 	getchar.pro \
+	gc.pro \
 	gui_xim.pro \
 	gui_beval.pro \
 	hardcopy.pro \
@@ -2070,7 +2073,7 @@ xxd/xxd$(EXEEXT): xxd/xxd.c
 languages:
 	@if test -n "$(MAKEMO)" -a -f $(PODIR)/Makefile; then \
 		cd $(PODIR); \
-		  CC="$(CC)" $(MAKE) prefix=$(DESTDIR)$(prefix); \
+		  CC="$(CC)" $(MAKE) prefix=$(DESTDIR)$(prefix) originals; \
 	fi
 	-@if test -n "$(MAKEMO)" -a -f $(PODIR)/Makefile; then \
 		cd $(PODIR); \
@@ -2186,7 +2189,7 @@ test check: unittests $(TERM_TEST) scripttests
 scripttests:
 	$(MAKE) -f Makefile $(VIMTARGET)
 	if test -n "$(MAKEMO)" -a -f $(PODIR)/Makefile; then \
-		cd $(PODIR); $(MAKE) -f Makefile check VIM=../$(VIMTARGET); \
+		cd $(PODIR); $(MAKE) -f Makefile check VIMPROG=../$(VIMTARGET); \
 	fi
 	-if test $(VIMTARGET) != vim -a ! -r vim; then \
 		ln -s $(VIMTARGET) vim; \
@@ -2338,8 +2341,10 @@ installruntime: installrtbase installmacros installpack installtutor installspel
 # Also install most of the other runtime files.
 installrtbase: $(HELPSOURCE)/vim.1 $(DEST_VIM) $(VIMTARGET) $(DEST_RT) \
 		$(DEST_HELP) $(DEST_PRINT) $(DEST_COL) \
-		$(DEST_SYN) $(DEST_SYN)/shared $(DEST_IND) $(DEST_FTP) \
-		$(DEST_AUTO) $(DEST_AUTO)/dist $(DEST_AUTO)/xml $(DEST_AUTO)/zig \
+		$(DEST_SYN) $(DEST_SYN)/modula2 $(DEST_SYN)/modula2/opt $(DEST_SYN)/shared \
+		$(DEST_IND) $(DEST_FTP) \
+		$(DEST_AUTO) $(DEST_AUTO)/dist $(DEST_AUTO)/xml \
+		$(DEST_AUTO)/rust $(DEST_AUTO)/cargo \
 		$(DEST_IMPORT) $(DEST_IMPORT)/dist \
 		$(DEST_PLUG) $(DEST_TUTOR) $(DEST_SPELL) $(DEST_COMP)
 	-$(SHELL) ./installman.sh install $(DEST_MAN) "" $(INSTALLMANARGS)
@@ -2349,10 +2354,8 @@ installrtbase: $(HELPSOURCE)/vim.1 $(DEST_VIM) $(VIMTARGET) $(DEST_RT) \
 	cd $(HELPSOURCE); if test -z "$(CROSS_COMPILING)" -a -f tags; then \
 		mv -f tags tags.dist; fi
 	@echo generating help tags
-	# We can assume Vim was build, but it may not have been installed,
-	# thus use the executable in the current directory.
-	-@BUILD_DIR="`pwd`"; cd $(HELPSOURCE); if test -z "$(CROSS_COMPILING)"; then \
-		$(MAKE) VIMEXE="$$BUILD_DIR/$(VIMTARGET)" vimtags; fi
+	-@BUILD_DIR=`pwd`; cd $(HELPSOURCE); if test -z "$(CROSS_COMPILING)"; then \
+		$(MAKE) VIMPROG="$$BUILD_DIR/$(VIMTARGET)" vimtags; fi
 	cd $(HELPSOURCE); \
 		files=`ls *.txt tags`; \
 		files="$$files `ls *.??x tags-?? 2>/dev/null || true`"; \
@@ -2413,6 +2416,8 @@ installrtbase: $(HELPSOURCE)/vim.1 $(DEST_VIM) $(VIMTARGET) $(DEST_RT) \
 	cd $(DEST_SYN); chmod $(HELPMOD) *.vim README.txt
 	cd $(SYNSOURCE)/shared; $(INSTALL_DATA) *.vim README.txt $(DEST_SYN)/shared
 	cd $(DEST_SYN)/shared; chmod $(HELPMOD) *.vim README.txt
+	cd $(SYNSOURCE)/modula2/opt; $(INSTALL_DATA) *.vim $(DEST_SYN)/modula2/opt
+	cd $(DEST_SYN)/modula2/opt; chmod $(HELPMOD) *.vim
 # install the indent files
 	cd $(INDSOURCE); $(INSTALL_DATA) *.vim README.txt $(DEST_IND)
 	cd $(DEST_IND); chmod $(HELPMOD) *.vim README.txt
@@ -2423,8 +2428,10 @@ installrtbase: $(HELPSOURCE)/vim.1 $(DEST_VIM) $(VIMTARGET) $(DEST_RT) \
 	cd $(DEST_AUTO)/dist; chmod $(HELPMOD) *.vim
 	cd $(AUTOSOURCE)/xml; $(INSTALL_DATA) *.vim $(DEST_AUTO)/xml
 	cd $(DEST_AUTO)/xml; chmod $(HELPMOD) *.vim
-	cd $(AUTOSOURCE)/zig; $(INSTALL_DATA) *.vim $(DEST_AUTO)/zig
-	cd $(DEST_AUTO)/zig; chmod $(HELPMOD) *.vim
+	cd $(AUTOSOURCE)/cargo; $(INSTALL_DATA) *.vim $(DEST_AUTO)/cargo
+	cd $(DEST_AUTO)/cargo; chmod $(HELPMOD) *.vim
+	cd $(AUTOSOURCE)/rust; $(INSTALL_DATA) *.vim $(DEST_AUTO)/rust
+	cd $(DEST_AUTO)/rust; chmod $(HELPMOD) *.vim
 # install the standard import files
 	cd $(IMPORTSOURCE)/dist; $(INSTALL_DATA) *.vim $(DEST_IMPORT)/dist
 	cd $(DEST_IMPORT)/dist; chmod $(HELPMOD) *.vim
@@ -2617,7 +2624,7 @@ ICONTHEMEPATH = $(DATADIR)/icons/hicolor
 DESKTOPPATH = $(DESTDIR)$(DATADIR)/applications
 KDEPATH = $(HOME)/.kde/share/icons
 install-icons:
-	if test -n "$(DESTDIR)"; then \
+	if test -n "$(DESTDIR)$(DATADIR)"; then \
 		$(MKDIR_P) $(ICON48PATH) $(ICON32PATH) \
 		$(ICON16PATH) $(DESKTOPPATH); \
 	fi
@@ -2661,10 +2668,12 @@ $(HELPSOURCE)/vim.1 $(MACROSOURCE) $(TOOLSSOURCE):
 $(DESTDIR)$(exec_prefix) $(DEST_BIN) \
 		$(DEST_VIM) $(DEST_RT) $(DEST_HELP) \
 		$(DEST_PRINT) $(DEST_COL) $(DEST_SYN) $(DEST_SYN)/shared \
+		$(DEST_SYN)/modula2 $(DEST_SYN)/modula2/opt \
 		$(DEST_IND) $(DEST_FTP) \
 		$(DEST_LANG) $(DEST_KMAP) $(DEST_COMP) $(DEST_MACRO) \
 		$(DEST_PACK) $(DEST_TOOLS) $(DEST_TUTOR) $(DEST_SPELL) \
-		$(DEST_AUTO) $(DEST_AUTO)/dist $(DEST_AUTO)/xml $(DEST_AUTO)/zig \
+		$(DEST_AUTO) $(DEST_AUTO)/dist $(DEST_AUTO)/xml \
+		$(DEST_AUTO)/cargo $(DEST_AUTO)/rust \
 		$(DEST_IMPORT) $(DEST_IMPORT)/dist $(DEST_PLUG):
 	$(MKDIR_P) $@
 	-chmod $(DIRMOD) $@
@@ -2836,8 +2845,11 @@ uninstall_runtime:
 	-rm -f $(SYS_OPTWIN_FILE)
 	-rm -f $(DEST_COL)/*.vim $(DEST_COL)/README.txt
 	-rm -rf $(DEST_COL)/tools
+	-rm -f $(DESKTOPPATH)/vim.desktop $(DESKTOPPATH)/gvim.desktop
+	-rm -f $(ICON16PATH)/gvim.png $(ICON32PATH)/gvim.png $(ICON48PATH)/gvim.png
 	-rm -rf $(DEST_COL)/lists
 	-rm -f $(DEST_SYN)/shared/*.vim $(DEST_SYN)/shared/README.txt
+	-rm -f $(DEST_SYN)/modula2/opt/*.vim
 	-rm -f $(DEST_SYN)/*.vim $(DEST_SYN)/README.txt
 	-rm -f $(DEST_IND)/*.vim $(DEST_IND)/README.txt
 	-rm -rf $(DEST_MACRO)
@@ -2850,13 +2862,14 @@ uninstall_runtime:
 	-rm -rf $(DEST_COMP)
 	-rm -f $(DEST_PRINT)/*.ps
 	-rmdir $(DEST_HELP) $(DEST_PRINT) $(DEST_COL) $(DEST_SYN)/shared
+	-rmdir $(DEST_SYN)/modula2/opt $(DEST_SYN)/modula2
 	-rmdir $(DEST_SYN) $(DEST_IND)
 	-rm -rf $(DEST_FTP)/*.vim $(DEST_FTP)/README.txt $(DEST_FTP)/logtalk.dict
 	-rm -f $(DEST_AUTO)/*.vim $(DEST_AUTO)/README.txt
-	-rm -f $(DEST_AUTO)/dist/*.vim $(DEST_AUTO)/xml/*.vim $(DEST_AUTO)/zig/*.vim
+	-rm -f $(DEST_AUTO)/dist/*.vim $(DEST_AUTO)/xml/*.vim $(DEST_AUTO)/cargo/*.vim $(DEST_AUTO)/rust/*.vim
 	-rm -f $(DEST_IMPORT)/dist/*.vim
 	-rm -f $(DEST_PLUG)/*.vim $(DEST_PLUG)/README.txt
-	-rmdir $(DEST_FTP) $(DEST_AUTO)/dist $(DEST_AUTO)/xml $(DEST_AUTO)/zig $(DEST_AUTO)
+	-rmdir $(DEST_FTP) $(DEST_AUTO)/dist $(DEST_AUTO)/xml $(DEST_AUTO)/cargo $(DEST_AUTO)/rust $(DEST_AUTO)
 	-rmdir $(DEST_IMPORT)/dist $(DEST_IMPORT)
 	-rmdir $(DEST_PLUG) $(DEST_RT)
 #	This will fail when other Vim versions are installed, no worries.
@@ -2926,6 +2939,7 @@ shadow:	runtime pixmaps
 				 ../../testdir/*.py \
 				 ../../testdir/python* \
 				 ../../testdir/pyxfile \
+				 ../../testdir/ru_RU \
 				 ../../testdir/sautest \
 				 ../../testdir/samples \
 				 ../../testdir/dumps \
@@ -3211,6 +3225,9 @@ objects/fold.o: fold.c
 
 objects/getchar.o: getchar.c
 	$(CCC) -o $@ getchar.c
+
+objects/gc.o: gc.c
+	$(CCC) -o $@ gc.c
 
 objects/hardcopy.o: hardcopy.c
 	$(CCC) -o $@ hardcopy.c
@@ -3863,6 +3880,11 @@ objects/getchar.o: getchar.c vim.h protodef.h auto/config.h feature.h os_unix.h 
  proto/gui_beval.pro structs.h regexp.h gui.h libvterm/include/vterm.h \
  libvterm/include/vterm_keycodes.h alloc.h ex_cmds.h spell.h proto.h \
  globals.h errors.h
+objects/gc.o: gc.c vim.h protodef.h auto/config.h feature.h os_unix.h \
+ auto/osdef.h ascii.h keymap.h termdefs.h macros.h option.h beval.h \
+ proto/gui_beval.pro structs.h regexp.h gui.h libvterm/include/vterm.h \
+ libvterm/include/vterm_keycodes.h alloc.h ex_cmds.h spell.h proto.h \
+ globals.h errors.h
 objects/gui_xim.o: gui_xim.c vim.h protodef.h auto/config.h feature.h os_unix.h \
  auto/osdef.h ascii.h keymap.h termdefs.h macros.h option.h beval.h \
  proto/gui_beval.pro structs.h regexp.h gui.h libvterm/include/vterm.h \
@@ -4188,11 +4210,11 @@ objects/version.o: version.c vim.h protodef.h auto/config.h feature.h os_unix.h 
  proto/gui_beval.pro structs.h regexp.h gui.h libvterm/include/vterm.h \
  libvterm/include/vterm_keycodes.h alloc.h ex_cmds.h spell.h proto.h \
  globals.h errors.h version.h
-objects/vim9class.o: vim9class.c vim.h protodef.h auto/config.h feature.h os_unix.h \
- auto/osdef.h ascii.h keymap.h termdefs.h macros.h option.h beval.h \
- proto/gui_beval.pro structs.h regexp.h gui.h libvterm/include/vterm.h \
- libvterm/include/vterm_keycodes.h alloc.h ex_cmds.h spell.h proto.h \
- globals.h errors.h vim9.h
+objects/vim9class.o: vim9class.c vim.h protodef.h auto/config.h feature.h \
+ os_unix.h auto/osdef.h ascii.h keymap.h termdefs.h macros.h option.h \
+ beval.h proto/gui_beval.pro structs.h regexp.h gui.h \
+ libvterm/include/vterm.h libvterm/include/vterm_keycodes.h alloc.h \
+ ex_cmds.h spell.h proto.h globals.h errors.h vim9.h
 objects/vim9cmds.o: vim9cmds.c vim.h protodef.h auto/config.h feature.h os_unix.h \
  auto/osdef.h ascii.h keymap.h termdefs.h macros.h option.h beval.h \
  proto/gui_beval.pro structs.h regexp.h gui.h libvterm/include/vterm.h \

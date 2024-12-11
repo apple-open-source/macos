@@ -45,7 +45,7 @@ class EventTarget;
 class ScriptExecutionContext;
 
 class Event : public ScriptWrappable, public RefCounted<Event> {
-    WTF_MAKE_ISO_ALLOCATED(Event);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Event);
 public:
     using IsTrusted = EventIsTrusted;
     using CanBubble = EventCanBubble;
@@ -107,11 +107,11 @@ public:
     virtual bool isBeforeTextInsertedEvent() const { return false; }
     virtual bool isBeforeUnloadEvent() const { return false; }
     virtual bool isClipboardEvent() const { return false; }
+    virtual bool isCommandEvent() const { return false; }
     virtual bool isCompositionEvent() const { return false; }
     virtual bool isErrorEvent() const { return false; }
     virtual bool isFocusEvent() const { return false; }
     virtual bool isInputEvent() const { return false; }
-    virtual bool isInvokeEvent() const { return false; }
     virtual bool isKeyboardEvent() const { return false; }
     virtual bool isMouseEvent() const { return false; }
     virtual bool isPointerEvent() const { return false; }

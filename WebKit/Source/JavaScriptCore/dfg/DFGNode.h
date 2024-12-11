@@ -51,6 +51,7 @@
 #include "DOMJITSignature.h"
 #include "DeleteByVariant.h"
 #include "GetByVariant.h"
+#include "InlineCacheCompiler.h"
 #include "JSCJSValue.h"
 #include "JSPropertyNameEnumerator.h"
 #include "Operands.h"
@@ -299,6 +300,11 @@ struct CallDOMGetterData {
 struct CallCustomAccessorData {
     CodePtr<CustomAccessorPtrTag> m_customAccessor;
     CacheableIdentifier m_identifier;
+};
+
+struct GetByIdData {
+    CacheableIdentifier m_identifier;
+    CacheType m_cacheType;
 };
 
 enum class BucketOwnerType : uint32_t {
@@ -840,7 +846,7 @@ public:
 
     void convertToNewObject(RegisteredStructure structure)
     {
-        ASSERT(m_op == CallObjectConstructor || m_op == CreateThis || m_op == ObjectCreate);
+        ASSERT(m_op == CallObjectConstructor || m_op == CreateThis || m_op == ObjectCreate || m_op == Construct);
         setOpAndDefaultFlags(NewObject);
         children.reset();
         m_opInfo = structure;
@@ -1167,12 +1173,13 @@ public:
         case TryGetById:
         case GetById:
         case GetByIdFlush:
-        case GetByIdMegamorphic:
         case GetByIdWithThis:
-        case GetByIdWithThisMegamorphic:
         case GetByIdDirect:
         case GetByIdDirectFlush:
         case GetPrivateNameById:
+        case GetByIdMegamorphic:
+        case GetByIdWithThisMegamorphic:
+            return getByIdData().m_identifier;
         case DeleteById:
         case InById:
         case InByIdMegamorphic:
@@ -1207,6 +1214,41 @@ public:
         default:
             return false;
         }
+    }
+
+    bool hasGetByIdData() const
+    {
+        switch (op()) {
+        case TryGetById:
+        case GetById:
+        case GetByIdFlush:
+        case GetByIdWithThis:
+        case GetByIdDirect:
+        case GetByIdDirectFlush:
+        case GetPrivateNameById:
+        case GetByIdMegamorphic:
+        case GetByIdWithThisMegamorphic:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    GetByIdData& getByIdData()
+    {
+        ASSERT(hasGetByIdData());
+        return *m_opInfo.as<GetByIdData*>();
+    }
+
+    bool hasCacheType() const
+    {
+        return hasGetByIdData();
+    }
+
+    CacheType cacheType()
+    {
+        ASSERT(hasCacheType());
+        return getByIdData().m_cacheType;
     }
 
     unsigned identifierNumber()
@@ -1985,8 +2027,8 @@ public:
         case ToObject:
         case CallNumberConstructor:
         case CallObjectConstructor:
-        case MapKeyIndex:
-        case MapValue:
+        case MapGet:
+        case LoadMapValue:
         case MapIteratorKey:
         case MapIteratorValue:
         case MapIterationEntryKey:
@@ -2551,7 +2593,6 @@ public:
     bool hasECMAMode()
     {
         switch (op()) {
-        case CallDirectEval:
         case DeleteById:
         case DeleteByVal:
         case PutById:
@@ -2577,7 +2618,6 @@ public:
     {
         ASSERT(hasECMAMode());
         switch (op()) {
-        case CallDirectEval:
         case DeleteByVal:
         case PutByValWithThis:
         case ToThis:
@@ -2706,6 +2746,12 @@ public:
         return m_opInfo.as<unsigned>();
     }
 
+    LexicallyScopedFeatures lexicallyScopedFeatures()
+    {
+        ASSERT(op() == CallDirectEval);
+        return m_opInfo.as<uint8_t>();
+    }
+
     DataViewData dataViewData()
     {
         ASSERT(op() == DataViewGetInt || op() == DataViewGetFloat || op() == DataViewSet);
@@ -2798,7 +2844,7 @@ public:
         return isBinaryUseKind(useKind, useKind);
     }
 
-    bool isReflexiveBinaryUseKind(UseKind left, UseKind right)
+    bool isSymmetricBinaryUseKind(UseKind left, UseKind right)
     {
         return isBinaryUseKind(left, right) || isBinaryUseKind(right, left);
     }
@@ -3025,6 +3071,11 @@ public:
         return isProxyObjectSpeculation(prediction());
     }
 
+    bool shouldSpeculateGlobalProxy()
+    {
+        return isGlobalProxySpeculation(prediction());
+    }
+
     bool shouldSpeculateDerivedArray()
     {
         return isDerivedArraySpeculation(prediction());
@@ -3075,6 +3126,11 @@ public:
         return isUint32ArraySpeculation(prediction());
     }
     
+    bool shouldSpeculateFloat16Array()
+    {
+        return isFloat16ArraySpeculation(prediction());
+    }
+
     bool shouldSpeculateFloat32Array()
     {
         return isFloat32ArraySpeculation(prediction());

@@ -90,10 +90,9 @@ send_up_reset(struct send_up *p)
 
 	/* If we mapped a file for scanning, unmap it and close. */
 
-	if (p->stat.map != MAP_FAILED)
-		munmap(p->stat.map, p->stat.mapsz);
-
-	p->stat.map = MAP_FAILED;
+	if (p->stat.map != NULL)
+		fmap_close(p->stat.map);
+	p->stat.map = NULL;
 	p->stat.mapsz = 0;
 
 	if (p->stat.fd != -1)
@@ -106,6 +105,7 @@ send_up_reset(struct send_up *p)
 	p->stat.offs = 0;
 	p->stat.hint = 0;
 	p->stat.curst = BLKSTAT_NONE;
+	p->stat.error = false;
 }
 
 /* Returns 1 on success, 0 on error */
@@ -137,13 +137,63 @@ compress_reinit(struct sess *sess)
 
 	return 1;
 }
+
+static int
+sender_terminate_file_data(struct sess *sess, size_t padsz, void **wb,
+	size_t pos, size_t *wbsz, size_t *wbmax)
+{
+	char zerobuf[1024] = { 0 };
+	bool need_alloc;
+
+	need_alloc = false;
+
+	while (padsz != 0) {
+		size_t chunksz;
+
+		/*
+		 * The caller has allocated enough for one frame + data
+		 * buffer, but if our block size exceeds the size of zerobuf
+		 * then we need multiple frames to cover it.  Thus, we need an
+		 * allocation for any subsequent write to the buffer to handle
+		 * multiplexing correctly.
+		 */
+		if (need_alloc && !io_lowbuffer_alloc(sess, wb, wbsz, wbmax,
+		    0)) {
+			ERRX("io_lowbuffer_alloc");
+			return 0;
+		}
+
+		chunksz = MIN(padsz, sizeof(zerobuf));
+		io_lowbuffer_buf(sess, *wb, &pos, *wbsz, zerobuf, chunksz);
+
+		need_alloc = true;
+		padsz -= chunksz;
+	}
+
+	return 1;
+}
+
+static void
+sender_terminate_file(struct sess *sess, struct send_up *up)
+{
+
+	up->stat.error = true;
+	if (sess->opts->compress) {
+		up->stat.curst = BLKSTAT_FLUSH;
+	} else {
+		up->stat.curst = BLKSTAT_TOK;
+		up->stat.curtok = 0;
+	}
+}
+
 /*
  * Fast forward through part of the file the other side already
  * has while keeping compression state intact.
  * Returns 1 on success, 0 on error.
  */
 static int
-token_ff_compressed(struct sess *sess, struct send_up *up, size_t tok)
+token_ff_compressed(struct sess *sess, struct send_up *up, size_t tok,
+	struct flist *fl)
 {
 	char		*buf = NULL, *cbuf = NULL;
 	size_t		 sz, clen, rlen;
@@ -158,9 +208,9 @@ token_ff_compressed(struct sess *sess, struct send_up *up, size_t tok)
 	sz = (tok == up->cur->blks->blksz - 1 && up->cur->blks->rem) ?
 	    up->cur->blks->rem : up->cur->blks->len;
 	assert(sz);
-	assert(up->stat.map != MAP_FAILED);
+	assert(up->stat.map != NULL);
 	off = tok * up->cur->blks->len;
-	buf = up->stat.map + off;
+	buf = fmap_data(up->stat.map, off);
 
 	cbuf = malloc(MAX_CHUNK_BUF);
 	if (cbuf == NULL) {
@@ -176,6 +226,14 @@ token_ff_compressed(struct sess *sess, struct send_up *up, size_t tok)
 	cctx.avail_in = 0;
 	rlen = sz;
 	clen = 0;
+	if (!fmap_trap(up->stat.map)) {
+		WARNX("%s: file truncated while reading",
+		    fl[up->cur->idx].path);
+		sess->total_errors++;
+		sender_terminate_file(sess, up);
+		free(cbuf);
+		return 0;
+	}
 	while (rlen > 0) {
 		clen = rlen;
 		if (clen > MAX_CHUNK) {
@@ -188,6 +246,7 @@ token_ff_compressed(struct sess *sess, struct send_up *up, size_t tok)
 		cctx.avail_out = TOKEN_MAX_DATA;
 		res = deflate(&cctx, Z_INSERT_ONLY);
 		if (res != Z_OK || cctx.avail_in != 0) {
+			fmap_untrap(up->stat.map);
 			ERRX("deflate ff res=%d", res);
 			free(cbuf);
 			return 0;
@@ -195,6 +254,8 @@ token_ff_compressed(struct sess *sess, struct send_up *up, size_t tok)
 		buf += clen;
 	}
 	free(cbuf);
+
+	fmap_untrap(up->stat.map);
 
 	return 1;
 }
@@ -227,7 +288,7 @@ send_up_fsm_compressed(struct sess *sess, size_t *phase,
 
 		sz = MINIMUM(MAX_CHUNK,
 			up->stat.mapsz - up->stat.curpos);
-		sbuf = up->stat.map + up->stat.curpos;
+		sbuf = fmap_data(up->stat.map, up->stat.curpos);
 		cbuf = malloc(TOKEN_MAX_BUF);
 		if (cbuf == NULL) {
 			ERRX1("malloc");
@@ -238,6 +299,14 @@ send_up_fsm_compressed(struct sess *sess, size_t *phase,
 			ERRX1("decompress_reinit");
 			free(cbuf);
 			return 0;
+		}
+
+		if (!fmap_trap(up->stat.map)) {
+			WARNX("%s: file truncated while reading",
+			    fl[up->cur->idx].path);
+			sess->total_errors++;
+			sender_terminate_file(sess, up);
+			return 1;
 		}
 
 		assert(comp_state == COMPRESS_RUN);
@@ -252,6 +321,7 @@ send_up_fsm_compressed(struct sess *sess, size_t *phase,
 				break;
 			}
 			if (!io_lowbuffer_alloc(sess, wb, wbsz, wbmax, ssz + 2)) {
+				fmap_untrap(up->stat.map);
 				ERRX("io_lowbuffer_alloc");
 				free(cbuf);
 				return 0;
@@ -268,6 +338,7 @@ send_up_fsm_compressed(struct sess *sess, size_t *phase,
 				cctx.avail_out = TOKEN_MAX_DATA;
 			}
 		}
+		fmap_untrap(up->stat.map);
 		if (res != Z_OK && res != Z_BUF_ERROR) {
 			ERRX("deflate res=%d", res);
 			free(cbuf);
@@ -309,7 +380,7 @@ send_up_fsm_compressed(struct sess *sess, size_t *phase,
 		io_lowbuffer_int(sess, *wb,
 			&pos, *wbsz, -(up->stat.curtok + 1));
 
-		token_ff_compressed(sess, up, -(up->stat.curtok + 1));
+		token_ff_compressed(sess, up, -(up->stat.curtok + 1), fl);
 		return 1;
 	case BLKSTAT_HASH:
 		/*
@@ -318,7 +389,31 @@ send_up_fsm_compressed(struct sess *sess, size_t *phase,
 		 * finished with the file.
 		 */
 
-		hash_file(up->stat.map, up->stat.mapsz, fmd, sess);
+		if (!up->stat.error && !fmap_trap(up->stat.map)) {
+			WARNX("%s: file truncated while hashing",
+			    fl[up->cur->idx].path);
+			sess->total_errors++;
+			up->stat.error = true;
+		}
+
+		if (!up->stat.error)
+			hash_file(fmap_data(up->stat.map, 0), up->stat.mapsz,
+			    fmd, sess);
+
+		if (!up->stat.error) {
+			fmap_untrap(up->stat.map);
+		} else {
+			/*
+			 * At some point the file got truncated, so we pass off
+			 * a bogus hash to force a redo.  XXX This would be
+			 * cleaner if we kept a running hash as the transfer
+			 * progressed, as we just finalize it and +1 for a more
+			 * certain mismatch.
+			 */
+			memset(fmd, 0, dsz);
+			fmd[0]++;
+		}
+
 		if (!io_lowbuffer_alloc(sess, wb, wbsz, wbmax, dsz)) {
 			ERRX1("io_lowbuffer_alloc");
 			return 0;
@@ -331,48 +426,50 @@ send_up_fsm_compressed(struct sess *sess, size_t *phase,
 		 * Flush the end of the compressed stream.
 		 */
 
-		cbuf = malloc(TOKEN_MAX_BUF);
-		if (cbuf == NULL) {
-			ERRX1("malloc");
-			return 0;
-		}
-		cctx.avail_in = 0;
-		cctx.next_in = NULL;
-		cctx.next_out = (Bytef *)(cbuf + 2);
-		cctx.avail_out = TOKEN_MAX_DATA;
-
-		while ((res = deflate(&cctx, Z_SYNC_FLUSH)) == Z_OK) {
-			ssz = TOKEN_MAX_DATA - cctx.avail_out;
-			assert(ssz >= 4);
-			ssz -= 4; /* Trim off the trailer bytes */
-			if (ssz != 0 && res != Z_BUF_ERROR) {
-				if (!io_lowbuffer_alloc(sess, wb, wbsz, wbmax, ssz + 2)) {
-					ERRX("io_lowbuffer_alloc");
-					free(cbuf);
-					return 0;
-				}
-				cbuf[0] = (TOKEN_DEFLATED + (ssz >> 8)) & 0xff;
-				cbuf[1] = ssz & 0xff;
-				io_lowbuffer_buf(sess, *wb, &pos, *wbsz, cbuf, ssz + 2);
+		if (!up->stat.error) {
+			cbuf = malloc(TOKEN_MAX_BUF);
+			if (cbuf == NULL) {
+				ERRX1("malloc");
+				return 0;
 			}
+			cctx.avail_in = 0;
+			cctx.next_in = NULL;
 			cctx.next_out = (Bytef *)(cbuf + 2);
 			cctx.avail_out = TOKEN_MAX_DATA;
-			memcpy(cctx.next_out, cbuf+TOKEN_MAX_DATA-2, 4);
-			cctx.next_out += 4;
-			cctx.avail_out -= 4;
-		}
-		if (res != Z_OK && res != Z_BUF_ERROR) {
-			LOG2("final deflate() res=%d", res);
+
+			while ((res = deflate(&cctx, Z_SYNC_FLUSH)) == Z_OK) {
+				ssz = TOKEN_MAX_DATA - cctx.avail_out;
+				assert(ssz >= 4);
+				ssz -= 4; /* Trim off the trailer bytes */
+				if (ssz != 0 && res != Z_BUF_ERROR) {
+					if (!io_lowbuffer_alloc(sess, wb, wbsz, wbmax, ssz + 2)) {
+						ERRX("io_lowbuffer_alloc");
+						free(cbuf);
+						return 0;
+					}
+					cbuf[0] = (TOKEN_DEFLATED + (ssz >> 8)) & 0xff;
+					cbuf[1] = ssz & 0xff;
+					io_lowbuffer_buf(sess, *wb, &pos, *wbsz, cbuf, ssz + 2);
+				}
+				cctx.next_out = (Bytef *)(cbuf + 2);
+				cctx.avail_out = TOKEN_MAX_DATA;
+				memcpy(cctx.next_out, cbuf+TOKEN_MAX_DATA-2, 4);
+				cctx.next_out += 4;
+				cctx.avail_out -= 4;
+			}
+			if (res != Z_OK && res != Z_BUF_ERROR) {
+				LOG2("final deflate() res=%d", res);
+			}
+
+			free(cbuf);
 		}
 
 		/* Send the end of token marker */
 		if (!io_lowbuffer_alloc(sess, wb, wbsz, wbmax, 1)) {
 			ERRX("io_lowbuffer_alloc");
-			free(cbuf);
 			return 0;
 		}
 		io_lowbuffer_byte(sess, *wb, &pos, *wbsz, 0);
-		free(cbuf);
 		comp_state = COMPRESS_DONE;
 		up->stat.curst = BLKSTAT_HASH;
 		return 1;
@@ -413,8 +510,12 @@ send_up_fsm_compressed(struct sess *sess, size_t *phase,
 		 */
 
 		assert(up->stat.fd != -1);
-		blk_match(sess, up->cur->blks,
-			fl[up->cur->idx].path, &up->stat);
+		if (!blk_match(sess, up->cur->blks,
+		    fl[up->cur->idx].path, &up->stat)) {
+			sess->total_errors++;
+			sender_terminate_file(sess, up);
+		}
+
 		return 1;
 	case BLKSTAT_NONE:
 		break;
@@ -486,7 +587,7 @@ send_up_fsm(struct sess *sess, size_t *phase,
 	struct flist *fl)
 {
 	size_t		 pos = 0, isz = sizeof(int32_t),
-			 dsz = MD4_DIGEST_LENGTH;
+			 dsz = MD4_DIGEST_LENGTH, dpos;
 	unsigned char	 fmd[MD4_DIGEST_LENGTH];
 	off_t		 sz;
 	char		 buf[16];
@@ -511,8 +612,26 @@ send_up_fsm(struct sess *sess, size_t *phase,
 			ERRX1("io_lowbuffer_alloc");
 			return 0;
 		}
+
+		dpos = pos;
+		if (!fmap_trap(up->stat.map)) {
+			WARNX("%s: file truncated while reading",
+			    fl[up->cur->idx].path);
+
+			sess->total_errors++;
+			if (!sender_terminate_file_data(sess, sz, wb, dpos,
+			    wbsz, wbmax)) {
+				/* Allocation error, fatal */
+				return 0;
+			}
+
+			sender_terminate_file(sess, up);
+			return 1;
+		}
+
 		io_lowbuffer_buf(sess, *wb, &pos, *wbsz,
-			up->stat.map + up->stat.curpos, sz);
+			fmap_data(up->stat.map, up->stat.curpos), sz);
+		fmap_untrap(up->stat.map);
 
 		up->stat.curpos += sz;
 		if (up->stat.curpos == up->stat.curlen)
@@ -543,7 +662,31 @@ send_up_fsm(struct sess *sess, size_t *phase,
 		 * finished with the file.
 		 */
 
-		hash_file(up->stat.map, up->stat.mapsz, fmd, sess);
+		if (!up->stat.error && !fmap_trap(up->stat.map)) {
+			WARNX("%s: file truncated while hashing",
+			    fl[up->cur->idx].path);
+			sess->total_errors++;
+			up->stat.error = true;
+		}
+
+		if (!up->stat.error)
+			hash_file(fmap_data(up->stat.map, 0), up->stat.mapsz,
+			    fmd, sess);
+
+		if (!up->stat.error) {
+			fmap_untrap(up->stat.map);
+		} else {
+			/*
+			 * At some point the file got truncated, so we pass off
+			 * a bogus hash to force a redo.  XXX This would be
+			 * cleaner if we kept a running hash as the transfer
+			 * progressed, as we just finalize it and +1 for a more
+			 * certain mismatch.
+			 */
+			memset(fmd, 0, dsz);
+			fmd[0]++;
+		}
+
 		if (!io_lowbuffer_alloc(sess, wb, wbsz, wbmax, dsz)) {
 			ERRX1("io_lowbuffer_alloc");
 			return 0;
@@ -591,8 +734,11 @@ send_up_fsm(struct sess *sess, size_t *phase,
 		 */
 
 		assert(up->stat.fd != -1);
-		blk_match(sess, up->cur->blks,
-			fl[up->cur->idx].path, &up->stat);
+		if (!blk_match(sess, up->cur->blks,
+		    fl[up->cur->idx].path, &up->stat)) {
+			sess->total_errors++;
+			sender_terminate_file(sess, up);
+		}
 		return 1;
 	case BLKSTAT_NONE:
 		break;
@@ -1032,7 +1178,7 @@ rsync_sender(struct sess *sess, int fdin,
 	memset(&up, 0, sizeof(struct send_up));
 	TAILQ_INIT(&sdlq);
 	up.stat.fd = -1;
-	up.stat.map = MAP_FAILED;
+	up.stat.map = NULL;
 	up.stat.blktab = blkhash_alloc();
 
 	/*
@@ -1354,7 +1500,7 @@ rsync_sender(struct sess *sess, int fdin,
 		if (pfd[2].revents & POLLIN) {
 			assert(up.cur != NULL);
 			assert(up.stat.fd != -1);
-			assert(up.stat.map == MAP_FAILED);
+			assert(up.stat.map == NULL);
 			assert(up.stat.mapsz == 0);
 			f = &fl.flp[up.cur->idx];
 
@@ -1371,10 +1517,9 @@ rsync_sender(struct sess *sess, int fdin,
 			 */
 
 			if ((up.stat.mapsz = st.st_size) > 0) {
-				up.stat.map = mmap(NULL,
-					up.stat.mapsz, PROT_READ,
-					MAP_SHARED, up.stat.fd, 0);
-				if (up.stat.map == MAP_FAILED) {
+				up.stat.map = fmap_open(up.stat.fd,
+				    st.st_size, PROT_READ);
+				if (up.stat.map == NULL) {
 					ERR("%s: mmap", f->path);
 					goto out;
 				}
@@ -1483,7 +1628,7 @@ rsync_sender(struct sess *sess, int fdin,
 
 			assert(pfd[2].fd == -1);
 			assert(up.stat.fd == -1);
-			assert(up.stat.map == MAP_FAILED);
+			assert(up.stat.map == NULL);
 			assert(up.stat.mapsz == 0);
 			assert(wbufsz == 0 && wbufpos == 0);
 			pfd[1].fd = -1;

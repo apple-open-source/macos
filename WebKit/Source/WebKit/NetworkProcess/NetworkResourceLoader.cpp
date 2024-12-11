@@ -92,9 +92,9 @@
 #include <WebCore/ContentFilterUnblockHandler.h>
 #endif
 
-#define LOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ", isMainResource=%d, destination=%u, isSynchronous=%d] NetworkResourceLoader::" fmt, this, m_parameters.webPageProxyID.toUInt64(), m_parameters.webPageID.toUInt64(), m_parameters.webFrameID.object().toUInt64(), m_parameters.identifier.toUInt64(), isMainResource(), static_cast<unsigned>(m_parameters.options.destination), isSynchronous(), ##__VA_ARGS__)
-#define LOADER_RELEASE_LOG_ERROR(fmt, ...) RELEASE_LOG_ERROR(Network, "%p - [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ", isMainResource=%d, destination=%u, isSynchronous=%d] NetworkResourceLoader::" fmt, this, m_parameters.webPageProxyID.toUInt64(), m_parameters.webPageID.toUInt64(), m_parameters.webFrameID.object().toUInt64(), m_parameters.identifier.toUInt64(), isMainResource(), static_cast<unsigned>(m_parameters.options.destination), isSynchronous(), ##__VA_ARGS__)
-#define LOADER_RELEASE_LOG_FAULT(fmt, ...) RELEASE_LOG_FAULT(Network, "%p - [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ", isMainResource=%d, destination=%u, isSynchronous=%d] NetworkResourceLoader::" fmt, this, m_parameters.webPageProxyID.toUInt64(), m_parameters.webPageID.toUInt64(), m_parameters.webFrameID.object().toUInt64(), m_parameters.identifier.toUInt64(), isMainResource(), static_cast<unsigned>(m_parameters.options.destination), isSynchronous(), ##__VA_ARGS__)
+#define LOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ", isMainResource=%d, destination=%u, isSynchronous=%d] NetworkResourceLoader::" fmt, this, m_parameters.webPageProxyID.toUInt64(), pageID().toUInt64(), m_parameters.webFrameID.object().toUInt64(), m_parameters.identifier.toUInt64(), isMainResource(), static_cast<unsigned>(m_parameters.options.destination), isSynchronous(), ##__VA_ARGS__)
+#define LOADER_RELEASE_LOG_ERROR(fmt, ...) RELEASE_LOG_ERROR(Network, "%p - [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ", isMainResource=%d, destination=%u, isSynchronous=%d] NetworkResourceLoader::" fmt, this, m_parameters.webPageProxyID.toUInt64(), pageID().toUInt64(), m_parameters.webFrameID.object().toUInt64(), m_parameters.identifier.toUInt64(), isMainResource(), static_cast<unsigned>(m_parameters.options.destination), isSynchronous(), ##__VA_ARGS__)
+#define LOADER_RELEASE_LOG_FAULT(fmt, ...) RELEASE_LOG_FAULT(Network, "%p - [pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ", isMainResource=%d, destination=%u, isSynchronous=%d] NetworkResourceLoader::" fmt, this, m_parameters.webPageProxyID.toUInt64(), pageID().toUInt64(), m_parameters.webFrameID.object().toUInt64(), m_parameters.identifier.toUInt64(), isMainResource(), static_cast<unsigned>(m_parameters.options.destination), isSynchronous(), ##__VA_ARGS__)
 
 namespace WebKit {
 using namespace WebCore;
@@ -220,7 +220,7 @@ void NetworkResourceLoader::startRequest(const ResourceRequest& newRequest)
     ASSERT(RunLoop::isMain());
     LOADER_RELEASE_LOG("startRequest: hasNetworkLoadChecker=%d", !!m_networkLoadChecker);
 
-    m_networkActivityTracker = m_connection->startTrackingResourceLoad(m_parameters.webPageID, m_parameters.identifier, isMainFrameLoad());
+    m_networkActivityTracker = m_connection->startTrackingResourceLoad(pageID(), m_parameters.identifier, isMainFrameLoad());
 
     ASSERT(!m_wasStarted);
     m_wasStarted = true;
@@ -269,6 +269,9 @@ bool NetworkResourceLoader::startContentFiltering(ResourceRequest& request)
     if (!isMainResource())
         return true;
     m_contentFilter = ContentFilter::create(*this);
+#if HAVE(AUDIT_TOKEN)
+    m_contentFilter->setHostProcessAuditToken(connectionToWebProcess().networkProcess().sourceApplicationAuditToken());
+#endif
     m_contentFilter->startFilteringMainResource(request.url());
     if (!m_contentFilter->continueAfterWillSendRequest(request, ResourceResponse())) {
         m_contentFilter->stopFilteringMainResource();
@@ -365,7 +368,6 @@ bool NetworkResourceLoader::shouldSendResourceLoadMessages() const
 
 void NetworkResourceLoader::startNetworkLoad(ResourceRequest&& request, FirstLoad load)
 {
-    LOADER_RELEASE_LOG("startNetworkLoad: (isFirstLoad=%d, timeout=%f)", load == FirstLoad::Yes, request.timeoutInterval());
     if (load == FirstLoad::Yes) {
         consumeSandboxExtensions();
 
@@ -389,6 +391,15 @@ void NetworkResourceLoader::startNetworkLoad(ResourceRequest&& request, FirstLoa
         didFailLoading(internalError(request.url()));
         return;
     }
+
+    if (request.wasSchemeOptimisticallyUpgraded()) {
+        double optimisticUpgradeTimeout { 3 };
+        if (double average = networkSession->currentHTTPSConnectionAverageTiming())
+            optimisticUpgradeTimeout = average;
+        request.setTimeoutInterval(optimisticUpgradeTimeout);
+    }
+
+    LOADER_RELEASE_LOG("startNetworkLoad: (isFirstLoad=%d, timeout=%f)", load == FirstLoad::Yes, request.timeoutInterval());
 
     if (request.url().protocolIsBlob()) {
         ASSERT(parameters.topOrigin);
@@ -660,12 +671,12 @@ bool NetworkResourceLoader::shouldInterruptLoadForXFrameOptions(const String& xF
     }
     case XFrameOptionsDisposition::Conflict: {
         auto errorMessage = makeString("Multiple 'X-Frame-Options' headers with conflicting values ('"_s, xFrameOptions, "') encountered when loading '"_s, url.stringCenterEllipsizedToLength(), "'. Falling back to 'DENY'."_s);
-        send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::JS, MessageLevel::Error, errorMessage, coreIdentifier() }, m_parameters.webPageID);
+        send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::JS, MessageLevel::Error, errorMessage, coreIdentifier() }, pageID());
         return true;
     }
     case XFrameOptionsDisposition::Invalid: {
         auto errorMessage = makeString("Invalid 'X-Frame-Options' header encountered when loading '"_s, url.stringCenterEllipsizedToLength(), "': '"_s, xFrameOptions, "' is not a recognized directive. The header will be ignored."_s);
-        send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::JS, MessageLevel::Error, errorMessage, coreIdentifier() }, m_parameters.webPageID);
+        send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::JS, MessageLevel::Error, errorMessage, coreIdentifier() }, pageID());
         return false;
     }
     }
@@ -676,6 +687,9 @@ bool NetworkResourceLoader::shouldInterruptLoadForXFrameOptions(const String& xF
 bool NetworkResourceLoader::shouldInterruptLoadForCSPFrameAncestorsOrXFrameOptions(const ResourceResponse& response)
 {
     ASSERT(isMainResource());
+
+    if (connectionToWebProcess().sharedPreferencesForWebProcess().ignoreIframeEmbeddingProtectionsEnabled)
+        return false;
 
 #if USE(QUICK_LOOK)
     if (PreviewConverter::supportsMIMEType(response.mimeType()))
@@ -695,7 +709,7 @@ bool NetworkResourceLoader::shouldInterruptLoadForCSPFrameAncestorsOrXFrameOptio
         String xFrameOptions = response.httpHeaderField(HTTPHeaderName::XFrameOptions);
         if (!xFrameOptions.isNull() && shouldInterruptLoadForXFrameOptions(xFrameOptions, response.url())) {
             String errorMessage = makeString("Refused to display '"_s, response.url().stringCenterEllipsizedToLength(), "' in a frame because it set 'X-Frame-Options' to '"_s, xFrameOptions, "'."_s);
-            send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::Security, MessageLevel::Error, errorMessage, coreIdentifier() }, m_parameters.webPageID);
+            send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::Security, MessageLevel::Error, errorMessage, coreIdentifier() }, pageID());
             return true;
         }
     }
@@ -715,7 +729,7 @@ bool NetworkResourceLoader::shouldInterruptNavigationForCrossOriginEmbedderPolic
 
         if (m_parameters.parentCrossOriginEmbedderPolicy.value != WebCore::CrossOriginEmbedderPolicyValue::UnsafeNone && responseCOEP.value != WebCore::CrossOriginEmbedderPolicyValue::RequireCORP) {
             String errorMessage = makeString("Refused to display '"_s, response.url().stringCenterEllipsizedToLength(), "' in a frame because of Cross-Origin-Embedder-Policy."_s);
-            send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::Security, MessageLevel::Error, errorMessage, coreIdentifier() }, m_parameters.webPageID);
+            send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::Security, MessageLevel::Error, errorMessage, coreIdentifier() }, pageID());
             sendCOEPInheritenceViolation(*this, m_parameters.parentFrameURL.isValid() ? m_parameters.parentFrameURL : aboutBlankURL(), m_parameters.parentCrossOriginEmbedderPolicy.reportingEndpoint, COEPDisposition::Enforce, "navigation"_s, m_firstResponseURL);
             return true;
         }
@@ -737,7 +751,7 @@ bool NetworkResourceLoader::shouldInterruptWorkerLoadForCrossOriginEmbedderPolic
 
         if (m_parameters.crossOriginEmbedderPolicy.value == WebCore::CrossOriginEmbedderPolicyValue::RequireCORP && responseCOEP.value == WebCore::CrossOriginEmbedderPolicyValue::UnsafeNone) {
             String errorMessage = makeString("Refused to load '"_s, response.url().stringCenterEllipsizedToLength(), "' worker because of Cross-Origin-Embedder-Policy."_s);
-            send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::Security, MessageLevel::Error, errorMessage, coreIdentifier() }, m_parameters.webPageID);
+            send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::Security, MessageLevel::Error, errorMessage, coreIdentifier() }, pageID());
             sendCOEPInheritenceViolation(*this, m_parameters.frameURL.isValid() ? m_parameters.frameURL : aboutBlankURL(), m_parameters.crossOriginEmbedderPolicy.reportingEndpoint, COEPDisposition::Enforce, "worker initialization"_s, m_firstResponseURL);
             return true;
         }
@@ -865,6 +879,11 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
         auto information = m_networkLoadChecker->takeNetworkLoadInformation();
         information.response = m_response;
         m_connection->addNetworkLoadInformation(coreIdentifier(), WTFMove(information));
+    }
+
+    if (CheckedPtr networkSession = m_response.url().protocolIs("https"_s) ? m_connection->networkSession() : nullptr) {
+        if (auto metrics = computeResponseMetrics(m_response))
+            networkSession->recordHTTPSConnectionTiming(*metrics);
     }
 
     auto resourceLoadInfo = this->resourceLoadInfo();
@@ -1786,16 +1805,16 @@ static String escapeForJSON(const String& s)
     return makeStringByReplacingAll(makeStringByReplacingAll(s, '\\', "\\\\"_s), '"', "\\\""_s);
 }
 
-template<typename IdentifierType, typename ThreadSafety, typename RawValue>
-static String escapeIDForJSON(const std::optional<ObjectIdentifierGeneric<IdentifierType, ThreadSafety, RawValue>>& value)
+template<typename IdentifierType, typename ThreadSafety, typename RawValue, SupportsObjectIdentifierNullState supportsNullState>
+static String escapeIDForJSON(const std::optional<ObjectIdentifierGeneric<IdentifierType, ThreadSafety, RawValue, supportsNullState>>& value)
 {
-    return value ? String::number(value->toUInt64()) : String("None"_s);
+    return value ? String::number(value->toUInt64()) : "None"_str;
 }
 
-template<typename IdentifierType, typename ThreadSafety, typename RawValue>
-static String escapeIDForJSON(const std::optional<ProcessQualified<ObjectIdentifierGeneric<IdentifierType, ThreadSafety, RawValue>>>& value)
+template<typename IdentifierType, typename ThreadSafety, typename RawValue, SupportsObjectIdentifierNullState supportsNullState>
+static String escapeIDForJSON(const std::optional<ProcessQualified<ObjectIdentifierGeneric<IdentifierType, ThreadSafety, RawValue, supportsNullState>>>& value)
 {
-    return value ? String::number(value->object().toUInt64()) : String("None"_s);
+    return value ? String::number(value->object().toUInt64()) : "None"_str;
 }
 
 void NetworkResourceLoader::logCookieInformation() const
@@ -1819,7 +1838,7 @@ static void logBlockedCookieInformation(NetworkConnectionToWebProcess& connectio
     auto escapedIdentifier = escapeIDForJSON(identifier);
     auto escapedReferrer = escapeForJSON(referrer);
 
-#define LOCAL_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(networkStorageSession.sessionID().isAlwaysOnLoggingAllowed(), Network, "%p - %s::" fmt, loggedObject, label.characters(), ##__VA_ARGS__)
+#define LOCAL_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(connection.isAlwaysOnLoggingAllowed(), Network, "%p - %s::" fmt, loggedObject, label.characters(), ##__VA_ARGS__)
 #define LOCAL_LOG(str, ...) \
     LOCAL_LOG_IF_ALLOWED("logCookieInformation: BLOCKED cookie access for webPageID=%s, frameID=%s, resourceID=%s, firstParty=%s: " str, escapedPageID.utf8().data(), escapedFrameID.utf8().data(), escapedIdentifier.utf8().data(), escapedFirstParty.utf8().data(), ##__VA_ARGS__)
 
@@ -1851,7 +1870,7 @@ static void logCookieInformationInternal(NetworkConnectionToWebProcess& connecti
     auto escapedIdentifier = escapeIDForJSON(identifier);
     bool hasStorageAccess = (frameID && pageID) ? networkStorageSession.hasStorageAccess(WebCore::RegistrableDomain { url }, WebCore::RegistrableDomain { firstParty }, frameID.value(), pageID.value()) : false;
 
-#define LOCAL_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(networkStorageSession.sessionID().isAlwaysOnLoggingAllowed(), Network, "%p - %s::" fmt, loggedObject, label.characters(), ##__VA_ARGS__)
+#define LOCAL_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(connection.isAlwaysOnLoggingAllowed(), Network, "%p - %s::" fmt, loggedObject, label.characters(), ##__VA_ARGS__)
 #define LOCAL_LOG(str, ...) \
     LOCAL_LOG_IF_ALLOWED("logCookieInformation: webPageID=%s, frameID=%s, resourceID=%s: " str, escapedPageID.utf8().data(), escapedFrameID.utf8().data(), escapedIdentifier.utf8().data(), ##__VA_ARGS__)
 
@@ -1909,12 +1928,12 @@ void NetworkResourceLoader::logCookieInformation(NetworkConnectionToWebProcess& 
 
 void NetworkResourceLoader::addConsoleMessage(MessageSource messageSource, MessageLevel messageLevel, const String& message, unsigned long)
 {
-    send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  messageSource, messageLevel, message, coreIdentifier() }, m_parameters.webPageID);
+    send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  messageSource, messageLevel, message, coreIdentifier() }, pageID());
 }
 
 void NetworkResourceLoader::enqueueSecurityPolicyViolationEvent(WebCore::SecurityPolicyViolationEventInit&& eventInit)
 {
-    send(Messages::WebPage::EnqueueSecurityPolicyViolationEvent { m_parameters.webFrameID, WTFMove(eventInit) }, m_parameters.webPageID);
+    send(Messages::WebPage::EnqueueSecurityPolicyViolationEvent { m_parameters.webFrameID, WTFMove(eventInit) }, pageID());
 }
 
 void NetworkResourceLoader::logSlowCacheRetrieveIfNeeded(const NetworkCache::Cache::RetrieveInfo& info)
@@ -2032,7 +2051,7 @@ WebCore::FrameIdentifier NetworkResourceLoader::frameIdentifierForReport() const
 
 void NetworkResourceLoader::notifyReportObservers(Ref<Report>&& report)
 {
-    send(Messages::WebPage::NotifyReportObservers { frameIdentifierForReport(), report }, m_parameters.webPageID);
+    send(Messages::WebPage::NotifyReportObservers { frameIdentifierForReport(), report }, pageID());
 }
 
 String NetworkResourceLoader::endpointURIForToken(const String& reportTo) const
@@ -2051,7 +2070,7 @@ void NetworkResourceLoader::sendReportToEndpoints(const URL& baseURL, const Vect
             updatedEndpointTokens.append(token);
     }
 
-    send(Messages::WebPage::SendReportToEndpoints { frameIdentifierForReport(), baseURL, updatedEndpointURIs, updatedEndpointTokens, IPC::FormDataReference { WTFMove(report) }, reportType }, m_parameters.webPageID);
+    send(Messages::WebPage::SendReportToEndpoints { frameIdentifierForReport(), baseURL, updatedEndpointURIs, updatedEndpointTokens, IPC::FormDataReference { WTFMove(report) }, reportType }, pageID());
 }
 
 #if ENABLE(CONTENT_FILTERING)

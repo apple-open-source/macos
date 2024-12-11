@@ -48,8 +48,9 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/LogInitialization.h>
 #include <wtf/MachSendRight.h>
+#include <wtf/TZoneMallocInlines.h>
 
-#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, this->connection())
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, connection())
 
 namespace WebKit {
 using namespace WebCore;
@@ -59,6 +60,8 @@ static WeakPtr<ModelProcessProxy>& singleton()
     static NeverDestroyed<WeakPtr<ModelProcessProxy>> singleton;
     return singleton;
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ModelProcessProxy);
 
 Ref<ModelProcessProxy> ModelProcessProxy::getOrCreate()
 {
@@ -87,12 +90,18 @@ ModelProcessProxy::ModelProcessProxy()
     parameters.parentPID = getCurrentProcessID();
 
     // Initialize the model process.
-    send(Messages::ModelProcess::InitializeModelProcess(WTFMove(parameters)), 0);
+    sendWithAsyncReply(Messages::ModelProcess::InitializeModelProcess(WTFMove(parameters)), [initializationActivityAndGrant = initializationActivityAndGrant()] () { }, 0);
 
     updateProcessAssertion();
 }
 
 ModelProcessProxy::~ModelProcessProxy() = default;
+
+void ModelProcessProxy::terminateWebProcess(WebCore::ProcessIdentifier webProcessIdentifier)
+{
+    if (auto process = WebProcessProxy::processForIdentifier(webProcessIdentifier))
+        process->requestTermination(ProcessTerminationReason::RequestedByModelProcess);
+}
 
 void ModelProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
 {
@@ -106,7 +115,7 @@ void ModelProcessProxy::connectionWillOpen(IPC::Connection&)
 
 void ModelProcessProxy::processWillShutDown(IPC::Connection& connection)
 {
-    ASSERT_UNUSED(connection, this->connection() == &connection);
+    ASSERT_UNUSED(connection, &this->connection() == &connection);
 }
 
 void ModelProcessProxy::createModelProcessConnection(WebProcessProxy& webProcessProxy, IPC::Connection::Handle&& connectionIdentifier, ModelProcessConnectionParameters&& parameters)
@@ -140,6 +149,9 @@ void ModelProcessProxy::modelProcessExited(ProcessTerminationReason reason)
     case ProcessTerminationReason::NavigationSwap:
     case ProcessTerminationReason::RequestedByNetworkProcess:
     case ProcessTerminationReason::RequestedByGPUProcess:
+    case ProcessTerminationReason::RequestedByModelProcess:
+    case ProcessTerminationReason::GPUProcessCrashedTooManyTimes:
+    case ProcessTerminationReason::ModelProcessCrashedTooManyTimes:
         ASSERT_NOT_REACHED();
         break;
     }

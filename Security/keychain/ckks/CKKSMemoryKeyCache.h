@@ -55,6 +55,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)addKeyToCache:(NSString*)keyUUID
                   key:(CKKSKey*)key;
 
+- (void)populateWithRecords:(NSArray<CKRecord*>*)syncKeys
+                  contextID:(NSString*)contextID;
+
 @end
 
 NS_ASSUME_NONNULL_END

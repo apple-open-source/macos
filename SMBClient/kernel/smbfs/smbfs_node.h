@@ -464,6 +464,7 @@ uint64_t smbfs_hash(struct smb_share *share, uint64_t ino,
                     const char *name, size_t nmlen);
 void smb_vhashrem (struct smbnode *np);
 void smb_vhashadd(struct smbnode *np, uint64_t hashval);
+int smbfs_is_ancestor(vnode_t potential_ancestor, struct smbnode *np);
 int smbfs_nget(struct smb_share *share, struct mount *mp,
                vnode_t dvp, const char *name, size_t nmlen,
                struct smbfattr *fap, vnode_t *vpp,

@@ -34,10 +34,13 @@
 #include "RemoteCDMInstanceSession.h"
 #include "WebProcess.h"
 #include <WebCore/Settings.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteCDMFactory);
 
 RemoteCDMFactory::RemoteCDMFactory(WebProcess&)
 {
@@ -96,7 +99,7 @@ void RemoteCDMFactory::removeInstance(RemoteCDMInstanceIdentifier identifier)
 
 void RemoteCDMFactory::didReceiveSessionMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    if (auto session = m_sessions.get(ObjectIdentifier<RemoteCDMInstanceSessionIdentifierType>(decoder.destinationID())))
+    if (auto session = m_sessions.get(LegacyNullableObjectIdentifier<RemoteCDMInstanceSessionIdentifierType>(decoder.destinationID())))
         session->didReceiveMessage(connection, decoder);
 }
 

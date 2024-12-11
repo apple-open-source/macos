@@ -220,6 +220,16 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)dumpWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                        reply:(void (^)(NSDictionary * _Nullable, NSError * _Nullable))reply;
 
+- (void)honorIDMSListChangesForSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                      reply:(void (^)(NSString * _Nullable, NSError * _Nullable))reply;
+
+- (void)octagonPeerIDGivenBottleIDWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                          bottleID:(NSString*)bottleID
+                                             reply:(void (^)(NSString * _Nullable, NSError * _Nullable))reply;
+
+- (void)trustedDeviceNamesByPeerIDWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                      reply:(void (^)(NSDictionary<NSString*, NSString*> * _Nullable, NSError * _Nullable))reply;
+
 - (void)departByDistrustingSelfWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                           reply:(void (^)(NSError * _Nullable))reply;
 
@@ -245,6 +255,8 @@ NS_ASSUME_NONNULL_BEGIN
                         reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)performCKServerUnreadableDataRemovalWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                             internalAccount:(BOOL)internalAccount
+                                                 demoAccount:(BOOL)demoAccount
                                                        reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)localResetWithSpecificUser:(TPSpecificUser* _Nullable)specificUser

@@ -33,7 +33,7 @@ ALLOW_UNUSED_PARAMETERS_BEGIN
 ALLOW_COMMA_BEGIN
 
 #include <webrtc/api/video/video_frame.h>
-#include <webrtc/sdk/WebKit/WebKitUtilities.h>
+#include <webrtc/webkit_sdk/WebKit/WebKitUtilities.h>
 
 ALLOW_UNUSED_PARAMETERS_END
 ALLOW_COMMA_END
@@ -46,7 +46,7 @@ namespace WebCore {
 class VideoFrameLibWebRTC final : public VideoFrame {
 public:
     using ConversionCallback = std::function<RetainPtr<CVPixelBufferRef>(webrtc::VideoFrameBuffer&)>;
-    static Ref<VideoFrameLibWebRTC> create(MediaTime, bool isMirrored, Rotation, std::optional<PlatformVideoColorSpace>&&, rtc::scoped_refptr<webrtc::VideoFrameBuffer>&&, ConversionCallback&&);
+    static RefPtr<VideoFrameLibWebRTC> create(MediaTime, bool isMirrored, Rotation, std::optional<PlatformVideoColorSpace>&&, rtc::scoped_refptr<webrtc::VideoFrameBuffer>&&, ConversionCallback&&);
 
     rtc::scoped_refptr<webrtc::VideoFrameBuffer> buffer() const { return m_buffer; }
 

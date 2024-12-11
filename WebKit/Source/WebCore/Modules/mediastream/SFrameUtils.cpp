@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -112,11 +112,11 @@ SFrameCompatibilityPrefixBuffer computeH264PrefixBuffer(std::span<const uint8_t>
     static const uint8_t prefixDeltaFrame[6] = { 0x00, 0x00, 0x00, 0x01, 0x21, 0xe0 };
 
     if (frameData.size() < 5)
-        return { };
+        return std::span<const uint8_t> { };
 
     // We assume a key frame starts with SPS, then PPS. Otherwise we wrap it as a delta frame.
     if (!isSPSNALU(frameData[4]))
-        return SFrameCompatibilityPrefixBuffer { prefixDeltaFrame, sizeof(prefixDeltaFrame), { } };
+        return std::span<const uint8_t> { prefixDeltaFrame };
 
     // Search for PPS
     size_t spsPpsLength = 0;
@@ -126,7 +126,7 @@ SFrameCompatibilityPrefixBuffer computeH264PrefixBuffer(std::span<const uint8_t>
         return true;
     });
     if (!spsPpsLength)
-        return SFrameCompatibilityPrefixBuffer { prefixDeltaFrame, sizeof(prefixDeltaFrame), { } };
+        return std::span<const uint8_t> { prefixDeltaFrame };
 
     // Search for next NALU to compute the real spsPpsLength, including the next 00 00 00 01.
     findNalus(frameData, spsPpsLength + 1, [&spsPpsLength](auto position) {
@@ -141,7 +141,7 @@ IGNORE_GCC_WARNINGS_BEGIN("restrict")
 IGNORE_GCC_WARNINGS_END
     buffer[spsPpsLength] = 0x25;
     buffer[spsPpsLength + 1] = 0xb8;
-    return { buffer.data(), buffer.size(), WTFMove(buffer) };
+    return WTFMove(buffer);
 }
 
 static inline void findEscapeRbspPatterns(const Vector<uint8_t>& frame, size_t offset, const Function<void(size_t, bool)>& callback)
@@ -199,7 +199,7 @@ size_t computeVP8PrefixOffset(std::span<const uint8_t> frame)
 SFrameCompatibilityPrefixBuffer computeVP8PrefixBuffer(std::span<const uint8_t> frame)
 {
     Vector<uint8_t> prefix(frame.first(isVP8KeyFrame(frame) ? 10 : 3));
-    return { prefix.data(), prefix.size(), WTFMove(prefix) };
+    return WTFMove(prefix);
 }
 
 } // namespace WebCore

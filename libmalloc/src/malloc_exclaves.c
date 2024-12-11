@@ -511,7 +511,12 @@ reallocf(void * __unsafe_indexable in_ptr, size_t new_size)
 	void *ptr = realloc(in_ptr, new_size);
 
 	if (!ptr && in_ptr && new_size != 0) {
+		// Save and restore `errno`, because `realloc` will set it to ENOMEM
+		// on allocation failure, but it could be overwritten if `free` calls
+		// into a library function that also modifies `errno`
+		errno_t error = errno;
 		free(in_ptr);
+		errno = error;
 	}
 
 	return ptr;

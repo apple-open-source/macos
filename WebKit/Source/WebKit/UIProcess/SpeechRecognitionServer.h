@@ -34,6 +34,8 @@
 #include <WebCore/SpeechRecognitionResultData.h>
 #include <WebCore/SpeechRecognizer.h>
 #include <wtf/Deque.h>
+#include <wtf/TZoneMalloc.h>
+#include <wtf/WeakRef.h>
 
 namespace WebKit {
 class SpeechRecognitionServer;
@@ -53,20 +55,23 @@ struct ClientOrigin;
 namespace WebKit {
 
 class WebProcessProxy;
+struct SharedPreferencesForWebProcess;
 
 using SpeechRecognitionServerIdentifier = WebCore::PageIdentifier;
 using SpeechRecognitionPermissionChecker = Function<void(WebCore::SpeechRecognitionRequest&, SpeechRecognitionPermissionRequestCallback&&)>;
 using SpeechRecognitionCheckIfMockSpeechRecognitionEnabled = Function<bool()>;
 
 class SpeechRecognitionServer : public IPC::MessageReceiver, private IPC::MessageSender {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(SpeechRecognitionServer);
 public:
 #if ENABLE(MEDIA_STREAM)
     using RealtimeMediaSourceCreateFunction = Function<WebCore::CaptureSourceOrError()>;
-    SpeechRecognitionServer(Ref<IPC::Connection>&&, SpeechRecognitionServerIdentifier, SpeechRecognitionPermissionChecker&&, SpeechRecognitionCheckIfMockSpeechRecognitionEnabled&&, RealtimeMediaSourceCreateFunction&&);
+    SpeechRecognitionServer(WebProcessProxy&, SpeechRecognitionServerIdentifier, SpeechRecognitionPermissionChecker&&, SpeechRecognitionCheckIfMockSpeechRecognitionEnabled&&, RealtimeMediaSourceCreateFunction&&);
 #else
-    SpeechRecognitionServer(Ref<IPC::Connection>&&, SpeechRecognitionServerIdentifier, SpeechRecognitionPermissionChecker&&, SpeechRecognitionCheckIfMockSpeechRecognitionEnabled&&);
+    SpeechRecognitionServer(WebProcessProxy&, SpeechRecognitionServerIdentifier, SpeechRecognitionPermissionChecker&&, SpeechRecognitionCheckIfMockSpeechRecognitionEnabled&&);
 #endif
+
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const;
 
     void start(WebCore::SpeechRecognitionConnectionClientIdentifier, String&& lang, bool continuous, bool interimResults, uint64_t maxAlternatives, WebCore::ClientOrigin&&, WebCore::FrameIdentifier);
     void stop(WebCore::SpeechRecognitionConnectionClientIdentifier);
@@ -87,7 +92,7 @@ private:
     IPC::Connection* messageSenderConnection() const final;
     uint64_t messageSenderDestinationID() const final;
 
-    Ref<IPC::Connection> m_connection;
+    WeakRef<WebProcessProxy> m_process;
     SpeechRecognitionServerIdentifier m_identifier;
     HashMap<WebCore::SpeechRecognitionConnectionClientIdentifier, std::unique_ptr<WebCore::SpeechRecognitionRequest>> m_requests;
     SpeechRecognitionPermissionChecker m_permissionChecker;

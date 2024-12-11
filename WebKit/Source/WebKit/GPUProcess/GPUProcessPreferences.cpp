@@ -48,11 +48,6 @@ void GPUProcessPreferences::copyEnabledWebPreferences(const WebPreferences& webP
         vorbisDecoderEnabled = true;
 #endif
 
-#if ENABLE(WEBM_FORMAT_READER)
-    if (webPreferences.webMFormatReaderEnabled())
-        webMFormatReaderEnabled = true;
-#endif
-
 #if ENABLE(MEDIA_SOURCE) && ENABLE(VP9)
     if (webPreferences.webMParserEnabled())
         webMParserEnabled = true;
@@ -63,9 +58,9 @@ void GPUProcessPreferences::copyEnabledWebPreferences(const WebPreferences& webP
         mediaSourceInlinePaintingEnabled = true;
 #endif
 
-#if HAVE(AVCONTENTKEYSPECIFIER)
-    if (webPreferences.sampleBufferContentKeySessionSupportEnabled())
-        sampleBufferContentKeySessionSupportEnabled = true;
+#if USE(MODERN_AVCONTENTKEYSESSION)
+    if (webPreferences.shouldUseModernAVContentKeySession())
+        shouldUseModernAVContentKeySession = true;
 #endif
         
 #if ENABLE(ALTERNATE_WEBM_PLAYER)

@@ -58,8 +58,12 @@ krb5_kt_ret_data(krb5_context context,
     ret = krb5_ret_int16(sp, &size);
     if(ret)
 	return ret;
+    if (size < 0) {
+	krb5_set_error_message(context, ENOMEM, N_("bad size value", ""));
+	return ENOMEM;
+    }
     data->length = size;
-    data->data = malloc(size);
+    data->data = calloc(1, size);
     if (data->data == NULL) {
 	krb5_set_error_message(context, ENOMEM, N_("malloc: out of memory", ""));
 	return ENOMEM;
@@ -81,7 +85,11 @@ krb5_kt_ret_string(krb5_context context,
     ret = krb5_ret_int16(sp, &size);
     if(ret)
 	return ret;
-    *data = malloc(size + 1);
+    if (size < 0) {
+	krb5_set_error_message(context, ENOMEM, N_("bad size value", ""));
+	return ENOMEM;
+    }
+    *data = calloc(1, size + 1);
     if (*data == NULL) {
 	krb5_set_error_message(context, ENOMEM, N_("malloc: out of memory", ""));
 	return ENOMEM;

@@ -993,6 +993,7 @@ kern_vm_counter_name(uint64_t tag)
 	case (VM_KERN_COUNT_WIRED_STATIC_KERNELCACHE):
 		name = "VM_KERN_COUNT_WIRED_STATIC_KERNELCACHE";
 		break;
+	case (VM_KERN_COUNT_EXCLAVES_CARVEOUT):         name = "VM_KERN_COUNT_EXCLAVES_CARVEOUT"; break;
 	default:                                                                name = NULL; break;
 	}
 	if (name) {

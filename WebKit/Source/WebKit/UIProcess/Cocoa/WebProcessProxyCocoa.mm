@@ -30,7 +30,6 @@
 #import "CodeSigning.h"
 #import "CoreIPCAuditToken.h"
 #import "DefaultWebBrowserChecks.h"
-#import "HighPerformanceGPUManager.h"
 #import "Logging.h"
 #import "SandboxUtilities.h"
 #import "SharedBufferReference.h"
@@ -117,20 +116,6 @@ Vector<String> WebProcessProxy::mediaMIMETypes() const
 {
     return mediaTypeCache();
 }
-
-#if PLATFORM(MAC)
-void WebProcessProxy::requestHighPerformanceGPU()
-{
-    LOG(WebGL, "WebProcessProxy::requestHighPerformanceGPU()");
-    HighPerformanceGPUManager::singleton().addProcessRequiringHighPerformance(*this);
-}
-
-void WebProcessProxy::releaseHighPerformanceGPU()
-{
-    LOG(WebGL, "WebProcessProxy::releaseHighPerformanceGPU()");
-    HighPerformanceGPUManager::singleton().removeProcessRequiringHighPerformance(*this);
-}
-#endif
 
 #if ENABLE(REMOTE_INSPECTOR)
 bool WebProcessProxy::shouldEnableRemoteInspector()
@@ -239,7 +224,7 @@ bool WebProcessProxy::messageSourceIsValidWebContentProcess()
         return true;
 
     // Confirm that the connection is from a WebContent process:
-    auto [signingIdentifier, isPlatformBinary] = codeSigningIdentifierAndPlatformBinaryStatus(connection()->xpcConnection());
+    auto [signingIdentifier, isPlatformBinary] = codeSigningIdentifierAndPlatformBinaryStatus(connection().xpcConnection());
 
     if (!isPlatformBinary || !signingIdentifier.startsWith("com.apple.WebKit.WebContent"_s)) {
         RELEASE_LOG_ERROR(Process, "Process is not an entitled WebContent process.");
@@ -255,7 +240,7 @@ std::optional<audit_token_t> WebProcessProxy::auditToken() const
     if (!hasConnection())
         return std::nullopt;
     
-    return connection()->getAuditToken();
+    return connection().getAuditToken();
 }
 
 std::optional<Vector<SandboxExtension::Handle>> WebProcessProxy::fontdMachExtensionHandles()

@@ -75,6 +75,8 @@ T_DECL(aligned_alloc_alignment_not_multiple_of_size, "aligned_alloc should set e
 T_DECL(aligned_alloc_alignment_not_power_of_two, "aligned_alloc should set errno to EINVAL if alignment is not a power of two (implementation constraint)",
 		T_META_TAG_VM_PREFERRED)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnon-power-of-two-alignment"
 	{
 		void *ptr = aligned_alloc(24, 48); // alignment is even, but not a power of two
 		T_QUIET; T_ASSERT_NULL(ptr, "ptr should be null");
@@ -86,13 +88,17 @@ T_DECL(aligned_alloc_alignment_not_power_of_two, "aligned_alloc should set errno
 		T_QUIET; T_ASSERT_NULL(ptr, "ptr should be null");
 		T_QUIET; T_ASSERT_EQ(errno, EINVAL, "errno should be EINVAL");
 	}
+#pragma GCC diagnostic pop
 }
 
 T_DECL(aligned_alloc_alignment_not_a_multiple_of_voidstar, "aligned_alloc should set errno to EINVAL if alignment is not a multiple of sizeof(void*) (implementation constraint)",
 		T_META_TAG_VM_PREFERRED)
 {
 	const size_t alignment = sizeof(void*)+1;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnon-power-of-two-alignment"
 	void *ptr = aligned_alloc(alignment, alignment * 2);
+#pragma GCC diagnostic pop
 	T_QUIET; T_ASSERT_NULL(ptr, "ptr should be null");
 	T_QUIET; T_ASSERT_EQ(errno, EINVAL, "aligned_alloc should set errno to EINVAL");
 }

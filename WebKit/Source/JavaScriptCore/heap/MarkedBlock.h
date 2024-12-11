@@ -83,8 +83,8 @@ public:
     using AtomNumberType = std::conditional<atomsPerBlock < UINT16_MAX, uint16_t, uint32_t>::type;
     static_assert(std::numeric_limits<AtomNumberType>::max() >= atomsPerBlock);
 
-    static constexpr size_t maxNumberOfLowerTierCells = 8;
-    static_assert(maxNumberOfLowerTierCells <= 256);
+    static constexpr size_t maxNumberOfLowerTierPreciseCells = 8;
+    static_assert(maxNumberOfLowerTierPreciseCells <= 256);
     
     static_assert(!(atomSize & (atomSize - 1)), "MarkedBlock::atomSize must be a power of two.");
     static_assert(!(blockSize & (blockSize - 1)), "MarkedBlock::blockSize must be a power of two.");
@@ -257,6 +257,11 @@ public:
         ~Header();
 
         static constexpr ptrdiff_t offsetOfVM() { return OBJECT_OFFSETOF(Header, m_vm); }
+
+        Handle* handlePointerForNullCheck()
+        {
+            return WTF::opaque(&m_handle);
+        }
         
     private:
         friend class LLIntOffsetsExtractor;
@@ -380,7 +385,7 @@ public:
     JS_EXPORT_PRIVATE bool areMarksStale();
     bool areMarksStale(HeapVersion markingVersion);
     
-    Dependency aboutToMark(HeapVersion markingVersion);
+    Dependency aboutToMark(HeapVersion markingVersion, HeapCell*);
         
 #if ASSERT_ENABLED
     JS_EXPORT_PRIVATE void assertMarksNotStale();
@@ -412,13 +417,16 @@ private:
     ~MarkedBlock();
     Atom* atoms();
         
-    JS_EXPORT_PRIVATE void aboutToMarkSlow(HeapVersion markingVersion);
+    JS_EXPORT_PRIVATE void aboutToMarkSlow(HeapVersion markingVersion, HeapCell*);
     void clearHasAnyMarked();
     
     void noteMarkedSlow();
     
     inline bool marksConveyLivenessDuringMarking(HeapVersion markingVersion);
     inline bool marksConveyLivenessDuringMarking(HeapVersion myMarkingVersion, HeapVersion markingVersion);
+
+    // This is only used for debugging. We should remove this once the issue is resolved (rdar://136782494)
+    NO_RETURN_DUE_TO_CRASH NEVER_INLINE void dumpInfoAndCrashForInvalidHandle(AbstractLocker&, HeapCell*);
 };
 
 inline MarkedBlock::Header& MarkedBlock::header()
@@ -581,12 +589,12 @@ inline bool MarkedBlock::areMarksStale(HeapVersion markingVersion)
     return markingVersion != header().m_markingVersion;
 }
 
-inline Dependency MarkedBlock::aboutToMark(HeapVersion markingVersion)
+inline Dependency MarkedBlock::aboutToMark(HeapVersion markingVersion, HeapCell* cell)
 {
     HeapVersion version;
     Dependency dependency = Dependency::loadAndFence(&header().m_markingVersion, version);
     if (UNLIKELY(version != markingVersion))
-        aboutToMarkSlow(markingVersion);
+        aboutToMarkSlow(markingVersion, cell);
     return dependency;
 }
 

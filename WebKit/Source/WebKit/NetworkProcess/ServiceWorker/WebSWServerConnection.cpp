@@ -37,6 +37,7 @@
 #include "NetworkSession.h"
 #include "RemoteWorkerType.h"
 #include "SharedBufferReference.h"
+#include "SharedPreferencesForWebProcess.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
 #include "WebProcessMessages.h"
@@ -45,6 +46,7 @@
 #include "WebSWContextManagerConnectionMessages.h"
 #include "WebSWServerConnectionMessages.h"
 #include "WebSWServerToContextConnection.h"
+#include <WebCore/CookieChangeSubscription.h>
 #include <WebCore/ExceptionData.h>
 #include <WebCore/LegacySchemeRegistry.h>
 #include <WebCore/NotImplemented.h>
@@ -58,6 +60,8 @@
 #include <cstdint>
 #include <wtf/Algorithms.h>
 #include <wtf/MainThread.h>
+#include <wtf/TZoneMallocInlines.h>
+#include <wtf/Vector.h>
 
 namespace WebKit {
 using namespace PAL;
@@ -66,16 +70,9 @@ using namespace WebCore;
 #define SWSERVERCONNECTION_RELEASE_LOG(fmt, ...) RELEASE_LOG(ServiceWorker, "%p - WebSWServerConnection::" fmt, this, ##__VA_ARGS__)
 #define SWSERVERCONNECTION_RELEASE_LOG_ERROR(fmt, ...) RELEASE_LOG_ERROR(ServiceWorker, "%p - WebSWServerConnection::" fmt, this, ##__VA_ARGS__)
 
-#define CONNECTION_MESSAGE_CHECK(assertion) CONNECTION_MESSAGE_CHECK_COMPLETION(assertion, (void)0)
-#define CONNECTION_MESSAGE_CHECK_COMPLETION(assertion, completion) do { \
-    ASSERT(assertion); \
-    if (UNLIKELY(!(assertion))) { \
-        RELEASE_LOG_FAULT(IPC, __FILE__ " " CONNECTION_STRINGIFY_MACRO(__LINE__) ": Invalid message dispatched %" PUBLIC_LOG_STRING, WTF_PRETTY_FUNCTION); \
-        networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::TerminateWebProcess(identifier()), 0); \
-        { completion; } \
-        return; \
-    } \
-} while (0)
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, m_contentConnection.get())
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebSWServerConnection);
 
 WebSWServerConnection::WebSWServerConnection(NetworkConnectionToWebProcess& networkConnectionToWebProcess, SWServer& server, IPC::Connection& connection, ProcessIdentifier processIdentifier)
     : SWServer::Connection(server, processIdentifier)
@@ -100,6 +97,11 @@ WebSWServerConnection::~WebSWServerConnection()
 NetworkProcess& WebSWServerConnection::networkProcess()
 {
     return m_networkConnectionToWebProcess->networkProcess();
+}
+
+const SharedPreferencesForWebProcess& WebSWServerConnection::sharedPreferencesForWebProcess() const
+{
+    return m_networkConnectionToWebProcess->sharedPreferencesForWebProcess();
 }
 
 void WebSWServerConnection::rejectJobInClient(ServiceWorkerJobIdentifier jobIdentifier, const ExceptionData& exceptionData)
@@ -350,7 +352,7 @@ void WebSWServerConnection::postMessageToServiceWorker(ServiceWorkerIdentifier d
 
 void WebSWServerConnection::scheduleJobInServer(ServiceWorkerJobData&& jobData)
 {
-    CONNECTION_MESSAGE_CHECK(networkProcess().allowsFirstPartyForCookies(identifier(), WebCore::RegistrableDomain::uncheckedCreateFromHost(jobData.topOrigin.host())));
+    MESSAGE_CHECK(networkProcess().allowsFirstPartyForCookies(identifier(), WebCore::RegistrableDomain::uncheckedCreateFromHost(jobData.topOrigin.host())) != NetworkProcess::AllowCookieAccess::Terminate);
 
     ASSERT(!jobData.scopeURL.isNull());
     if (jobData.scopeURL.isNull()) {
@@ -425,8 +427,8 @@ void WebSWServerConnection::getRegistrations(const SecurityOriginData& topOrigin
 
 void WebSWServerConnection::registerServiceWorkerClient(WebCore::ClientOrigin&& clientOrigin, ServiceWorkerClientData&& data, const std::optional<ServiceWorkerRegistrationIdentifier>& controllingServiceWorkerRegistrationIdentifier, String&& userAgent)
 {
-    CONNECTION_MESSAGE_CHECK(data.identifier.processIdentifier() == identifier());
-    CONNECTION_MESSAGE_CHECK(!clientOrigin.topOrigin.isNull());
+    MESSAGE_CHECK(data.identifier.processIdentifier() == identifier());
+    MESSAGE_CHECK(!clientOrigin.topOrigin.isNull());
 
     registerServiceWorkerClientInternal(WTFMove(clientOrigin), WTFMove(data), controllingServiceWorkerRegistrationIdentifier, WTFMove(userAgent), SWServer::IsBeingCreatedClient::No);
 }
@@ -440,7 +442,7 @@ void WebSWServerConnection::registerServiceWorkerClientInternal(WebCore::ClientO
             return;
     }
 
-    CONNECTION_MESSAGE_CHECK(!contextOrigin.isNull());
+    MESSAGE_CHECK(!contextOrigin.isNull());
 
     bool isNewOrigin = WTF::allOf(m_clientOrigins.values(), [&contextOrigin](auto& origin) {
         return contextOrigin != origin.clientOrigin;
@@ -468,7 +470,7 @@ void WebSWServerConnection::registerServiceWorkerClientInternal(WebCore::ClientO
 
 void WebSWServerConnection::unregisterServiceWorkerClient(const ScriptExecutionContextIdentifier& clientIdentifier)
 {
-    CONNECTION_MESSAGE_CHECK(clientIdentifier.processIdentifier() == identifier());
+    MESSAGE_CHECK(clientIdentifier.processIdentifier() == identifier());
     auto iterator = m_clientOrigins.find(clientIdentifier);
     if (iterator == m_clientOrigins.end())
         return;
@@ -629,7 +631,9 @@ void WebSWServerConnection::getPushPermissionState(WebCore::ServiceWorkerRegistr
         return;
     }
 
-    session()->notificationManager().getPushPermissionState(registration->scopeURLWithoutFragment(), WTFMove(completionHandler));
+    session()->notificationManager().getPermissionState(SecurityOriginData::fromURL( registration->scopeURLWithoutFragment()), [completionHandler = WTFMove(completionHandler)](WebCore::PushPermissionState state) mutable {
+        completionHandler(static_cast<uint8_t>(state));
+    });
 #endif
 }
 
@@ -762,9 +766,61 @@ void WebSWServerConnection::retrieveRecordResponseBody(WebCore::BackgroundFetchR
     });
 }
 
+void WebSWServerConnection::addCookieChangeSubscriptions(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, Vector<WebCore::CookieChangeSubscription>&& subscriptions, ExceptionOrVoidCallback&& callback)
+{
+    RefPtr registration = protectedServer()->getRegistration(registrationIdentifier);
+    if (!registration) {
+        SWSERVERCONNECTION_RELEASE_LOG_ERROR("AddCookieChangeSubscriptions: Did not handle because no valid registration for registration identifier %" PRIu64, registrationIdentifier.toUInt64());
+        // FIXME: Spec is not clear about this case at this point and wpt test expects no error (https://github.com/WICG/cookie-store/issues/237).
+        callback({ });
+        return;
+    }
+
+    registration->addCookieChangeSubscriptions(WTFMove(subscriptions));
+    callback({ });
+}
+
+void WebSWServerConnection::removeCookieChangeSubscriptions(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, Vector<WebCore::CookieChangeSubscription>&& subscriptions, ExceptionOrVoidCallback&& callback)
+{
+    RefPtr registration = protectedServer()->getRegistration(registrationIdentifier);
+    if (!registration) {
+        SWSERVERCONNECTION_RELEASE_LOG_ERROR("RemoveCookieChangeSubscriptions: Did not handle because no valid registration for registration identifier %" PRIu64, registrationIdentifier.toUInt64());
+        // FIXME: Spec is not clear about this case at this point and wpt test expects no error (https://github.com/WICG/cookie-store/issues/237).
+        callback({ });
+        return;
+    }
+
+    registration->removeCookieChangeSubscriptions(WTFMove(subscriptions));
+    callback({ });
+}
+
+void WebSWServerConnection::cookieChangeSubscriptions(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, ExceptionOrCookieChangeSubscriptionsCallback&& callback)
+{
+    RefPtr registration = protectedServer()->getRegistration(registrationIdentifier);
+    if (!registration) {
+        SWSERVERCONNECTION_RELEASE_LOG_ERROR("CookieChangeSubscriptions: Did not handle because no valid registration for registration identifier %" PRIu64, registrationIdentifier.toUInt64());
+        // FIXME: Spec is not clear about this case at this point and wpt test expects no error (https://github.com/WICG/cookie-store/issues/237).
+        callback({ });
+        return;
+    }
+
+    callback(registration->cookieChangeSubscriptions());
+}
+
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
+void WebSWServerConnection::getNotifications(const URL& registrationURL, const String& tag, CompletionHandler<void(Expected<Vector<WebCore::NotificationData>, WebCore::ExceptionData>&&)>&& completionHandler)
+{
+    if (!session()) {
+        completionHandler(makeUnexpected(ExceptionData { ExceptionCode::InvalidStateError, "No active network session"_s }));
+        return;
+    }
+
+    session()->notificationManager().getNotifications(registrationURL, tag, WTFMove(completionHandler));
+}
+#endif
+
 } // namespace WebKit
 
-#undef CONNECTION_MESSAGE_CHECK_COMPLETION
-#undef CONNECTION_MESSAGE_CHECK
+#undef MESSAGE_CHECK
 #undef SWSERVERCONNECTION_RELEASE_LOG
 #undef SWSERVERCONNECTION_RELEASE_LOG_ERROR

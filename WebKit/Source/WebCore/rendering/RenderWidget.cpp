@@ -39,13 +39,13 @@
 #include "RenderLayerScrollableArea.h"
 #include "RenderView.h"
 #include "SecurityOrigin.h"
-#include <wtf/IsoMallocInlines.h>
-#include <wtf/StackStats.h>
 #include <wtf/Ref.h>
+#include <wtf/StackStats.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderWidget);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderWidget);
 
 static HashMap<SingleThreadWeakRef<const Widget>, SingleThreadWeakRef<RenderWidget>>& widgetRendererMap()
 {
@@ -237,7 +237,7 @@ void RenderWidget::paintContents(PaintInfo& paintInfo, const LayoutPoint& paintO
 {
     if (paintInfo.requireSecurityOriginAccessForWidgets) {
         if (auto contentDocument = frameOwnerElement().contentDocument()) {
-            if (!document().securityOrigin().isSameOriginDomain(contentDocument->securityOrigin()))
+            if (!document().protectedSecurityOrigin()->isSameOriginDomain(contentDocument->securityOrigin()))
                 return;
         }
     }
@@ -327,8 +327,7 @@ void RenderWidget::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 
         // Push a clip if we have a border radius, since we want to round the foreground content that gets painted.
         paintInfo.context().save();
-        auto roundedInnerRect = FloatRoundedRect(roundedContentBoxRect(borderRect));
-        BackgroundPainter::clipRoundedInnerRect(paintInfo.context(), borderRect, roundedInnerRect);
+        clipToContentBoxShape(paintInfo.context(), adjustedPaintOffset, document().deviceScaleFactor());
     }
 
     if (m_widget && !isSkippedContentRoot())
@@ -384,7 +383,8 @@ RenderWidget::ChildWidgetState RenderWidget::updateWidgetPosition()
 
 IntRect RenderWidget::windowClipRect() const
 {
-    return intersection(view().frameView().contentsToWindow(m_clipRect), view().frameView().windowClipRect());
+    Ref frameView = view().frameView();
+    return intersection(frameView->contentsToWindow(m_clipRect), frameView->windowClipRect());
 }
 
 void RenderWidget::setSelectionState(HighlightState state)
@@ -470,7 +470,7 @@ RenderBox* RenderWidget::embeddedContentBox() const
 {
     if (!is<RenderEmbeddedObject>(this))
         return nullptr;
-    auto* frameView = dynamicDowncast<LocalFrameView>(widget());
+    RefPtr frameView = dynamicDowncast<LocalFrameView>(widget());
     return frameView ? frameView->embeddedContentBox() : nullptr;
 }
 

@@ -488,6 +488,44 @@ server_preflight(audit_token_t audit, int token, uid_t *uid, gid_t *gid, pid_t *
 	}
 }
 
+/*
+ * <rdar://130608569> Check entitlement for security-sensitive notification
+ *
+ * Enforces that for a special prefix namespace, the poster must have a
+ * corresponding entitlement. For example, for notification
+ * "com.apple.private.restrict-post.MobileSync.BackupAgent.RestoreStarted", the poster must
+ * have
+ * "com.apple.private.darwin-notification.restrict-post.MobileSync.BackupAgent.RestoreStarted" => true
+ */
+static bool check_access_to_post_restricted_name(const char *name, audit_token_t audit) {
+	char entitlement_key[ENTITLEMENT_MAXLEN+1] = APPLE_RESTRICT_ENTITLEMENT_PREFIX;
+	xpc_object_t entitlement_value;
+	bool result = false;
+
+	// Look for "com.apple.private.restrict-post.*"
+	if (strncmp(name, APPLE_RESTRICT_PREFIX, APPLE_RESTRICT_PREFIX_LEN) != 0) {
+		return true;
+	}
+	// Check "com.apple.private.darwin-notification.restrict-post.*"
+	if (strlcat(entitlement_key, name + APPLE_RESTRICT_PREFIX_LEN, 
+			sizeof(entitlement_key)) >= sizeof(entitlement_key)) {
+		log_message(ASL_LEVEL_ERR, 
+				"Post %s rejected: respective restricted notification entitlement would be too long\n", 
+				name);
+		return false;
+	}
+
+	entitlement_value = xpc_copy_entitlement_for_token(entitlement_key, &audit);
+	if (entitlement_value) {
+		result = xpc_bool_get_value(entitlement_value);
+		xpc_release(entitlement_value);
+	}
+	if (result == false) {
+		log_message(ASL_LEVEL_ERR, "Post %s rejected: missing entitlement\n", name);
+	}
+	return result;
+}
+
 static bool check_access_to_post_name(char *name, audit_token_t audit) {
 	return (sandbox_check_by_audit_token(audit, "darwin-notification-post", (enum sandbox_filter_type)SANDBOX_FILTER_NOTIFICATION, name) == 0);
 }
@@ -519,6 +557,10 @@ kern_return_t __notify_server_post_3
 	if ((uid != 0) && claim_root_access && has_root_entitlement(audit))
 	{
 		uid = 0;
+	}
+
+	if (!check_access_to_post_restricted_name(n->name, audit)) {
+		return KERN_SUCCESS; // The poster does not have permission to post
 	}
 
 	status = _notify_lib_check_controlled_access(&global.notify_state, n->name, uid, gid, NOTIFY_ACCESS_WRITE);
@@ -566,6 +608,11 @@ kern_return_t __notify_server_post_2
 	if (*status != NOTIFY_STATUS_OK)
 	{
 		return KERN_SUCCESS;
+	}
+
+	if (!check_access_to_post_restricted_name(name, audit)) {
+		*status = NOTIFY_STATUS_NOT_AUTHORIZED;
+		return KERN_SUCCESS; // The poster does not have permission to post
 	}
 
 	call_statistics.post++;
@@ -1238,7 +1285,9 @@ static inline kern_return_t _internal_notify_server_set_state_3
 	}
 	else
 	{
-		if (os_unlikely(filter_name) && !check_access_to_post_name(c->name_info->name, audit))
+		char *name = c->name_info->name;
+		if (!check_access_to_post_restricted_name(name, audit) ||
+			(os_unlikely(filter_name) && !check_access_to_post_name(name, audit)))
 		{
 			*status = NOTIFY_STATUS_NOT_AUTHORIZED;
 			*name_id = UINT64_MAX;
@@ -1297,14 +1346,14 @@ static kern_return_t _internal_notify_server_set_state_2
 
 	bool allow_set_state = true;
 
-	if (os_unlikely(filter_name)) {
-		name_info_t *n = _nc_table_find_64(&global.notify_state.name_id_table, name_id);
-		if (!n) {
-			status = NOTIFY_STATUS_INVALID_NAME;
-			allow_set_state = false;
-		}
-		else if (!check_access_to_post_name(n->name, audit))
-		{
+	name_info_t *n = _nc_table_find_64(&global.notify_state.name_id_table, name_id);
+	if (!n) {
+		status = NOTIFY_STATUS_INVALID_NAME;
+		allow_set_state = false;
+	} else {
+		char *name = n->name;
+		if (!check_access_to_post_restricted_name(name, audit) ||
+			(os_unlikely(filter_name) && !check_access_to_post_name(name, audit))) {
 			status = NOTIFY_STATUS_NOT_AUTHORIZED;
 			allow_set_state = false;
 		}

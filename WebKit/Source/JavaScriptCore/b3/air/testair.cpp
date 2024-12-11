@@ -41,14 +41,12 @@
 #include "Options.h"
 #include "ProbeContext.h"
 #include "PureNaN.h"
-#include "RegisterTZoneTypes.h"
 #include <regex>
 #include <string>
 #include <wtf/DataLog.h>
 #include <wtf/Lock.h>
 #include <wtf/NumberOfCores.h>
 #include <wtf/StdMap.h>
-#include <wtf/TZoneMallocInitialization.h>
 #include <wtf/Threading.h>
 #include <wtf/WTFProcess.h>
 #include <wtf/text/StringCommon.h>
@@ -1678,7 +1676,7 @@ void testX86VMULSD()
     root->append(MoveDouble, nullptr, Tmp(FPRInfo::argumentFPR2), Tmp(FPRInfo::returnValueFPR));
     root->append(RetDouble, nullptr, Tmp(FPRInfo::returnValueFPR));
 
-    CHECK(compileAndRun<double>(proc, 2.4, 4.2, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, 4.2, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDDestRex()
@@ -1691,7 +1689,7 @@ void testX86VMULSDDestRex()
     root->append(MoveDouble, nullptr, Tmp(X86Registers::xmm15), Tmp(FPRInfo::returnValueFPR));
     root->append(RetDouble, nullptr, Tmp(FPRInfo::returnValueFPR));
 
-    CHECK(compileAndRun<double>(proc, 2.4, 4.2, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, 4.2, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDOp1DestRex()
@@ -1705,7 +1703,7 @@ void testX86VMULSDOp1DestRex()
     root->append(MoveDouble, nullptr, Tmp(X86Registers::xmm15), Tmp(FPRInfo::returnValueFPR));
     root->append(RetDouble, nullptr, Tmp(FPRInfo::returnValueFPR));
 
-    CHECK(compileAndRun<double>(proc, 2.4, 4.2, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, 4.2, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDOp2DestRex()
@@ -1719,7 +1717,7 @@ void testX86VMULSDOp2DestRex()
     root->append(MoveDouble, nullptr, Tmp(X86Registers::xmm15), Tmp(FPRInfo::returnValueFPR));
     root->append(RetDouble, nullptr, Tmp(FPRInfo::returnValueFPR));
 
-    CHECK(compileAndRun<double>(proc, 2.4, 4.2, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, 4.2, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDOpsDestRex()
@@ -1734,7 +1732,7 @@ void testX86VMULSDOpsDestRex()
     root->append(MoveDouble, nullptr, Tmp(X86Registers::xmm15), Tmp(FPRInfo::returnValueFPR));
     root->append(RetDouble, nullptr, Tmp(FPRInfo::returnValueFPR));
 
-    CHECK(compileAndRun<double>(proc, 2.4, 4.2, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, 4.2, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDAddr()
@@ -1748,7 +1746,7 @@ void testX86VMULSDAddr()
     root->append(RetDouble, nullptr, Tmp(FPRInfo::returnValueFPR));
 
     double secondArg = 4.2;
-    CHECK(compileAndRun<double>(proc, 2.4, &secondArg + 2, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, &secondArg + 2, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDAddrOpRexAddr()
@@ -1763,7 +1761,7 @@ void testX86VMULSDAddrOpRexAddr()
     root->append(RetDouble, nullptr, Tmp(FPRInfo::returnValueFPR));
 
     double secondArg = 4.2;
-    CHECK(compileAndRun<double>(proc, 2.4, &secondArg + 2, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, &secondArg + 2, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDDestRexAddr()
@@ -1777,7 +1775,7 @@ void testX86VMULSDDestRexAddr()
     root->append(RetDouble, nullptr, Tmp(FPRInfo::returnValueFPR));
 
     double secondArg = 4.2;
-    CHECK(compileAndRun<double>(proc, 2.4, &secondArg - 2, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, &secondArg - 2, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDRegOpDestRexAddr()
@@ -1792,7 +1790,7 @@ void testX86VMULSDRegOpDestRexAddr()
     root->append(RetDouble, nullptr, Tmp(FPRInfo::returnValueFPR));
 
     double secondArg = 4.2;
-    CHECK(compileAndRun<double>(proc, 2.4, &secondArg, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, &secondArg, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDAddrOpDestRexAddr()
@@ -1807,7 +1805,7 @@ void testX86VMULSDAddrOpDestRexAddr()
     root->append(RetDouble, nullptr, Tmp(FPRInfo::returnValueFPR));
 
     double secondArg = 4.2;
-    CHECK(compileAndRun<double>(proc, 2.4, &secondArg - 1, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, &secondArg - 1, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDBaseNeedsRex()
@@ -1823,7 +1821,7 @@ void testX86VMULSDBaseNeedsRex()
 
     double secondArg = 4.2;
     uint64_t index = 8;
-    CHECK(compileAndRun<double>(proc, 2.4, &secondArg - 1, index, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, &secondArg - 1, index, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDIndexNeedsRex()
@@ -1839,7 +1837,7 @@ void testX86VMULSDIndexNeedsRex()
 
     double secondArg = 4.2;
     uint64_t index = - 8;
-    CHECK(compileAndRun<double>(proc, 2.4, &secondArg + 1, index, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, &secondArg + 1, index, PNaN) == 2.4 * 4.2);
 }
 
 void testX86VMULSDBaseIndexNeedRex()
@@ -1856,7 +1854,7 @@ void testX86VMULSDBaseIndexNeedRex()
 
     double secondArg = 4.2;
     uint64_t index = 16;
-    CHECK(compileAndRun<double>(proc, 2.4, &secondArg - 2, index, pureNaN()) == 2.4 * 4.2);
+    CHECK(compileAndRun<double>(proc, 2.4, &secondArg - 2, index, PNaN) == 2.4 * 4.2);
 }
 #endif // #if CPU(X86_64)
 
@@ -2778,15 +2776,8 @@ static void run(const char*)
 
 #endif // ENABLE(B3_JIT)
 
-int main(int argc, char** argv WTF_TZONE_EXTRA_MAIN_ARGS)
+int main(int argc, char** argv)
 {
-#if USE(TZONE_MALLOC)
-    const char* boothash = GET_TZONE_SEED_FROM_ENV(darwinEnvp);
-    WTF_TZONE_INIT(boothash);
-    JSC::registerTZoneTypes();
-    WTF_TZONE_REGISTRATION_DONE();
-#endif
-
     const char* filter = nullptr;
     switch (argc) {
     case 1:

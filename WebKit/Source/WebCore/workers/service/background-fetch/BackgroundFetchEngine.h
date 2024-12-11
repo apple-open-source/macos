@@ -27,6 +27,7 @@
 
 #include "BackgroundFetch.h"
 #include <span>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 class BackgroundFetchEngine;
@@ -44,11 +45,11 @@ class ResourceResponse;
 class SWServer;
 
 class BackgroundFetchEngine : public CanMakeWeakPtr<BackgroundFetchEngine> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(BackgroundFetchEngine);
 public:
     explicit BackgroundFetchEngine(SWServer&);
 
-    using ExceptionOrBackgroundFetchInformationCallback = CompletionHandler<void(Expected<BackgroundFetchInformation, ExceptionData>&&)>;
+    using ExceptionOrBackgroundFetchInformationCallback = CompletionHandler<void(Expected<std::optional<BackgroundFetchInformation>, ExceptionData>&&)>;
     void startBackgroundFetch(SWServerRegistration&, const String&, Vector<BackgroundFetchRequest>&&, BackgroundFetchOptions&&, ExceptionOrBackgroundFetchInformationCallback&&);
     void backgroundFetchInformation(SWServerRegistration&, const String&, ExceptionOrBackgroundFetchInformationCallback&&);
     using BackgroundFetchIdentifiersCallback = CompletionHandler<void(Vector<String>&&)>;

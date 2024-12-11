@@ -1208,26 +1208,13 @@ _dispatch_source_merge_evt(dispatch_unote_t du, uint32_t flags,
 #pragma mark -
 #pragma mark dispatch_source_timer
 
-#define _dispatch_source_timer_telemetry_enabled() false
-
-DISPATCH_NOINLINE
-static void
-_dispatch_source_timer_telemetry_slow(dispatch_source_t ds,
-		dispatch_clock_t clock, struct dispatch_timer_source_s *values)
-{
-	if (_dispatch_trace_timer_configure_enabled()) {
-		_dispatch_trace_timer_configure(ds, clock, values);
-	}
-}
-
 DISPATCH_ALWAYS_INLINE
 static inline void
 _dispatch_source_timer_telemetry(dispatch_source_t ds, dispatch_clock_t clock,
 		struct dispatch_timer_source_s *values)
 {
-	if (_dispatch_trace_timer_configure_enabled() ||
-			_dispatch_source_timer_telemetry_enabled()) {
-		_dispatch_source_timer_telemetry_slow(ds, clock, values);
+	if (_dispatch_trace_timer_configure_enabled()) {
+		_dispatch_trace_timer_configure(ds, clock, values);
 		__asm__ __volatile__ (""); // prevent tailcall
 	}
 }

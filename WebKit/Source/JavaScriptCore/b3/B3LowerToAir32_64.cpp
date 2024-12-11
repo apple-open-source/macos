@@ -85,7 +85,7 @@ struct MaybeWide {
     void dump(PrintStream& out) const
     {
         if (!*this)
-            out.print("(<none>)");
+            out.print("(<none (maybewide)>)");
         else if (inner.index() == 1)
             out.print("(", std::get<1>(inner), ")");
         else {
@@ -199,7 +199,7 @@ public:
         }
 
         for (Variable* variable : m_procedure.variables()) {
-            auto addResult = m_variableToTmps.add(variable, Vector<Tmp, 1>(m_procedure.resultCount(variable->type())));
+            auto addResult = m_variableToTmps.add(variable, Vector<Tmp>(m_procedure.resultCount(variable->type())));
             ASSERT(addResult.isNewEntry);
             for (unsigned i = 0; i < m_procedure.resultCount(variable->type()); ++i)
                 addResult.iterator->value[i] = tmpForType(m_procedure.typeAtOffset(variable->type(), i));
@@ -501,7 +501,7 @@ private:
         }
         return tmp;
     }
-    Arg someArg(Value *value)
+    Arg someArg(Value* value)
     {
         LogicalTmp tmp = someTmp(value);
         if (tmp.isNarrow())
@@ -976,9 +976,13 @@ private:
         //     b = Op a
 
         ArgPromise addr = loadPromise(value);
-        if (isValidForm(opcode, addr.kind(), Arg::Tmp)) {
-            append(addr.inst(opcode, m_value, addr.consume(*this), result));
-            return;
+        // Don't use this form for FP loads/stores on on platforms where it may
+        // fault.
+        if (hasUnalignedFPMemoryAccess() || (opcode32 != Air::Move32ToFloat && opcodeFloat != Air::MoveFloatTo32)) {
+            if (isValidForm(opcode, addr.kind(), Arg::Tmp)) {
+                append(addr.inst(opcode, m_value, addr.consume(*this), result));
+                return;
+            }
         }
 
         if (isValidForm(opcode, Arg::Tmp, Arg::Tmp)) {
@@ -1372,7 +1376,7 @@ private:
             }
             break;
         case Width128:
-            RELEASE_ASSERT(is64Bit() && Options::useWebAssemblySIMD());
+            RELEASE_ASSERT(is64Bit() && Options::useWasmSIMD());
             RELEASE_ASSERT(bank == FP);
             return MoveVector;
         }
@@ -1661,7 +1665,7 @@ private:
                 break;
             case ValueRep::SomeRegister:
             case ValueRep::SomeLateRegister:
-                arg = tmp(value.value());
+                arg = someArg(value.value());
                 break;
             case ValueRep::SomeRegisterWithClobber: {
                 Tmp dstTmp = m_code.newTmp(value.value()->resultBank());
@@ -1677,10 +1681,17 @@ private:
                 arg = dstTmp;
                 break;
             }
-            case ValueRep::StackArgument:
+            case ValueRep::StackArgument: {
                 arg = Arg::callArg(value.rep().offsetFromSP());
-                append(trappingInst(m_value, createStore(moveForType(value.value()->type()), value.value(), arg)));
+                auto from = someArg(value.value());
+                if (value.value()->type() == Int64) {
+                    Arg hiArg = Arg::callArg(value.rep().offsetFromSP() + 4);
+                    append(trappingInst(m_value, moveForType(Int32), m_value, from.tmpHi(), hiArg));
+                    append(trappingInst(m_value, moveForType(Int32), m_value, from.tmpLo(), arg));
+                } else
+                    append(trappingInst(m_value, createStore(moveForType(value.value()->type()), value.value(), arg)));
                 break;
+            }
             case ValueRep::SomeRegisterPair:
             case ValueRep::SomeLateRegisterPair: {
                 RELEASE_ASSERT(value.value()->type() == Int64);
@@ -3036,10 +3047,10 @@ private:
                 }
             }
 
-            // Pre-Index Canonical Form:
+            // PreIndex Canonical Form:
             //     address = Add(base, offset)    --->   Move %base %address
             //     memory = Load(base, offset)           MoveWithIncrement (%address, prefix(offset)) %memory
-            // Post-Index Canonical Form:
+            // PostIndex Canonical Form:
             //     address = Add(base, offset)    --->   Move %base %address
             //     memory = Load(base, 0)                MoveWithIncrement (%address, postfix(offset)) %memory
             auto tryAppendIncrementAddress = [&] () -> bool {
@@ -3215,6 +3226,14 @@ private:
             Value* left = m_value->child(0);
             Value* right = m_value->child(1);
 
+            if (m_value->type() == Int64 && isValidForm(Sub64, Arg::Tmp, Arg::Tmp, Arg::Tmp, Arg::Tmp, Arg::Tmp, Arg::Tmp)) {
+                auto leftArg = someArg(left);
+                auto rightArg = someArg(right);
+                auto result = someArg(m_value);
+                append(Sub64, leftArg.tmpHi(), leftArg.tmpLo(), rightArg.tmpHi(), rightArg.tmpLo(), result.tmpHi(), result.tmpLo());
+                return;
+            }
+
             auto tryAppendMultiplySub = [&] () -> bool {
                 if (imm(right) && !m_valueToTmp[right])
                     return false;
@@ -3315,6 +3334,19 @@ private:
             Value* left = m_value->child(0);
             Value* right = m_value->child(1);
 
+            if ((left->type() == Int64) && (right->type() == Int64)) {
+                Tmp tmpHiLo = tmpForType(Int32);
+                Tmp tmpLoHi = tmpForType(Int32);
+                auto argLeft = someArg(left);
+                auto argRight = someArg(right);
+                auto result = someArg(m_value);
+                append(Air::Mul32, argLeft.tmpHi(), argRight.tmpLo(), tmpHiLo);
+                append(Air::Mul32, argLeft.tmpLo(), argRight.tmpHi(), tmpLoHi);
+                append(Air::UMull32, argLeft.tmpLo(), argRight.tmpLo(), result.tmpHi(), result.tmpLo());
+                append(Air::Add32, tmpHiLo, result.tmpHi());
+                append(Air::Add32, tmpLoHi, result.tmpHi());
+                return;
+            }
             auto tryAppendMultiplyWithExtend = [&] () -> bool {
                 auto tryAirOpcode = [&] () -> Air::Opcode {
                     if (m_value->type() != Int64)
@@ -3983,10 +4015,10 @@ private:
         }
 
         case Store: {
-            // Pre-Index Canonical Form:
+            // PreIndex Canonical Form:
             //     address = Add(base, Offset)              --->    Move %base %address
             //     memory = Store(value, base, Offset)              MoveWithIncrement %value (%address, prefix(offset))
-            // Post-Index Canonical Form:
+            // PostIndex Canonical Form:
             //     address = Add(base, Offset)              --->    Move %base %address
             //     memory = Store(value, base, 0)                   MoveWithIncrement %value (%address, postfix(offset))
             auto tryAppendIncrementAddress = [&] () -> bool {
@@ -4850,6 +4882,7 @@ private:
                     inst.args.append(arg.tmp());
                     return;
                 case ValueRep::Register: {
+                    RELEASE_ASSERT(!is32Bit() || type != Int64);
                     Tmp reg = Tmp(rep.reg());
                     inst.args.append(reg);
                     after.append(Inst(relaxedMoveForType(type), m_value, reg, arg.tmp()));

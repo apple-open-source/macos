@@ -38,6 +38,7 @@
 #include <wtf/Function.h>
 #include <wtf/HashMap.h>
 #include <wtf/RobinHoodHashMap.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 #include <wtf/WallTime.h>
 #include <wtf/WeakHashSet.h>
@@ -124,9 +125,9 @@ public:
 class NetworkStorageSession
     : public CanMakeWeakPtr<NetworkStorageSession>
     , public CanMakeCheckedPtr<NetworkStorageSession> {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(NetworkStorageSession, WEBCORE_EXPORT);
     WTF_MAKE_NONCOPYABLE(NetworkStorageSession);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NetworkStorageSession);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     using TopFrameDomain = WebCore::RegistrableDomain;
     using SubResourceDomain = WebCore::RegistrableDomain;
@@ -236,7 +237,7 @@ public:
     WEBCORE_EXPORT void setDomainsWithCrossPageStorageAccess(const HashMap<TopFrameDomain, Vector<SubResourceDomain>>&);
     WEBCORE_EXPORT void grantCrossPageStorageAccess(const TopFrameDomain&, const SubResourceDomain&);
     WEBCORE_EXPORT void setAgeCapForClientSideCookies(std::optional<Seconds>);
-    WEBCORE_EXPORT bool hasStorageAccess(const RegistrableDomain& resourceDomain, const RegistrableDomain& firstPartyDomain, std::optional<FrameIdentifier>, PageIdentifier) const;
+    WEBCORE_EXPORT bool hasStorageAccess(const RegistrableDomain& resourceDomain, const RegistrableDomain& firstPartyDomain, std::optional<FrameIdentifier>, std::optional<PageIdentifier>) const;
     WEBCORE_EXPORT Vector<String> getAllStorageAccessEntries() const;
     WEBCORE_EXPORT void grantStorageAccess(const RegistrableDomain& resourceDomain, const RegistrableDomain& firstPartyDomain, std::optional<FrameIdentifier>, PageIdentifier);
     WEBCORE_EXPORT void removeStorageAccessForFrame(FrameIdentifier, PageIdentifier);

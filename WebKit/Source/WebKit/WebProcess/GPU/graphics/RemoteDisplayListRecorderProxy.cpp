@@ -46,10 +46,13 @@
 #include <WebCore/NotImplemented.h>
 #include <WebCore/SVGFilter.h>
 #include <wtf/MathExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteDisplayListRecorderProxy);
 
 RemoteDisplayListRecorderProxy::RemoteDisplayListRecorderProxy(RemoteImageBufferProxy& imageBuffer, RemoteRenderingBackendProxy& renderingBackend, const FloatRect& initialClip, const AffineTransform& initialCTM)
     : DisplayList::Recorder(IsDeferred::No, { }, initialClip, initialCTM, imageBuffer.colorSpace(), DrawGlyphsMode::DeconstructUsingDrawGlyphsCommands)
@@ -68,6 +71,8 @@ RemoteDisplayListRecorderProxy::RemoteDisplayListRecorderProxy(RemoteRenderingBa
 {
 }
 
+RemoteDisplayListRecorderProxy::~RemoteDisplayListRecorderProxy() = default;
+
 template<typename T>
 ALWAYS_INLINE void RemoteDisplayListRecorderProxy::send(T&& message)
 {
@@ -78,7 +83,7 @@ ALWAYS_INLINE void RemoteDisplayListRecorderProxy::send(T&& message)
     RefPtr imageBuffer = m_imageBuffer.get();
     if (LIKELY(imageBuffer))
         imageBuffer->backingStoreWillChange();
-    auto result = connection->send(std::forward<T>(message), m_destinationBufferIdentifier, RemoteRenderingBackendProxy::defaultTimeout);
+    auto result = connection->send(std::forward<T>(message), m_destinationBufferIdentifier);
     if (UNLIKELY(result != IPC::Error::NoError)) {
         RELEASE_LOG(RemoteLayerBuffers, "RemoteDisplayListRecorderProxy::send - failed, name:%" PUBLIC_LOG_STRING ", error:%" PUBLIC_LOG_STRING,
             IPC::description(T::name()).characters(), IPC::errorAsString(result).characters());

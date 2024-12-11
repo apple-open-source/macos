@@ -24,7 +24,6 @@
 #include "CSSAnchorValue.h"
 #include "CSSCalcSymbolTable.h"
 #include "CSSCalcValue.h"
-#include "CSSHelper.h"
 #include "CSSMarkup.h"
 #include "CSSParserIdioms.h"
 #include "CSSPrimitiveValueMappings.h"
@@ -264,43 +263,25 @@ CSSUnitType CSSPrimitiveValue::primitiveType() const
     if (!isCalculated())
         return primitiveUnitType();
 
-    switch (m_value.calc->category()) {
-    case CalculationCategory::Number:
-        return CSSUnitType::CSS_NUMBER;
-    case CalculationCategory::Percent:
-        return CSSUnitType::CSS_PERCENTAGE;
-    case CalculationCategory::PercentNumber:
-        return CSSUnitType::CSS_CALC_PERCENTAGE_WITH_NUMBER;
-    case CalculationCategory::PercentLength:
-        return CSSUnitType::CSS_CALC_PERCENTAGE_WITH_LENGTH;
-    case CalculationCategory::Length:
-    case CalculationCategory::Angle:
-    case CalculationCategory::Time:
-    case CalculationCategory::Frequency:
-    case CalculationCategory::Resolution:
-        return m_value.calc->primitiveType();
-    case CalculationCategory::Other:
-        return CSSUnitType::CSS_UNKNOWN;
-    }
-    return CSSUnitType::CSS_UNKNOWN;
+    return m_value.calc->primitiveType();
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(CSSPropertyID propertyID)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_PROPERTY_ID);
     m_value.propertyID = propertyID;
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(double number, CSSUnitType type)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(type);
     m_value.number = number;
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(const String& string, CSSUnitType type)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     ASSERT(isStringType(type));
     setPrimitiveUnitType(type);
@@ -309,7 +290,7 @@ CSSPrimitiveValue::CSSPrimitiveValue(const String& string, CSSUnitType type)
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(Color color)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_RGBCOLOR);
     static_assert(sizeof(m_value.colorAsInteger) == sizeof(color));
@@ -332,7 +313,7 @@ Color CSSPrimitiveValue::absoluteColor() const
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(StaticCSSValueTag, CSSValueID valueID)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_VALUE_ID);
     m_value.valueID = valueID;
@@ -358,21 +339,21 @@ CSSPrimitiveValue::CSSPrimitiveValue(StaticCSSValueTag, ImplicitInitialValueTag)
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(Ref<CSSCalcValue> value)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_CALC);
     m_value.calc = &value.leakRef();
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(CSSUnresolvedColor unresolvedColor)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_UNRESOLVED_COLOR);
     m_value.unresolvedColor = new CSSUnresolvedColor(WTFMove(unresolvedColor));
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(Ref<CSSAnchorValue> value)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_ANCHOR);
     m_value.anchor = &value.leakRef();
@@ -517,7 +498,7 @@ Ref<CSSPrimitiveValue> CSSPrimitiveValue::create(double value, CSSUnitType type)
             return *result;
         break;
     case CSSUnitType::CSS_PERCENTAGE:
-        if (auto* result = valueFromPool(staticCSSValuePool->m_percentValues, value))
+        if (auto* result = valueFromPool(staticCSSValuePool->m_percentageValues, value))
             return *result;
         break;
     case CSSUnitType::CSS_PX:
@@ -586,8 +567,7 @@ Ref<CSSPrimitiveValue> CSSPrimitiveValue::create(const Length& length, const Ren
     case LengthType::Fixed:
         return create(adjustFloatForAbsoluteZoom(length.value(), style), CSSUnitType::CSS_PX);
     case LengthType::Calculated:
-        // FIXME: Do we have a guarantee that CSSCalcValue::create will not return null here?
-        return create(CSSCalcValue::create(length.calculationValue(), style).releaseNonNull());
+        return create(CSSCalcValue::create(length.calculationValue(), style));
     case LengthType::Relative:
     case LengthType::Undefined:
         break;
@@ -635,64 +615,55 @@ Ref<CSSPrimitiveValue> CSSPrimitiveValue::createURI(String value)
     return adoptRef(*new CSSPrimitiveValue(WTFMove(value), CSSUnitType::CSS_URI));
 }
 
-double CSSPrimitiveValue::computeDegrees() const
+template<> int CSSPrimitiveValue::resolveAsLength(const CSSToLengthConversionData& conversionData) const
 {
-    return computeDegrees(primitiveType(), doubleValue());
+    return roundForImpreciseConversion<int>(resolveAsLengthDouble(conversionData));
 }
 
-template<> int CSSPrimitiveValue::computeLength(const CSSToLengthConversionData& conversionData) const
+template<> unsigned CSSPrimitiveValue::resolveAsLength(const CSSToLengthConversionData& conversionData) const
 {
-    return roundForImpreciseConversion<int>(computeLengthDouble(conversionData));
+    return roundForImpreciseConversion<unsigned>(resolveAsLengthDouble(conversionData));
 }
 
-template<> unsigned CSSPrimitiveValue::computeLength(const CSSToLengthConversionData& conversionData) const
+template<> float CSSPrimitiveValue::resolveAsLength(const CSSToLengthConversionData& conversionData) const
 {
-    return roundForImpreciseConversion<unsigned>(computeLengthDouble(conversionData));
+    return narrowPrecisionToFloat(resolveAsLengthDouble(conversionData));
 }
 
-template<> Length CSSPrimitiveValue::computeLength(const CSSToLengthConversionData& conversionData) const
+template<> double CSSPrimitiveValue::resolveAsLength(const CSSToLengthConversionData& conversionData) const
 {
-    return Length(clampTo<double>(computeLengthDouble(conversionData), minValueForCssLength, maxValueForCssLength), LengthType::Fixed);
+    return resolveAsLengthDouble(conversionData);
 }
 
-template<> short CSSPrimitiveValue::computeLength(const CSSToLengthConversionData& conversionData) const
+template<> Length CSSPrimitiveValue::resolveAsLength(const CSSToLengthConversionData& conversionData) const
 {
-    return roundForImpreciseConversion<short>(computeLengthDouble(conversionData));
+    return Length(clampTo<float>(resolveAsLength(conversionData), minValueForCssLength, maxValueForCssLength), LengthType::Fixed);
 }
 
-template<> unsigned short CSSPrimitiveValue::computeLength(const CSSToLengthConversionData& conversionData) const
+template<> short CSSPrimitiveValue::resolveAsLength(const CSSToLengthConversionData& conversionData) const
 {
-    return roundForImpreciseConversion<unsigned short>(computeLengthDouble(conversionData));
+    return roundForImpreciseConversion<short>(resolveAsLengthDouble(conversionData));
 }
 
-template<> float CSSPrimitiveValue::computeLength(const CSSToLengthConversionData& conversionData) const
+template<> unsigned short CSSPrimitiveValue::resolveAsLength(const CSSToLengthConversionData& conversionData) const
 {
-    return static_cast<float>(computeLengthDouble(conversionData));
+    return roundForImpreciseConversion<unsigned short>(resolveAsLengthDouble(conversionData));
 }
 
-template<> double CSSPrimitiveValue::computeLength(const CSSToLengthConversionData& conversionData) const
+template<> LayoutUnit CSSPrimitiveValue::resolveAsLength(const CSSToLengthConversionData& conversionData) const
 {
-    return computeLengthDouble(conversionData);
+    return LayoutUnit(resolveAsLengthDouble(conversionData));
 }
 
-template<> LayoutUnit CSSPrimitiveValue::computeLength(const CSSToLengthConversionData& conversionData) const
-{
-    return LayoutUnit(computeLengthDouble(conversionData));
-}
-
-double CSSPrimitiveValue::computeLengthDouble(const CSSToLengthConversionData& conversionData) const
+double CSSPrimitiveValue::resolveAsLengthDouble(const CSSToLengthConversionData& conversionData) const
 {
     if (isCalculated()) {
         // The multiplier and factor is applied to each value in the calc expression individually
-        return m_value.calc->computeLengthPx(conversionData);
+        return m_value.calc->computeLengthPx(conversionData, CSSCalcSymbolTable { });
     }
 
     return computeNonCalcLengthDouble(conversionData, primitiveType(), m_value.number);
 }
-
-static constexpr double mmPerInch = 25.4;
-static constexpr double cmPerInch = 2.54;
-static constexpr double QPerInch = 25.4 * 4.0;
 
 static double lengthOfViewportPhysicalAxisForLogicalAxis(LogicalBoxAxis logicalAxis, const FloatSize& size, const RenderStyle* style)
 {
@@ -757,22 +728,21 @@ double CSSPrimitiveValue::computeUnzoomedNonCalcLengthDouble(CSSUnitType primiti
     case CSSUnitType::CSS_PX:
         return value;
     case CSSUnitType::CSS_CM:
-        return cssPixelsPerInch / cmPerInch * value;
+        return CSS::pixelsPerCm * value;
     case CSSUnitType::CSS_MM:
-        return cssPixelsPerInch / mmPerInch * value;
+        return CSS::pixelsPerMm * value;
     case CSSUnitType::CSS_Q:
-        return cssPixelsPerInch / QPerInch * value;
+        return CSS::pixelsPerQ * value;
     case CSSUnitType::CSS_LH:
     case CSSUnitType::CSS_RLH:
         ASSERT_NOT_REACHED();
         return -1.0;
     case CSSUnitType::CSS_IN:
-        return cssPixelsPerInch * value;
+        return CSS::pixelsPerInch * value;
     case CSSUnitType::CSS_PT:
-        return cssPixelsPerInch / 72.0 * value;
+        return CSS::pixelsPerPt * value;
     case CSSUnitType::CSS_PC:
-        // 1 pc == 12 pt
-        return cssPixelsPerInch * 12.0 / 72.0 * value;
+        return CSS::pixelsPerPc * value;
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_LENGTH:
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_NUMBER:
         ASSERT_NOT_REACHED();
@@ -1057,74 +1027,106 @@ std::optional<double> CSSPrimitiveValue::conversionToCanonicalUnitsScaleFactor(C
         return 1.0;
 
     case CSSUnitType::CSS_X:
-        // This is semantically identical to (canonical) dppx
-        return 1.0;
-
+        return CSS::dppxPerX;
     case CSSUnitType::CSS_CM:
-        return cssPixelsPerInch / cmPerInch;
-
+        return CSS::pixelsPerCm;
     case CSSUnitType::CSS_DPCM:
-        return cmPerInch / cssPixelsPerInch; // (2.54 cm/in)
-
+        return CSS::dppxPerDpcm;
     case CSSUnitType::CSS_MM:
-        return cssPixelsPerInch / mmPerInch;
-
+        return CSS::pixelsPerMm;
     case CSSUnitType::CSS_Q:
-        return cssPixelsPerInch / QPerInch;
-
+        return CSS::pixelsPerQ;
     case CSSUnitType::CSS_IN:
-        return cssPixelsPerInch;
-
+        return CSS::pixelsPerInch;
     case CSSUnitType::CSS_DPI:
-        return 1 / cssPixelsPerInch;
-
+        return CSS::dppxPerDpi;
     case CSSUnitType::CSS_PT:
-        return cssPixelsPerInch / 72.0;
-
+        return CSS::pixelsPerPt;
     case CSSUnitType::CSS_PC:
-        return cssPixelsPerInch * 12.0 / 72.0; // 1 pc == 12 pt
-
+        return CSS::pixelsPerPc;
     case CSSUnitType::CSS_RAD:
         return degreesPerRadianDouble;
-
     case CSSUnitType::CSS_GRAD:
         return degreesPerGradientDouble;
-
     case CSSUnitType::CSS_TURN:
         return degreesPerTurnDouble;
-
     case CSSUnitType::CSS_MS:
-        return 0.001;
+        return CSS::secondsPerMillisecond;
     case CSSUnitType::CSS_KHZ:
-        return 1000;
+        return CSS::hertzPerKilohertz;
 
     default:
         return std::nullopt;
     }
 }
 
-ExceptionOr<float> CSSPrimitiveValue::getFloatValue(CSSUnitType unitType) const
+ExceptionOr<float> CSSPrimitiveValue::getFloatValueDeprecated(CSSUnitType targetUnit) const
 {
-    auto result = doubleValueInternal(unitType);
+    auto result = doubleValueInternalDeprecated(targetUnit);
     if (!result)
         return Exception { ExceptionCode::InvalidAccessError };
     return clampTo<float>(result.value());
 }
 
-double CSSPrimitiveValue::doubleValue(CSSUnitType unitType) const
+// MARK: Arbitrarily converting
+
+double CSSPrimitiveValue::doubleValue(CSSUnitType targetUnit, const CSSToLengthConversionData& conversionData) const
 {
-    return doubleValueInternal(unitType).value_or(0);
+    return doubleValueInternal(targetUnit, conversionData).value_or(0);
 }
 
-double CSSPrimitiveValue::doubleValue() const
+double CSSPrimitiveValue::doubleValueNoConversionDataRequired(CSSUnitType targetUnit) const
 {
-    return isCalculated() ? m_value.calc->doubleValue({ }) : m_value.number;
+    ASSERT(!isCalculated());
+    return doubleValueInternalDeprecated(targetUnit).value_or(0);
 }
 
-double CSSPrimitiveValue::doubleValueDividingBy100IfPercentage() const
+double CSSPrimitiveValue::doubleValueDeprecated(CSSUnitType targetUnit) const
 {
+    return doubleValueInternalDeprecated(targetUnit).value_or(0);
+}
+
+// MARK: Non-converting
+
+double CSSPrimitiveValue::doubleValue(const CSSToLengthConversionData& conversionData) const
+{
+    return isCalculated() ? m_value.calc->doubleValue(conversionData, { }) : m_value.number;
+}
+
+double CSSPrimitiveValue::doubleValueDeprecated() const
+{
+    return isCalculated() ? m_value.calc->doubleValueDeprecated({ }) : m_value.number;
+}
+
+// MARK: `doubleValueDividingBy100IfPercentage`.
+
+double CSSPrimitiveValue::doubleValueDividingBy100IfPercentage(const CSSToLengthConversionData& conversionData) const
+{
+    ASSERT(isNumberOrInteger() || isPercentage());
+
     if (isCalculated())
-        return m_value.calc->primitiveType() == CSSUnitType::CSS_PERCENTAGE ? m_value.calc->doubleValue({ }) / 100.0 : m_value.calc->doubleValue({ });
+        return m_value.calc->primitiveType() == CSSUnitType::CSS_PERCENTAGE ? m_value.calc->doubleValue(conversionData, { }) / 100.0 : m_value.calc->doubleValue(conversionData, { });
+    if (isPercentage())
+        return m_value.number / 100.0;
+    return m_value.number;
+}
+
+double CSSPrimitiveValue::doubleValueDividingBy100IfPercentageNoConversionDataRequired() const
+{
+    ASSERT(isNumberOrInteger() || isPercentage());
+    ASSERT(!isCalculated());
+
+    if (isPercentage())
+        return m_value.number / 100.0;
+    return m_value.number;
+}
+
+double CSSPrimitiveValue::doubleValueDividingBy100IfPercentageDeprecated() const
+{
+    ASSERT(isNumberOrInteger() || isPercentage());
+
+    if (isCalculated())
+        return m_value.calc->primitiveType() == CSSUnitType::CSS_PERCENTAGE ? m_value.calc->doubleValueDeprecated({ }) / 100.0 : m_value.calc->doubleValueDeprecated({ });
     if (isPercentage())
         return m_value.number / 100.0;
     return m_value.number;
@@ -1135,6 +1137,13 @@ std::optional<bool> CSSPrimitiveValue::isZero() const
     if (isCalculated())
         return std::nullopt;
     return !m_value.number;
+}
+
+std::optional<bool> CSSPrimitiveValue::isOne() const
+{
+    if (isCalculated())
+        return std::nullopt;
+    return m_value.number == 1;
 }
 
 std::optional<bool> CSSPrimitiveValue::isPositive() const
@@ -1151,14 +1160,14 @@ std::optional<bool> CSSPrimitiveValue::isNegative() const
     return m_value.number < 0;
 }
 
-std::optional<double> CSSPrimitiveValue::doubleValueInternal(CSSUnitType requestedUnitType) const
+std::optional<double> CSSPrimitiveValue::doubleValueInternal(CSSUnitType requestedUnitType, const CSSToLengthConversionData& conversionData) const
 {
     if (!isValidCSSUnitTypeForDoubleConversion(primitiveUnitType()) || !isValidCSSUnitTypeForDoubleConversion(requestedUnitType))
         return std::nullopt;
 
     CSSUnitType sourceUnitType = primitiveType();
     if (requestedUnitType == sourceUnitType || requestedUnitType == CSSUnitType::CSS_DIMENSION)
-        return doubleValue();
+        return doubleValue(conversionData);
 
     CSSUnitCategory sourceCategory = unitCategory(sourceUnitType);
     ASSERT(sourceCategory != CSSUnitCategory::Other);
@@ -1191,7 +1200,68 @@ std::optional<double> CSSPrimitiveValue::doubleValueInternal(CSSUnitType request
             return std::nullopt;
     }
 
-    double convertedValue = doubleValue();
+    double convertedValue = doubleValue(conversionData);
+
+    // If we don't need to scale it, don't worry about if we can scale it.
+    if (sourceUnitType == targetUnitType)
+        return convertedValue;
+
+    // First convert the value from primitiveUnitType() to canonical type.
+    auto sourceFactor = conversionToCanonicalUnitsScaleFactor(sourceUnitType);
+    if (!sourceFactor.has_value())
+        return std::nullopt;
+    convertedValue *= sourceFactor.value();
+
+    // Now convert from canonical type to the target unitType.
+    auto targetFactor = conversionToCanonicalUnitsScaleFactor(targetUnitType);
+    if (!targetFactor.has_value())
+        return std::nullopt;
+    convertedValue /= targetFactor.value();
+
+    return convertedValue;
+}
+
+std::optional<double> CSSPrimitiveValue::doubleValueInternalDeprecated(CSSUnitType requestedUnitType) const
+{
+    if (!isValidCSSUnitTypeForDoubleConversion(primitiveUnitType()) || !isValidCSSUnitTypeForDoubleConversion(requestedUnitType))
+        return std::nullopt;
+
+    CSSUnitType sourceUnitType = primitiveType();
+    if (requestedUnitType == sourceUnitType || requestedUnitType == CSSUnitType::CSS_DIMENSION)
+        return doubleValueDeprecated();
+
+    CSSUnitCategory sourceCategory = unitCategory(sourceUnitType);
+    ASSERT(sourceCategory != CSSUnitCategory::Other);
+
+    CSSUnitType targetUnitType = requestedUnitType;
+    CSSUnitCategory targetCategory = unitCategory(targetUnitType);
+    ASSERT(targetCategory != CSSUnitCategory::Other);
+
+    // Cannot convert between unrelated unit categories if one of them is not CSSUnitCategory::Number.
+    if (sourceCategory != targetCategory && sourceCategory != CSSUnitCategory::Number && targetCategory != CSSUnitCategory::Number)
+        return std::nullopt;
+
+    if (targetCategory == CSSUnitCategory::Number) {
+        // Cannot convert between numbers and percent.
+        if (sourceCategory == CSSUnitCategory::Percent)
+            return std::nullopt;
+        // We interpret conversion to CSSUnitType::CSS_NUMBER as conversion to a canonical unit in this value's category.
+        targetUnitType = canonicalUnitTypeForCategory(sourceCategory);
+        if (targetUnitType == CSSUnitType::CSS_UNKNOWN)
+            return std::nullopt;
+    }
+
+    if (sourceUnitType == CSSUnitType::CSS_NUMBER || sourceUnitType == CSSUnitType::CSS_INTEGER) {
+        // Cannot convert between numbers and percent.
+        if (targetCategory == CSSUnitCategory::Percent)
+            return std::nullopt;
+        // We interpret conversion from CSSUnitType::CSS_NUMBER in the same way as CSSParser::validUnit() while using non-strict mode.
+        sourceUnitType = canonicalUnitTypeForCategory(targetCategory);
+        if (sourceUnitType == CSSUnitType::CSS_UNKNOWN)
+            return std::nullopt;
+    }
+
+    double convertedValue = doubleValueDeprecated();
 
     // If we don't need to scale it, don't worry about if we can scale it.
     if (sourceUnitType == targetUnitType)
@@ -1824,7 +1894,7 @@ void CSSPrimitiveValue::collectComputedStyleDependencies(ComputedStyleDependenci
 
 bool CSSPrimitiveValue::convertingToLengthHasRequiredConversionData(int lengthConversion, const CSSToLengthConversionData& conversionData) const
 {
-    // FIXME: We should probably make CSSPrimitiveValue::computeLengthDouble and
+    // FIXME: We should probably make CSSPrimitiveValue::resolveAsLengthDouble and
     // CSSPrimitiveValue::computeNonCalcLengthDouble (which has the style assertion)
     // return std::optional<double> instead of having this check here.
 
@@ -1832,20 +1902,7 @@ bool CSSPrimitiveValue::convertingToLengthHasRequiredConversionData(int lengthCo
     if (!isFixedNumberConversion)
         return true;
 
-    auto dependencies = computedStyleDependencies();
-    if (!dependencies.rootProperties.isEmpty() && !conversionData.rootStyle())
-        return false;
-
-    if (!dependencies.properties.isEmpty() && !conversionData.style())
-        return false;
-
-    if (dependencies.containerDimensions && !conversionData.elementForContainerUnitResolution())
-        return false;
-
-    if (dependencies.viewportDimensions && !conversionData.renderView())
-        return false;
-
-    return true;
+    return canResolveDependenciesWithConversionData(conversionData);
 }
 
 IterationStatus CSSPrimitiveValue::customVisitChildren(const Function<IterationStatus(CSSValue&)>& func) const

@@ -180,8 +180,8 @@ void EventDispatcher::dispatchEvent(Node& node, Event& event)
 
     bool targetOrRelatedTargetIsInShadowTree = node.isInShadowTree() || isInShadowTree(event.relatedTarget());
     // FIXME: We should also check touch target list.
-    bool hasNoEventListnerOrDefaultEventHandler = !shouldDispatchEventToScripts && !typeInfo.hasDefaultEventHandler() && !node.document().hasConnectedPluginElements();
-    if (hasNoEventListnerOrDefaultEventHandler && !targetOrRelatedTargetIsInShadowTree) {
+    bool hasNoEventListenerOrDefaultEventHandler = !shouldDispatchEventToScripts && !typeInfo.hasDefaultEventHandler() && !node.document().hasConnectedPluginElements();
+    if (hasNoEventListenerOrDefaultEventHandler && !targetOrRelatedTargetIsInShadowTree) {
         event.resetBeforeDispatch();
         event.setTarget(RefPtr { EventPath::eventTargetRespectingTargetRules(node) });
         return;
@@ -205,7 +205,7 @@ void EventDispatcher::dispatchEvent(Node& node, Event& event)
         }
     }
 
-    if (hasNoEventListnerOrDefaultEventHandler) {
+    if (hasNoEventListenerOrDefaultEventHandler) {
         if (shouldClearTargetsAfterDispatch)
             resetAfterDispatchInShadowTree(event);
         return;
@@ -221,7 +221,7 @@ void EventDispatcher::dispatchEvent(Node& node, Event& event)
     clickHandlingState.trusted = event.isTrusted();
 
     RefPtr inputForLegacyPreActivationBehavior = dynamicDowncast<HTMLInputElement>(node);
-    if (!inputForLegacyPreActivationBehavior && event.bubbles() && event.type() == eventNames().clickEvent)
+    if (!inputForLegacyPreActivationBehavior && event.bubbles() && isAnyClick(event))
         inputForLegacyPreActivationBehavior = findInputElementInEventPath(eventPath);
     if (inputForLegacyPreActivationBehavior
         && (!event.isTrusted() || !inputForLegacyPreActivationBehavior->isDisabledFormControl())) {

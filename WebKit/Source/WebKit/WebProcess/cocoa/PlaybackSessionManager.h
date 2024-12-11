@@ -39,6 +39,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashSet.h>
 
 namespace IPC {
@@ -61,7 +62,7 @@ class PlaybackSessionInterfaceContext final
     : public RefCounted<PlaybackSessionInterfaceContext>
     , public WebCore::PlaybackSessionModelClient
     , public CanMakeCheckedPtr<PlaybackSessionInterfaceContext> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(PlaybackSessionInterfaceContext);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PlaybackSessionInterfaceContext);
 public:
     static Ref<PlaybackSessionInterfaceContext> create(PlaybackSessionManager& manager, PlaybackSessionContextIdentifier contextId)
@@ -99,14 +100,19 @@ private:
     void volumeChanged(double) final;
     void isPictureInPictureSupportedChanged(bool) final;
     void isInWindowFullscreenActiveChanged(bool) final;
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    void spatialVideoMetadataChanged(const std::optional<WebCore::SpatialVideoMetadata>&) final;
+#endif
 
     PlaybackSessionInterfaceContext(PlaybackSessionManager&, PlaybackSessionContextIdentifier);
 
-    PlaybackSessionManager* m_manager;
+    CheckedPtr<PlaybackSessionManager> m_manager;
     PlaybackSessionContextIdentifier m_contextId;
 };
 
-class PlaybackSessionManager : public RefCounted<PlaybackSessionManager>, private IPC::MessageReceiver {
+class PlaybackSessionManager : public RefCounted<PlaybackSessionManager>, private IPC::MessageReceiver, public CanMakeCheckedPtr<PlaybackSessionManager> {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PlaybackSessionManager);
 public:
     static Ref<PlaybackSessionManager> create(WebPage&);
     virtual ~PlaybackSessionManager();
@@ -159,6 +165,7 @@ private:
     void volumeChanged(PlaybackSessionContextIdentifier, double);
     void isPictureInPictureSupportedChanged(PlaybackSessionContextIdentifier, bool);
     void isInWindowFullscreenActiveChanged(PlaybackSessionContextIdentifier, bool);
+    void spatialVideoMetadataChanged(PlaybackSessionContextIdentifier, const std::optional<WebCore::SpatialVideoMetadata>&);
 
     // Messages from PlaybackSessionManagerProxy
     void play(PlaybackSessionContextIdentifier);

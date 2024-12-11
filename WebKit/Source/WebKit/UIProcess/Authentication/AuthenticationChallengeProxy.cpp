@@ -56,8 +56,9 @@ AuthenticationChallengeProxy::AuthenticationChallengeProxy(WebCore::Authenticati
         connection->send(Messages::AuthenticationManager::CompleteAuthenticationChallenge(challengeID, disposition, credential), 0);
     }))
 {
-    ASSERT(challengeID);
 }
+
+AuthenticationChallengeProxy::~AuthenticationChallengeProxy() = default;
 
 WebCredential* AuthenticationChallengeProxy::proposedCredential() const
 {

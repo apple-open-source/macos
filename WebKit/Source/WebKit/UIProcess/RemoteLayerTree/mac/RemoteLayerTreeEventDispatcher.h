@@ -35,10 +35,10 @@
 #include <pal/HysteresisActivity.h>
 #include <wtf/Condition.h>
 #include <wtf/Deque.h>
-#include <wtf/FastMalloc.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/threads/BinarySemaphore.h>
 
@@ -47,7 +47,7 @@ class PlatformWheelEvent;
 class WheelEventDeltaFilter;
 struct WheelEventHandlingResult;
 struct ScrollingNodeIDType;
-using ScrollingNodeID = ProcessQualified<ObjectIdentifier<ScrollingNodeIDType>>;
+using ScrollingNodeID = ProcessQualified<LegacyNullableObjectIdentifier<ScrollingNodeIDType>>;
 enum class WheelScrollGestureState : uint8_t;
 enum class WheelEventProcessingSteps : uint8_t;
 };
@@ -68,7 +68,7 @@ class RemoteLayerTreeEventDispatcherDisplayLinkClient;
 class RemoteLayerTreeEventDispatcher
     : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<RemoteLayerTreeEventDispatcher>
     , public MomentumEventDispatcher::Client {
-    WTF_MAKE_FAST_ALLOCATED();
+    WTF_MAKE_TZONE_ALLOCATED(RemoteLayerTreeEventDispatcher);
     friend class RemoteLayerTreeEventDispatcherDisplayLinkClient;
 public:
     static Ref<RemoteLayerTreeEventDispatcher> create(RemoteScrollingCoordinatorProxyMac&, WebCore::PageIdentifier);

@@ -146,6 +146,9 @@ WebAutomationSession::WebAutomationSession()
     , m_debuggable(Debuggable::create(*this))
 #endif
 {
+#if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
+    m_mouseButtonsCurrentlyDown.reserveInitialCapacity(3);
+#endif
 }
 
 WebAutomationSession::~WebAutomationSession()
@@ -443,6 +446,15 @@ Inspector::Protocol::ErrorStringOr<void> WebAutomationSession::closeBrowsingCont
     page->closePage();
 #endif
 
+    return { };
+}
+
+Inspector::Protocol::ErrorStringOr<void> WebAutomationSession::deleteSession()
+{
+    if (!isPaired())
+        SYNC_FAIL_WITH_PREDEFINED_ERROR(InternalError);
+
+    terminate();
     return { };
 }
 
@@ -1025,7 +1037,7 @@ void WebAutomationSession::handleRunOpenPanel(const WebPageProxy& page, const We
     m_domainNotifier->fileChooserDismissed(browsingContextHandle, false, WTFMove(selectedFiles));
 }
 
-void WebAutomationSession::evaluateJavaScriptFunction(const Inspector::Protocol::Automation::BrowsingContextHandle& browsingContextHandle, const Inspector::Protocol::Automation::FrameHandle& frameHandle, const String& function, Ref<JSON::Array>&& arguments, std::optional<bool>&& expectsImplicitCallbackArgument, std::optional<double>&& callbackTimeout, Ref<EvaluateJavaScriptFunctionCallback>&& callback)
+void WebAutomationSession::evaluateJavaScriptFunction(const Inspector::Protocol::Automation::BrowsingContextHandle& browsingContextHandle, const Inspector::Protocol::Automation::FrameHandle& frameHandle, const String& function, Ref<JSON::Array>&& arguments, std::optional<bool>&& expectsImplicitCallbackArgument, std::optional<bool>&& forceUserGesture, std::optional<double>&& callbackTimeout, Ref<EvaluateJavaScriptFunctionCallback>&& callback)
 {
     auto page = webPageProxyForHandle(browsingContextHandle);
     if (!page)
@@ -1043,7 +1055,7 @@ void WebAutomationSession::evaluateJavaScriptFunction(const Inspector::Protocol:
     uint64_t callbackID = m_nextEvaluateJavaScriptCallbackID++;
     m_evaluateJavaScriptFunctionCallbacks.set(callbackID, WTFMove(callback));
 
-    page->sendToProcessContainingFrame(frameID, Messages::WebAutomationSessionProxy::EvaluateJavaScriptFunction(page->webPageIDInMainFrameProcess(), frameID, function, argumentsVector, expectsImplicitCallbackArgument.value_or(false), WTFMove(callbackTimeout), callbackID));
+    page->sendToProcessContainingFrame(frameID, Messages::WebAutomationSessionProxy::EvaluateJavaScriptFunction(page->webPageIDInMainFrameProcess(), frameID, function, argumentsVector, expectsImplicitCallbackArgument.value_or(false), forceUserGesture.value_or(false), WTFMove(callbackTimeout), callbackID));
 }
 
 void WebAutomationSession::didEvaluateJavaScriptFunction(uint64_t callbackID, const String& result, const String& errorType)
@@ -2357,6 +2369,10 @@ void WebAutomationSession::performInteractionSequence(const Inspector::Protocol:
                 sourceState.pressedMouseButton = protocolButton.value_or(MouseButton::None);
             }
 
+            auto mouseInteractionString = stateObject->getString("mouseInteraction"_s);
+            if (!!mouseInteractionString)
+                sourceState.mouseInteraction = Inspector::Protocol::AutomationHelpers::parseEnumValueFromString<Inspector::Protocol::Automation::MouseInteraction>(mouseInteractionString);
+
             auto originString = stateObject->getString("origin"_s);
             if (!!originString)
                 sourceState.origin = Inspector::Protocol::AutomationHelpers::parseEnumValueFromString<Inspector::Protocol::Automation::MouseMoveOrigin>(originString);
@@ -2471,7 +2487,7 @@ void WebAutomationSession::takeScreenshot(const Inspector::Protocol::Automation:
 #if PLATFORM(GTK) || PLATFORM(COCOA)
     Function<void(WebPageProxy&, std::optional<WebCore::IntRect>&&, Ref<TakeScreenshotCallback>&&)> takeViewSnapsot = [](WebPageProxy& page, std::optional<WebCore::IntRect>&& rect, Ref<TakeScreenshotCallback>&& callback) {
         page.callAfterNextPresentationUpdate([page = Ref { page }, rect = WTFMove(rect), callback = WTFMove(callback)] () mutable {
-            auto snapshot = page->takeViewSnapshot(WTFMove(rect));
+            RefPtr snapshot = page->takeViewSnapshot(WTFMove(rect), ForceSoftwareCapturingViewportSnapshot::Yes);
             if (!snapshot)
                 ASYNC_FAIL_WITH_PREDEFINED_ERROR(InternalError);
 

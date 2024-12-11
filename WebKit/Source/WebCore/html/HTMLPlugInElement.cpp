@@ -51,7 +51,7 @@
 #include "ShadowRoot.h"
 #include "SubframeLoader.h"
 #include "Widget.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(COCOA)
 #include "YouTubePluginReplacement.h"
@@ -59,7 +59,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLPlugInElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLPlugInElement);
 
 using namespace HTMLNames;
 
@@ -358,7 +358,7 @@ bool HTMLPlugInElement::requestObject(const String& relativeURL, const String& m
         completedURL = document().completeURL(relativeURL);
 
     ReplacementPlugin* replacement = pluginReplacementForType(completedURL, mimeType);
-    if (!replacement || !replacement->isEnabledBySettings(document().settings()))
+    if (!replacement)
         return false;
 
     LOG(Plugins, "%p - Found plug-in replacement for %s.", this, completedURL.string().utf8().data());

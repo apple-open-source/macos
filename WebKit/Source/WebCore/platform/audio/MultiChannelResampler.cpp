@@ -36,8 +36,11 @@
 #include "SincResampler.h"
 #include <functional>
 #include <wtf/Algorithms.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MultiChannelResampler);
 
 MultiChannelResampler::MultiChannelResampler(double scaleFactor, unsigned numberOfChannels, unsigned requestFrames, Function<void(AudioBus*, size_t framesToProcess)>&& provideInput)
     : m_numberOfChannels(numberOfChannels)
@@ -88,7 +91,7 @@ void MultiChannelResampler::provideInputForChannel(std::span<float> buffer, size
         m_provideInput(m_multiChannelBus.get(), framesToProcess);
 
     // Copy the channel data from what we received from m_multiChannelProvider.
-    memcpySpan(buffer.first(framesToProcess), m_multiChannelBus->channel(channelIndex)->span().first(framesToProcess));
+    memcpySpan(buffer, m_multiChannelBus->channel(channelIndex)->span().first(framesToProcess));
 }
 
 } // namespace WebCore

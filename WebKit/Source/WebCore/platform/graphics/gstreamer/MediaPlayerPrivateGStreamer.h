@@ -49,27 +49,16 @@
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/AtomStringHash.h>
 
 typedef struct _GstMpegtsSection GstMpegtsSection;
 
-#if USE(GSTREAMER_GL)
 // Include the <epoxy/gl.h> header before <gst/gl/gl.h>.
 #include <epoxy/gl.h>
-#define GST_USE_UNSTABLE_API
 #include <gst/gl/gl.h>
-#undef GST_USE_UNSTABLE_API
-#endif
-
-#if USE(TEXTURE_MAPPER)
-#if USE(NICOSIA)
-#include "NicosiaContentLayer.h"
-#else
-#include "TextureMapperPlatformLayerProxyProvider.h"
-#endif
-#endif
 
 #if ENABLE(ENCRYPTED_MEDIA)
 #include "CDMProxy.h"
@@ -116,15 +105,8 @@ class MediaPlayerPrivateGStreamer
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
 #endif
-#if USE(TEXTURE_MAPPER)
-#if USE(NICOSIA)
-    , public Nicosia::ContentLayer::Client
-#else
-    , public PlatformLayer
-#endif
-#endif
 {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(MediaPlayerPrivateGStreamer);
 public:
     MediaPlayerPrivateGStreamer(MediaPlayer*);
     virtual ~MediaPlayerPrivateGStreamer();
@@ -223,9 +205,7 @@ public:
     void handleMessage(GstMessage*);
 
     void triggerRepaint(GRefPtr<GstSample>&&);
-#if USE(GSTREAMER_GL)
     void flushCurrentBuffer();
-#endif
 
     void handleTextSample(GRefPtr<GstSample>&&, const String& streamId);
 
@@ -287,18 +267,11 @@ protected:
 #if USE(TEXTURE_MAPPER_DMABUF)
     GstElement* createVideoSinkDMABuf();
 #endif
-#if USE(GSTREAMER_GL)
+
     GstElement* createVideoSinkGL();
-#endif
 
 #if USE(TEXTURE_MAPPER)
     void pushTextureToCompositor();
-#if USE(NICOSIA)
-    void swapBuffersIfNeeded() final;
-#else
-    RefPtr<TextureMapperPlatformLayerProxy> proxy() const final;
-    void swapBuffersIfNeeded() final;
-#endif
 #endif
 
 #if USE(TEXTURE_MAPPER_DMABUF)
@@ -422,6 +395,7 @@ protected:
 
     std::optional<GstVideoDecoderPlatform> m_videoDecoderPlatform;
     GstSeekFlags m_seekFlags;
+    bool m_ignoreErrors { false };
 
     String errorMessage() const override { return m_errorMessage; }
 
@@ -559,11 +533,7 @@ private:
     RunLoop::Timer m_drawTimer WTF_GUARDED_BY_LOCK(m_drawLock);
     RunLoop::Timer m_pausedTimerHandler;
 #if USE(TEXTURE_MAPPER)
-#if USE(NICOSIA)
-    RefPtr<Nicosia::ContentLayer> m_nicosiaLayer;
-#else
-    RefPtr<TextureMapperPlatformLayerProxy> m_platformLayerProxy;
-#endif
+    RefPtr<TextureMapperPlatformLayerProxy> m_platformLayer;
 #endif
     bool m_isBuffering { false };
     int m_bufferingPercentage { 0 };
@@ -651,7 +621,7 @@ private:
 
     bool isSeamlessSeekingEnabled() const { return m_seekFlags & (1 << GST_SEEK_FLAG_SEGMENT); }
 
-    RefPtr<PlatformMediaResourceLoader> m_loader;
+    Ref<PlatformMediaResourceLoader> m_loader;
 
     RefPtr<GStreamerQuirksManager> m_quirksManagerForTesting;
 };

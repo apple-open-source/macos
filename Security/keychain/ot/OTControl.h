@@ -400,6 +400,7 @@ reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError 
                          reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)performCKServerUnreadableDataRemoval:(OTControlArguments*)arguments
+                                     altDSID:(NSString*)altDSID
                                        reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)totalTrustedPeers:(OTControlArguments*)arguments

@@ -36,8 +36,10 @@
 #include "WebPageProxyMessageReceiverRegistration.h"
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/FrameIdentifier.h>
+#include <WebCore/FrameLoaderClient.h>
 #include <WebCore/NavigationIdentifier.h>
 #include <WebCore/ResourceRequest.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebKit {
@@ -91,7 +93,7 @@ using LayerHostingContextID = uint32_t;
 #endif
 
 class ProvisionalPageProxy : public IPC::MessageReceiver, public IPC::MessageSender {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(ProvisionalPageProxy);
 public:
     ProvisionalPageProxy(WebPageProxy&, Ref<FrameProcess>&&, BrowsingContextGroup&, std::unique_ptr<SuspendedPageProxy>, API::Navigation&, bool isServerRedirect, const WebCore::ResourceRequest&, ProcessSwapRequestedByClient, bool isProcessSwappingOnNavigationResponse, API::WebsitePolicies*, WebsiteDataStore* replacedDataStoreForWebArchiveLoad = nullptr);
     ~ProvisionalPageProxy();
@@ -135,8 +137,8 @@ public:
 #endif
 #endif
 
-    void loadData(API::Navigation&, std::span<const uint8_t>, const String& mimeType, const String& encoding, const String& baseURL, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&&, WebCore::SubstituteData::SessionHistoryVisibility);
-    void loadRequest(API::Navigation&, WebCore::ResourceRequest&&, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&& = std::nullopt, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume = std::nullopt);
+    void loadData(API::Navigation&, Ref<WebCore::SharedBuffer>&&, const String& mimeType, const String& encoding, const String& baseURL, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&&, WebCore::SubstituteData::SessionHistoryVisibility);
+    void loadRequest(API::Navigation&, WebCore::ResourceRequest&&, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&& = std::nullopt, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume = std::nullopt, WebCore::IsPerformingHTTPFallback = WebCore::IsPerformingHTTPFallback::No);
     void goToBackForwardItem(API::Navigation&, WebBackForwardListItem&, RefPtr<API::WebsitePolicies>&&, WebCore::ShouldTreatAsContinuingLoad, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume = std::nullopt);
     void cancel();
 
@@ -170,8 +172,7 @@ private:
     void didReceiveServerRedirectForProvisionalLoadForFrame(WebCore::FrameIdentifier, std::optional<WebCore::NavigationIdentifier>, WebCore::ResourceRequest&&, const UserData&);
     void didNavigateWithNavigationData(const WebNavigationDataStore&, WebCore::FrameIdentifier);
     void didPerformClientRedirect(const String& sourceURLString, const String& destinationURLString, WebCore::FrameIdentifier);
-    void didCreateMainFrame(WebCore::FrameIdentifier);
-    void didStartProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, URL&&, URL&& unreachableURL, const UserData&);
+    void didStartProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, URL&&, URL&& unreachableURL, const UserData&, WallTime);
     void didCommitLoadForFrame(IPC::Connection&, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType, const WebCore::CertificateInfo&, bool usedLegacyTLS, bool privateRelayed, bool containsPluginDocument, WebCore::HasInsecureContent, WebCore::MouseEventPolicy, const UserData&);
     void didFailProvisionalLoadForFrame(FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, const String& provisionalURL, const WebCore::ResourceError&, WebCore::WillContinueLoading, const UserData&, WebCore::WillInternallyHandleFailure);
     void logDiagnosticMessageFromWebProcess(const String& message, const String& description, WebCore::ShouldSample);
@@ -182,6 +183,7 @@ private:
     void decidePolicyForNavigationActionSync(NavigationActionData&&, CompletionHandler<void(PolicyDecision&&)>&&);
     void backForwardAddItem(WebCore::FrameIdentifier, BackForwardListItemState&&);
     void didDestroyNavigation(WebCore::NavigationIdentifier);
+    void startNetworkRequestsForPageLoadTiming(WebCore::FrameIdentifier);
 #if USE(QUICK_LOOK)
     void requestPasswordForQuickLookDocumentInMainFrame(const String& fileName, CompletionHandler<void(const String&)>&&);
 #endif

@@ -34,8 +34,13 @@ messages -> GPUProcessProxy {
 #if ENABLE(AV1)
     SetHasAV1HardwareDecoder(bool hasAV1HardwareDecoder)
 #endif
-#if ENABLE(MEDIA_STREAM) && PLATFORM(IOS_FAMILY)
+#if ENABLE(MEDIA_STREAM)
+    VoiceActivityDetected()
+    StartMonitoringCaptureDeviceRotation(WebCore::PageIdentifier pageID, String devicePersistentId);
+    StopMonitoringCaptureDeviceRotation(WebCore::PageIdentifier pageID, String devicePersistentId)
+#if PLATFORM(IOS_FAMILY)
     StatusBarWasTapped() -> () Async
+#endif
 #endif
 
     ProcessIsReadyToExit()

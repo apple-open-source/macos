@@ -27,12 +27,14 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteGPU.h"
 #include "StreamMessageReceiver.h"
 #include "WebGPUIdentifier.h"
 #include <WebCore/AlphaPremultiplication.h>
 #include <WebCore/RenderingResourceIdentifier.h>
 #include <WebCore/WebGPUIntegralTypes.h>
 #include <wtf/Ref.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakRef.h>
 #include <wtf/text/WTFString.h>
 
@@ -51,6 +53,7 @@ class CompositorIntegration;
 }
 
 namespace IPC {
+class Connection;
 class StreamServerConnection;
 }
 
@@ -63,7 +66,7 @@ class ObjectHeap;
 }
 
 class RemoteCompositorIntegration final : public IPC::StreamMessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteCompositorIntegration);
 public:
     static Ref<RemoteCompositorIntegration> create(WebCore::WebGPU::CompositorIntegration& compositorIntegration, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
     {
@@ -71,6 +74,8 @@ public:
     }
 
     virtual ~RemoteCompositorIntegration();
+
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
 
     void stopListeningForIPC();
 
@@ -85,6 +90,14 @@ private:
     RemoteCompositorIntegration& operator=(RemoteCompositorIntegration&&) = delete;
 
     WebCore::WebGPU::CompositorIntegration& backing() { return m_backing; }
+    Ref<WebCore::WebGPU::CompositorIntegration> protectedBacking();
+
+    Ref<IPC::StreamServerConnection> protectedStreamConnection() const;
+
+    Ref<WebGPU::ObjectHeap> protectedObjectHeap() const { return m_objectHeap.get(); }
+    Ref<RemoteGPU> protectedGPU() const { return m_gpu.get(); }
+
+    RefPtr<IPC::Connection> connection() const;
 
     void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
     void destruct();
@@ -99,8 +112,8 @@ private:
     Ref<WebCore::WebGPU::CompositorIntegration> m_backing;
     WeakRef<WebGPU::ObjectHeap> m_objectHeap;
     Ref<IPC::StreamServerConnection> m_streamConnection;
-    WebGPUIdentifier m_identifier;
     WeakRef<RemoteGPU> m_gpu;
+    WebGPUIdentifier m_identifier;
 };
 
 } // namespace WebKit

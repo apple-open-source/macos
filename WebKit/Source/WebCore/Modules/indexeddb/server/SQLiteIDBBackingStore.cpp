@@ -51,6 +51,7 @@
 #include <JavaScriptCore/StrongInlines.h>
 #include <wtf/FileSystem.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
@@ -235,6 +236,8 @@ static ASCIILiteral indexInfoTableSchemaTemp()
 {
     return TABLE_SCHEMA_PREFIX "_Temp_IndexInfo" INDEX_INFO_TABLE_SCHEMA_SUFFIX;
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SQLiteIDBBackingStore);
 
 SQLiteIDBBackingStore::SQLiteIDBBackingStore(const IDBDatabaseIdentifier& identifier, const String& databaseDirectory)
     : m_identifier(identifier)
@@ -1151,7 +1154,7 @@ IDBError SQLiteIDBBackingStore::createObjectStore(const IDBResourceIdentifier& t
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress())
+    if (!transaction || !transaction->inProgressOrReadOnly())
         return IDBError { ExceptionCode::UnknownError, "Attempt to create an object store without an in-progress transaction"_s };
 
     if (transaction->mode() != IDBTransactionMode::Versionchange) {
@@ -2100,7 +2103,7 @@ IDBError SQLiteIDBBackingStore::getRecord(const IDBResourceIdentifier& transacti
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress())
+    if (!transaction || !transaction->inProgressOrReadOnly())
         return IDBError { ExceptionCode::UnknownError, "Attempt to get a record from database without an in-progress transaction"_s };
 
     auto* objectStoreInfo = infoForObjectStore(objectStoreID);
@@ -2253,7 +2256,7 @@ IDBError SQLiteIDBBackingStore::getAllObjectStoreRecords(const IDBResourceIdenti
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress())
+    if (!transaction || !transaction->inProgressOrReadOnly())
         return IDBError { ExceptionCode::UnknownError, "Attempt to get records from database without an in-progress transaction"_s };
 
     auto key = getAllRecordsData.keyRangeData.lowerKey;
@@ -2345,7 +2348,7 @@ IDBError SQLiteIDBBackingStore::getAllIndexRecords(const IDBResourceIdentifier& 
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress())
+    if (!transaction || !transaction->inProgressOrReadOnly())
         return IDBError { ExceptionCode::UnknownError, "Attempt to get all index records from database without an in-progress transaction"_s };
 
     auto cursor = transaction->maybeOpenBackingStoreCursor(getAllRecordsData.objectStoreIdentifier, getAllRecordsData.indexIdentifier, getAllRecordsData.keyRangeData);
@@ -2395,7 +2398,7 @@ IDBError SQLiteIDBBackingStore::getIndexRecord(const IDBResourceIdentifier& tran
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress())
+    if (!transaction || !transaction->inProgressOrReadOnly())
         return IDBError { ExceptionCode::UnknownError, "Attempt to get an index record from database without an in-progress transaction"_s };
 
     if (range.isExactlyOneKey())
@@ -2492,7 +2495,7 @@ IDBError SQLiteIDBBackingStore::getCount(const IDBResourceIdentifier& transactio
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress())
+    if (!transaction || !transaction->inProgressOrReadOnly())
         return IDBError { ExceptionCode::UnknownError, "Attempt to get count from database without an in-progress transaction"_s };
 
     outCount = 0;
@@ -2673,7 +2676,7 @@ IDBError SQLiteIDBBackingStore::openCursor(const IDBResourceIdentifier& transact
     ASSERT(m_sqliteDB->isOpen());
 
     auto* transaction = m_transactions.get(transactionIdentifier);
-    if (!transaction || !transaction->inProgress())
+    if (!transaction || !transaction->inProgressOrReadOnly())
         return IDBError { ExceptionCode::UnknownError, "Attempt to open a cursor in database without an in-progress transaction"_s };
 
     auto* cursor = transaction->maybeOpenCursor(info);
@@ -2705,7 +2708,7 @@ IDBError SQLiteIDBBackingStore::iterateCursor(const IDBResourceIdentifier& trans
 
     ASSERT_UNUSED(transactionIdentifier, cursor->transaction()->transactionIdentifier() == transactionIdentifier);
 
-    if (!cursor->transaction() || !cursor->transaction()->inProgress())
+    if (!cursor->transaction() || !cursor->transaction()->inProgressOrReadOnly())
         return IDBError { ExceptionCode::UnknownError, "Attempt to iterate a cursor without an in-progress transaction"_s };
 
     auto key = data.keyData;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,25 +29,24 @@
 
 #include "CommonSlowPaths.h"
 #include "WasmExceptionType.h"
+#include "WasmIPIntGenerator.h"
 #include "WasmTypeDefinition.h"
 #include <wtf/StdLibExtras.h>
 
 namespace JSC {
 
-namespace Wasm {
-class Instance;
-}
+class JSWebAssemblyInstance;
 
 namespace IPInt {
 
 #define WASM_IPINT_EXTERN_CPP_DECL(name, ...) \
-    extern "C" UGPRPair ipint_extern_##name(Wasm::Instance* instance, __VA_ARGS__)
+    extern "C" UGPRPair ipint_extern_##name(JSWebAssemblyInstance* instance, __VA_ARGS__)
 
 #define WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(name, ...) \
     WASM_IPINT_EXTERN_CPP_DECL(name, __VA_ARGS__) REFERENCED_FROM_ASM WTF_INTERNAL
 
 #define WASM_IPINT_EXTERN_CPP_DECL_1P(name) \
-    extern "C" UGPRPair ipint_extern_##name(Wasm::Instance* instance)
+    extern "C" UGPRPair ipint_extern_##name(JSWebAssemblyInstance* instance)
 
 #define WASM_IPINT_EXTERN_CPP_HIDDEN_DECL_1P(name) \
     WASM_IPINT_EXTERN_CPP_DECL_1P(name) REFERENCED_FROM_ASM WTF_INTERNAL
@@ -59,15 +58,15 @@ WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(epilogue_osr, CallFrame* callFrame);
 #endif
 
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(retrieve_and_clear_exception, CallFrame*, v128_t* stack, uint64_t* pl);
-WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(throw_exception, CallFrame*, v128_t* stack, unsigned exceptionIndex);
+WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(throw_exception, CallFrame*, uint64_t* arguments, unsigned exceptionIndex);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(rethrow_exception, CallFrame*, uint64_t* pl, unsigned tryDepth);
 
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(ref_func, unsigned index);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_get, unsigned, unsigned);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_set, unsigned tableIndex, unsigned index, EncodedJSValue value);
-WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_init, uint32_t* metadata, uint32_t dest, uint64_t srcAndLength);
-WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_fill, uint32_t tableIndex, EncodedJSValue fill, int64_t offsetAndSize);
-WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_grow, int32_t tableIndex, EncodedJSValue fill, uint32_t size);
+WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_init, tableInitMetadata* metadata);
+WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_fill, tableFillMetadata* metadata);
+WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_grow, tableGrowMetadata* metadata);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL_1P(current_memory);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(memory_grow, int32_t);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(memory_init, int32_t, int32_t, int64_t);
@@ -75,11 +74,11 @@ WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(data_drop, int32_t);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(memory_copy, int32_t, int32_t, int32_t);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(memory_fill, int32_t, int32_t, int32_t);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(elem_drop, int32_t);
-WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_copy, int32_t*, int32_t, int64_t);
+WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_copy, tableCopyMetadata* metadata);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(table_size, int32_t);
 
-WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(call_indirect, CallFrame* callFrame, unsigned functionIndex, unsigned* metadataEntry);
-WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(call, unsigned);
+WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(call_indirect, callIndirectMetadata* call);
+WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(call, callMetadata* call);
 
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(set_global_ref, uint32_t globalIndex, JSValue value);
 WASM_IPINT_EXTERN_CPP_HIDDEN_DECL(get_global_64, unsigned);

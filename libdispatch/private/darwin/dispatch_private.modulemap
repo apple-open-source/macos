@@ -1,0 +1,13 @@
+module DispatchPrivate [system] {
+	umbrella header "dispatch/private.h"
+	exclude header "dispatch/channel_private.h"
+	exclude header "dispatch/introspection_private.h"
+	exclude header "dispatch/mach_private.h"
+	exclude header "dispatch/swift_concurrency_private.h"
+	export *
+}
+
+module DispatchIntrospectionPrivate [system] {
+	header "dispatch/introspection_private.h"
+	export *
+}

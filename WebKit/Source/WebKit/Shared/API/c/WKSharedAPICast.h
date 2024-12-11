@@ -543,8 +543,8 @@ inline WKContextMenuItemTag toAPI(WebCore::ContextMenuAction action)
         return kWKContextMenuItemTagAddHighlightToCurrentQuickNote;
     case WebCore::ContextMenuItemTagAddHighlightToNewQuickNote:
         return kWKContextMenuItemTagAddHighlightToNewQuickNote;
-    case WebCore::ContextMenuItemTagCopyLinkToHighlight:
-        return kWKContextMenuItemTagCopyLinkToHighlight;
+    case WebCore::ContextMenuItemTagCopyLinkWithHighlight:
+        return kWKContextMenuItemTagCopyLinkWithHighlight;
 #if PLATFORM(COCOA)
     case WebCore::ContextMenuItemTagCorrectSpellingAutomatically:
         return kWKContextMenuItemTagCorrectSpellingAutomatically;
@@ -763,8 +763,8 @@ inline WebCore::ContextMenuAction toImpl(WKContextMenuItemTag tag)
         return WebCore::ContextMenuItemTagAddHighlightToCurrentQuickNote;
     case kWKContextMenuItemTagAddHighlightToNewQuickNote:
         return WebCore::ContextMenuItemTagAddHighlightToNewQuickNote;
-    case kWKContextMenuItemTagCopyLinkToHighlight:
-        return WebCore::ContextMenuItemTagCopyLinkToHighlight;
+    case kWKContextMenuItemTagCopyLinkWithHighlight:
+        return WebCore::ContextMenuItemTagCopyLinkWithHighlight;
 #if PLATFORM(COCOA)
     case kWKContextMenuItemTagCorrectSpellingAutomatically:
         return WebCore::ContextMenuItemTagCorrectSpellingAutomatically;
@@ -999,44 +999,38 @@ inline WebCore::VisibilityState toVisibilityState(WKPageVisibilityState wkPageVi
 
 inline ImageOptions toImageOptions(WKImageOptions wkImageOptions)
 {
-    unsigned imageOptions = 0;
-
     if (wkImageOptions & kWKImageOptionsShareable)
-        imageOptions |= ImageOptionsShareable;
-
-    return static_cast<ImageOptions>(imageOptions);
+        return ImageOption::Shareable;
+    return { };
 }
 
 inline SnapshotOptions snapshotOptionsFromImageOptions(WKImageOptions wkImageOptions)
 {
-    unsigned snapshotOptions = 0;
-
     if (wkImageOptions & kWKImageOptionsShareable)
-        snapshotOptions |= SnapshotOptionsShareable;
-    
-    return snapshotOptions;
+        return SnapshotOption::Shareable;
+    return { };
 }
 
 inline SnapshotOptions toSnapshotOptions(WKSnapshotOptions wkSnapshotOptions)
 {
-    unsigned snapshotOptions = 0;
+    SnapshotOptions snapshotOptions;
 
     if (wkSnapshotOptions & kWKSnapshotOptionsShareable)
-        snapshotOptions |= SnapshotOptionsShareable;
+        snapshotOptions.add(SnapshotOption::Shareable);
     if (wkSnapshotOptions & kWKSnapshotOptionsExcludeSelectionHighlighting)
-        snapshotOptions |= SnapshotOptionsExcludeSelectionHighlighting;
+        snapshotOptions.add(SnapshotOption::ExcludeSelectionHighlighting);
     if (wkSnapshotOptions & kWKSnapshotOptionsInViewCoordinates)
-        snapshotOptions |= SnapshotOptionsInViewCoordinates;
+        snapshotOptions.add(SnapshotOption::InViewCoordinates);
     if (wkSnapshotOptions & kWKSnapshotOptionsPaintSelectionRectangle)
-        snapshotOptions |= SnapshotOptionsPaintSelectionRectangle;
+        snapshotOptions.add(SnapshotOption::PaintSelectionRectangle);
     if (wkSnapshotOptions & kWKSnapshotOptionsForceBlackText)
-        snapshotOptions |= SnapshotOptionsForceBlackText;
+        snapshotOptions.add(SnapshotOption::ForceBlackText);
     if (wkSnapshotOptions & kWKSnapshotOptionsForceWhiteText)
-        snapshotOptions |= SnapshotOptionsForceWhiteText;
+        snapshotOptions.add(SnapshotOption::ForceWhiteText);
     if (wkSnapshotOptions & kWKSnapshotOptionsPrinting)
-        snapshotOptions |= SnapshotOptionsPrinting;
+        snapshotOptions.add(SnapshotOption::Printing);
     if (wkSnapshotOptions & kWKSnapshotOptionsExtendedColor)
-        snapshotOptions |= SnapshotOptionsUseScreenColorSpace;
+        snapshotOptions.add(SnapshotOption::UseScreenColorSpace);
 
     return snapshotOptions;
 }

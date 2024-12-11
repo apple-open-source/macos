@@ -25,6 +25,7 @@
 
 namespace WebCore {
 
+class RenderSVGInlineText;
 class SVGInlineTextBox;
 struct SVGTextFragment;
 
@@ -43,14 +44,14 @@ public:
     unsigned totalCharacters() const;
     float totalLength() const;
     float totalAnchorShift() const;
-    AffineTransform transformationForTextBox(SVGInlineTextBox*) const;
+    AffineTransform transformationForTextBox(InlineIterator::SVGTextBoxIterator) const;
 
-    void buildTextChunks(const Vector<SVGInlineTextBox*>& lineLayoutBoxes);
-    void layoutTextChunks(const Vector<SVGInlineTextBox*>& lineLayoutBoxes);
+    void buildTextChunks(const Vector<InlineIterator::SVGTextBoxIterator>& lineLayoutBoxes, const HashSet<InlineIterator::SVGTextBox::Key>& chunkStarts, SVGTextFragmentMap&);
+    void layoutTextChunks(const Vector<InlineIterator::SVGTextBoxIterator>& lineLayoutBoxes, const HashSet<InlineIterator::SVGTextBox::Key>& chunkStarts, SVGTextFragmentMap&);
 
 private:
     Vector<SVGTextChunk> m_textChunks;
-    HashMap<SVGInlineTextBox*, AffineTransform> m_textBoxTransformations;
+    SVGChunkTransformMap m_textBoxTransformations;
 };
 
 } // namespace WebCore

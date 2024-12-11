@@ -33,8 +33,11 @@
 #import "WebCoreNSErrorExtras.h"
 #import <AVFoundation/AVError.h>
 #import <wtf/FileSystem.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CDMSessionMediaSourceAVFObjC);
 
 CDMSessionMediaSourceAVFObjC::CDMSessionMediaSourceAVFObjC(CDMPrivateMediaSourceAVFObjC& cdm, LegacyCDMSessionClient& client)
     : m_cdm(&cdm)
@@ -88,8 +91,6 @@ void CDMSessionMediaSourceAVFObjC::addSourceBuffer(SourceBufferPrivateAVFObjC* s
     ASSERT(!m_sourceBuffers.contains(sourceBuffer));
     ASSERT(sourceBuffer);
 
-    addParser(sourceBuffer->streamDataParser());
-
     m_sourceBuffers.append(sourceBuffer);
     sourceBuffer->registerForErrorNotifications(this);
 }
@@ -98,8 +99,6 @@ void CDMSessionMediaSourceAVFObjC::removeSourceBuffer(SourceBufferPrivateAVFObjC
 {
     ASSERT(m_sourceBuffers.contains(sourceBuffer));
     ASSERT(sourceBuffer);
-
-    removeParser(sourceBuffer->streamDataParser());
 
     sourceBuffer->unregisterForErrorNotifications(this);
     m_sourceBuffers.remove(m_sourceBuffers.find(sourceBuffer));

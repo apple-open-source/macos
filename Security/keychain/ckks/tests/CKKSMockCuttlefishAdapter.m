@@ -11,11 +11,13 @@
 @implementation CKKSMockCuttlefishAdapter
 
 - (instancetype)init:(NSMutableDictionary<CKRecordZoneID*, FakeCKZone*>*)fakeCKZones
-            zoneKeys:(NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>*)zoneKeys {
+            zoneKeys:(NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>*)zoneKeys
+              peerID:(NSString*)peerID {
     
     if((self = [super init])) {
         _fakeCKZones = fakeCKZones;
         _zoneKeys = zoneKeys;
+        _peerID = peerID;
     }
     return self;
 }
@@ -63,10 +65,21 @@
         
         [cuttlefishCurrentItems addObject:[[CuttlefishCurrentItem alloc] init:item item:itemRecord]];
         
-        // Add all zone keys
+        // For now, assuming that no TLKs have been rolled.
         [syncKeys addObject:[self.zoneKeys[recordZoneID].tlk CKRecordWithZoneID:recordZoneID]];
-        [syncKeys addObject:[self.zoneKeys[recordZoneID].classA CKRecordWithZoneID:recordZoneID]];
-        [syncKeys addObject:[self.zoneKeys[recordZoneID].classC CKRecordWithZoneID:recordZoneID]];
+
+        NSString* parentKeyUUID = [itemRecord[SecCKRecordParentKeyRefKey] recordID].recordName;
+        if ([parentKeyUUID isEqualToString:self.zoneKeys[recordZoneID].classA.uuid]) {
+            [syncKeys addObject:[self.zoneKeys[recordZoneID].classA CKRecordWithZoneID:recordZoneID]];
+        } else if ([parentKeyUUID isEqualToString:self.zoneKeys[recordZoneID].classC.uuid]) {
+            [syncKeys addObject:[self.zoneKeys[recordZoneID].classC CKRecordWithZoneID:recordZoneID]];
+        } else {
+            NSError* error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSNoSuchRecord userInfo:@{@"description": [NSString stringWithFormat:@"No parent record for %@", itemRecord.recordID.recordName]}];
+            ckkserror_global("ckks-mockcuttlefish", "Identity wrapped by parent key that does not exist");
+            reply(nil, nil, error);
+            return;
+        }
+
     }
 
     reply(cuttlefishCurrentItems, [syncKeys allObjects], nil);
@@ -118,13 +131,49 @@
 
         CKRecordZoneID* recordZoneID = [[CKRecordZoneID alloc] initWithZoneName:pcsService.zoneID ownerName:CKCurrentUserDefaultName];
 
-        // Add all zone keys
+        // For now, assuming that no TLKs have been rolled.
         [syncKeys addObject:[self.zoneKeys[recordZoneID].tlk CKRecordWithZoneID:recordZoneID]];
-        [syncKeys addObject:[self.zoneKeys[recordZoneID].classA CKRecordWithZoneID:recordZoneID]];
-        [syncKeys addObject:[self.zoneKeys[recordZoneID].classC CKRecordWithZoneID:recordZoneID]];
+
+        NSString* parentKeyUUID = [pcsIdentityRecord[SecCKRecordParentKeyRefKey] recordID].recordName;
+        if ([parentKeyUUID isEqualToString:self.zoneKeys[recordZoneID].classA.uuid]) {
+            [syncKeys addObject:[self.zoneKeys[recordZoneID].classA CKRecordWithZoneID:recordZoneID]];
+        } else if ([parentKeyUUID isEqualToString:self.zoneKeys[recordZoneID].classC.uuid]) {
+            [syncKeys addObject:[self.zoneKeys[recordZoneID].classC CKRecordWithZoneID:recordZoneID]];
+        } else {
+            NSError* error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSNoSuchRecord userInfo:@{@"description": [NSString stringWithFormat:@"No parent record for %@", pcsIdentityRecord.recordID.recordName]}];
+            ckkserror_global("ckks-mockcuttlefish", "Identity wrapped by parent key that does not exist");
+            reply(nil, nil, error);
+            return;
+        }
     }
-    
+
     reply(pcsIdentities, [syncKeys allObjects], nil);
+}
+
+- (void)fetchRecoverableTLKShares:(TPSpecificUser *)activeAccount 
+                           peerID:(NSString *)peerID
+                        contextID:(NSString *)contextID
+                            reply:(void (^)(NSArray<CKKSTLKShareRecord *> * _Nullable, NSError * _Nullable))reply {
+    NSMutableArray<CKKSTLKShareRecord*>* tlkShareRecords = [[NSMutableArray alloc] init];
+    for (CKRecordZoneID* zoneID in self.fakeCKZones) {
+        FakeCKZone* zone = self.fakeCKZones[zoneID];
+        for (CKRecord* record in [zone.currentDatabase allValues]) {
+            if (([record.recordType isEqualToString:SecCKRecordTLKShareType])) {
+                CKKSTLKShareRecord* tlkShareRecord = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:contextID];
+                if ([tlkShareRecord.share.receiverPeerID isEqualToString:self.peerID]) {
+                    [tlkShareRecords addObject:tlkShareRecord];
+                }
+            }
+        }
+    }
+
+    NSError* error = nil;
+    if (tlkShareRecords.count == 0) {
+        error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSNoSuchRecord userInfo:@{@"description": [NSString stringWithFormat:@"No TLK Shares for peer (%@)", self.peerID]}];
+        tlkShareRecords = nil;
+    }
+
+    reply(tlkShareRecords, error);
 }
 
 @end

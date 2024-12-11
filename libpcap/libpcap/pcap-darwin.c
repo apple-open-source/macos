@@ -1013,6 +1013,11 @@ pcap_ng_dump_pktap_comment(pcap_t *pcap, pcap_dumper_t *dumper,
 	if (pmdflags != 0) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_PMD_FLAGS, &pmdflags, 4);
 	}
+#if PKTAP_HAS_COMP_GENCNT
+	if (pktp_hdr->pth_comp_gencnt != 0) {
+		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_COMP_GENCNT, &pktp_hdr->pth_comp_gencnt, 4);
+	}
+#endif /* PKTAP_HAS_COMP_GENCNT */
 
 	(void) pcap_ng_dump_block(dumper, block);
 	
@@ -1314,7 +1319,6 @@ pcap_read_bpf_header(pcap_t *p, u_char *bp, struct pcap_pkthdr *pkthdr)
 			strsep = ", ";
 		}
 	}
-#if BPF_HDR_EXT_HAS_TRACE_TAG
 	if (bhep->bh_trace_tag > 0) {
 		bzero(&tmpbuf, sizeof (tmpbuf));
 		tlen = snprintf(tmpbuf, sizeof (tmpbuf),
@@ -1324,7 +1328,17 @@ pcap_read_bpf_header(pcap_t *p, u_char *bp, struct pcap_pkthdr *pkthdr)
 			strsep = ", ";
 		}
 	}
-#endif /* BPF_HDR_EXT_HAS_TRACE_TAG */
+#if BPF_HDR_EXT_HAS_COMP_GENCNT
+	if (bhep->bh_comp_gencnt > 0) {
+		bzero(&tmpbuf, sizeof (tmpbuf));
+		tlen = snprintf(tmpbuf, sizeof (tmpbuf),
+				"%scmpgc 0x%x", strsep, bhep->bh_comp_gencnt);
+		if (tlen > 0) {
+			strlcat(pkthdr->comment, tmpbuf, sizeof (pkthdr->comment));
+			strsep = ", ";
+		}
+	}
+#endif /* BPF_HDR_EXT_HAS_COMP_GENCNT */
 }
 
 /*

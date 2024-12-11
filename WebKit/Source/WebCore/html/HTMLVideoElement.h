@@ -45,10 +45,12 @@ enum class ImageBufferPixelFormat : uint8_t;
 enum class RenderingMode : bool;
 
 class HTMLVideoElement final : public HTMLMediaElement, public Supplementable<HTMLVideoElement> {
-    WTF_MAKE_ISO_ALLOCATED(HTMLVideoElement);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(HTMLVideoElement);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLVideoElement);
 public:
     WEBCORE_EXPORT static Ref<HTMLVideoElement> create(Document&);
     static Ref<HTMLVideoElement> create(const QualifiedName&, Document&, bool createdByParser);
+    ~HTMLVideoElement();
 
     WEBCORE_EXPORT unsigned videoWidth() const;
     WEBCORE_EXPORT unsigned videoHeight() const;
@@ -57,6 +59,7 @@ public:
     WEBCORE_EXPORT void webkitExitFullscreen();
     WEBCORE_EXPORT bool webkitSupportsFullscreen();
     WEBCORE_EXPORT bool webkitDisplayingFullscreen();
+    WEBCORE_EXPORT ExceptionOr<void> enterFullscreenIgnoringPermissionsPolicy();
 
     void ancestorWillEnterFullscreen() final;
 
@@ -103,6 +106,7 @@ public:
     WEBCORE_EXPORT void didEnterFullscreenOrPictureInPicture(const FloatSize&);
     WEBCORE_EXPORT void didExitFullscreenOrPictureInPicture();
     WEBCORE_EXPORT bool isChangingPresentationMode() const;
+    WEBCORE_EXPORT void setPresentationModeIgnoringPermissionsPolicy(VideoPresentationMode);
 
     void setVideoFullscreenFrame(const FloatRect&) final;
 

@@ -136,7 +136,7 @@ mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int deb
 			type, align, (unsigned)vm_page_label);
 	if (!map) {
 		malloc_zone_error(debug_flags, false,
-			"Failed to allocate memory at address 0x%lx of size 0x%lx with flags %d\n", addr, size, flags);
+			"Failed to allocate memory at address 0x%lx of size 0x%lx with flags %d: %d\n", addr, size, flags, errno);
 	}
 	return __unsafe_forge_bidi_indexable(void *, map, size);
 #else
@@ -306,7 +306,7 @@ mvm_deallocate_plat(void * __sized_by(size) addr, size_t size, int debug_flags, 
 #if MALLOC_TARGET_EXCLAVES
 	if (!munmap_plat(map, addr, size)) {
 		malloc_zone_error(debug_flags, false,
-			"Failed to deallocate at address %p of size 0x%lx\n", addr, size);
+			"Failed to deallocate at address %p of size 0x%lx: %d\n", addr, size, errno);
 	}
 #else
 	(void)map;
@@ -314,7 +314,7 @@ mvm_deallocate_plat(void * __sized_by(size) addr, size_t size, int debug_flags, 
 		(mach_vm_address_t)addr, (mach_vm_size_t)size);
 	if (kr) {
 		malloc_zone_error(debug_flags, false,
-			"Failed to deallocate at address %p of size 0x%lx\n", addr, size);
+			"Failed to deallocate at address %p of size 0x%lx: %d\n", addr, size, kr);
 	}
 #endif // MALLOC_TARGET_EXCLAVES
 }
@@ -377,7 +377,7 @@ mvm_protect_plat(void * __sized_by(size) address, size_t size, unsigned protecti
 	}
 	if (!mprotect_plat(map, address, size, perm)) {
 		malloc_zone_error(MALLOC_ABORT_ON_ERROR | debug_flags, true,
-			"Unsupported deallocation address %p or size %lu\n", address, size);
+			"Unsupported deallocation address %p or size %lu: %d\n", address, size, errno);
 	}
 #else
 	(void)map;

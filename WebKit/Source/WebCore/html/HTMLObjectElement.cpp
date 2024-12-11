@@ -47,9 +47,9 @@
 #include "SubframeLoader.h"
 #include "Text.h"
 #include "Widget.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
 #include <wtf/RobinHoodHashSet.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(IOS_FAMILY)
 #include "RuntimeApplicationChecks.h"
@@ -57,7 +57,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLObjectElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLObjectElement);
 
 using namespace HTMLNames;
 
@@ -286,6 +286,11 @@ void HTMLObjectElement::renderFallbackContent()
 
     scheduleUpdateForAfterStyleResolution();
     invalidateStyleAndRenderersForSubtree();
+
+    // Presence of a UA shadow root indicates render invalidation during embedded PDF plugin bringup, and not a failed render.
+    // It's safe to special case here because UA shadow root cannot be attached to <object>/<embed> programmatically.
+    if (userAgentShadowRoot())
+        return;
 
     // Before we give up and use fallback content, check to see if this is a MIME type issue.
     auto* loader = imageLoader();

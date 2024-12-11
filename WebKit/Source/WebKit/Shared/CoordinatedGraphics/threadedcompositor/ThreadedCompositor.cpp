@@ -32,6 +32,8 @@
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/TransformationMatrix.h>
 #include <wtf/SetForScope.h>
+#include <wtf/SystemTracing.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if USE(GLIB_EVENT_LOOP)
 #include <wtf/glib/RunLoopSourcePriority.h>
@@ -53,6 +55,8 @@ using namespace WebCore;
 #if !HAVE(DISPLAY_LINK)
 static constexpr unsigned c_defaultRefreshRate = 60000;
 #endif
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ThreadedCompositor);
 
 #if HAVE(DISPLAY_LINK)
 Ref<ThreadedCompositor> ThreadedCompositor::create(Client& client, PlatformDisplayID displayID, const IntSize& viewportSize, float scaleFactor, bool flipY, DamagePropagation damagePropagation)
@@ -132,7 +136,7 @@ void ThreadedCompositor::createGLContext()
     // a plain C cast expression in this one instance works in all cases.
     static_assert(sizeof(GLNativeWindowType) <= sizeof(uint64_t), "GLNativeWindowType must not be longer than 64 bits.");
     auto windowType = (GLNativeWindowType) m_nativeSurfaceHandle;
-    m_context = GLContext::create(windowType, PlatformDisplay::sharedDisplayForCompositing());
+    m_context = GLContext::create(windowType, PlatformDisplay::sharedDisplay());
     if (m_context) {
         m_context->makeContextCurrent();
         m_client.didCreateGLContext();
@@ -220,6 +224,10 @@ void ThreadedCompositor::forceRepaint()
 
 void ThreadedCompositor::renderLayerTree()
 {
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    TraceScope traceScope(FrameCompositionStart, FrameCompositionEnd);
+#endif
+
     if (!m_scene || !m_scene->isActive())
         return;
 

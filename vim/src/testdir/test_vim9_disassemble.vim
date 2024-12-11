@@ -381,6 +381,34 @@ def Test_disassemble_import_autoload()
   v9.CheckScriptSuccess(lines)
 enddef
 
+def Test_disassemble_import_autoload_autoload()
+  mkdir('Xauto_auto/autoload', 'pR')
+  var lines =<< trim END
+    vim9script
+    export const val = 11
+  END
+  writefile(lines, 'Xauto_auto/autoload/Xauto_vars_f1.vim')
+
+  lines =<< trim END
+    vim9script
+
+    import autoload './Xauto_auto/autoload/Xauto_vars_f1.vim' as f1
+    def F()
+        f1.val = 13
+    enddef
+    var res = execute('disass F')
+
+    assert_match('<SNR>\d*_F.*' ..
+      'f1.val = 13\_s*' ..
+      '\d PUSHNR 13\_s*' ..
+      '\d SOURCE .*/Xauto_auto/autoload/Xauto_vars_f1.vim\_s*' ..
+      '\d STOREEXPORT val in .*/Xauto_auto/autoload/Xauto_vars_f1.vim\_s*' ..
+      '\d RETURN void',
+      res)
+  END
+  v9.CheckScriptSuccess(lines)
+enddef
+
 def s:ScriptFuncStore()
   var localnr = 1
   localnr = 2
@@ -552,7 +580,7 @@ def Test_disassemble_store_index()
         '\d PUSHS "dd"\_s*' ..
         '\d NEWDICT size 0\_s*' ..
         '\d NEWDICT size 1\_s*' ..
-        '\d SETTYPE dict<dict<unknown>>\_s*' ..
+        '\d SETTYPE dict<dict<any>>\_s*' ..
         '\d STORE $0\_s*' ..
         'd.dd\[0\] = 0\_s*' ..
         '\d PUSHNR 0\_s*' ..
@@ -1030,7 +1058,7 @@ def Test_disassemble_closure_in_loop()
 
         'endif\_s*' ..
         'g:Ref = () => ii\_s*' ..
-        '\d\+ FUNCREF <lambda>4 vars  $3-$3\_s*' ..
+        '\d\+ FUNCREF <lambda>\d\+ vars  $3-$3\_s*' ..
         '\d\+ STOREG g:Ref\_s*' ..
 
         'continue\_s*' ..
@@ -1731,6 +1759,74 @@ def Test_disassemble_typecast()
         '\d STORE $0\_s*' ..
         '\d RETURN void\_s*',
         instr)
+enddef
+
+def Test_disassemble_object_cast()
+  # Downcasting.
+  var lines =<< trim END
+      vim9script
+      class A
+      endclass
+      class B extends A
+        var mylen: number
+      endclass
+      def F(o: A): number
+        return (<B>o).mylen
+      enddef
+
+      g:instr = execute('disassemble F')
+  END
+  v9.CheckScriptSuccess(lines)
+  assert_match('\<SNR>\d*_F\_s*' ..
+        'return (<B>o).mylen\_s*' ..
+        '0 LOAD arg\[-1\]\_s*' ..
+        '1 CHECKTYPE object<B> stack\[-1\]\_s*' ..
+        '2 OBJ_MEMBER 0\_s*' ..
+        '3 RETURN\_s*',
+        g:instr)
+
+  # Upcasting.
+  lines =<< trim END
+      vim9script
+      class A
+        var mylen: number
+      endclass
+      class B extends A
+      endclass
+      def F(o: B): number
+        return (<A>o).mylen
+      enddef
+
+      g:instr = execute('disassemble F')
+  END
+  v9.CheckScriptSuccess(lines)
+  assert_match('\<SNR>\d*_F\_s*' ..
+        'return (<A>o).mylen\_s*' ..
+        '0 LOAD arg\[-1\]\_s*' ..
+        '1 OBJ_MEMBER 0\_s*' ..
+        '2 RETURN\_s*',
+        g:instr)
+
+  # Casting, type is not statically known.
+  lines =<< trim END
+      vim9script
+      class A
+      endclass
+      class B extends A
+      endclass
+      def F(o: any): any
+        return <A>o
+      enddef
+
+      g:instr = execute('disassemble F')
+  END
+  v9.CheckScriptSuccess(lines)
+  assert_match('\<SNR>\d*_F\_s*' ..
+        'return <A>o\_s*' ..
+        '0 LOAD arg\[-1\]\_s*' ..
+        '1 CHECKTYPE object<A> stack\[-1\]\_s*' ..
+        '2 RETURN\_s*',
+        g:instr)
 enddef
 
 def s:Computing()
@@ -3062,15 +3158,15 @@ def Test_disassemble_interface_static_member()
   var lines =<< trim END
     vim9script
     interface I
-      this.o_var: number
-      this.o_var2: number
+      var o_var: number
+      var o_var2: number
     endinterface
 
     class C implements I
-      public static s_var: number
-      this.o_var: number
-      public static s_var2: number
-      this.o_var2: number
+      public static var s_var: number
+      var o_var: number
+      public static var s_var2: number
+      var o_var2: number
     endclass
 
     def F1(i: I)
@@ -3124,7 +3220,7 @@ def Test_disassemble_class_variable()
     vim9script
 
     class A
-      public static val = 10
+      public static var val = 10
       def Foo(): number
         val = 20
         return val
@@ -3173,7 +3269,7 @@ def Test_disassemble_ifargnotset()
   var lines =<< trim END
     vim9script
     class A
-      this.val: number = 10
+      var val: number = 10
     endclass
     g:instr = execute('disassemble A.new')
   END
@@ -3193,7 +3289,7 @@ def Test_disassemble_ifargnotset()
   unlet g:instr
 enddef
 
-" Disassemble instructions for ISN_COMPARECLASS and ISN_COMPAREOBJECT
+" Disassemble instructions for ISN_COMPAREOBJECT
 def Test_disassemble_compare_class_object()
   var lines =<< trim END
     vim9script
@@ -3202,8 +3298,6 @@ def Test_disassemble_compare_class_object()
     class B
     endclass
     def Foo(a: A, b: B)
-      if A == B
-      endif
       if a == b
       endif
     enddef
@@ -3211,19 +3305,13 @@ def Test_disassemble_compare_class_object()
   END
   v9.CheckScriptSuccess(lines)
   assert_match('<SNR>\d*_Foo\_s*' ..
-    'if A == B\_s*' ..
-    '0 LOADSCRIPT A-0 from .*\_s*' ..
-    '1 LOADSCRIPT B-1 from .*\_s*' ..
-    '2 COMPARECLASS ==\_s*' ..
+    'if a == b\_s*' ..
+    '0 LOAD arg\[-2\]\_s*' ..
+    '1 LOAD arg\[-1\]\_s*' ..
+    '2 COMPAREOBJECT ==\_s*' ..
     '3 JUMP_IF_FALSE -> 4\_s*' ..
     'endif\_s*' ..
-    'if a == b\_s*' ..
-    '4 LOAD arg\[-2\]\_s*' ..
-    '5 LOAD arg\[-1\]\_s*' ..
-    '6 COMPAREOBJECT ==\_s*' ..
-    '7 JUMP_IF_FALSE -> 8\_s*' ..
-    'endif\_s*' ..
-    '8 RETURN void', g:instr)
+    '4 RETURN void', g:instr)
   unlet g:instr
 enddef
 
@@ -3278,6 +3366,223 @@ def Test_funcref_with_class()
     '1 FUNCREF A.Foo\_s*' ..
     '2 DEFER 0 args\_s*' ..
     '3 RETURN void', g:instr)
+  unlet g:instr
+enddef
+
+" Disassemble instructions for calls to a string() function in an object
+def Test_disassemble_object_string()
+  var lines =<< trim END
+    vim9script
+    class A
+      def string(): string
+        return 'A'
+      enddef
+    endclass
+    def Bar()
+      var a = A.new()
+      var s = string(a)
+      s = string(A)
+    enddef
+    g:instr = execute('disassemble Bar')
+  END
+  v9.CheckScriptSuccess(lines)
+  assert_match('<SNR>\d*_Bar\_s*' ..
+    'var a = A.new()\_s*' ..
+    '0 DCALL new(argc 0)\_s*' ..
+    '1 STORE $0\_s*' ..
+    'var s = string(a)\_s*' ..
+    '2 LOAD $0\_s*' ..
+    '3 METHODCALL A.string(argc 0)\_s*' ..
+    '4 STORE $1\_s*' ..
+    's = string(A)\_s*' ..
+    '5 LOADSCRIPT A-0 from .*\_s*' ..
+    '6 BCALL string(argc 1)\_s*' ..
+    '7 STORE $1\_s*' ..
+    '8 RETURN void', g:instr)
+  unlet g:instr
+
+  # Use the default string() function for a class
+  lines =<< trim END
+    vim9script
+    class A
+    endclass
+    def Bar()
+      var a = A.new()
+      var s = string(a)
+      s = string(A)
+    enddef
+    g:instr = execute('disassemble Bar')
+  END
+  v9.CheckScriptSuccess(lines)
+  assert_match('<SNR>\d*_Bar\_s*' ..
+    'var a = A.new()\_s*' ..
+    '0 DCALL new(argc 0)\_s*' ..
+    '1 STORE $0\_s*' ..
+    'var s = string(a)\_s*' ..
+    '2 LOAD $0\_s*' ..
+    '3 BCALL string(argc 1)\_s*' ..
+    '4 STORE $1\_s*' ..
+    's = string(A)\_s*' ..
+    '5 LOADSCRIPT A-0 from .*\_s*' ..
+    '6 BCALL string(argc 1)\_s*' ..
+    '7 STORE $1\_s*' ..
+    '8 RETURN void', g:instr)
+  unlet g:instr
+enddef
+
+" Disassemble instructions for calls to a empty() function in an object
+def Test_disassemble_object_empty()
+  var lines =<< trim END
+    vim9script
+    class A
+      def empty(): bool
+        return true
+      enddef
+    endclass
+    def Bar()
+      var a = A.new()
+      var s = empty(a)
+    enddef
+    g:instr = execute('disassemble Bar')
+  END
+  v9.CheckScriptSuccess(lines)
+  assert_match('<SNR>\d*_Bar\_s*' ..
+    'var a = A.new()\_s*' ..
+    '0 DCALL new(argc 0)\_s*' ..
+    '1 STORE $0\_s*' ..
+    'var s = empty(a)\_s*' ..
+    '2 LOAD $0\_s*' ..
+    '3 METHODCALL A.empty(argc 0)\_s*' ..
+    '4 STORE $1\_s*' ..
+    '5 RETURN void', g:instr)
+  unlet g:instr
+
+  # Use the default empty() function for a class
+  lines =<< trim END
+    vim9script
+    class A
+    endclass
+    def Bar()
+      var a = A.new()
+      var s = empty(a)
+    enddef
+    g:instr = execute('disassemble Bar')
+  END
+  v9.CheckScriptSuccess(lines)
+  assert_match('<SNR>\d*_Bar\_s*' ..
+    'var a = A.new()\_s*' ..
+    '0 DCALL new(argc 0)\_s*' ..
+    '1 STORE $0\_s*' ..
+    'var s = empty(a)\_s*' ..
+    '2 LOAD $0\_s*' ..
+    '3 BCALL empty(argc 1)\_s*' ..
+    '4 STORE $1\_s*' ..
+    '5 RETURN void', g:instr)
+  unlet g:instr
+enddef
+
+" Disassemble instructions for calls to a len() function in an object
+def Test_disassemble_object_len()
+  var lines =<< trim END
+    vim9script
+    class A
+      def len(): number
+        return 10
+      enddef
+    endclass
+    def Bar()
+      var a = A.new()
+      var s = len(a)
+    enddef
+    g:instr = execute('disassemble Bar')
+  END
+  v9.CheckScriptSuccess(lines)
+  assert_match('<SNR>\d*_Bar\_s*' ..
+    'var a = A.new()\_s*' ..
+    '0 DCALL new(argc 0)\_s*' ..
+    '1 STORE $0\_s*' ..
+    'var s = len(a)\_s*' ..
+    '2 LOAD $0\_s*' ..
+    '3 METHODCALL A.len(argc 0)\_s*' ..
+    '4 STORE $1\_s*' ..
+    '5 RETURN void', g:instr)
+  unlet g:instr
+
+  # Use the default len() function for a class
+  lines =<< trim END
+    vim9script
+    class A
+    endclass
+    def Bar()
+      var a = A.new()
+      var s = len(a)
+    enddef
+    g:instr = execute('disassemble Bar')
+  END
+  v9.CheckScriptSuccess(lines)
+  assert_match('<SNR>\d*_Bar\_s*' ..
+    'var a = A.new()\_s*' ..
+    '0 DCALL new(argc 0)\_s*' ..
+    '1 STORE $0\_s*' ..
+    'var s = len(a)\_s*' ..
+    '2 LOAD $0\_s*' ..
+    '3 BCALL len(argc 1)\_s*' ..
+    '4 STORE $1\_s*' ..
+    '5 RETURN void', g:instr)
+  unlet g:instr
+enddef
+
+" Disassemble instructions for using a compound operator in a closure
+def Test_disassemble_compound_op_in_closure()
+  var lines =<< trim END
+    vim9script
+    class A
+      var foo: number = 1
+      def Foo(): func
+        var Fn = () => {
+          this.foo += 1
+        }
+        return Fn
+      enddef
+    endclass
+    var a = A.new()
+    var Lambda = a.Foo()
+    var num = matchstr(string(Lambda), '\d\+')
+    g:instr = execute($'disassemble <lambda>{num}')
+  END
+  v9.CheckScriptSuccess(lines)
+  assert_match('<lambda>\d\+\_s*' ..
+    'this.foo += 1\_s*' ..
+    '0 LOADOUTER level 0 $0\_s*' ..
+    '1 OBJ_MEMBER 0\_s*' ..
+    '2 PUSHNR 1\_s*' ..
+    '3 OPNR +\_s*' ..
+    '4 PUSHNR 0\_s*' ..
+    '5 LOADOUTER level 0 $0\_s*' ..
+    '6 STOREINDEX object\_s*' ..
+    '7 RETURN void', g:instr)
+  unlet g:instr
+enddef
+
+def Test_disassemble_member_initializer()
+  var lines =<< trim END
+    vim9script
+    class A
+      var l: list<string> = []
+      var d: dict<string> = {}
+    endclass
+    g:instr = execute('disassemble A.new')
+  END
+  v9.CheckScriptSuccess(lines)
+  # Ensure SETTYPE is emitted and that matches the declared type.
+  assert_match('new\_s*' ..
+   '0 NEW A size \d\+\_s*' ..
+   '1 NEWLIST size 0\_s*' ..
+   '2 SETTYPE list<string>\_s*' ..
+   '3 STORE_THIS 0\_s*' ..
+   '4 NEWDICT size 0\_s*' ..
+   '5 SETTYPE dict<string>\_s*' ..
+   '6 STORE_THIS 1', g:instr)
   unlet g:instr
 enddef
 

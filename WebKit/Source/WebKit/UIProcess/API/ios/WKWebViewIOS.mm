@@ -48,7 +48,6 @@
 #import "WKDataDetectorTypesInternal.h"
 #import "WKPasswordView.h"
 #import "WKProcessPoolPrivate.h"
-#import "WKSafeBrowsingWarning.h"
 #import "WKScrollView.h"
 #import "WKTextAnimationType.h"
 #import "WKUIDelegatePrivate.h"
@@ -64,6 +63,7 @@
 #import "WebPreferences.h"
 #import "WebProcessPool.h"
 #import "_WKActivatedElementInfoInternal.h"
+#import "_WKWarningView.h"
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/IOSurfacePool.h>
@@ -177,7 +177,7 @@ static WebCore::IntDegrees deviceOrientationForUIInterfaceOrientation(UIInterfac
 
 - (void)layoutSubviews
 {
-    [_safeBrowsingWarning setFrame:self.bounds];
+    [_warningView setFrame:self.bounds];
     [super layoutSubviews];
     [self _frameOrBoundsMayHaveChanged];
 }
@@ -721,7 +721,7 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
     return _obscuredInsetEdgesAffectedBySafeArea;
 }
 
-- (UIEdgeInsets)_computedObscuredInsetForSafeBrowsingWarning
+- (UIEdgeInsets)_computedObscuredInsetForWarningView
 {
     if (_haveSetObscuredInsets)
         return _obscuredInsets;
@@ -976,6 +976,10 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
     [_scrollView setMinimumZoomScale:minimumScaleFactor];
     [_scrollView setMaximumZoomScale:maximumScaleFactor];
     [_scrollView _setZoomEnabledInternal:allowsUserScaling];
+    if ([_scrollView showsHorizontalScrollIndicator] && [_scrollView showsVerticalScrollIndicator]) {
+        [_scrollView setShowsHorizontalScrollIndicator:(_page->scrollingCoordinatorProxy()->mainFrameScrollbarWidth() != WebCore::ScrollbarWidth::None)];
+        [_scrollView setShowsVerticalScrollIndicator:(_page->scrollingCoordinatorProxy()->mainFrameScrollbarWidth() != WebCore::ScrollbarWidth::None)];
+    }
 
     auto horizontalOverscrollBehavior = _page->scrollingCoordinatorProxy()->mainFrameHorizontalOverscrollBehavior();
     auto verticalOverscrollBehavior = _page->scrollingCoordinatorProxy()->mainFrameVerticalOverscrollBehavior();
@@ -1129,13 +1133,14 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
         scrollPerfData->didCommitLayerTree([self visibleRectInViewCoordinates]);
 
     if (_perProcessState.pendingFindLayerID) {
-        CALayer *layer = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).remoteLayerTreeHost().layerForID(_perProcessState.pendingFindLayerID);
+        CALayer *layer = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).remoteLayerTreeHost().layerForID(*_perProcessState.pendingFindLayerID);
         if (layer.superlayer)
             [self _didAddLayerForFindOverlay:layer];
     }
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-    [self _updateOverlayRegions:layerTreeTransaction.changedLayerProperties() destroyedLayers:layerTreeTransaction.destroyedLayers()];
+    if ([_configuration _overlayRegionsEnabled])
+        [self _updateOverlayRegions:layerTreeTransaction.changedLayerProperties() destroyedLayers:layerTreeTransaction.destroyedLayers()];
 #endif
 }
 
@@ -1188,6 +1193,8 @@ static CGRect snapRectToScrollViewEdges(CGRect rect, CGRect viewport)
 static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollView, const WebKit::RemoteLayerTreeHost& host, const HashSet<WebCore::PlatformLayerIdentifier>& overlayRegionsIDs)
 {
     HashSet<WebCore::IntRect> overlayRegionRects;
+    Vector<WebCore::IntRect> fullWidthRects;
+    Vector<WebCore::IntRect> fullHeightRects;
 
     for (auto layerID : overlayRegionsIDs) {
         const auto* node = host.nodeForID(layerID);
@@ -1242,7 +1249,7 @@ static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollVie
 
         // Overlay regions are positioned relative to the viewport of the scrollview,
         // not the frame (external) nor the bounds (origin moves while scrolling).
-        CGRect rect = [overlayView.superview convertRect:overlayView.frame toView:scrollView.superview];
+        CGRect rect = [overlayView convertRect:node->eventRegion().region().bounds() toView:scrollView.superview];
         CGRect offsetRect = CGRectOffset(rect, -scrollView.frame.origin.x, -scrollView.frame.origin.y);
         CGRect viewport = CGRectOffset(scrollView.frame, -scrollView.frame.origin.x, -scrollView.frame.origin.y);
         CGRect snappedRect = snapRectToScrollViewEdges(offsetRect, viewport);
@@ -1250,10 +1257,45 @@ static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollVie
         if (CGRectIsEmpty(snappedRect))
             continue;
 
-        overlayRegionRects.add(WebCore::enclosingIntRect(snappedRect));
+        constexpr float mergeCandidateEpsilon = 0.5;
+        if (std::abs(CGRectGetWidth(snappedRect) - CGRectGetWidth(viewport)) <= mergeCandidateEpsilon)
+            fullWidthRects.append(WebCore::enclosingIntRect(snappedRect));
+        else if (std::abs(CGRectGetHeight(snappedRect) - CGRectGetHeight(viewport)) <= mergeCandidateEpsilon)
+            fullHeightRects.append(WebCore::enclosingIntRect(snappedRect));
+        else
+            overlayRegionRects.add(WebCore::enclosingIntRect(snappedRect));
     }
 
-    [scrollView _updateOverlayRegionsBehavior:true];
+    auto mergeAndAdd = [&](auto& vec, const auto& sort, const auto& shouldMerge) {
+        std::sort(vec.begin(), vec.end(), sort);
+
+        std::optional<WebCore::IntRect> current;
+        for (auto rect : vec) {
+            if (!current)
+                current = rect;
+            else if (shouldMerge(rect, *current))
+                current->unite(rect);
+            else
+                overlayRegionRects.add(*std::exchange(current, rect));
+        }
+
+        if (current)
+            overlayRegionRects.add(*current);
+    };
+
+    mergeAndAdd(fullWidthRects, [](const auto& a, const auto& b) {
+        return a.y() < b.y();
+    }, [](const auto& rect, const auto& current) {
+        return rect.y() <= current.maxY();
+    });
+
+    mergeAndAdd(fullHeightRects, [](const auto& a, const auto& b) {
+        return a.x() < b.x();
+    }, [](const auto& rect, const auto& current) {
+        return rect.x() <= current.maxX();
+    });
+
+    [scrollView _updateOverlayRegionsBehavior:YES];
     [scrollView _updateOverlayRegionRects:overlayRegionRects];
 }
 
@@ -1278,7 +1320,7 @@ static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollVie
     if ([self _scrollViewCanHaveOverlayRegions:_scrollView.get()])
         overlayRegionScrollView = _scrollView.get();
     else
-        [_scrollView _updateOverlayRegionsBehavior:false];
+        [_scrollView _updateOverlayRegionsBehavior:NO];
 
     auto candidates = coordinatorProxy->overlayRegionScrollViewCandidates();
     std::sort(candidates.begin(), candidates.end(), [] (auto& first, auto& second) {
@@ -1289,7 +1331,7 @@ static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollVie
         if (!overlayRegionScrollView && [self _scrollViewCanHaveOverlayRegions:scrollView])
             overlayRegionScrollView = scrollView;
         else
-            [scrollView _updateOverlayRegionsBehavior:false];
+            [scrollView _updateOverlayRegionsBehavior:NO];
     }
 
     return overlayRegionScrollView;
@@ -1318,6 +1360,20 @@ static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollVie
     configureScrollViewWithOverlayRegionsIDs(overlayRegionScrollView, layerTreeHost, overlayRegionsIDs);
 
     scrollingCoordinatorProxy->updateOverlayRegionLayerIDs(overlayRegionsIDs);
+}
+
+- (void)_updateOverlayRegionsForCustomContentView
+{
+    if (![_configuration _overlayRegionsEnabled])
+        return;
+
+    if (![self _scrollViewCanHaveOverlayRegions:_scrollView.get()]) {
+        [_scrollView _updateOverlayRegionsBehavior:NO];
+        return;
+    }
+
+    [_scrollView _updateOverlayRegionsBehavior:YES];
+    [_scrollView _updateOverlayRegionRects: { }];
 }
 #endif // ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
 
@@ -2050,6 +2106,10 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     if (![self usesStandardContentView])
         return;
 
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+    _isScrollingWithOverlayRegion = NO;
+#endif
+
     [self _scheduleVisibleContentRectUpdate];
     [_contentView didFinishScrolling];
 
@@ -2126,9 +2186,11 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
     if (update._scrollDeviceCategory == _UIScrollDeviceCategoryOverlayScroll) {
+        _isScrollingWithOverlayRegion = YES;
         completion(isHandledByDefault);
         return;
     }
+    _isScrollingWithOverlayRegion = NO;
 #endif
 
 #if !USE(BROWSERENGINEKIT)
@@ -2580,7 +2642,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     [super safeAreaInsetsDidChange];
 
     [self _scheduleVisibleContentRectUpdate];
-    [_safeBrowsingWarning setContentInset:[self _computedObscuredInsetForSafeBrowsingWarning]];
+    [_warningView setContentInset:[self _computedObscuredInsetForWarningView]];
 }
 #endif
 
@@ -2604,6 +2666,11 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
         stabilityFlags.add(WebKit::ViewStabilityFlag::ScrollViewInteracting);
     if (scrollView.isDecelerating || scrollView._wk_isZoomAnimating || scrollView._wk_isScrollAnimating || scrollView.isZoomBouncing)
         stabilityFlags.add(WebKit::ViewStabilityFlag::ScrollViewAnimatedScrollOrZoom);
+
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+    if (_isScrollingWithOverlayRegion)
+        stabilityFlags.add(WebKit::ViewStabilityFlag::ScrollViewAnimatedScrollOrZoom);
+#endif
 
     if (scrollView == _scrollView.get() && _isChangingObscuredInsetsInteractively)
         stabilityFlags.add(WebKit::ViewStabilityFlag::ChangingObscuredInsetsInteractively);
@@ -3668,7 +3735,7 @@ static bool isLockdownModeWarningNeeded()
 
 - (void)_didAddLayerForFindOverlay:(CALayer *)layer
 {
-    _perProcessState.committedFindLayerID = std::exchange(_perProcessState.pendingFindLayerID, { });
+    _perProcessState.committedFindLayerID = std::exchange(_perProcessState.pendingFindLayerID, std::nullopt);
     _page->findClient().didAddLayerForFindOverlay(_page.get(), layer);
 
 #if HAVE(UIFINDINTERACTION)
@@ -3883,7 +3950,7 @@ static bool isLockdownModeWarningNeeded()
     _obscuredInsets = obscuredInsets;
 
     [self _scheduleVisibleContentRectUpdate];
-    [_safeBrowsingWarning setContentInset:[self _computedObscuredInsetForSafeBrowsingWarning]];
+    [_warningView setContentInset:[self _computedObscuredInsetForWarningView]];
 }
 
 - (UIRectEdge)_obscuredInsetEdgesAffectedBySafeArea
@@ -4024,7 +4091,7 @@ static bool isLockdownModeWarningNeeded()
 
 - (UIView *)_safeBrowsingWarning
 {
-    return _safeBrowsingWarning.get();
+    return _warningView.get();
 }
 
 - (CGPoint)_convertPointFromContentsToView:(CGPoint)point
@@ -4379,7 +4446,7 @@ static bool isLockdownModeWarningNeeded()
         return;
     }
 
-    _page->takeSnapshot(WebCore::enclosingIntRect(snapshotRectInContentCoordinates), WebCore::expandedIntSize(WebCore::FloatSize(imageSize)), WebKit::SnapshotOptionsExcludeDeviceScaleFactor, [completionHandler = makeBlockPtr(completionHandler)](std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle) {
+    _page->takeSnapshot(WebCore::enclosingIntRect(snapshotRectInContentCoordinates), WebCore::expandedIntSize(WebCore::FloatSize(imageSize)), WebKit::SnapshotOption::ExcludeDeviceScaleFactor, [completionHandler = makeBlockPtr(completionHandler)](std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle) {
         if (!imageHandle)
             return completionHandler(nil);
 
@@ -4678,7 +4745,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (!_page || _perProcessState.pendingFindLayerID || _perProcessState.committedFindLayerID)
         return;
 
-    _page->addLayerForFindOverlay([weakSelf = WeakObjCPtr<WKWebView>(self)] (WebCore::PlatformLayerIdentifier layerID) {
+    _page->addLayerForFindOverlay([weakSelf = WeakObjCPtr<WKWebView>(self)] (std::optional<WebCore::PlatformLayerIdentifier> layerID) {
         auto strongSelf = weakSelf.get();
         if (strongSelf)
             strongSelf->_perProcessState.pendingFindLayerID = layerID;
@@ -4693,8 +4760,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (!_perProcessState.pendingFindLayerID && !_perProcessState.committedFindLayerID)
         return;
 
-    _perProcessState.pendingFindLayerID = { };
-    _perProcessState.committedFindLayerID = { };
+    _perProcessState.pendingFindLayerID = std::nullopt;
+    _perProcessState.committedFindLayerID = std::nullopt;
 
     _page->removeLayerForFindOverlay([weakSelf = WeakObjCPtr<WKWebView>(self)] {
         auto strongSelf = weakSelf.get();
@@ -4711,7 +4778,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return nil;
 
     if (auto* drawingArea = _page->drawingArea())
-        return downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*drawingArea).remoteLayerTreeHost().layerForID(_perProcessState.committedFindLayerID);
+        return downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*drawingArea).remoteLayerTreeHost().layerForID(*_perProcessState.committedFindLayerID);
 
     return nil;
 }

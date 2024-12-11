@@ -55,9 +55,9 @@
 #include "WorkerClient.h"
 #include "WorkerGlobalScope.h"
 #include <variant>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Scope.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(OFFSCREEN_CANVAS)
 #include "OffscreenCanvas.h"
@@ -80,11 +80,11 @@ DetachedImageBitmap::~DetachedImageBitmap() = default;
 
 DetachedImageBitmap& DetachedImageBitmap::operator=(DetachedImageBitmap&&) = default;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(ImageBitmap);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(ImageBitmap);
 
 static inline RenderingMode bufferRenderingMode(ScriptExecutionContext& scriptExecutionContext)
 {
-#if USE(IOSURFACE_CANVAS_BACKING_STORE) || USE(SKIA)
+#if USE(CA) || USE(SKIA)
     static RenderingMode defaultRenderingMode = RenderingMode::Accelerated;
 #else
     static RenderingMode defaultRenderingMode = RenderingMode::Unaccelerated;
@@ -736,7 +736,7 @@ private:
 };
 
 class PendingImageBitmap final : public RefCounted<PendingImageBitmap>, public ActiveDOMObject, public FileReaderLoaderClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(PendingImageBitmap);
 public:
     // ActiveDOMObject.
     void ref() const final { RefCounted::ref(); }

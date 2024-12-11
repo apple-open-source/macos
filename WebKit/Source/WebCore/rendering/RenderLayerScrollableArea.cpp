@@ -78,9 +78,12 @@
 #include "ScrollingCoordinator.h"
 #include "ShadowRoot.h"
 #include <wtf/SetForScope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderLayerScrollableArea);
 
 RenderLayerScrollableArea::RenderLayerScrollableArea(RenderLayer& layer)
     : m_layer(layer)
@@ -114,7 +117,7 @@ void RenderLayerScrollableArea::clear()
     destroyScrollbar(ScrollbarOrientation::Horizontal);
     destroyScrollbar(ScrollbarOrientation::Vertical);
 
-    if (auto* scrollingCoordinator = renderer.page().scrollingCoordinator())
+    if (RefPtr scrollingCoordinator = renderer.page().scrollingCoordinator())
         scrollingCoordinator->willDestroyScrollableArea(*this);
 
     clearScrollCorner();
@@ -183,7 +186,7 @@ bool RenderLayerScrollableArea::isUserScrollInProgress() const
     if (!scrollsOverflow())
         return false;
 
-    if (auto scrollingCoordinator = m_layer.page().scrollingCoordinator()) {
+    if (RefPtr scrollingCoordinator = m_layer.page().scrollingCoordinator()) {
         if (scrollingCoordinator->isUserScrollInProgress(scrollingNodeID()))
             return true;
     }
@@ -200,7 +203,7 @@ bool RenderLayerScrollableArea::isRubberBandInProgress() const
     if (!scrollsOverflow())
         return false;
 
-    if (auto scrollingCoordinator = m_layer.page().scrollingCoordinator()) {
+    if (RefPtr scrollingCoordinator = m_layer.page().scrollingCoordinator()) {
         if (scrollingCoordinator->isRubberBandInProgress(scrollingNodeID()))
             return true;
     }
@@ -264,7 +267,7 @@ bool RenderLayerScrollableArea::requestScrollToPosition(const ScrollPosition& po
 #if ENABLE(ASYNC_SCROLLING)
     LOG_WITH_STREAM(Scrolling, stream << "RenderLayerScrollableArea::requestScrollToPosition " << position << " options  " << options);
 
-    if (auto* scrollingCoordinator = m_layer.page().scrollingCoordinator())
+    if (RefPtr scrollingCoordinator = m_layer.page().scrollingCoordinator())
         return scrollingCoordinator->requestScrollToPosition(*this, position, options);
 #else
     UNUSED_PARAM(position);
@@ -275,7 +278,7 @@ bool RenderLayerScrollableArea::requestScrollToPosition(const ScrollPosition& po
 
 bool RenderLayerScrollableArea::requestStartKeyboardScrollAnimation(const KeyboardScroll& scrollData)
 {
-    if (auto* scrollingCoordinator = m_layer.page().scrollingCoordinator())
+    if (RefPtr scrollingCoordinator = m_layer.page().scrollingCoordinator())
         return scrollingCoordinator->requestStartKeyboardScrollAnimation(*this, scrollData);
 
     return false;
@@ -283,7 +286,7 @@ bool RenderLayerScrollableArea::requestStartKeyboardScrollAnimation(const Keyboa
 
 bool RenderLayerScrollableArea::requestStopKeyboardScrollAnimation(bool immediate)
 {
-    if (auto* scrollingCoordinator = m_layer.page().scrollingCoordinator())
+    if (RefPtr scrollingCoordinator = m_layer.page().scrollingCoordinator())
         return scrollingCoordinator->requestStopKeyboardScrollAnimation(*this, immediate);
 
     return false;
@@ -294,7 +297,7 @@ void RenderLayerScrollableArea::stopAsyncAnimatedScroll()
 #if ENABLE(ASYNC_SCROLLING)
     LOG_WITH_STREAM(Scrolling, stream << m_layer << " stopAsyncAnimatedScroll");
 
-    if (auto* scrollingCoordinator = m_layer.page().scrollingCoordinator())
+    if (RefPtr scrollingCoordinator = m_layer.page().scrollingCoordinator())
         return scrollingCoordinator->stopAnimatedScroll(*this);
 #endif
 }
@@ -361,9 +364,7 @@ void RenderLayerScrollableArea::scrollTo(const ScrollPosition& position)
     // We don't update compositing layers, because we need to do a deep update from the compositing ancestor.
     if (!view.frameView().layoutContext().isInRenderTreeLayout()) {
         // If we're in the middle of layout, we'll just update layers once layout has finished.
-        m_layer.updateLayerPositionsAfterOverflowScroll();
-
-        view.frameView().scheduleUpdateWidgetPositions();
+        view.frameView().updateLayerPositionsAfterOverflowScroll(m_layer);
 
         if (!m_updatingMarqueePosition) {
             // Avoid updating compositing layers if, higher on the stack, we're already updating layer
@@ -533,7 +534,7 @@ bool RenderLayerScrollableArea::handleWheelEventForScrolling(const PlatformWheel
 
 #if ENABLE(ASYNC_SCROLLING)
     if (usesAsyncScrolling() && scrollingNodeID()) {
-        if (auto* scrollingCoordinator = m_layer.page().scrollingCoordinator()) {
+        if (RefPtr scrollingCoordinator = m_layer.page().scrollingCoordinator()) {
             auto result = scrollingCoordinator->handleWheelEventForScrolling(wheelEvent, scrollingNodeID(), gestureState);
             if (!result.needsMainThreadProcessing())
                 return result.wasHandled;
@@ -1131,7 +1132,7 @@ void RenderLayerScrollableArea::computeScrollOrigin()
     ASSERT(box);
 
     int scrollableLeftOverflow = roundToInt(overflowLeft() - box->borderLeft());
-    if (shouldPlaceVerticalScrollbarOnLeft() /*|| box->style().blockFlowDirection() == BlockFlowDirection::RightToLeft*/)
+    if (shouldPlaceVerticalScrollbarOnLeft() /*|| box->style().blockFlowDirection() == FlowDirection::RightToLeft*/)
         scrollableLeftOverflow -= verticalScrollbarWidth(IgnoreOverlayScrollbarSize, box->style().isHorizontalWritingMode());
     int scrollableTopOverflow = roundToInt(overflowTop() - box->borderTop());
     setScrollOrigin(IntPoint(-scrollableLeftOverflow, -scrollableTopOverflow));
@@ -1304,7 +1305,7 @@ void RenderLayerScrollableArea::updateScrollbarsAfterLayout()
         // FIXME: This does not belong here.
         auto* parent = renderer.parent();
         if (CheckedPtr parentFlexibleBox = dynamicDowncast<RenderFlexibleBox>(parent); parentFlexibleBox && renderer.isRenderBox())
-            parentFlexibleBox->clearCachedMainSizeForChild(*m_layer.renderBox());
+            parentFlexibleBox->clearCachedMainSizeForFlexItem(*m_layer.renderBox());
     }
 
     // Set up the range.
@@ -1643,7 +1644,7 @@ bool RenderLayerScrollableArea::isScrollSnapInProgress() const
     if (!scrollsOverflow())
         return false;
 
-    if (auto* scrollingCoordinator = m_layer.page().scrollingCoordinator()) {
+    if (RefPtr scrollingCoordinator = m_layer.page().scrollingCoordinator()) {
         if (scrollingCoordinator->isScrollSnapInProgress(scrollingNodeID()))
             return true;
     }
@@ -2049,5 +2050,10 @@ FrameIdentifier RenderLayerScrollableArea::rootFrameID() const
     return m_layer.renderer().frame().rootFrame().frameID();
 }
 
+void RenderLayerScrollableArea::scrollbarWidthChanged(ScrollbarWidth width)
+{
+    scrollbarsController().scrollbarWidthChanged(width);
+    availableContentSizeChanged(AvailableSizeChangeReason::ScrollbarsChanged);
+}
 
 } // namespace WebCore

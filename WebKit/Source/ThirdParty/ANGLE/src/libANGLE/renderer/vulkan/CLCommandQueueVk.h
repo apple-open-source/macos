@@ -242,6 +242,15 @@ class CLCommandQueueVk : public CLCommandQueueImpl
     angle::Result processWaitlist(const cl::EventPtrs &waitEvents);
     angle::Result createEvent(CLEventImpl::CreateFunc *createFunc);
 
+    angle::Result onResourceAccess(const vk::CommandBufferAccess &access);
+    angle::Result getCommandBuffer(const vk::CommandBufferAccess &access,
+                                   vk::OutsideRenderPassCommandBuffer **commandBufferOut)
+    {
+        ANGLE_TRY(onResourceAccess(access));
+        *commandBufferOut = &mComputePassCommands->getCommandBuffer();
+        return angle::Result::Continue;
+    }
+
     CLContextVk *mContext;
     const CLDeviceVk *mDevice;
 
@@ -264,6 +273,7 @@ class CLCommandQueueVk : public CLCommandQueueImpl
 
     // Resource reference capturing during execution
     cl::MemoryPtrs mMemoryCaptures;
+    cl::KernelPtrs mKernelCaptures;
 
     // Check to see if flush/finish can be skipped
     bool mHasAnyCommandsPendingSubmission;

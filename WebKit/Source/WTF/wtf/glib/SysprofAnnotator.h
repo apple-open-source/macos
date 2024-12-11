@@ -61,10 +61,10 @@ public:
     {
         auto key = std::make_pair(pointer, static_cast<const void*>(name.data()));
 
-        Vector<char, 1024> buffer;
+        Vector<char> buffer(1024);
         va_list args;
         va_start(args, description);
-        vsnprintf(buffer.data(), 1024, description, args);
+        vsnprintf(buffer.data(), buffer.size(), description, args);
         va_end(args);
 
         auto value = std::make_pair(SYSPROF_CAPTURE_CURRENT_TIME, WTFMove(buffer));
@@ -89,7 +89,7 @@ public:
         if (value) {
             int64_t startTime = std::get<0>(*value);
             const Vector<char>& description = std::get<1>(*value);
-            sysprof_collector_mark(startTime, SYSPROF_CAPTURE_CURRENT_TIME - startTime, m_processName, name.data(), description.data());
+            sysprof_collector_mark(startTime, SYSPROF_CAPTURE_CURRENT_TIME - startTime, m_processName, name.data(), description[0] ? description.data() : nullptr);
         } else {
             va_list args;
             va_start(args, description);
@@ -135,6 +135,9 @@ public:
         case WebHTMLViewPaintStart:
         case BackingStoreFlushStart:
         case BuildTransactionStart:
+        case WaitForCompositionCompletionStart:
+        case FrameCompositionStart:
+        case LayerFlushStart:
         case SyncMessageStart:
         case SyncTouchEventStart:
         case InitializeWebProcessStart:
@@ -146,6 +149,7 @@ public:
         case RenderServerSnapshotStart:
         case TakeSnapshotStart:
         case SyntheticMomentumStart:
+        case UpdateLayerContentBuffersStart:
         case CommitLayerTreeStart:
         case ProcessLaunchStart:
         case InitializeSandboxStart:
@@ -189,6 +193,9 @@ public:
         case WebXRSessionFrameCallbacksEnd:
         case WebHTMLViewPaintEnd:
         case BackingStoreFlushEnd:
+        case WaitForCompositionCompletionEnd:
+        case FrameCompositionEnd:
+        case LayerFlushEnd:
         case BuildTransactionEnd:
         case SyncMessageEnd:
         case SyncTouchEventEnd:
@@ -201,6 +208,7 @@ public:
         case RenderServerSnapshotEnd:
         case TakeSnapshotEnd:
         case SyntheticMomentumEnd:
+        case UpdateLayerContentBuffersEnd:
         case CommitLayerTreeEnd:
         case ProcessLaunchEnd:
         case InitializeSandboxEnd:
@@ -217,6 +225,7 @@ public:
         case ScrollingTreeDisplayDidRefresh:
         case SyntheticMomentumEvent:
         case RemoteLayerTreeScheduleRenderingUpdate:
+        case DisplayLinkUpdate:
             instantMark(tracePointCodeName(code).spanIncludingNullTerminator(), "%s", "");
             break;
 
@@ -227,6 +236,7 @@ public:
         case WebKit2Range:
         case UIProcessRange:
         case GPUProcessRange:
+        case GTKWPEPortRange:
             break;
         }
     }
@@ -399,6 +409,11 @@ private:
             return "SyntheticMomentumEvent"_s;
         case RemoteLayerTreeScheduleRenderingUpdate:
             return "RemoteLayerTreeScheduleRenderingUpdate"_s;
+        case DisplayLinkUpdate:
+            return "DisplayLinkUpdate"_s;
+        case UpdateLayerContentBuffersStart:
+        case UpdateLayerContentBuffersEnd:
+            return "UpdateLayerContentBuffers"_s;
 
         case CommitLayerTreeStart:
         case CommitLayerTreeEnd:
@@ -423,6 +438,16 @@ private:
         case WakeUpAndApplyDisplayListEnd:
             return "WakeUpAndApplyDisplayList"_s;
 
+        case WaitForCompositionCompletionStart:
+        case WaitForCompositionCompletionEnd:
+            return "WaitForCompositionCompletion"_s;
+        case FrameCompositionStart:
+        case FrameCompositionEnd:
+            return "FrameComposition"_s;
+        case LayerFlushStart:
+        case LayerFlushEnd:
+            return "LayerFlush"_s;
+
         case WTFRange:
         case JavaScriptRange:
         case WebCoreRange:
@@ -430,6 +455,7 @@ private:
         case WebKit2Range:
         case UIProcessRange:
         case GPUProcessRange:
+        case GTKWPEPortRange:
             return nullptr;
         }
 

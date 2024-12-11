@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -184,6 +184,7 @@
 		7261215D0EE8883900AFED1B /* ifvlan.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261205A0EE86F0900AFED1B /* ifvlan.c */; };
 		726121610EE8885400AFED1B /* ifconfig.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120560EE86F0900AFED1B /* ifconfig.8 */; };
 		7263A9630EEE31C800164D5D /* libipsec.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CD1DB50EE8C619005F825D /* libipsec.dylib */; };
+		726740802C9CF0C400A19F05 /* spray_xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = 7267407F2C9CF0C400A19F05 /* spray_xdr.c */; };
 		7282BA491AFAD58E005DE836 /* capture.c in Sources */ = {isa = PBXBuildFile; fileRef = 7282BA351AFAD58E005DE836 /* capture.c */; };
 		7282BA4B1AFAD58E005DE836 /* ecn_probe.c in Sources */ = {isa = PBXBuildFile; fileRef = 7282BA391AFAD58E005DE836 /* ecn_probe.c */; };
 		7282BA4C1AFAD58E005DE836 /* ecn.c in Sources */ = {isa = PBXBuildFile; fileRef = 7282BA3A1AFAD58E005DE836 /* ecn.c */; };
@@ -194,7 +195,6 @@
 		7282BA531AFAD58E005DE836 /* support.c in Sources */ = {isa = PBXBuildFile; fileRef = 7282BA471AFAD58E005DE836 /* support.c */; };
 		7282BA551AFBCA66005DE836 /* libpcap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7282BA541AFBCA66005DE836 /* libpcap.dylib */; };
 		72946F501BBF07FF00087E35 /* frame_delay.c in Sources */ = {isa = PBXBuildFile; fileRef = 72946F4F1BBF07FF00087E35 /* frame_delay.c */; };
-		7294F0DF0EE8BA730052EC88 /* spray.x in Sources */ = {isa = PBXBuildFile; fileRef = 726120E10EE86F9D00AFED1B /* spray.x */; };
 		7294F1000EE8BB990052EC88 /* as.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E50EE86FA700AFED1B /* as.c */; };
 		7294F1010EE8BB990052EC88 /* findsaddr-socket.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E70EE86FA700AFED1B /* findsaddr-socket.c */; };
 		7294F1020EE8BB990052EC88 /* ifaddrlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120EA0EE86FA700AFED1B /* ifaddrlist.c */; };
@@ -229,24 +229,6 @@
 		F940359D1E2FF5A900283EB1 /* iffake.c in Sources */ = {isa = PBXBuildFile; fileRef = F940359C1E2FF58500283EB1 /* iffake.c */; };
 		F97F1E041E9C3FC8002355FF /* nexus.c in Sources */ = {isa = PBXBuildFile; fileRef = F97F1E031E9C3FBC002355FF /* nexus.c */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXBuildRule section */
-		7216D47D0EE8B84900AE70E4 /* PBXBuildRule */ = {
-			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.proxy.script;
-			filePatterns = "$(PROJECT_DIR)/spray.tproj/spray.x";
-			fileType = pattern.proxy;
-			inputFiles = (
-			);
-			isEditable = 1;
-			outputFiles = (
-				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).h",
-				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE)_xdr.c",
-			);
-			runOncePerArchitecture = 0;
-			script = "/usr/bin/rpcgen -h -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.h ${INPUT_FILE_PATH}\n/usr/bin/rpcgen -c -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}_xdr.c ${INPUT_FILE_PATH}\n";
-		};
-/* End PBXBuildRule section */
 
 /* Begin PBXContainerItemProxy section */
 		034E4463100BDCA3009CA3DC /* PBXContainerItemProxy */ = {
@@ -1141,7 +1123,6 @@
 		726120DA0EE86F9100AFED1B /* rtsold.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rtsold.h; sourceTree = "<group>"; };
 		726120DF0EE86F9D00AFED1B /* spray.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = spray.8; sourceTree = "<group>"; };
 		726120E00EE86F9D00AFED1B /* spray.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = spray.c; sourceTree = "<group>"; };
-		726120E10EE86F9D00AFED1B /* spray.x */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = spray.x; sourceTree = "<group>"; };
 		726120E50EE86FA700AFED1B /* as.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = as.c; sourceTree = "<group>"; };
 		726120E60EE86FA700AFED1B /* as.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = as.h; sourceTree = "<group>"; };
 		726120E70EE86FA700AFED1B /* findsaddr-socket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "findsaddr-socket.c"; sourceTree = "<group>"; };
@@ -1161,6 +1142,8 @@
 		7261212D0EE8710B00AFED1B /* arp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = arp; sourceTree = BUILT_PRODUCTS_DIR; };
 		726121540EE8881700AFED1B /* ifconfig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ifconfig; sourceTree = BUILT_PRODUCTS_DIR; };
 		7263724C1BCC718B00E4B026 /* frame_delay.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = frame_delay.8; sourceTree = "<group>"; };
+		7267407E2C9CF0C400A19F05 /* spray.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = spray.h; sourceTree = "<group>"; };
+		7267407F2C9CF0C400A19F05 /* spray_xdr.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = spray_xdr.c; sourceTree = "<group>"; };
 		7282BA0C1AFAD4C9005DE836 /* ecnprobe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ecnprobe; sourceTree = BUILT_PRODUCTS_DIR; };
 		7282BA341AFAD58E005DE836 /* base.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = base.h; sourceTree = "<group>"; };
 		7282BA351AFAD58E005DE836 /* capture.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = capture.c; sourceTree = "<group>"; };
@@ -1687,9 +1670,10 @@
 		726120DD0EE86F9D00AFED1B /* spray.tproj */ = {
 			isa = PBXGroup;
 			children = (
+				7267407E2C9CF0C400A19F05 /* spray.h */,
+				7267407F2C9CF0C400A19F05 /* spray_xdr.c */,
 				726120DF0EE86F9D00AFED1B /* spray.8 */,
 				726120E00EE86F9D00AFED1B /* spray.c */,
-				726120E10EE86F9D00AFED1B /* spray.x */,
 			);
 			path = spray.tproj;
 			sourceTree = "<group>";
@@ -2036,7 +2020,6 @@
 				7216D3B30EE8A3E000AE70E4 /* ShellScript */,
 			);
 			buildRules = (
-				7216D47D0EE8B84900AE70E4 /* PBXBuildRule */,
 			);
 			dependencies = (
 			);
@@ -2317,9 +2300,11 @@
 					};
 					72E0B534291C0CB000E573A7 = {
 						CreatedOnToolsVersion = 14.0;
+						ProvisioningStyle = Automatic;
 					};
 					72E0B543291C116000E573A7 = {
 						CreatedOnToolsVersion = 14.0;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -2724,7 +2709,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7216D3AB0EE8A3C400AE70E4 /* spray.c in Sources */,
-				7294F0DF0EE8BA730052EC88 /* spray.x in Sources */,
+				726740802C9CF0C400A19F05 /* spray_xdr.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

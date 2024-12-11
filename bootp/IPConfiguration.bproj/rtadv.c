@@ -121,6 +121,7 @@ typedef struct {
     CFStringRef			nat64_prefix;
     PvDInfoRequestRef		pvd_request;
     PvDInfoContext		pvd_context;
+    uint8_t			clat46_partial; /* 2 .. 5 */
 } Service_rtadv_t;
 
 STATIC void
@@ -385,24 +386,111 @@ done:
     return;
 }
 
+
+#define CLAT46_ADDRESS_START	2
+#define CLAT46_ADDRESS_COUNT	4
+#define CLAT46_ADDRESS_END	(CLAT46_ADDRESS_START + CLAT46_ADDRESS_COUNT - 1)
+
+STATIC uint16_t S_clat46_address_use_count[CLAT46_ADDRESS_COUNT];
+
+/*
+ * Function: S_clat46_address_allocate
+ * Purpose:
+ *   Try to find a CLAT46 IPv4 address that isn't already in active use by
+ *   some other service.
+ *
+ *   The service continuity prefix (192.0.0.0/29) has only 8 IPv4 addresses,
+ *   two of which are reserved: 192.0.0.0 and 192.0.0.7. 192.0.0.1 is
+ *   is reserved for the router. Since terminusd uses 192.0.0.6, that leaves
+ *   192.0.0.2 through 192.0.0.5 (four addresses) that are available.
+ *
+ *   Use `S_clat46_address_use_count` to store the number of references
+ *   to the particular index. Try to find an index that isn't in use.
+ *   If all are in use, use index zero (192.0.0.2).
+ *
+ * Returns:
+ *   The partial CLAT46 address to use i.e. a value between 2 and 5.
+ */
+STATIC uint8_t
+S_clat46_address_allocate(const char * ifname)
+{
+    bool	found_free = false;
+    uint8_t	partial_addr;
+    uint8_t	which = 0;
+
+    for (uint8_t i = 0; i < CLAT46_ADDRESS_COUNT; i++) {
+	if (S_clat46_address_use_count[i] == 0) {
+	    which = i;
+	    break;
+	}
+    }
+    partial_addr = which + CLAT46_ADDRESS_START;
+    if (S_clat46_address_use_count[which] != 0) {
+	my_log(LOG_NOTICE,
+	       "%s: CLAT46 address space exhausted, re-using 192.0.0.%d",
+	       ifname, partial_addr);
+    }
+    else {
+	my_log(LOG_NOTICE,
+	       "%s: CLAT46 192.0.0.%d allocated",
+	       ifname, partial_addr);
+    }
+    S_clat46_address_use_count[which]++;
+    return (partial_addr);
+}
+
+/*
+ * Function: S_clat46_address_release
+ * Purpose:
+ *   Release the specific CLAT46 `partial_address`, a value between 2 and 5.
+ */
+STATIC void
+S_clat46_address_release(const char * ifname, uint8_t partial_addr)
+{
+    uint16_t	use_count;
+    uint8_t	which;
+
+    if (partial_addr < CLAT46_ADDRESS_START
+	|| partial_addr > CLAT46_ADDRESS_END) {
+	my_log(LOG_NOTICE,
+	       "%s: CLAT46 partial address %d is invalid",
+	       ifname, partial_addr);
+	return;
+    }
+    which = partial_addr - CLAT46_ADDRESS_START;
+    use_count = S_clat46_address_use_count[which];
+    if (use_count == 0) {
+	my_log(LOG_NOTICE,
+	       "%s: CLAT46 192.0.0.%d is already released!",
+	       ifname, partial_addr);
+	return;
+    }
+    S_clat46_address_use_count[which]--;
+    if (use_count == 1) {
+	my_log(LOG_NOTICE, "%s: CLAT46 192.0.0.%d released",
+	       ifname, partial_addr);
+    }
+    else {
+	my_log(LOG_NOTICE, "%s: CLAT46 192.0.0.%d use count %d",
+	       ifname, partial_addr, S_clat46_address_use_count[which]);
+    }
+}
+
 STATIC struct in_addr
-S_get_clat46_address(void)
+S_make_clat46_address(uint8_t index)
 {
     struct in_addr	clat46_address;
 
-    /* CLAT46 IPv4 address: 192.0.0.2 */
-    clat46_address.s_addr = htonl(IN_SERVICE_CONTINUITY + 2);
+    /* CLAT46 IPv4 address: 192.0.0.<index> */
+    clat46_address.s_addr = htonl(IN_SERVICE_CONTINUITY + index);
     return (clat46_address);
 }
 
 STATIC struct in_addr
 S_get_clat46_router(void)
 {
-    struct in_addr	clat46_address;
-
     /* CLAT46 IPv4 address: 192.0.0.1 */
-    clat46_address.s_addr = htonl(IN_SERVICE_CONTINUITY + 1);
-    return (clat46_address);
+    return S_make_clat46_address(1);
 }
 
 STATIC void
@@ -418,12 +506,12 @@ insert_additional_routes(CFMutableDictionaryRef dict, struct in_addr addr)
 }
 
 STATIC CFDictionaryRef
-S_ipv4_clat46_dict_copy(CFStringRef ifname, bool include_subnet_mask)
+S_ipv4_clat46_dict_copy(CFStringRef ifname, uint8_t clat46_partial)
 {
     struct in_addr 		clat46_address;
     CFMutableDictionaryRef	ipv4_dict;
 
-    clat46_address = S_get_clat46_address();
+    clat46_address = S_make_clat46_address(clat46_partial);
     ipv4_dict = CFDictionaryCreateMutable(NULL, 0,
 					  &kCFTypeDictionaryKeyCallBacks,
 					  &kCFTypeDictionaryValueCallBacks);
@@ -431,19 +519,6 @@ S_ipv4_clat46_dict_copy(CFStringRef ifname, bool include_subnet_mask)
     my_CFDictionarySetIPAddressAsArrayValue(ipv4_dict,
 					    kSCPropNetIPv4Addresses,
 					    clat46_address);
-#ifdef _NOT_YET
-    /*
-     * This change fixes rdar://problem/51283924. Unfortunately, it causes
-     * a PHS client to encounter "destination host unreachable" errors
-     * when ping'ing IPv4 hosts.
-     */
-    if (include_subnet_mask) {
-	/* SubnetMasks 255.255.255.255 */
-	my_CFDictionarySetIPAddressAsArrayValue(ipv4_dict,
-						kSCPropNetIPv4SubnetMasks,
-						G_ip_broadcast);
-    }
-#endif
     /* Router */
     my_CFDictionarySetIPAddressAsString(ipv4_dict,
 					kSCPropNetIPv4Router,
@@ -462,25 +537,29 @@ S_ipv4_clat46_dict_copy(CFStringRef ifname, bool include_subnet_mask)
 }
 
 
-STATIC void
+STATIC boolean_t
 rtadv_set_clat46_address(ServiceRef service_p)
 {
     struct in_addr	addr;
     interface_t *	if_p = service_interface(service_p);
+    uint8_t		partial_addr = 0;
     int			ret = 0;
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
     int			s;
+    boolean_t		success = FALSE;
 
     if (service_clat46_is_active(service_p)) {
-	return;
+	return (TRUE);
     }
     s = inet_dgram_socket();
     if (s < 0) {
 	my_log(LOG_ERR, "socket failed, %s (%d)",
 	       strerror(errno), errno);
-	return;
+	goto done;
     }
     interface_set_noarp(if_name(if_p), TRUE);
-    addr = S_get_clat46_address();
+    partial_addr = S_clat46_address_allocate(if_name(if_p));
+    addr = S_make_clat46_address(partial_addr);
     ret = inet_aifaddr(s, if_name(if_p), addr, &G_ip_broadcast, &addr);
     if (ret == 0) {
 	uint64_t	eflags = 0;
@@ -492,6 +571,7 @@ rtadv_set_clat46_address(ServiceRef service_p)
 		   "RTADV %s: CLAT46 enabled using address " IP_FORMAT,
 		   if_name(if_p), IP_LIST(&addr));
 	    service_clat46_set_is_active(service_p, true);
+	    success = TRUE;
 	}
 	else {
 	    my_log(LOG_ERR,
@@ -508,15 +588,47 @@ rtadv_set_clat46_address(ServiceRef service_p)
 	       if_name(if_p), IP_LIST(&addr), strerror(ret), ret);
     }
     close(s);
+
+ done:
+    if (success) {
+	rtadv->clat46_partial = partial_addr;
+    }
+    else if (partial_addr != 0) {
+	S_clat46_address_release(if_name(if_p), partial_addr);
+    }
+    return (success);
+}
+
+STATIC void
+remove_all_clat46_addresses(int s, interface_t * if_p,
+			    uint8_t partial_addr)
+{
+    for (uint8_t i = CLAT46_ADDRESS_START; i <= CLAT46_ADDRESS_END; i++) {
+	struct in_addr	addr;
+
+	if (i == partial_addr) {
+	    /* skip it, we've already done it */
+	    continue;
+	}
+	addr = S_make_clat46_address(i);
+	if (inet_difaddr(s, if_name(if_p), addr) == 0) {
+	    my_log(LOG_NOTICE,
+		   "RTADV %s: removed CLAT46 address " IP_FORMAT,
+		   if_name(if_p), IP_LIST(&addr));
+	    flush_routes(if_link_index(if_p), G_ip_zeroes, addr);
+	}
+    }
     return;
 }
 
 STATIC void
-rtadv_remove_clat46_address_only(ServiceRef service_p)
+rtadv_remove_clat46_address_only(ServiceRef service_p, boolean_t all)
 {
     struct in_addr	addr;
     uint64_t		eflags = 0;
     interface_t *	if_p = service_interface(service_p);
+    uint8_t		partial_addr;
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
     int			s;
 
     s = inet_dgram_socket();
@@ -525,20 +637,33 @@ rtadv_remove_clat46_address_only(ServiceRef service_p)
 	       strerror(errno), errno);
 	return;
     }
+    /* re-enable ARP */
     interface_set_noarp(if_name(if_p), FALSE);
-    addr = S_get_clat46_address();
-    if (inet_difaddr(s, if_name(if_p), addr) == 0) {
-	my_log(LOG_NOTICE,
-	       "RTADV %s: removed CLAT46 address " IP_FORMAT,
-	       if_name(if_p), IP_LIST(&addr));
+
+    /* if we've assigned a CLAT46 IPv4 address, remove it now */
+    partial_addr = rtadv->clat46_partial;
+    if (partial_addr != 0) {
+	S_clat46_address_release(if_name(if_p), partial_addr);
+	rtadv->clat46_partial = 0;
+	addr = S_make_clat46_address(partial_addr);
+	if (inet_difaddr(s, if_name(if_p), addr) == 0) {
+	    my_log(LOG_NOTICE,
+		   "RTADV %s: removed CLAT46 address " IP_FORMAT,
+		   if_name(if_p), IP_LIST(&addr));
+	}
+	else {
+	    int	error = errno;
+
+	    my_log(LOG_NOTICE,
+		   "RTADV %s: remove CLAT46 address "
+		   IP_FORMAT " failed, %s (%d)",
+		   if_name(if_p), IP_LIST(&addr), strerror(error), error);
+	}
 	flush_routes(if_link_index(if_p), G_ip_zeroes, addr);
     }
-    else if (service_clat46_is_active(service_p)) {
-	int	error = errno;
-
-	my_log(LOG_NOTICE,
-	       "RTADV %s: remove CLAT46 address " IP_FORMAT " failed, %s (%d)",
-	       if_name(if_p), IP_LIST(&addr), strerror(error), error);
+    if (all) {
+	/* cleanup any addresses that could have been assigned previously */
+	remove_all_clat46_addresses(s, if_p, partial_addr);
     }
     (void)interface_get_eflags(s, if_name(if_p), &eflags);
     if ((eflags & IFEF_CLAT46) != 0) {
@@ -550,9 +675,9 @@ rtadv_remove_clat46_address_only(ServiceRef service_p)
 }
 
 STATIC void
-rtadv_remove_clat46_address(ServiceRef service_p)
+rtadv_remove_clat46_address(ServiceRef service_p, boolean_t all)
 {
-    rtadv_remove_clat46_address_only(service_p);
+    rtadv_remove_clat46_address_only(service_p, all);
     service_clat46_set_is_active(service_p, false);
 }
 
@@ -898,7 +1023,7 @@ rtadv_failed(ServiceRef service_p, ipconfig_status_t status)
     rtadv_cancel_pending_events(service_p);
     inet6_rtadv_disable(if_name(service_interface(service_p)));
     rtadv_set_nat64_prefixlist(service_p, NULL);
-    rtadv_remove_clat46_address_only(service_p);
+    rtadv_remove_clat46_address_only(service_p, FALSE);
     service_publish_failure(service_p, status);
     /* clear CLAT46 *after* unpublishing to ensure IPv4 gets cleared too */
     service_clat46_set_is_active(service_p, false);
@@ -1142,7 +1267,7 @@ rtadv_solicit(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	rtadv->success_report_submitted = FALSE;
 	rtadv->router_lifetime_zero = FALSE;
 	ServiceUnpublishCLAT46(service_p);
-	rtadv_remove_clat46_address(service_p);
+	rtadv_remove_clat46_address(service_p, TRUE);
 	rtadv_cancel_pending_events(service_p);
 	RTADVSocketEnableReceive(rtadv->sock,
 				 (RTADVSocketReceiveFuncPtr)rtadv_solicit,
@@ -1566,18 +1691,19 @@ rtadv_address_changed_common(ServiceRef service_p,
 	    if (remove_clat46) {
 		/* remove CLAT46 prefix and CLAT46 address */
 		rtadv_set_nat64_prefixlist(service_p, NULL);
-		rtadv_remove_clat46_address(service_p);
+		if (rtadv->clat46_partial != 0) {
+		    rtadv_remove_clat46_address(service_p, FALSE);
+		}
 	    }
 	    else if (set_clat46) {
 		CFStringRef	ifname;
-		boolean_t	is_point_to_point;
 
 		/* enable CLAT46 */
 		ifname = ServiceGetInterfaceName(service_p);
-		rtadv_set_clat46_address(service_p);
-		is_point_to_point = (if_flags(if_p) & IFF_POINTOPOINT) != 0;
-		info.ipv4_dict = S_ipv4_clat46_dict_copy(ifname,
-							 is_point_to_point);
+		if (rtadv_set_clat46_address(service_p)) {
+		    info.ipv4_dict
+			= S_ipv4_clat46_dict_copy(ifname, rtadv->clat46_partial);
+		}
 	    }
 	    router_p = RouterAdvertisementGetSourceIPAddress(rtadv->ra);
 	    router_count = 1;

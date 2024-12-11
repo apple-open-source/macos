@@ -33,6 +33,7 @@
 #include "WebExtensionMenuItemContextType.h"
 #include "WebExtensionMenuItemType.h"
 #include <wtf/Forward.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -67,7 +68,7 @@ struct WebExtensionMenuItemParameters;
 
 class WebExtensionMenuItem : public RefCounted<WebExtensionMenuItem>, public CanMakeWeakPtr<WebExtensionMenuItem> {
     WTF_MAKE_NONCOPYABLE(WebExtensionMenuItem);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WebExtensionMenuItem);
 
 public:
     template<typename... Args>
@@ -121,6 +122,8 @@ private:
 
     static String removeAmpersands(const String&);
 
+    void clearIconCache() const;
+
     enum class ForceUnchecked : bool { No, Yes };
     CocoaMenuItem *platformMenuItem(const WebExtensionMenuItemContextParameters&, ForceUnchecked = ForceUnchecked::No) const;
 
@@ -131,7 +134,15 @@ private:
     String m_title;
 
     RefPtr<WebExtensionCommand> m_command;
+
+    mutable RetainPtr<CocoaImage> m_cachedIcon;
+    mutable RetainPtr<NSSet> m_cachedIconScales;
+    mutable CGSize m_cachedIconIdealSize { CGSizeZero };
+
     RetainPtr<NSDictionary> m_icons;
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    RetainPtr<NSArray> m_iconVariants;
+#endif
 
     bool m_checked : 1 { false };
     bool m_enabled : 1 { true };

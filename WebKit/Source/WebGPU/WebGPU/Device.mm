@@ -46,6 +46,7 @@
 #import <algorithm>
 #import <notify.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/WeakPtr.h>
 
 namespace WebGPU {
@@ -124,6 +125,8 @@ bool GPUFrameCapture::enabled = false;
 int GPUFrameCapture::submitCallsCaptured = 0;
 int GPUFrameCapture::maxSubmitCallsToCapture = 1;
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Device);
+
 bool Device::shouldStopCaptureAfterSubmit()
 {
     return GPUFrameCapture::shouldStopCaptureAfterSubmit();
@@ -136,7 +139,7 @@ bool Device::isDestroyed() const
 
 Ref<Device> Device::create(id<MTLDevice> device, String&& deviceLabel, HardwareCapabilities&& capabilities, Adapter& adapter)
 {
-    id<MTLCommandQueue> commandQueue = [device newCommandQueueWithMaxCommandBufferCount:2048];
+    id<MTLCommandQueue> commandQueue = [device newCommandQueueWithMaxCommandBufferCount:4096];
     if (!commandQueue)
         return Device::createInvalid(adapter);
 
@@ -154,18 +157,20 @@ Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareC
     , m_defaultQueue(Queue::create(defaultQueue, *this))
     , m_capabilities(WTFMove(capabilities))
     , m_adapter(adapter)
+    , m_instance(adapter.weakInstance())
 {
 #if PLATFORM(MAC)
     auto devices = MTLCopyAllDevicesWithObserver(&m_deviceObserver, [weakThis = ThreadSafeWeakPtr { *this }](id<MTLDevice> device, MTLDeviceNotificationName) {
         RefPtr<Device> protectedThis = weakThis.get();
         if (!protectedThis)
             return;
-        auto& instance = protectedThis->instance();
-        instance.scheduleWork([protectedThis = WTFMove(protectedThis), device = device]() {
-            if (![protectedThis->m_device isEqual:device])
-                return;
-            protectedThis->loseTheDevice(WGPUDeviceLostReason_Undefined);
-        });
+        if (auto instance = protectedThis->instance(); instance.get()) {
+            instance->scheduleWork([protectedThis = WTFMove(protectedThis), device = device]() {
+                if (![protectedThis->m_device isEqual:device])
+                    return;
+                protectedThis->loseTheDevice(WGPUDeviceLostReason_Undefined);
+            });
+        }
     });
 
 #if ASSERT_ENABLED
@@ -197,7 +202,11 @@ Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareC
     desc.mipmapLevelCount = 1;
     desc.pixelFormat = MTLPixelFormatBGRA8Unorm;
     desc.textureType = MTLTextureType2D;
+#if PLATFORM(MAC)
+    desc.storageMode = hasUnifiedMemory() ? MTLStorageModeShared : MTLStorageModeManaged;
+#else
     desc.storageMode = MTLStorageModeShared;
+#endif
     desc.usage = MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget;
     m_placeholderTexture = [m_device newTextureWithDescriptor:desc];
     desc.pixelFormat = MTLPixelFormatDepth32Float_Stencil8;
@@ -208,6 +217,7 @@ Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, HardwareC
 Device::Device(Adapter& adapter)
     : m_defaultQueue(Queue::createInvalid(*this))
     , m_adapter(adapter)
+    , m_instance(adapter.weakInstance())
 {
     if (!m_adapter->isValid())
         makeInvalid();
@@ -222,6 +232,25 @@ Device::~Device()
         m_deviceLostCallback(WGPUDeviceLostReason_Destroyed, ""_s);
         m_deviceLostCallback = nullptr;
     }
+
+    if (m_uncapturedErrorCallback) {
+        m_uncapturedErrorCallback(WGPUErrorType_NoError, ""_s);
+        m_uncapturedErrorCallback = nullptr;
+    }
+}
+
+RefPtr<XRSubImage> Device::getXRViewSubImage(WGPUXREye eye)
+{
+    if (m_xrSubImages.size() < 2)
+        return nullptr;
+
+    return eye == WGPUXREye_Right ? m_xrSubImages[1] : m_xrSubImages[0];
+}
+
+void Device::makeInvalid()
+{
+    m_device = nil;
+    m_defaultQueue->makeInvalid();
 }
 
 void Device::loseTheDevice(WGPUDeviceLostReason reason)
@@ -229,8 +258,6 @@ void Device::loseTheDevice(WGPUDeviceLostReason reason)
     m_device = nil;
 
     m_adapter->makeInvalid();
-
-    makeInvalid();
 
     if (m_deviceLostCallback) {
         m_deviceLostCallback(reason, "Device lost."_s);
@@ -254,7 +281,7 @@ static void setOwnerWithIdentity(id<MTLResourceSPI> resource, auto webProcessID)
 
 void Device::setOwnerWithIdentity(id<MTLResource> resource) const
 {
-    if (auto optionalWebProcessID = instance().webProcessID()) {
+    if (auto optionalWebProcessID = webProcessID()) {
         auto webProcessID = optionalWebProcessID->sendRight();
         if (!webProcessID)
             return;
@@ -322,7 +349,6 @@ auto Device::currentErrorScope(WGPUErrorFilter type) -> ErrorScope*
 void Device::generateAValidationError(String&& message)
 {
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-generate-a-validation-error
-
     auto* scope = currentErrorScope(WGPUErrorFilter_Validation);
 
     if (scope) {
@@ -443,12 +469,15 @@ bool Device::popErrorScope(CompletionHandler<void(WGPUErrorType, String&&)>&& ca
 
     auto scope = m_errorScopeStack.takeLast();
 
-    instance().scheduleWork([scope = WTFMove(scope), callback = WTFMove(callback)]() mutable {
-        if (scope.error)
-            callback(scope.error->type, WTFMove(scope.error->message));
-        else
-            callback(WGPUErrorType_NoError, { });
-    });
+    if (auto inst = instance(); inst.get()) {
+        inst->scheduleWork([scope = WTFMove(scope), callback = WTFMove(callback)]() mutable {
+            if (scope.error)
+                callback(scope.error->type, WTFMove(scope.error->message));
+            else
+                callback(WGPUErrorType_NoError, { });
+        });
+    } else
+        callback(WGPUErrorType_NoError, { });
 
     // FIXME: Make sure this is the right thing to return.
     return true;
@@ -465,6 +494,9 @@ void Device::pushErrorScope(WGPUErrorFilter filter)
 
 void Device::setDeviceLostCallback(Function<void(WGPUDeviceLostReason, String&&)>&& callback)
 {
+    if (m_deviceLostCallback)
+        m_deviceLostCallback(WGPUDeviceLostReason_Destroyed, ""_s);
+
     m_deviceLostCallback = WTFMove(callback);
     if (m_isLost)
         loseTheDevice(WGPUDeviceLostReason_Destroyed);
@@ -479,6 +511,8 @@ bool Device::isValid() const
 
 void Device::setUncapturedErrorCallback(Function<void(WGPUErrorType, String&&)>&& callback)
 {
+    if (m_uncapturedErrorCallback)
+        m_uncapturedErrorCallback(WGPUErrorType_NoError, ""_s);
     m_uncapturedErrorCallback = WTFMove(callback);
 }
 
@@ -487,13 +521,21 @@ void Device::setLabel(String&&)
     // Because MTLDevices are process-global, we can't set the label on it, because 2 contexts' labels would fight each other.
 }
 
+const std::optional<const MachSendRight> Device::webProcessID() const
+{
+    auto scheduler = instance();
+    return scheduler ? scheduler->webProcessID() : std::nullopt;
+}
+
 id<MTLBuffer> Device::dispatchCallBuffer()
 {
     if (!m_device)
         return nil;
 
-    if (!m_dispatchCallBuffer)
+    if (!m_dispatchCallBuffer) {
         m_dispatchCallBuffer = [m_device newBufferWithLength:sizeof(MTLDispatchThreadgroupsIndirectArguments) options:MTLResourceStorageModePrivate];
+        setOwnerWithIdentity(m_dispatchCallBuffer);
+    }
     return m_dispatchCallBuffer;
 }
 
@@ -899,6 +941,11 @@ WGPUBindGroupLayout wgpuDeviceCreateBindGroupLayout(WGPUDevice device, const WGP
     return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createBindGroupLayout(*descriptor));
 }
 
+WGPUXRBinding wgpuDeviceCreateXRBinding(WGPUDevice device)
+{
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createXRBinding());
+}
+
 WGPUBuffer wgpuDeviceCreateBuffer(WGPUDevice device, const WGPUBufferDescriptor* descriptor)
 {
     return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createBuffer(*descriptor));
@@ -1029,6 +1076,15 @@ void wgpuDevicePopErrorScopeWithBlock(WGPUDevice device, WGPUErrorBlockCallback 
 void wgpuDevicePushErrorScope(WGPUDevice device, WGPUErrorFilter filter)
 {
     WebGPU::fromAPI(device).pushErrorScope(filter);
+}
+
+void wgpuDeviceClearDeviceLostCallback(WGPUDevice device)
+{
+    return WebGPU::fromAPI(device).setDeviceLostCallback(nullptr);
+}
+void wgpuDeviceClearUncapturedErrorCallback(WGPUDevice device)
+{
+    return WebGPU::fromAPI(device).setUncapturedErrorCallback(nullptr);
 }
 
 void wgpuDeviceSetDeviceLostCallback(WGPUDevice device, WGPUDeviceLostCallback callback, void* userdata)

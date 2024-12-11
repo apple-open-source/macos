@@ -39,6 +39,11 @@ WebNotificationManagerMessageHandler::WebNotificationManagerMessageHandler(WebPa
 {
 }
 
+Ref<WebPageProxy> WebNotificationManagerMessageHandler::protectedPage() const
+{
+    return m_webPageProxy.get();
+}
+
 void WebNotificationManagerMessageHandler::showNotification(IPC::Connection& connection, const WebCore::NotificationData& data, RefPtr<WebCore::NotificationResources>&& resources, CompletionHandler<void()>&& callback)
 {
     RELEASE_LOG(Push, "WebNotificationManagerMessageHandler showNotification called");
@@ -47,18 +52,18 @@ void WebNotificationManagerMessageHandler::showNotification(IPC::Connection& con
         ServiceWorkerNotificationHandler::singleton().showNotification(connection, data, WTFMove(resources), WTFMove(callback));
         return;
     }
-    m_webPageProxy.showNotification(connection, data, WTFMove(resources));
+    protectedPage()->showNotification(connection, data, WTFMove(resources));
     callback();
 }
 
-void WebNotificationManagerMessageHandler::cancelNotification(const WTF::UUID& notificationID)
+void WebNotificationManagerMessageHandler::cancelNotification(WebCore::SecurityOriginData&& origin, const WTF::UUID& notificationID)
 {
     auto& serviceWorkerNotificationHandler = ServiceWorkerNotificationHandler::singleton();
     if (serviceWorkerNotificationHandler.handlesNotification(notificationID)) {
-        serviceWorkerNotificationHandler.cancelNotification(notificationID);
+        serviceWorkerNotificationHandler.cancelNotification(WTFMove(origin), notificationID);
         return;
     }
-    m_webPageProxy.cancelNotification(notificationID);
+    protectedPage()->cancelNotification(notificationID);
 }
 
 void WebNotificationManagerMessageHandler::clearNotifications(const Vector<WTF::UUID>& notificationIDs)
@@ -78,7 +83,7 @@ void WebNotificationManagerMessageHandler::clearNotifications(const Vector<WTF::
     if (!persistentNotifications.isEmpty())
         serviceWorkerNotificationHandler.clearNotifications(persistentNotifications);
     if (!pageNotifications.isEmpty())
-        m_webPageProxy.clearNotifications(pageNotifications);
+        protectedPage()->clearNotifications(pageNotifications);
 }
 
 void WebNotificationManagerMessageHandler::didDestroyNotification(const WTF::UUID& notificationID)
@@ -88,12 +93,27 @@ void WebNotificationManagerMessageHandler::didDestroyNotification(const WTF::UUI
         serviceWorkerNotificationHandler.didDestroyNotification(notificationID);
         return;
     }
-    m_webPageProxy.didDestroyNotification(notificationID);
+    protectedPage()->didDestroyNotification(notificationID);
 }
 
 void WebNotificationManagerMessageHandler::pageWasNotifiedOfNotificationPermission()
 {
-    m_webPageProxy.pageWillLikelyUseNotifications();
+    protectedPage()->pageWillLikelyUseNotifications();
+}
+
+void WebNotificationManagerMessageHandler::requestPermission(WebCore::SecurityOriginData&&, CompletionHandler<void(bool)>&&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+void WebNotificationManagerMessageHandler::getPermissionState(WebCore::SecurityOriginData&&, CompletionHandler<void(WebCore::PushPermissionState)>&&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+void WebNotificationManagerMessageHandler::getPermissionStateSync(WebCore::SecurityOriginData&&, CompletionHandler<void(WebCore::PushPermissionState)>&&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 } // namespace WebKit

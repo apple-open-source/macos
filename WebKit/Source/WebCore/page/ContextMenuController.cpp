@@ -82,6 +82,7 @@
 #include "WindowFeatures.h"
 #include "markup.h"
 #include <wtf/SetForScope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/WallTime.h>
 #include <wtf/unicode/CharacterNames.h>
 
@@ -98,6 +99,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ContextMenuController);
 
 using namespace WTF::Unicode;
 
@@ -406,7 +409,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
     case ContextMenuItemTagCopy:
         frame->checkedEditor()->copy();
         break;
-    case ContextMenuItemTagCopyLinkToHighlight:
+    case ContextMenuItemTagCopyLinkWithHighlight:
         if (Page* page = frame->page()) {
             auto url = page->fragmentDirectiveURLForSelectedText();
             if (url.isValid())
@@ -970,7 +973,7 @@ void ContextMenuController::populate()
     ContextMenuItem AddHighlightItem(ContextMenuItemType::Action, ContextMenuItemTagAddHighlightToCurrentQuickNote, contextMenuItemTagAddHighlightToCurrentQuickNote());
     ContextMenuItem AddHighlightToNewQuickNoteItem(ContextMenuItemType::Action, ContextMenuItemTagAddHighlightToNewQuickNote, contextMenuItemTagAddHighlightToNewQuickNote());
 #endif
-    ContextMenuItem CopyLinkToHighlightItem(ContextMenuItemType::Action, ContextMenuItemTagCopyLinkToHighlight, contextMenuItemTagCopyLinkToHighlight());
+    ContextMenuItem CopyLinkWithHighlightItem(ContextMenuItemType::Action, ContextMenuItemTagCopyLinkWithHighlight, contextMenuItemTagCopyLinkWithHighlight());
 #if !PLATFORM(GTK)
     ContextMenuItem SearchWebItem(ContextMenuItemType::Action, ContextMenuItemTagSearchWeb, contextMenuItemTagSearchWeb());
 #endif
@@ -1168,7 +1171,7 @@ void ContextMenuController::populate()
 
                 appendItem(CopyItem, m_contextMenu.get());
                 if (!selectionIsInsideImageOverlay && isMainFrame && page && page->settings().scrollToTextFragmentGenerationEnabled())
-                    appendItem(CopyLinkToHighlightItem, m_contextMenu.get());
+                    appendItem(CopyLinkWithHighlightItem, m_contextMenu.get());
 #if PLATFORM(COCOA)
                 appendItem(*separatorItem(), m_contextMenu.get());
 
@@ -1205,10 +1208,10 @@ void ContextMenuController::populate()
 #else
 
                 if (isMainFrame) {
-                    if (page && page->backForward().canGoBackOrForward(-1))
+                    if (page && page->checkedBackForward()->canGoBackOrForward(-1))
                         appendItem(BackItem, m_contextMenu.get());
 
-                    if (page && page->backForward().canGoBackOrForward(1))
+                    if (page && page->checkedBackForward()->canGoBackOrForward(1))
                         appendItem(ForwardItem, m_contextMenu.get());
 
                     // Here we use isLoadingInAPISense rather than isLoading because Stop/Reload are
@@ -1455,10 +1458,15 @@ void ContextMenuController::addDebuggingItems()
 #endif // ENABLE(VIDEO)
 }
 
-bool ContextMenuController::shouldEnableCopyLinkToHighlight() const
+bool ContextMenuController::shouldEnableCopyLinkWithHighlight() const
 {
-    RefPtr frame = m_context.hitTestResult().innerNonSharedNode()->document().frame();
+    Ref document = m_context.hitTestResult().innerNonSharedNode()->document();
+    RefPtr frame = document->frame();
     if (!frame)
+        return false;
+
+    auto url = document->url();
+    if (!url.isValid() || !url.protocolIsInHTTPFamily())
         return false;
 
     auto selectedRange = frame->selection().selection().range();
@@ -1530,8 +1538,8 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagPaste:
             shouldEnable = frame->editor().canDHTMLPaste() || frame->editor().canEdit();
             break;
-        case ContextMenuItemTagCopyLinkToHighlight:
-            shouldEnable = shouldEnableCopyLinkToHighlight();
+        case ContextMenuItemTagCopyLinkWithHighlight:
+            shouldEnable = shouldEnableCopyLinkWithHighlight();
             break;
 #if PLATFORM(GTK)
         case ContextMenuItemTagPasteAsPlainText:
@@ -1649,10 +1657,10 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
 #endif
 #if PLATFORM(GTK)
         case ContextMenuItemTagGoBack:
-            shouldEnable = frame->page() && frame->page()->backForward().canGoBackOrForward(-1);
+            shouldEnable = frame->page() && frame->page()->checkedBackForward()->canGoBackOrForward(-1);
             break;
         case ContextMenuItemTagGoForward:
-            shouldEnable = frame->page() && frame->page()->backForward().canGoBackOrForward(1);
+            shouldEnable = frame->page() && frame->page()->checkedBackForward()->canGoBackOrForward(1);
             break;
         case ContextMenuItemTagStop:
             shouldEnable = frame->loader().documentLoader()->isLoadingInAPISense();

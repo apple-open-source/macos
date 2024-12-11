@@ -33,6 +33,7 @@
 #include "PlatformImage.h"
 #include "PlatformLayer.h"
 #include "PlaybackSessionInterfaceIOS.h"
+#include "SpatialVideoMetadata.h"
 #include "VideoFullscreenCaptions.h"
 #include "VideoPresentationModel.h"
 #include <objc/objc.h>
@@ -41,6 +42,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 
 OBJC_CLASS AVPlayerViewController;
@@ -65,7 +67,7 @@ class VideoPresentationInterfaceIOS
     , public VideoFullscreenCaptions
     , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<VideoPresentationInterfaceIOS, WTF::DestructionThread::MainRunLoop>
     , public CanMakeCheckedPtr<VideoPresentationInterfaceIOS> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(VideoPresentationInterfaceIOS, WEBCORE_EXPORT);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(VideoPresentationInterfaceIOS);
 public:
     WEBCORE_EXPORT ~VideoPresentationInterfaceIOS();
@@ -81,6 +83,7 @@ public:
     PlaybackSessionModel* playbackSessionModel() const { return m_playbackSessionInterface->playbackSessionModel(); }
     WEBCORE_EXPORT virtual void hasVideoChanged(bool) = 0;
     WEBCORE_EXPORT void videoDimensionsChanged(const FloatSize&);
+    virtual void setSpatialImmersive(bool) { }
     WEBCORE_EXPORT virtual void setPlayerIdentifier(std::optional<MediaPlayerIdentifier>);
     WEBCORE_EXPORT virtual void setupFullscreen(UIView& videoView, const FloatRect& initialRect, const FloatSize& videoDimensions, UIView* parentView, HTMLMediaElementEnums::VideoFullscreenMode, bool allowsPictureInPicturePlayback, bool standby, bool blocksReturnToFullscreenFromPictureInPicture);
     WEBCORE_EXPORT virtual void externalPlaybackChanged(bool enabled, PlaybackSessionModel::ExternalPlaybackTargetType, const String& localizedDeviceName);

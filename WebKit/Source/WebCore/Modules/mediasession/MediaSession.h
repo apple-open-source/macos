@@ -30,12 +30,14 @@
 #include "ActiveDOMObject.h"
 #include "ExceptionOr.h"
 #include "MediaPositionState.h"
+#include "MediaProducer.h"
 #include "MediaSessionAction.h"
 #include "MediaSessionActionHandler.h"
 #include "MediaSessionPlaybackState.h"
 #include "MediaSessionReadyState.h"
 #include <wtf/Logger.h>
 #include <wtf/MonotonicTime.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/WeakPtr.h>
@@ -75,7 +77,7 @@ public:
 };
 
 class MediaSession : public RefCounted<MediaSession>, public ActiveDOMObject, public CanMakeWeakPtr<MediaSession> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(MediaSession);
 public:
     static Ref<MediaSession> create(Navigator&);
     ~MediaSession();
@@ -86,12 +88,12 @@ public:
 
     MediaMetadata* metadata() const { return m_metadata.get(); };
     void setMetadata(RefPtr<MediaMetadata>&&);
-    void metadataUpdated();
+    void metadataUpdated(const MediaMetadata&);
 
     MediaSessionPlaybackState playbackState() const { return m_playbackState; };
     void setPlaybackState(MediaSessionPlaybackState);
 
-    void setActionHandler(MediaSessionAction, RefPtr<MediaSessionActionHandler>&&);
+    ExceptionOr<void> setActionHandler(MediaSessionAction, RefPtr<MediaSessionActionHandler>&&);
 
     void callActionHandler(const MediaSessionActionDetails&, DOMPromiseDeferred<void>&&);
 
@@ -130,12 +132,19 @@ public:
     const Logger& logger() const { return *m_logger.get(); }
 #endif
 
+    bool hasObserver(MediaSessionObserver&) const;
     void addObserver(MediaSessionObserver&);
     void removeObserver(MediaSessionObserver&);
 
     RefPtr<HTMLMediaElement> activeMediaElement() const;
 
     void updateNowPlayingInfo(NowPlayingInfo&);
+
+#if ENABLE(MEDIA_STREAM)
+    void setMicrophoneActive(bool isActive, DOMPromiseDeferred<void>&& promise) { updateCaptureState(isActive, WTFMove(promise), MediaProducerMediaCaptureKind::Microphone); }
+    void setCameraActive(bool isActive, DOMPromiseDeferred<void>&& promise) { updateCaptureState(isActive, WTFMove(promise), MediaProducerMediaCaptureKind::Camera); }
+    void setScreenshareActive(bool isActive, DOMPromiseDeferred<void>&& promise) { updateCaptureState(isActive, WTFMove(promise), MediaProducerMediaCaptureKind::Display); }
+#endif
 
 private:
     explicit MediaSession(Navigator&);
@@ -145,11 +154,15 @@ private:
     void updateReportedPosition();
 
     void forEachObserver(const Function<void(MediaSessionObserver&)>&);
-    void notifyMetadataObservers();
+    void notifyMetadataObservers(const RefPtr<MediaMetadata>&);
     void notifyPositionStateObservers();
     void notifyPlaybackStateObservers();
     void notifyActionHandlerObservers();
     void notifyReadyStateObservers();
+
+#if ENABLE(MEDIA_STREAM)
+    void updateCaptureState(bool, DOMPromiseDeferred<void>&&, MediaProducerMediaCaptureKind);
+#endif
 
     // ActiveDOMObject.
     void suspend(ReasonForSuspension) final;
@@ -158,6 +171,7 @@ private:
 
     WeakPtr<Navigator> m_navigator;
     RefPtr<MediaMetadata> m_metadata;
+    RefPtr<MediaMetadata> m_defaultMetadata;
     MediaSessionPlaybackState m_playbackState { MediaSessionPlaybackState::None };
     std::optional<MediaPositionState> m_positionState;
     std::optional<double> m_lastReportedPosition;
@@ -177,6 +191,7 @@ private:
     Vector<Ref<MediaMetadata>> m_playlist;
 #endif
     mutable Lock m_actionHandlersLock;
+    mutable bool m_defaultArtworkAttempted { false };
 };
 
 String convertEnumerationToString(MediaSessionPlaybackState);

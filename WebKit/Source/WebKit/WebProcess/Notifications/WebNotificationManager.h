@@ -34,12 +34,14 @@
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UUID.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
 class SecurityOrigin;
+class SecurityOriginData;
 
 struct NotificationData;
 }
@@ -50,7 +52,7 @@ class WebPage;
 class WebProcess;
 
 class WebNotificationManager : public WebProcessSupplement, public IPC::MessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WebNotificationManager);
     WTF_MAKE_NONCOPYABLE(WebNotificationManager);
 public:
     explicit WebNotificationManager(WebProcess&);
@@ -60,6 +62,8 @@ public:
     
     bool show(WebCore::NotificationData&&, RefPtr<WebCore::NotificationResources>&&, WebPage*, CompletionHandler<void()>&&);
     void cancel(WebCore::NotificationData&&, WebPage*);
+
+    void requestPermission(WebCore::SecurityOriginData&&, RefPtr<WebPage>, CompletionHandler<void(bool)>&&);
 
     // This callback comes from WebCore, not messaged from the UI process.
     void didDestroyNotification(WebCore::NotificationData&&, WebPage*);

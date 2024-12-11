@@ -35,18 +35,22 @@
 #import "IsValidToUseWith.h"
 #import "Pipeline.h"
 #import "QuerySet.h"
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebGPU {
 
 #define RETURN_IF_FINISHED() \
 if (!m_parentEncoder->isLocked() || m_parentEncoder->isFinished()) { \
     m_device->generateAValidationError([NSString stringWithFormat:@"%s: failed as encoding has finished", __PRETTY_FUNCTION__]); \
+    m_computeCommandEncoder = nil; \
     return; \
 } \
 if (!m_computeCommandEncoder || !m_parentEncoder->isValid() || !m_parentEncoder->encoderIsCurrent(m_computeCommandEncoder)) { \
     m_computeCommandEncoder = nil; \
     return; \
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ComputePassEncoder);
 
 ComputePassEncoder::ComputePassEncoder(id<MTLComputeCommandEncoder> computeCommandEncoder, const WGPUComputePassDescriptor&, CommandEncoder& parentEncoder, Device& device)
     : m_computeCommandEncoder(computeCommandEncoder)
@@ -67,7 +71,7 @@ ComputePassEncoder::ComputePassEncoder(CommandEncoder& parentEncoder, Device& de
 ComputePassEncoder::~ComputePassEncoder()
 {
     if (m_computeCommandEncoder)
-        m_parentEncoder->endEncoding(m_computeCommandEncoder);
+        m_parentEncoder->makeInvalid(@"GPUComputePassEncoder.finish was never called");
     m_computeCommandEncoder = nil;
 }
 
@@ -230,7 +234,7 @@ void ComputePassEncoder::executePreDispatchCommands(const Buffer* indirectBuffer
         if (pcomputeOffsets && pcomputeOffsets->size()) {
             auto& computeOffsets = *pcomputeOffsets;
             auto startIndex = pipelineLayout.computeOffsetForBindGroup(bindGroupIndex);
-            memcpySpan(m_computeDynamicOffsets.mutableSpan().subspan(startIndex, computeOffsets.size()), computeOffsets.span());
+            memcpySpan(m_computeDynamicOffsets.mutableSpan().subspan(startIndex), computeOffsets.span());
         }
     }
 
@@ -292,7 +296,8 @@ void ComputePassEncoder::dispatchIndirect(const Buffer& indirectBuffer, uint64_t
         return;
     }
 
-    if ((indirectOffset % 4) || !(indirectBuffer.usage() & WGPUBufferUsage_Indirect) || (indirectOffset + 3 * sizeof(uint32_t) > indirectBuffer.initialSize())) {
+    auto indirectOffsetSum = checkedSum<uint64_t>(indirectOffset, 3 * sizeof(uint32_t));
+    if ((indirectOffset % 4) || !(indirectBuffer.usage() & WGPUBufferUsage_Indirect) || indirectOffsetSum.hasOverflowed() || (indirectOffsetSum.value() > indirectBuffer.initialSize())) {
         makeInvalid();
         return;
     }
@@ -433,6 +438,8 @@ void ComputePassEncoder::setBindGroup(uint32_t groupIndex, const BindGroup& grou
 
     if (dynamicOffsetCount)
         m_bindGroupDynamicOffsets.set(groupIndex, Vector<uint32_t>(std::span { dynamicOffsets, dynamicOffsetCount }));
+    else
+        m_bindGroupDynamicOffsets.remove(groupIndex);
 
     Vector<const BindableResources*> resourceList;
     for (const auto& resource : group.resources()) {

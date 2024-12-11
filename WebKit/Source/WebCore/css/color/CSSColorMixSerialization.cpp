@@ -23,8 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
 #include "config.h"
 #include "CSSColorMixSerialization.h"
 
@@ -37,9 +35,69 @@
 
 namespace WebCore {
 
+bool isCalc(const CSSUnresolvedColorMix::Component::Percentage& percentage)
+{
+    return std::holds_alternative<UnevaluatedCalc<PercentageRaw>>(percentage);
+}
+
+bool is50Percent(const CSSUnresolvedColorMix::Component::Percentage& percentage)
+{
+    return WTF::switchOn(percentage,
+        [](const PercentageRaw& raw) { return raw.value == 50.0; },
+        [](const UnevaluatedCalc<PercentageRaw>&) { return false; }
+    );
+}
+
+bool is50Percent(const StyleColorMix::Component::Percentage& percentage)
+{
+    return percentage.value == 50.0;
+}
+
+bool sumTo100Percent(const CSSUnresolvedColorMix::Component::Percentage& a, const CSSUnresolvedColorMix::Component::Percentage& b)
+{
+    auto visitor = WTF::makeVisitor(
+        [](const PercentageRaw& a, const PercentageRaw& b) {
+            return a.value + b.value == 100.0;
+        },
+        [](const PercentageRaw&, const UnevaluatedCalc<PercentageRaw>&) {
+            return false;
+        },
+        [](const UnevaluatedCalc<PercentageRaw>&, const PercentageRaw&) {
+            return false;
+        },
+        [](const UnevaluatedCalc<PercentageRaw>&, const UnevaluatedCalc<PercentageRaw>&) {
+            return false;
+        }
+    );
+
+    return std::visit(visitor, a, b);
+}
+
+bool sumTo100Percent(const StyleColorMix::Component::Percentage& a, const StyleColorMix::Component::Percentage& b)
+{
+    return a.value + b.value == 100.0;
+}
+
+std::optional<PercentageRaw> subtractFrom100Percent(const CSSUnresolvedColorMix::Component::Percentage& percentage)
+{
+    return WTF::switchOn(percentage,
+        [&](const PercentageRaw& raw) -> std::optional<PercentageRaw> {
+            return PercentageRaw { 100.0 - raw.value };
+        },
+        [&](const UnevaluatedCalc<PercentageRaw>&) -> std::optional<PercentageRaw> {
+            return std::nullopt;
+        }
+    );
+}
+
+std::optional<PercentageRaw> subtractFrom100Percent(const StyleColorMix::Component::Percentage& percentage)
+{
+    return PercentageRaw { 100.0 - percentage.value };
+}
+
 void serializeColorMixColor(StringBuilder& builder, const CSSUnresolvedColorMix::Component& component)
 {
-    component.color->serializationForCSS(builder);
+    serializationForCSS(builder, component.color);
 }
 
 void serializeColorMixColor(StringBuilder& builder, const StyleColorMix::Component& component)
@@ -55,21 +113,6 @@ void serializeColorMixPercentage(StringBuilder& builder, const CSSUnresolvedColo
 void serializeColorMixPercentage(StringBuilder& builder, const StyleColorMix::Component::Percentage& percentage)
 {
     serializationForCSS(builder, percentage);
-}
-
-void serializeColorMixPercentage(StringBuilder& builder, double percentage)
-{
-    serializationForCSS(builder, PercentRaw { percentage });
-}
-
-double percentageDoubleValue(const CSSUnresolvedColorMix::Component::Percentage& percentage)
-{
-    return resolveComponentPercentage(percentage).value;
-}
-
-double percentageDoubleValue(const StyleColorMix::Component::Percentage& percentage)
-{
-    return percentage.value;
 }
 
 } // namespace WebCore

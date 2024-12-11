@@ -8255,9 +8255,33 @@ void
 _dispatch_main_queue_push(dispatch_queue_main_t dq, dispatch_object_t dou,
 		dispatch_qos_t qos)
 {
-	// Same as _dispatch_lane_push() but without the refcounting due to being
-	// a global object
-	if (_dispatch_queue_push_item(dq, dou)) {
+	// Similar to _dispatch_lane_push() but without the refcounting due to being
+	// a global object, and with extra wakeups to avoid priority inversions
+	// when low priority threads win the race to enqueue but are preempted
+	// before issuing the wakeup
+	dispatch_qos_t self = _dispatch_qos_from_pp(_dispatch_get_priority());
+	void *tl = os_mpsc_push_item_with_qos(os_mpsc(dq->_as_dl, dq_items),dou._do,
+			do_next, self);
+	if (tl == NULL) {
+		// Our thread is the first to enqueue a block
+		return dx_wakeup(dq, qos, DISPATCH_WAKEUP_MAKE_DIRTY);
+	} else if ((_dispatch_qos_from_ptr(tl) < self) &&
+			_dispatch_queue_is_thread_bound(dq)) {
+		// rdar://131634114 - the previous enqueuer was a lower qos class than
+		// us, so it may have been preempted before issuing the wakeup syscall.
+		// To avoid a priority inversion, issue an extra wakeup. Note that we
+		// only do this for runloops, since that's where hangs are most
+		// visible, making the extra syscalls worthwhile
+		//
+		// We set the dirty bit here to protect against a race in which a low
+		// priority thread updates the tail pointer, but is preempted before
+		// calling dx_wakeup. If we (the high priority thread) call dx_wakeup
+		// without the dirty bit, we may race with the main thread calling
+		// thread_exit in dispatch_main, similar to the deadlock scenario in
+		// rdar://81886582. In this case we won't deadlock, but the work we
+		// submit won't be processed until the preempted low priority thread
+		// gets to run and issue the lane_wakeup, and we want to avoid that
+		// priority inversion
 		return dx_wakeup(dq, qos, DISPATCH_WAKEUP_MAKE_DIRTY);
 	}
 

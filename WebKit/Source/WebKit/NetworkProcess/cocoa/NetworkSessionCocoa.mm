@@ -66,6 +66,7 @@
 #import <wtf/ObjCRuntimeExtras.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/URL.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
@@ -113,8 +114,8 @@ SOFT_LINK_OPTIONAL(libnetwork, nw_proxy_config_stack_requires_http_protocols, bo
 
 using namespace WebKit;
 
-CFStringRef const WebKit2HTTPProxyDefaultsKey = static_cast<CFStringRef>(@"WebKit2HTTPProxy");
-CFStringRef const WebKit2HTTPSProxyDefaultsKey = static_cast<CFStringRef>(@"WebKit2HTTPSProxy");
+WTF_MAKE_TZONE_ALLOCATED_IMPL(IsolatedSession);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(NetworkSessionCocoa);
 
 constexpr unsigned maxNumberOfIsolatedSessions { 10 };
 
@@ -728,8 +729,8 @@ static inline void processServerTrustEvaluation(NetworkSessionCocoa& session, Se
     if (!_sessionWrapper)
         return nullptr;
 
-    if (auto downloadID = _sessionWrapper->downloadMap.get(task.taskIdentifier)) {
-        if (auto download = _session->networkProcess().downloadManager().download(downloadID))
+    if (auto downloadID = _sessionWrapper->downloadMap.getOptional(task.taskIdentifier)) {
+        if (auto download = _session->networkProcess().downloadManager().download(*downloadID))
             return static_cast<NetworkSessionCocoa*>(_session->networkProcess().networkSession(download->sessionID()));
         return nullptr;
     }
@@ -922,12 +923,12 @@ static NSDictionary<NSString *, id> *extractResolutionReport(NSError *error)
     } else if (error) {
         if (!_sessionWrapper)
             return;
-        auto downloadID = _sessionWrapper->downloadMap.take(task.taskIdentifier);
+        auto downloadID = _sessionWrapper->downloadMap.takeOptional(task.taskIdentifier);
         if (!downloadID)
             return;
         if (!_session)
             return;
-        auto* download = _session->networkProcess().downloadManager().download(downloadID);
+        auto* download = _session->networkProcess().downloadManager().download(*downloadID);
         if (!download)
             return;
 
@@ -1144,12 +1145,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     if (!_sessionWrapper)
         return;
-    auto downloadID = _sessionWrapper->downloadMap.take([downloadTask taskIdentifier]);
+    auto downloadID = _sessionWrapper->downloadMap.takeOptional([downloadTask taskIdentifier]);
     if (!downloadID)
         return;
     if (!_session)
         return;
-    auto* download = _session->networkProcess().downloadManager().download(downloadID);
+    auto* download = _session->networkProcess().downloadManager().download(*downloadID);
     if (!download)
         return;
     download->didFinish();
@@ -1161,12 +1162,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (!_sessionWrapper)
         return;
-    auto downloadID = _sessionWrapper->downloadMap.get([downloadTask taskIdentifier]);
+    auto downloadID = _sessionWrapper->downloadMap.getOptional([downloadTask taskIdentifier]);
     if (!downloadID)
         return;
     if (!_session)
         return;
-    auto* download = _session->networkProcess().downloadManager().download(downloadID);
+    auto* download = _session->networkProcess().downloadManager().download(*downloadID);
     if (!download)
         return;
     download->didReceiveData(bytesWritten, totalBytesWritten, totalBytesExpectedToWrite);
@@ -1182,7 +1183,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return;
 
     Ref<NetworkDataTaskCocoa> protectedNetworkDataTask(*networkDataTask);
-    auto downloadID = networkDataTask->pendingDownloadID();
+    auto downloadID = *networkDataTask->pendingDownloadID();
     auto& downloadManager = sessionCocoa->networkProcess().downloadManager();
     auto download = makeUnique<WebKit::Download>(downloadManager, downloadID, downloadTask, *sessionCocoa, networkDataTask->suggestedFilename());
     networkDataTask->transferSandboxExtensionToDownload(*download);
@@ -1837,9 +1838,8 @@ void NetworkSessionCocoa::continueDidReceiveChallenge(SessionWrapper& sessionWra
             networkProcess().authenticationManager().didReceiveAuthenticationChallenge(sessionID(), webSocketTask->webProxyPageID(), !webSocketTask->topOrigin().isNull() ? &webSocketTask->topOrigin() : nullptr, challenge, negotiatedLegacyTLS, WTFMove(challengeCompletionHandler));
             return;
         }
-        auto downloadID = sessionWrapper.downloadMap.get(taskIdentifier);
-        if (downloadID) {
-            if (auto* download = networkProcess().downloadManager().download(downloadID)) {
+        if (auto downloadID = sessionWrapper.downloadMap.getOptional(taskIdentifier)) {
+            if (auto* download = networkProcess().downloadManager().download(*downloadID)) {
                 WebCore::AuthenticationChallenge authenticationChallenge { challenge };
                 // Received an authentication challenge for a download being resumed.
                 download->didReceiveChallenge(authenticationChallenge, WTFMove(completionHandler));
@@ -1964,7 +1964,7 @@ void NetworkSessionCocoa::addWebPageNetworkParameters(WebPageProxyIdentifier pag
 // Make NetworkLoad's redirection and challenge handling code pass everything to the NetworkLoadClient
 // and use NetworkLoad and a new NetworkLoadClient instead of BlobDataTaskClient and WKURLSessionTaskDelegate.
 class NetworkSessionCocoa::BlobDataTaskClient final : public NetworkDataTaskClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(NetworkSessionCocoa::BlobDataTaskClient);
 public:
     BlobDataTaskClient(WebCore::ResourceRequest&& request, const std::optional<WebCore::SecurityOriginData>& topOrigin, NetworkSessionCocoa& session, IPC::Connection* connection, DataTaskIdentifier identifier)
         : m_task(NetworkDataTaskBlob::create(session, *this, request, session.blobRegistry().filesInBlob(request.url(), topOrigin), topOrigin ? topOrigin->securityOrigin().ptr() : nullptr))
@@ -2015,6 +2015,8 @@ private:
     WeakPtr<NetworkSessionCocoa> m_session;
     const DataTaskIdentifier m_identifier;
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(NetworkSessionCocoaBlobDataTaskClient, NetworkSessionCocoa::BlobDataTaskClient);
 
 void NetworkSessionCocoa::loadImageForDecoding(WebCore::ResourceRequest&& request, WebPageProxyIdentifier pageID, size_t maximumBytesFromNetwork, CompletionHandler<void(std::variant<WebCore::ResourceError, Ref<WebCore::FragmentedSharedBuffer>>&&)>&& completionHandler)
 {

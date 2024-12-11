@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,8 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #import "CocoaHelpers.h"
+#import "WKWebExtensionControllerDelegatePrivate.h"
+#import "WKWebExtensionTabConfigurationInternal.h"
 #import "WKWebViewInternal.h"
 #import "WKWebViewPrivate.h"
 #import "WebExtensionContextProxy.h"
@@ -43,8 +45,6 @@
 #import "WebExtensionUtilities.h"
 #import "WebExtensionWindowIdentifier.h"
 #import "WebPageProxy.h"
-#import "_WKWebExtensionControllerDelegatePrivate.h"
-#import "_WKWebExtensionTabCreationOptionsInternal.h"
 #import <WebCore/ImageBufferUtilitiesCG.h>
 #import <wtf/CallbackAggregator.h>
 
@@ -64,17 +64,17 @@ void WebExtensionContext::tabsCreate(std::optional<WebPageProxyIdentifier> webPa
     static NSString * const apiName = @"tabs.create()";
 
     auto delegate = extensionController()->delegate();
-    if (![delegate respondsToSelector:@selector(webExtensionController:openNewTabWithOptions:forExtensionContext:completionHandler:)]) {
+    if (![delegate respondsToSelector:@selector(webExtensionController:openNewTabUsingConfiguration:forExtensionContext:completionHandler:)]) {
         completionHandler(toWebExtensionError(apiName, nil, @"it is not implemented"));
         return;
     }
 
-    auto *creationOptions = [[_WKWebExtensionTabCreationOptions alloc] _init];
-    creationOptions.shouldActivate = parameters.active.value_or(true);
-    creationOptions.shouldSelect = creationOptions.shouldActivate ?: parameters.selected.value_or(false);
-    creationOptions.shouldPin = parameters.pinned.value_or(false);
-    creationOptions.shouldMute = parameters.muted.value_or(false);
-    creationOptions.shouldShowReaderMode = parameters.showingReaderMode.value_or(false);
+    auto *configuration = [[WKWebExtensionTabConfiguration alloc] _init];
+    configuration.shouldBeActive = parameters.active.value_or(true);
+    configuration.shouldAddToSelection = configuration.shouldBeActive ?: parameters.selected.value_or(false);
+    configuration.shouldBePinned = parameters.pinned.value_or(false);
+    configuration.shouldBeMuted = parameters.muted.value_or(false);
+    configuration.shouldReaderModeBeActive = parameters.showingReaderMode.value_or(false);
 
     RefPtr window = getWindow(parameters.windowIdentifier.value_or(WebExtensionWindowConstants::CurrentIdentifier), webPageProxyIdentifier);
     if (parameters.windowIdentifier && !window) {
@@ -82,8 +82,8 @@ void WebExtensionContext::tabsCreate(std::optional<WebPageProxyIdentifier> webPa
         return;
     }
 
-    creationOptions.desiredWindow = window ? window->delegate() : nil;
-    creationOptions.desiredIndex = parameters.index.value_or(window ? window->tabs().size() : 0);
+    configuration.window = window ? window->delegate() : nil;
+    configuration.index = parameters.index.value_or(window ? window->tabs().size() : 0);
 
     if (parameters.parentTabIdentifier) {
         RefPtr tab = getTab(parameters.parentTabIdentifier.value());
@@ -92,13 +92,13 @@ void WebExtensionContext::tabsCreate(std::optional<WebPageProxyIdentifier> webPa
             return;
         }
 
-        creationOptions.desiredParentTab = tab->delegate();
+        configuration.parentTab = tab->delegate();
     }
 
     if (parameters.url)
-        creationOptions.desiredURL = parameters.url.value();
+        configuration.url = parameters.url.value();
 
-    [delegate webExtensionController:extensionController()->wrapper() openNewTabWithOptions:creationOptions forExtensionContext:wrapper() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](id<_WKWebExtensionTab> newTab, NSError *error) mutable {
+    [delegate webExtensionController:extensionController()->wrapper() openNewTabUsingConfiguration:configuration forExtensionContext:wrapper() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](id<WKWebExtensionTab> newTab, NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for open new tab: %{public}@", privacyPreservingDescription(error));
             completionHandler(toWebExtensionError(apiName, nil, error.localizedDescription));
@@ -330,10 +330,7 @@ void WebExtensionContext::tabsReload(WebPageProxyIdentifier webPageProxyIdentifi
         return;
     }
 
-    if (reloadFromOrigin == ReloadFromOrigin::Yes)
-        tab->reloadFromOrigin(WTFMove(completionHandler));
-    else
-        tab->reload(WTFMove(completionHandler));
+    tab->reload(reloadFromOrigin, WTFMove(completionHandler));
 }
 
 void WebExtensionContext::tabsGoBack(WebPageProxyIdentifier webPageProxyIdentifier, std::optional<WebExtensionTabIdentifier> tabIdentifier, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&& completionHandler)
@@ -587,7 +584,7 @@ void WebExtensionContext::tabsExecuteScript(WebPageProxyIdentifier webPageProxyI
             return;
         }
 
-        auto *webView = tab->mainWebView();
+        auto *webView = tab->webView();
         if (!webView) {
             completionHandler(toWebExtensionError(apiName, nil, @"could not execute script in tab"));
             return;
@@ -598,14 +595,14 @@ void WebExtensionContext::tabsExecuteScript(WebPageProxyIdentifier webPageProxyI
             scriptData = SourcePair { parameters.code.value(), URL { } };
         else {
             NSString *filePath = parameters.files.value().first();
-            scriptData = sourcePairForResource(filePath, m_extension);
+            scriptData = sourcePairForResource(filePath, *this);
             if (!scriptData) {
                 completionHandler(toWebExtensionError(apiName, nil, @"Invalid resource: %@", filePath));
                 return;
             }
         }
 
-        auto scriptPairs = getSourcePairsForParameters(parameters, m_extension);
+        auto scriptPairs = getSourcePairsForParameters(parameters, *this);
         executeScript(scriptPairs, webView, *m_contentScriptWorld, *tab, parameters, *this, [completionHandler = WTFMove(completionHandler)](InjectionResults&& injectionResults) mutable {
             completionHandler(WTFMove(injectionResults));
         });
@@ -628,7 +625,7 @@ void WebExtensionContext::tabsInsertCSS(WebPageProxyIdentifier webPageProxyIdent
             return;
         }
 
-        auto *webView = tab->mainWebView();
+        auto *webView = tab->webView();
         if (!webView) {
             completionHandler(toWebExtensionError(apiName, nil, @"could not inject stylesheet on this tab"));
             return;
@@ -637,7 +634,7 @@ void WebExtensionContext::tabsInsertCSS(WebPageProxyIdentifier webPageProxyIdent
         // FIXME: <https://webkit.org/b/262491> There is currently no way to inject CSS in specific frames based on ID's. If 'frameIds' is passed, default to the main frame.
         auto injectedFrames = parameters.frameIDs ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames;
 
-        auto styleSheetPairs = getSourcePairsForParameters(parameters, m_extension);
+        auto styleSheetPairs = getSourcePairsForParameters(parameters, *this);
         injectStyleSheets(styleSheetPairs, webView, *m_contentScriptWorld, parameters.styleLevel, injectedFrames, *this);
 
         completionHandler({ });
@@ -654,7 +651,7 @@ void WebExtensionContext::tabsRemoveCSS(WebPageProxyIdentifier webPageProxyIdent
         return;
     }
 
-    auto *webView = tab->mainWebView();
+    auto *webView = tab->webView();
     if (!webView) {
         completionHandler(toWebExtensionError(apiName, nil, @"could not remove stylesheet on this tab"));
         return;
@@ -666,7 +663,7 @@ void WebExtensionContext::tabsRemoveCSS(WebPageProxyIdentifier webPageProxyIdent
     // FIXME: <https://webkit.org/b/262491> There is currently no way to inject CSS in specific frames based on ID's. If 'frameIds' is passed, default to the main frame.
     auto injectedFrames = parameters.frameIDs ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames;
 
-    auto styleSheetPairs = getSourcePairsForParameters(parameters, m_extension);
+    auto styleSheetPairs = getSourcePairsForParameters(parameters, *this);
     removeStyleSheets(styleSheetPairs, webView, injectedFrames, *this);
 
     completionHandler({ });

@@ -50,6 +50,7 @@
 #include "WindRule.h"
 #include <wtf/CheckedRef.h>
 #include <wtf/Function.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/TypeCasts.h>
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
@@ -95,7 +96,7 @@ using LayerHostingContextID = uint32_t;
 // without pulling in style-related data from outside of the platform directory.
 // FIXME: Should be moved to its own header file.
 class AnimationValue {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(AnimationValue, WEBCORE_EXPORT);
 public:
     virtual ~AnimationValue() = default;
 
@@ -128,6 +129,7 @@ private:
 // Used to store one float value of an animation.
 // FIXME: Should be moved to its own header file.
 class FloatAnimationValue : public AnimationValue {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(FloatAnimationValue, WEBCORE_EXPORT);
 public:
     FloatAnimationValue(double keyTime, float value, TimingFunction* timingFunction = nullptr)
         : AnimationValue(keyTime, timingFunction)
@@ -149,6 +151,7 @@ private:
 // Used to store one transform value in a keyframe list.
 // FIXME: Should be moved to its own header file.
 class TransformAnimationValue : public AnimationValue {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(TransformAnimationValue, WEBCORE_EXPORT);
 public:
     TransformAnimationValue(double keyTime, const TransformOperations& value, TimingFunction* timingFunction = nullptr)
         : AnimationValue(keyTime, timingFunction)
@@ -184,6 +187,7 @@ private:
 // Used to store one filter value in a keyframe list.
 // FIXME: Should be moved to its own header file.
 class FilterAnimationValue : public AnimationValue {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(FilterAnimationValue, WEBCORE_EXPORT);
 public:
     FilterAnimationValue(double keyTime, const FilterOperations& value, TimingFunction* timingFunction = nullptr)
         : AnimationValue(keyTime, timingFunction)
@@ -214,6 +218,7 @@ private:
 // Values will all be of the same type, which can be inferred from the property.
 // FIXME: Should be moved to its own header file.
 class KeyframeValueList {
+    WTF_MAKE_TZONE_ALLOCATED(KeyframeValueList);
 public:
     explicit KeyframeValueList(AnimatedProperty property)
         : m_property(property)
@@ -262,7 +267,7 @@ protected:
 // which may have associated transformation and animations.
 
 class GraphicsLayer : public RefCounted<GraphicsLayer> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(GraphicsLayer, WEBCORE_EXPORT);
 public:
     enum class Type : uint8_t {
         Normal,
@@ -297,7 +302,7 @@ public:
 
     virtual void initialize(Type) { }
 
-    virtual PlatformLayerIdentifier primaryLayerID() const { return { }; }
+    virtual std::optional<PlatformLayerIdentifier> primaryLayerID() const { return std::nullopt; }
 
     GraphicsLayerClient& client() const { return *m_client; }
 
@@ -556,7 +561,7 @@ public:
 #if ENABLE(MODEL_ELEMENT)
     enum class ModelInteraction : uint8_t { Enabled, Disabled };
     virtual void setContentsToModel(RefPtr<Model>&&, ModelInteraction) { }
-    virtual PlatformLayerIdentifier contentsLayerIDForModel() const { return { }; }
+    virtual std::optional<PlatformLayerIdentifier> contentsLayerIDForModel() const { return std::nullopt; }
 #endif
     virtual bool usesContentsLayer() const { return false; }
 

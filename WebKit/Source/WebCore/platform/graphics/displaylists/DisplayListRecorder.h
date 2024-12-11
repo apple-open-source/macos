@@ -32,6 +32,7 @@
 #include "Image.h" // For Image::TileRule.
 #include "TextFlags.h"
 #include <wtf/Noncopyable.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -49,7 +50,7 @@ struct ImagePaintingOptions;
 namespace DisplayList {
 
 class Recorder : public GraphicsContext {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(Recorder, WEBCORE_EXPORT);
     WTF_MAKE_NONCOPYABLE(Recorder);
 public:
     enum class DrawGlyphsMode {
@@ -192,7 +193,7 @@ protected:
 
 private:
     bool hasPlatformContext() const final { return false; }
-    PlatformGraphicsContext* platformContext() const final { return nullptr; }
+    PlatformGraphicsContext* platformContext() const final { ASSERT_NOT_REACHED(); return nullptr; }
 
     const DestinationColorSpace& colorSpace() const final { return m_colorSpace; }
 

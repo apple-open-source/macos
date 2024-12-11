@@ -157,6 +157,7 @@
     // and make sure it's unwrapped.
     NSError* loadedError = nil;
     if(![key ensureKeyLoadedForContextID:contextID
+                                   cache:keyCache
                                    error:&loadedError]) {
         ckkserror("ckks-key", zoneID, "Couldn't load key(%@): %@", key, loadedError);
         if(error) {

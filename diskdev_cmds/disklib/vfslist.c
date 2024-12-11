@@ -58,6 +58,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <err.h>
+#include <os/errno.h>
 
 static int skipvfs;
 
@@ -84,6 +85,12 @@ makevfslist(char *fslist)
 
 	if (fslist == NULL)
 		return (NULL);
+
+	if (strchr(fslist, '/')) {
+		errno = EINVAL;
+		err(1, "invalid fstype");
+	}
+
 	if (fslist[0] == 'n' && fslist[1] == 'o') {
 		fslist += 2;
 		skipvfs = 1;

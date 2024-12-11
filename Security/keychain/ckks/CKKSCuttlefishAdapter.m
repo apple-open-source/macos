@@ -53,6 +53,31 @@ NS_ASSUME_NONNULL_BEGIN
     }];
 }
 
+- (void)fetchRecoverableTLKShares:(TPSpecificUser* __nullable)activeAccount
+                           peerID:(NSString*)peerID
+                        contextID:(NSString*)contextID
+                            reply:(void (^)(NSArray<CKKSTLKShareRecord*>* _Nullable tlkShares,
+                                            NSError * _Nullable error))reply {
+
+    [self.cuttlefishXPCWrapper fetchRecoverableTLKSharesWithSpecificUser:activeAccount
+                                                                  peerID:peerID
+                                                                        reply:^(NSArray<CKRecord *> * _Nullable keyHierarchyRecords, NSError * _Nullable error) {
+        if (error) {
+            ckkserror_global("ckks-cuttlefish", "error fetching tlk shares: %@", error);
+            reply(nil, error);
+            return;
+        }
+
+        NSMutableArray<CKKSTLKShareRecord*>* filteredTLKShares = [NSMutableArray array];
+        for(CKRecord* record in keyHierarchyRecords) {
+            if([record.recordType isEqual:SecCKRecordTLKShareType]) {
+                CKKSTLKShareRecord* tlkShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record contextID:contextID];
+                [filteredTLKShares addObject:tlkShare];
+            }
+        }
+        reply(filteredTLKShares, nil);
+    }];
+}
 NS_ASSUME_NONNULL_END
 
 @end

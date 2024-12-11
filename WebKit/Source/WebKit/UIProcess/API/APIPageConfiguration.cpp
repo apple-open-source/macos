@@ -111,15 +111,17 @@ void PageConfiguration::setBrowsingContextGroup(RefPtr<BrowsingContextGroup>&& g
     m_data.browsingContextGroup = WTFMove(group);
 }
 
-RefPtr<WebKit::WebProcessProxy> PageConfiguration::openerProcess() const
+auto PageConfiguration::openerInfo() const -> const std::optional<OpenerInfo>&
 {
-    return m_data.openerProcess;
+    return m_data.openerInfo;
 }
 
-void PageConfiguration::setOpenerProcess(RefPtr<WebKit::WebProcessProxy>&& process)
+void PageConfiguration::setOpenerInfo(std::optional<OpenerInfo>&& info)
 {
-    m_data.openerProcess = WTFMove(process);
+    m_data.openerInfo = WTFMove(info);
 }
+
+bool PageConfiguration::OpenerInfo::operator==(const OpenerInfo&) const = default;
 
 WebProcessPool& PageConfiguration::processPool() const
 {
@@ -302,6 +304,8 @@ void PageConfiguration::setDelaysWebProcessLaunchUntilFirstLoad(bool delaysWebPr
 
 bool PageConfiguration::delaysWebProcessLaunchUntilFirstLoad() const
 {
+    if (preferences().siteIsolationEnabled())
+        return true;
     if (RefPtr processPool = m_data.processPool.getIfExists(); processPool && isInspectorProcessPool(*processPool)) {
         // Never delay process launch for inspector pages as inspector pages do not know how to transition from a terminated process.
         RELEASE_LOG(Process, "%p - PageConfiguration::delaysWebProcessLaunchUntilFirstLoad() -> false because of WebInspector pool", this);
@@ -338,34 +342,5 @@ void PageConfiguration::setApplicationManifest(RefPtr<ApplicationManifest>&& app
     m_data.applicationManifest = WTFMove(applicationManifest);
 }
 #endif
-
-#if ENABLE(GPU_PROCESS)
-GPUProcessPreferencesForWebProcess PageConfiguration::preferencesForGPUProcess() const
-{
-    Ref preferences = m_data.preferences.get();
-
-    return {
-        preferences->webGLEnabled() && preferences->useGPUProcessForWebGLEnabled(),
-        preferences->webGPUEnabled(),
-        preferences->webXREnabled(),
-        preferences->useGPUProcessForDOMRenderingEnabled(),
-#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-        preferences->useCGDisplayListsForDOMRendering(),
-#endif
-        allowTestOnlyIPC(),
-        preferences->lockdownFontParserEnabled()
-    };
-}
-#endif
-
-NetworkProcessPreferencesForWebProcess PageConfiguration::preferencesForNetworkProcess() const
-{
-    Ref preferences = m_data.preferences.get();
-
-    return {
-        preferences->webTransportEnabled(),
-        processPool().usesSingleWebProcess(),
-    };
-}
 
 } // namespace API

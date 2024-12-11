@@ -87,6 +87,8 @@ class RemoteImageBufferSetProxy;
 
 class RemoteRenderingBackendProxy
     : public IPC::Connection::Client, SerialFunctionDispatcher {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RemoteRenderingBackendProxy);
 public:
     static std::unique_ptr<RemoteRenderingBackendProxy> create(WebPage&);
     static std::unique_ptr<RemoteRenderingBackendProxy> create(SerialFunctionDispatcher&);
@@ -177,11 +179,11 @@ public:
 private:
     explicit RemoteRenderingBackendProxy(SerialFunctionDispatcher&);
 
-    template<typename T, typename U, typename V, typename W> auto send(T&& message, ObjectIdentifierGeneric<U, V, W>);
+    template<typename T, typename U, typename V, typename W, SupportsObjectIdentifierNullState supportsNullState> auto send(T&& message, ObjectIdentifierGeneric<U, V, W, supportsNullState>);
     template<typename T> auto send(T&& message) { return send(std::forward<T>(message), renderingBackendIdentifier()); }
-    template<typename T, typename U, typename V, typename W> auto sendSync(T&& message, ObjectIdentifierGeneric<U, V, W>);
+    template<typename T, typename U, typename V, typename W, SupportsObjectIdentifierNullState supportsNullState> auto sendSync(T&& message, ObjectIdentifierGeneric<U, V, W, supportsNullState>);
     template<typename T> auto sendSync(T&& message) { return sendSync(std::forward<T>(message), renderingBackendIdentifier()); }
-    template<typename T, typename C, typename U, typename V, typename W> auto sendWithAsyncReply(T&& message, C&& callback, ObjectIdentifierGeneric<U, V, W>);
+    template<typename T, typename C, typename U, typename V, typename W, SupportsObjectIdentifierNullState supportsNullState> auto sendWithAsyncReply(T&& message, C&& callback, ObjectIdentifierGeneric<U, V, W, supportsNullState>);
     template<typename T, typename C> auto sendWithAsyncReply(T&& message, C&& callback) { return sendWithAsyncReply(std::forward<T>(message), std::forward<C>(callback), renderingBackendIdentifier()); }
 
     // Connection::Client
@@ -215,7 +217,6 @@ private:
     RemoteResourceCacheProxy m_remoteResourceCacheProxy { *this };
     RefPtr<WebCore::SharedMemory> m_getPixelBufferSharedMemory;
     WebCore::Timer m_destroyGetPixelBufferSharedMemoryTimer { *this, &RemoteRenderingBackendProxy::destroyGetPixelBufferSharedMemory };
-    MarkSurfacesAsVolatileRequestIdentifier m_currentVolatilityRequest;
     HashMap<MarkSurfacesAsVolatileRequestIdentifier, CompletionHandler<void(bool)>> m_markAsVolatileRequests;
     HashMap<RemoteImageBufferSetIdentifier, WeakPtr<RemoteImageBufferSetProxy>> m_bufferSets;
     Ref<WorkQueue> m_queue;

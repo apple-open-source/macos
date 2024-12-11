@@ -33,6 +33,7 @@
 #include "LengthBox.h"
 #include "LoadSchedulingMode.h"
 #include "LocalFrame.h"
+#include "LoginStatus.h"
 #include "MediaProducer.h"
 #include "MediaSessionGroupIdentifier.h"
 #include "Pagination.h"
@@ -57,6 +58,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/Ref.h>
 #include <wtf/RobinHoodHashSet.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakHashMap.h>
 #include <wtf/WeakHashSet.h>
@@ -112,6 +114,7 @@ class DOMRectList;
 class DatabaseProvider;
 class DeviceOrientationUpdateProvider;
 class DiagnosticLoggingClient;
+class CredentialRequestCoordinator;
 class DragCaretController;
 class DragController;
 class EditorClient;
@@ -244,35 +247,37 @@ enum class FinalizeRenderingUpdateFlags : uint8_t {
 };
 
 enum class RenderingUpdateStep : uint32_t {
-    Resize                          = 1 << 0,
-    Scroll                          = 1 << 1,
-    MediaQueryEvaluation            = 1 << 2,
-    Animations                      = 1 << 3,
-    Fullscreen                      = 1 << 4,
-    AnimationFrameCallbacks         = 1 << 5,
-    UpdateContentRelevancy          = 1 << 6,
-    PerformPendingViewTransitions   = 1 << 7,
-    IntersectionObservations        = 1 << 8,
-    ResizeObservations              = 1 << 9,
-    Images                          = 1 << 10,
-    WheelEventMonitorCallbacks      = 1 << 11,
-    CursorUpdate                    = 1 << 12,
-    EventRegionUpdate               = 1 << 13,
-    LayerFlush                      = 1 << 14,
+    Reveal                          = 1 << 0,
+    Resize                          = 1 << 1,
+    Scroll                          = 1 << 2,
+    MediaQueryEvaluation            = 1 << 3,
+    Animations                      = 1 << 4,
+    Fullscreen                      = 1 << 5,
+    AnimationFrameCallbacks         = 1 << 6,
+    UpdateContentRelevancy          = 1 << 7,
+    PerformPendingViewTransitions   = 1 << 8,
+    IntersectionObservations        = 1 << 9,
+    ResizeObservations              = 1 << 10,
+    Images                          = 1 << 11,
+    WheelEventMonitorCallbacks      = 1 << 12,
+    CursorUpdate                    = 1 << 13,
+    EventRegionUpdate               = 1 << 14,
+    LayerFlush                      = 1 << 15,
 #if ENABLE(ASYNC_SCROLLING)
-    ScrollingTreeUpdate             = 1 << 15,
+    ScrollingTreeUpdate             = 1 << 16,
 #endif
-    FlushAutofocusCandidates        = 1 << 16,
-    VideoFrameCallbacks             = 1 << 17,
-    PrepareCanvasesForDisplayOrFlush = 1 << 18,
-    CaretAnimation                  = 1 << 19,
-    FocusFixup                      = 1 << 20,
-    UpdateValidationMessagePositions= 1 << 21,
+    FlushAutofocusCandidates        = 1 << 17,
+    VideoFrameCallbacks             = 1 << 18,
+    PrepareCanvasesForDisplayOrFlush = 1 << 19,
+    CaretAnimation                  = 1 << 20,
+    FocusFixup                      = 1 << 21,
+    UpdateValidationMessagePositions= 1 << 22,
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    AccessibilityRegionUpdate       = 1 << 22,
+    AccessibilityRegionUpdate       = 1 << 23,
 #endif
-    RestoreScrollPositionAndViewState = 1 << 23,
-    AdjustVisibility                  = 1 << 24,
+    RestoreScrollPositionAndViewState = 1 << 24,
+    AdjustVisibility                  = 1 << 25,
+
 };
 
 enum class LinkDecorationFilteringTrigger : uint8_t {
@@ -283,6 +288,7 @@ enum class LinkDecorationFilteringTrigger : uint8_t {
 };
 
 constexpr OptionSet<RenderingUpdateStep> updateRenderingSteps = {
+    RenderingUpdateStep::Reveal,
     RenderingUpdateStep::FlushAutofocusCandidates,
     RenderingUpdateStep::Resize,
     RenderingUpdateStep::Scroll,
@@ -315,8 +321,8 @@ constexpr auto allRenderingUpdateSteps = updateRenderingSteps | OptionSet<Render
 
 
 class Page : public RefCounted<Page>, public Supplementable<Page>, public CanMakeWeakPtr<Page> {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(Page, WEBCORE_EXPORT);
     WTF_MAKE_NONCOPYABLE(Page);
-    WTF_MAKE_FAST_ALLOCATED;
     friend class SettingsBase;
 
 public:
@@ -463,7 +469,7 @@ public:
     void progressEstimateChanged(LocalFrame&) const;
     void progressFinished(LocalFrame&) const;
     BackForwardController& backForward() { return m_backForwardController.get(); }
-    CheckedRef<BackForwardController> checkedBackForward();
+    WEBCORE_EXPORT CheckedRef<BackForwardController> checkedBackForward();
 
     Seconds domTimerAlignmentInterval() const { return m_domTimerAlignmentInterval; }
 
@@ -676,6 +682,7 @@ public:
 
 #if ENABLE(WEB_AUTHN)
     AuthenticatorCoordinator& authenticatorCoordinator() { return m_authenticatorCoordinator.get(); }
+    CredentialRequestCoordinator& credentialRequestCoordinator() { return m_credentialRequestCoordinator.get(); }
 #endif
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -927,6 +934,10 @@ public:
     WEBCORE_EXPORT void setMuted(MediaProducerMutedStateFlags);
 
     WEBCORE_EXPORT void stopMediaCapture(MediaProducerMediaCaptureKind);
+#if ENABLE(MEDIA_STREAM)
+    WEBCORE_EXPORT void updateCaptureState(bool isActive, MediaProducerMediaCaptureKind);
+    WEBCORE_EXPORT void voiceActivityDetected();
+#endif
 
     MediaSessionGroupIdentifier mediaSessionGroupIdentifier() const;
     WEBCORE_EXPORT bool mediaPlaybackExists();
@@ -1164,9 +1175,11 @@ public:
 
     WEBCORE_EXPORT void didBeginWritingToolsSession(const WritingTools::Session&, const Vector<WritingTools::Context>&);
 
-    WEBCORE_EXPORT void proofreadingSessionDidReceiveSuggestions(const WritingTools::Session&, const Vector<WritingTools::TextSuggestion>&, const WritingTools::Context&, bool finished);
+    WEBCORE_EXPORT void proofreadingSessionDidReceiveSuggestions(const WritingTools::Session&, const Vector<WritingTools::TextSuggestion>&, const CharacterRange&, const WritingTools::Context&, bool finished);
 
     WEBCORE_EXPORT void proofreadingSessionDidUpdateStateForSuggestion(const WritingTools::Session&, WritingTools::TextSuggestionState, const WritingTools::TextSuggestion&, const WritingTools::Context&);
+
+    WEBCORE_EXPORT void willEndWritingToolsSession(const WritingTools::Session&, bool accepted);
 
     WEBCORE_EXPORT void didEndWritingToolsSession(const WritingTools::Session&, bool accepted);
 
@@ -1179,6 +1192,12 @@ public:
     void respondToUnappliedWritingToolsEditing(EditCommandComposition*);
     void respondToReappliedWritingToolsEditing(EditCommandComposition*);
 
+    WEBCORE_EXPORT Vector<FloatRect> proofreadingSessionSuggestionTextRectsInRootViewCoordinates(const CharacterRange&) const;
+    WEBCORE_EXPORT void updateTextVisibilityForActiveWritingToolsSession(const CharacterRange&, bool, const WTF::UUID&);
+    WEBCORE_EXPORT std::optional<TextIndicatorData> textPreviewDataForActiveWritingToolsSession(const CharacterRange&);
+    WEBCORE_EXPORT void decorateTextReplacementsForActiveWritingToolsSession(const CharacterRange&);
+    WEBCORE_EXPORT void setSelectionForActiveWritingToolsSession(const CharacterRange&);
+
     WEBCORE_EXPORT std::optional<SimpleRange> contextRangeForActiveWritingToolsSession() const;
     WEBCORE_EXPORT void intelligenceTextAnimationsDidComplete();
 #endif
@@ -1190,6 +1209,15 @@ public:
 #if PLATFORM(IOS_FAMILY)
     bool canShowWhileLocked() const { return m_canShowWhileLocked; }
 #endif
+
+    void setLastAuthentication(LoginStatus::AuthenticationType);
+    const std::optional<LoginStatus>& lastAuthentication() const { return m_lastAuthentication; }
+
+#if ENABLE(FULLSCREEN_API)
+    WEBCORE_EXPORT bool isFullscreenManagerEnabled() const;
+#endif
+
+    WEBCORE_EXPORT bool isAlwaysOnLoggingAllowed() const;
 
 private:
     explicit Page(PageConfiguration&&);
@@ -1435,7 +1463,7 @@ private:
     WeakPtr<ServiceWorkerGlobalScope, WeakPtrImplWithEventTargetData> m_serviceWorkerGlobalScope;
 
 #if ENABLE(RESOURCE_USAGE)
-    std::unique_ptr<ResourceUsageOverlay> m_resourceUsageOverlay;
+    RefPtr<ResourceUsageOverlay> m_resourceUsageOverlay;
 #endif
 
     PAL::SessionID m_sessionID;
@@ -1515,6 +1543,7 @@ private:
 
 #if ENABLE(WEB_AUTHN)
     UniqueRef<AuthenticatorCoordinator> m_authenticatorCoordinator;
+    UniqueRef<CredentialRequestCoordinator> m_credentialRequestCoordinator;
 #endif
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -1610,6 +1639,8 @@ private:
 
     bool m_hasActiveNowPlayingSession { false };
     Timer m_activeNowPlayingSessionUpdateTimer;
+
+    std::optional<LoginStatus> m_lastAuthentication;
 }; // class Page
 
 inline Page* Frame::page() const

@@ -32,6 +32,7 @@
 #include "DAThread.h"
 #include "DAStage.h"
 #include "DAProbe.h"
+#include "DATelemetry.h"
 
 #include <dirent.h>
 #include <fsproperties.h>
@@ -46,6 +47,7 @@
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <os/feature_private.h>
+#include <os/variant_private.h>
 
 #ifdef DA_FSKIT
 #include <FSKit/FSKit_private.h>
@@ -557,6 +559,7 @@ static void __FSKitProbeStatusCallback( int status ,
      */
     __DAProbeCallbackContext * context = parameter;
     bool doFsck                        = true;
+    bool didProbe                      = false;
     char *containerBSDPath             = NULL;
     DADiskRef disk                     = context->disk;
     CFURLRef device                    = DADiskGetDevice( disk );
@@ -581,6 +584,7 @@ static void __FSKitProbeStatusCallback( int status ,
         if ( context->filesystem )
         {
             CFStringRef kind = DAFileSystemGetKind( context->filesystem );
+            didProbe = true;
             DALogInfo( "probed disk, id = %@, with %@, failure." , context->disk , kind );
             
             if ( status != FSUR_UNRECOGNIZED )
@@ -646,11 +650,17 @@ static void __FSKitProbeStatusCallback( int status ,
          * We have found a probe match for this media object via FSKit.
          */
         CFStringRef kind = DAFileSystemGetKind( context->filesystem );
+        didProbe = true;
         DALogInfo( "probed disk, id = %@, with %@, success.", context->disk, kind );
     }
     
     if ( context->callback )
     {
+        if ( context->filesystem && didProbe )
+        {
+            DATelemetrySendProbeEvent( status , DAFileSystemGetKind( context->filesystem ) , CFSTR("FSKit") , 
+                clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->startTime , cleanStatus );
+        }
         ( context->callback )( status ,
                                context->filesystem ,
                                cleanStatus ,
@@ -909,10 +919,10 @@ int __DAProbeWithFSKit( void *parameter )
         {
             switch ( result.result )
             {
-                case FSMatchUsable:
+                case FSMatchResultUsable:
                     status = 0;
                     break;
-                case FSMatchNotRecognized:
+                case FSMatchResultNotRecognized:
                     status = ENOENT;
                     break;
                 default:

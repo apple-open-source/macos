@@ -33,6 +33,7 @@
 #include "PlatformMediaSessionManager.h"
 #include "RemoteCommandListener.h"
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -44,7 +45,7 @@ class MediaSessionManagerCocoa
     : public PlatformMediaSessionManager
     , private NowPlayingManagerClient
     , private AudioHardwareListener::Client {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(MediaSessionManagerCocoa);
 public:
     MediaSessionManagerCocoa();
     
@@ -63,7 +64,7 @@ public:
 
     std::optional<NowPlayingInfo> nowPlayingInfo() const final { return m_nowPlayingInfo; }
     static WEBCORE_EXPORT void clearNowPlayingInfo();
-    static WEBCORE_EXPORT void setNowPlayingInfo(bool setAsNowPlayingApplication, const NowPlayingInfo&);
+    static WEBCORE_EXPORT void setNowPlayingInfo(bool setAsNowPlayingApplication, bool shouldUpdateNowPlayingSuppression, const NowPlayingInfo&);
 
     static WEBCORE_EXPORT void updateMediaUsage(PlatformMediaSession&);
 
@@ -74,10 +75,8 @@ public:
     static WEBCORE_EXPORT bool mediaSourceInlinePaintingEnabled();
 #endif
 
-#if HAVE(AVCONTENTKEYSPECIFIER)
-    static WEBCORE_EXPORT void setSampleBufferContentKeySessionSupportEnabled(bool);
-    static WEBCORE_EXPORT bool sampleBufferContentKeySessionSupportEnabled();
-#endif
+    static WEBCORE_EXPORT void setShouldUseModernAVContentKeySession(bool);
+    static WEBCORE_EXPORT bool shouldUseModernAVContentKeySession();
 
     static String audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(MediaPlayerPitchCorrectionAlgorithm, bool preservesPitch, double rate);
 
@@ -123,6 +122,10 @@ private:
     void possiblyChangeAudioCategory();
 
     std::optional<bool> supportsSpatialAudioPlaybackForConfiguration(const MediaConfiguration&) final;
+
+#if USE(NOW_PLAYING_ACTIVITY_SUPPRESSION)
+    static void updateNowPlayingSuppression(const NowPlayingInfo*);
+#endif
 
     bool m_nowPlayingActive { false };
     bool m_registeredAsNowPlayingApplication { false };

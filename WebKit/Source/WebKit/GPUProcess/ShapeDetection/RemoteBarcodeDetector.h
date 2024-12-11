@@ -34,6 +34,7 @@
 #include <WebCore/RenderingResourceIdentifier.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakRef.h>
 
@@ -45,6 +46,7 @@ struct DetectedBarcode;
 
 namespace WebKit {
 class RemoteRenderingBackend;
+struct SharedPreferencesForWebProcess;
 
 namespace ShapeDetection {
 class ObjectHeap;
@@ -52,13 +54,14 @@ class ObjectHeap;
 
 class RemoteBarcodeDetector : public IPC::StreamMessageReceiver {
 public:
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteBarcodeDetector);
 public:
     static Ref<RemoteBarcodeDetector> create(Ref<WebCore::ShapeDetection::BarcodeDetector>&& barcodeDetector, ShapeDetection::ObjectHeap& objectHeap, RemoteRenderingBackend& backend, ShapeDetectionIdentifier identifier, WebCore::ProcessIdentifier webProcessIdentifier)
     {
         return adoptRef(*new RemoteBarcodeDetector(WTFMove(barcodeDetector), objectHeap, backend, identifier, webProcessIdentifier));
     }
 
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const;
     virtual ~RemoteBarcodeDetector();
 
 private:

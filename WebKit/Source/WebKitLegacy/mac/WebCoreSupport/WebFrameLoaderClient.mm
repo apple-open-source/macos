@@ -813,13 +813,15 @@ void WebFrameLoaderClient::dispatchDidReachLayoutMilestone(OptionSet<WebCore::La
     }
 }
 
-WebCore::LocalFrame* WebFrameLoaderClient::dispatchCreatePage(const WebCore::NavigationAction&, WebCore::NewFrameOpenerPolicy)
+WebCore::LocalFrame* WebFrameLoaderClient::dispatchCreatePage(const WebCore::NavigationAction&, WebCore::NewFrameOpenerPolicy policy)
 {
     WebView *currentWebView = getWebView(m_webFrame.get());
     auto features = adoptNS([[NSDictionary alloc] init]);
     WebView *newWebView = [[currentWebView _UIDelegateForwarder] webView:currentWebView 
                                                 createWebViewWithRequest:nil
                                                           windowFeatures:features.get()];
+    if (newWebView && policy == WebCore::NewFrameOpenerPolicy::Allow)
+        core([newWebView mainFrame])->setOpenerForWebKitLegacy(core(m_webFrame.get()));
     return core([newWebView mainFrame]);
 }
 
@@ -879,7 +881,7 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const WebCore:
         decisionListener:setUpPolicyListener(WTFMove(function), WebCore::PolicyAction::Ignore, appLinkURL, referrerURL).get()];
 }
 
-void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const WebCore::NavigationAction& action, const WebCore::ResourceRequest& request, const WebCore::ResourceResponse&, WebCore::FormState* formState, const String&, WebCore::NavigationIdentifier, std::optional<WebCore::HitTestResult>&&, bool, WebCore::SandboxFlags, WebCore::PolicyDecisionMode, WebCore::FramePolicyFunction&& function)
+void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const WebCore::NavigationAction& action, const WebCore::ResourceRequest& request, const WebCore::ResourceResponse&, WebCore::FormState* formState, const String&, std::optional<WebCore::NavigationIdentifier>, std::optional<WebCore::HitTestResult>&&, bool, WebCore::IsPerformingHTTPFallback, WebCore::SandboxFlags, WebCore::PolicyDecisionMode, WebCore::FramePolicyFunction&& function)
 {
     WebView *webView = getWebView(m_webFrame.get());
     BOOL tryAppLink = shouldTryAppLink(webView, action, core(m_webFrame.get()));

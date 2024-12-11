@@ -75,6 +75,8 @@ static Layout::Box::ElementAttributes elementAttributes(const RenderElement& ren
             return is<RenderImage>(renderer) ? Layout::Box::NodeType::Image : Layout::Box::NodeType::ReplacedElement;
         if (auto* renderLineBreak = dynamicDowncast<RenderLineBreak>(renderer))
             return renderLineBreak->isWBR() ? Layout::Box::NodeType::WordBreakOpportunity : Layout::Box::NodeType::LineBreak;
+        if (is<RenderTable>(renderer))
+            return Layout::Box::NodeType::TableBox;
         return Layout::Box::NodeType::GenericElement;
     }();
 
@@ -112,7 +114,7 @@ BoxTree::~BoxTree()
             continue;
 
         auto* renderBlockFlow = dynamicDowncast<RenderBlockFlow>(*renderer);
-        auto isLFCInlineBlock = renderBlockFlow && renderBlockFlow->modernLineLayout();
+        auto isLFCInlineBlock = renderBlockFlow && renderBlockFlow->inlineLayout();
         if (isLFCInlineBlock)
             boxesToDetach.append(layoutBox);
     }
@@ -429,9 +431,9 @@ void showInlineContent(TextStream& stream, const InlineContent& inlineContent, s
         auto addSpacing = [&](auto& streamToUse) {
             size_t printedCharacters = 0;
             if (isDamaged)
-                streamToUse << "---------- -+";
+                streamToUse << "            -+";
             else
-                streamToUse << "---------- --";
+                streamToUse << "            --";
             while (++printedCharacters <= depth * 2)
                 streamToUse << " ";
 
@@ -479,7 +481,7 @@ void showInlineContent(TextStream& stream, const InlineContent& inlineContent, s
                     runStream << "Word separator";
                 else if (box.isLineBreak())
                     runStream << "Line break";
-                else if (box.isAtomicInlineLevelBox())
+                else if (box.isAtomicInlineBox())
                     runStream << "Atomic box";
                 else if (box.isGenericInlineLevelBox())
                     runStream << "Generic inline level box";

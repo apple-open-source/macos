@@ -339,10 +339,12 @@ PrivateState::PrivateState(const EGLenum clientType,
                            bool bindGeneratesResourceCHROMIUM,
                            bool clientArraysEnabled,
                            bool robustResourceInit,
-                           bool programBinaryCacheEnabled)
+                           bool programBinaryCacheEnabled,
+                           bool isExternal)
     : mClientType(clientType),
       mProfileMask(profileMask),
       mClientVersion(clientVersion),
+      mIsExternal(isExternal),
       mDepthClearValue(0),
       mStencilClearValue(0),
       mScissorTest(false),
@@ -1765,7 +1767,7 @@ void PrivateState::getBooleanv(GLenum pname, GLboolean *params) const
             *params = mIsSampleShadingEnabled;
             break;
         case GL_PRIMITIVE_RESTART_FOR_PATCHES_SUPPORTED:
-            *params = isPrimitiveRestartEnabled() && getExtensions().tessellationShaderAny();
+            *params = mCaps.primitiveRestartForPatchesSupported ? GL_TRUE : GL_FALSE;
             break;
         case GL_ROBUST_FRAGMENT_SHADER_OUTPUT_ANGLE:
             *params = mExtensions.robustFragmentShaderOutputANGLE ? GL_TRUE : GL_FALSE;
@@ -2235,7 +2237,8 @@ State::State(const State *shareContextState,
              bool programBinaryCacheEnabled,
              EGLenum contextPriority,
              bool hasRobustAccess,
-             bool hasProtectedContent)
+             bool hasProtectedContent,
+             bool isExternal)
     : mID({gIDCounter++}),
       mContextPriority(contextPriority),
       mHasRobustAccess(hasRobustAccess),
@@ -2275,7 +2278,8 @@ State::State(const State *shareContextState,
                     bindGeneratesResourceCHROMIUM,
                     clientArraysEnabled,
                     robustResourceInit,
-                    programBinaryCacheEnabled)
+                    programBinaryCacheEnabled,
+                    isExternal)
 {}
 
 State::~State() {}

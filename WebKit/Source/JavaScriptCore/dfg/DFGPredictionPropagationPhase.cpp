@@ -592,6 +592,7 @@ private:
                 else
                     changed |= mergePrediction(SpecAnyIntAsDouble);
                 break;
+            case Array::Float16Array:
             case Array::Float32Array:
             case Array::Float64Array:
                 if (node->op() == GetByVal && arrayMode.isOutOfBounds())
@@ -1047,7 +1048,7 @@ private:
         case GetClosureVar:
         case GetInternalField:
         case GetFromArguments:
-        case MapValue:
+        case LoadMapValue:
         case MapIteratorKey:
         case MapIteratorValue:
         case MapIterationEntryKey:
@@ -1118,7 +1119,6 @@ private:
 
         case MapHash:
         case MapIterationEntry:
-        case MapKeyIndex:
             setPrediction(SpecInt32Only);
             break;
 
@@ -1177,6 +1177,7 @@ private:
         case ArithPow:
         case ArithSqrt:
         case ArithFRound:
+        case ArithF16Round:
         case ArithUnary: {
             setPrediction(SpecBytecodeDouble);
             break;
@@ -1217,8 +1218,10 @@ private:
         case SameValue:
         case OverridesHasInstance:
         case InstanceOf:
+        case InstanceOfMegamorphic:
         case InstanceOfCustom:
         case IsEmpty:
+        case IsEmptyStorage:
         case TypeOfIsUndefined:
         case TypeOfIsObject:
         case TypeOfIsFunction:
@@ -1244,6 +1247,7 @@ private:
             setPrediction(SpecStringIdent);
             break;
         }
+        case MapGet:
         case GetButterfly:
         case GetIndexedPropertyStorage:
         case AllocatePropertyStorage:
@@ -1261,13 +1265,14 @@ private:
             break;
 
         case SkipScope:
-        case GetGlobalObject: {
+        case GetGlobalObject:
+        case UnwrapGlobalProxy: {
             setPrediction(SpecObjectOther);
             break;
         }
 
         case GetGlobalThis:
-            setPrediction(SpecObject);
+            setPrediction(SpecGlobalProxy);
             break;
 
         case ResolveScope: {

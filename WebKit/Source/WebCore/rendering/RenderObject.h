@@ -40,7 +40,7 @@
 #include "StyleImage.h"
 #include "TextAffinity.h"
 #include <wtf/CheckedPtr.h>
-#include <wtf/IsoMalloc.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WTF {
 class TextStream;
@@ -102,7 +102,7 @@ enum class RequiresFullRepaint : bool { No, Yes };
 
 // Base class for all rendering tree objects.
 class RenderObject : public CachedImageClient, public CanMakeCheckedPtr<RenderObject> {
-    WTF_MAKE_COMPACT_ISO_ALLOCATED(RenderObject);
+    WTF_MAKE_COMPACT_TZONE_OR_ISO_ALLOCATED(RenderObject);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderObject);
     friend class RenderBlock;
     friend class RenderBlockFlow;
@@ -600,7 +600,7 @@ public:
     bool isRenderOrLegacyRenderSVGModelObject() const { return isRenderSVGModelObject() || isLegacyRenderSVGModelObject(); }
     bool isRenderOrLegacyRenderSVGResourceFilterPrimitive() const { return isRenderSVGResourceFilterPrimitive() || isLegacyRenderSVGResourceFilterPrimitive(); }
     bool isSVGLayerAwareRenderer() const { return isRenderSVGRoot() || isRenderSVGModelObject() || isRenderSVGText() || isRenderSVGInline() || isRenderSVGForeignObject(); }
-    bool isSVGRenderer() const { return isRenderOrLegacyRenderSVGRoot() || isLegacyRenderSVGModelObject() || isRenderSVGModelObject() || isRenderSVGBlock() || isRenderSVGInline(); }
+    bool isSVGRenderer() const { return isRenderOrLegacyRenderSVGRoot() || isRenderOrLegacyRenderSVGModelObject() || isRenderSVGBlock() || isRenderSVGInline(); }
 
     // FIXME: Those belong into a SVG specific base-class for all renderers (see above)
     // Unfortunately we don't have such a class yet, because it's not possible for all renderers
@@ -1300,7 +1300,7 @@ private:
 
     // FIXME: This should be RenderElementRareData.
     class RenderObjectRareData {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED(RenderObjectRareData);
     public:
         RenderObjectRareData();
         ~RenderObjectRareData();
@@ -1568,6 +1568,9 @@ inline bool RenderObject::isRenderMathMLRow() const
     case Type::MathMLPadded:
     case Type::MathMLRoot:
     case Type::MathMLRow:
+    case Type::MathMLFraction:
+    case Type::MathMLScripts:
+    case Type::MathMLUnderOver:
         return true;
     default:
         break;

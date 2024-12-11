@@ -120,8 +120,8 @@ bool InlineFormattingUtils::inlineLevelBoxAffectsLineBox(const InlineLevelBox& i
     if (inlineLevelBox.isListMarker())
         return true;
     if (inlineLevelBox.isInlineBox())
-        return layoutState().inStandardsMode() ? true : formattingContext().quirks().inlineBoxAffectsLineBox(inlineLevelBox);
-    if (inlineLevelBox.isAtomicInlineLevelBox())
+        return formattingContext().layoutState().inStandardsMode() ? true : formattingContext().quirks().inlineBoxAffectsLineBox(inlineLevelBox);
+    if (inlineLevelBox.isAtomicInlineBox())
         return !inlineLevelBox.layoutBox().isRubyAnnotationBox();
     return false;
 }
@@ -129,11 +129,11 @@ bool InlineFormattingUtils::inlineLevelBoxAffectsLineBox(const InlineLevelBox& i
 InlineRect InlineFormattingUtils::flipVisualRectToLogicalForWritingMode(const InlineRect& visualRect, WritingMode writingMode)
 {
     switch (writingModeToBlockFlowDirection(writingMode)) {
-    case BlockFlowDirection::TopToBottom:
-    case BlockFlowDirection::BottomToTop:
+    case FlowDirection::TopToBottom:
+    case FlowDirection::BottomToTop:
         return visualRect;
-    case BlockFlowDirection::LeftToRight:
-    case BlockFlowDirection::RightToLeft: {
+    case FlowDirection::LeftToRight:
+    case FlowDirection::RightToLeft: {
         // FIXME: While vertical-lr and vertical-rl modes do differ in the ordering direction of line boxes
         // in a block container (see: https://drafts.csswg.org/css-writing-modes/#block-flow)
         // we ignore it for now as RenderBlock takes care of it for us.
@@ -188,7 +188,7 @@ InlineLayoutUnit InlineFormattingUtils::computedTextIndent(IsIntrinsicWidthMode 
 
 InlineLayoutUnit InlineFormattingUtils::initialLineHeight(bool isFirstLine) const
 {
-    if (layoutState().inStandardsMode())
+    if (formattingContext().layoutState().inStandardsMode())
         return isFirstLine ? formattingContext().root().firstLineStyle().computedLineHeight() : formattingContext().root().style().computedLineHeight();
     return formattingContext().quirks().initialLineHeight();
 }
@@ -205,7 +205,7 @@ FloatingContext::Constraints InlineFormattingUtils::floatConstraintsForLine(Inli
 
 InlineLayoutUnit InlineFormattingUtils::horizontalAlignmentOffset(const RenderStyle& rootStyle, InlineLayoutUnit contentLogicalRight, InlineLayoutUnit lineLogicalWidth, InlineLayoutUnit hangingTrailingWidth, const Line::RunList& runs, bool isLastLine, std::optional<TextDirection> inlineBaseDirectionOverride)
 {
-    // Depending on the line’s alignment/justification, the hanging glyph can be placed outside the line box.
+    // Depending on the line's alignment/justification, the hanging glyph can be placed outside the line box.
     if (hangingTrailingWidth) {
         // If white-space is set to pre-wrap, the UA must (unconditionally) hang this sequence, unless the sequence is followed
         // by a forced line break, in which case it must conditionally hang the sequence is instead.
@@ -406,8 +406,8 @@ bool InlineFormattingUtils::isAtSoftWrapOpportunity(const InlineItem& previous, 
     // e.g. [inline box start][prior_continuous_content][inline box end] (<span>prior_continuous_content</span>)
     // An incoming <img> box would enable us to commit the "<span>prior_continuous_content</span>" content
     // but an incoming text content would not necessarily.
-    ASSERT(previous.isText() || previous.isBox() || previous.layoutBox().isRubyInlineBox());
-    ASSERT(next.isText() || next.isBox() || next.layoutBox().isRubyInlineBox());
+    ASSERT(previous.isText() || previous.isAtomicInlineBox() || previous.layoutBox().isRubyInlineBox());
+    ASSERT(next.isText() || next.isAtomicInlineBox() || next.layoutBox().isRubyInlineBox());
 
     if (previous.layoutBox().isRubyInlineBox() || next.layoutBox().isRubyInlineBox())
         return RubyFormattingContext::isAtSoftWrapOpportunity(previous, next);
@@ -458,7 +458,7 @@ bool InlineFormattingUtils::isAtSoftWrapOpportunity(const InlineItem& previous, 
         // FIXME: SHould this ever be the case?
         return true;
     }
-    if (previous.isBox() || next.isBox()) {
+    if (previous.isAtomicInlineBox() || next.isAtomicInlineBox()) {
         // [text][inline box start][inline box end][inline box] (text<span></span><img>) : there's a soft wrap opportunity between the [text] and [img].
         // The line breaking behavior of a replaced element or other atomic inline is equivalent to an ideographic character.
         return true;
@@ -497,7 +497,7 @@ size_t InlineFormattingUtils::nextWrapOpportunity(size_t startIndex, const Inlin
             // This item is invisible to line breaking. Need to pretend it's not here.
             continue;
         }
-        ASSERT(currentItem.isText() || currentItem.isBox() || currentItem.isFloat() || currentItem.layoutBox().isRubyInlineBox());
+        ASSERT(currentItem.isText() || currentItem.isAtomicInlineBox() || currentItem.isFloat() || currentItem.layoutBox().isRubyInlineBox());
         if (currentItem.isFloat()) {
             // While floats are not part of the inline content and they are not supposed to introduce soft wrap opportunities,
             // e.g. [text][float box][float box][text][float box][text] is essentially just [text][text][text]
@@ -563,15 +563,15 @@ std::pair<InlineLayoutUnit, InlineLayoutUnit> InlineFormattingUtils::textEmphasi
     if (!hasTextEmphasis)
         return { };
     auto emphasisPosition = style.textEmphasisPosition();
-    // Normally we resolve visual -> logical values at pre-layout time, but emphaisis values are not part of the general box geometry.
+    // Normally we resolve visual -> logical values at pre-layout time, but emphasis values are not part of the general box geometry.
     auto hasAboveTextEmphasis = false;
     auto hasUnderTextEmphasis = false;
-    if (style.isHorizontalWritingMode()) {
-        hasAboveTextEmphasis = emphasisPosition.contains(TextEmphasisPosition::Over);
-        hasUnderTextEmphasis = !hasAboveTextEmphasis && emphasisPosition.contains(TextEmphasisPosition::Under);
+    if (style.isVerticalWritingMode()) {
+        hasAboveTextEmphasis = !emphasisPosition.contains(TextEmphasisPosition::Left);
+        hasUnderTextEmphasis = !hasAboveTextEmphasis;
     } else {
-        hasAboveTextEmphasis = emphasisPosition.contains(TextEmphasisPosition::Right) || emphasisPosition == TextEmphasisPosition::Over;
-        hasUnderTextEmphasis = !hasAboveTextEmphasis && (emphasisPosition.contains(TextEmphasisPosition::Left) || emphasisPosition == TextEmphasisPosition::Under);
+        hasAboveTextEmphasis = !emphasisPosition.contains(TextEmphasisPosition::Under);
+        hasUnderTextEmphasis = !hasAboveTextEmphasis;
     }
 
     if (!hasAboveTextEmphasis && !hasUnderTextEmphasis)
@@ -588,7 +588,7 @@ std::pair<InlineLayoutUnit, InlineLayoutUnit> InlineFormattingUtils::textEmphasi
     };
     if (auto* rubyBase = enclosingRubyBase(); rubyBase && RubyFormattingContext::hasInterlinearAnnotation(*rubyBase)) {
         auto annotationPosition = rubyBase->style().rubyPosition();
-        if ((hasAboveTextEmphasis && annotationPosition == RubyPosition::Before) || (hasUnderTextEmphasis && annotationPosition == RubyPosition::After)) {
+        if ((hasAboveTextEmphasis && annotationPosition == RubyPosition::Over) || (hasUnderTextEmphasis && annotationPosition == RubyPosition::Under)) {
             // FIXME: Check if annotation box has content.
             return { };
         }
@@ -597,20 +597,30 @@ std::pair<InlineLayoutUnit, InlineLayoutUnit> InlineFormattingUtils::textEmphasi
     return { hasAboveTextEmphasis ? annotationSize : 0.f, hasAboveTextEmphasis ? 0.f : annotationSize };
 }
 
-LineEndingEllipsisPolicy InlineFormattingUtils::lineEndingEllipsisPolicy(const RenderStyle& rootStyle, size_t numberOfLinesWithInlineContent, std::optional<size_t> numberOfVisibleLinesAllowed)
+LineEndingTruncationPolicy InlineFormattingUtils::lineEndingTruncationPolicy(const RenderStyle& rootStyle, size_t numberOfLinesWithInlineContent, std::optional<size_t> numberOfVisibleLinesAllowed, bool currentLineHasInlineContent)
 {
-    if (numberOfVisibleLinesAllowed && *numberOfVisibleLinesAllowed == numberOfLinesWithInlineContent)
-        return LineEndingEllipsisPolicy::WhenContentOverflowsInBlockDirection;
+    if (numberOfVisibleLinesAllowed) {
+        // text-overflow: ellipsis should not apply inside clamping content.
+        if (!currentLineHasInlineContent) {
+            // Content with no inline should never ever receive ellipsis.
+            return LineEndingTruncationPolicy::NoTruncation;
+        }
+        return *numberOfVisibleLinesAllowed == numberOfLinesWithInlineContent ? LineEndingTruncationPolicy::WhenContentOverflowsInBlockDirection : LineEndingTruncationPolicy::NoTruncation;
+    }
 
     // Truncation is in effect when the block container has overflow other than visible.
     if (rootStyle.overflowX() != Overflow::Visible && rootStyle.textOverflow() == TextOverflow::Ellipsis)
-        return LineEndingEllipsisPolicy::WhenContentOverflowsInInlineDirection;
-    return LineEndingEllipsisPolicy::NoEllipsis;
+        return LineEndingTruncationPolicy::WhenContentOverflowsInInlineDirection;
+    return LineEndingTruncationPolicy::NoTruncation;
 }
 
-const InlineLayoutState& InlineFormattingUtils::layoutState() const
+bool InlineFormattingUtils::shouldDiscardRemainingContentInBlockDirection(size_t numberOfLinesWithInlineContent) const
 {
-    return formattingContext().layoutState();
+    auto lineClamp = formattingContext().layoutState().parentBlockLayoutState().lineClamp();
+    if (!lineClamp || !lineClamp->shouldDiscardOverflow)
+        return false;
+    ASSERT(!lineClamp->isLegacy);
+    return lineClamp->maximumLines == numberOfLinesWithInlineContent;
 }
 
 }

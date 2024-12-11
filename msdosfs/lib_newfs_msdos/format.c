@@ -624,8 +624,6 @@ int format(NewfsOptions sopts, NewfsProperties newfsProps, format_context contex
         wipefsProps.block_size = bpb.bps;
         wipefsProps.except_block_start = 0;
         wipefsProps.except_block_length = sectors_to_write;
-        wipefsProps.include_block_start = 0;
-        wipefsProps.include_block_length = 0;
         int wipeFSRetVal = newfs_wipefs(newfs_ctx, wipefsProps);
         if(wipeFSRetVal != 0) {
             newfs_print(newfs_ctx, LOG_ERR, "Encountered errors trying to wipe resource");

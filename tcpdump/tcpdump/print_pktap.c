@@ -253,25 +253,39 @@ print_pktap_header(struct netdissect_options *ndo, struct pktap_header *pktp_hdr
 				  pktp_hdr->pth_flowid);
 			prsep = ", ";
 		}
-#ifdef PKTAP_HAS_TRACE_TAG
 		if (ndo->ndo_kflag & PRMD_TRACETAG) {
 			ND_PRINT("%s" "ttag 0x%x",
 				  prsep,
 				  pktp_hdr->pth_trace_tag);
 			prsep = ", ";
 		}
-#endif /* PKTAP_HAS_TRACE_TAG */
 		if (ndo->ndo_kflag & PRMD_DLT) {
 			ND_PRINT("%s" "dlt 0x%x",
 				  prsep,
 				  pktp_hdr->pth_dlt);
 			prsep = ", ";
 		}
+#ifdef PKTAP_HAS_COMP_GENCNT
+		if (ndo->ndo_kflag & PRMD_COMP_GENCNT) {
+			ND_PRINT("%s" "cmpgc 0x%x",
+				 prsep,
+					 pktp_hdr->pth_comp_gencnt);
+			prsep = ", ";
+		}
+#endif /* PKTAP_HAS_COMP_GENCNT */
 		if (pktp_hdr->pth_type_next == PTH_TYPE_DROP) {
 			struct droptap_header *dtap_hdr = (struct droptap_header *)pktp_hdr;
+			const char *reason_str = drop_reason_str(dtap_hdr->dth_dropreason);
+			char num_str[32];
+
+			if (reason_str == NULL) {
+				snprintf(num_str, sizeof(num_str), "reason: 0x%08x", dtap_hdr->dth_dropreason);
+				reason_str = num_str;
+			}
+
 			ND_PRINT("%s" "%s",
-				prsep,
-				drop_reason_str(dtap_hdr->dth_dropreason));
+					 prsep,
+					 reason_str);
 			prsep = ", ";
 			if (dtap_hdr->dth_dropfunc_size > 0) {
 				ND_PRINT("%s" "%s:%u",

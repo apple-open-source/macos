@@ -31,8 +31,11 @@
 #include "WebGPUConvertToBackingContext.h"
 #include <WebGPU/WebGPUExt.h>
 #include <wtf/BlockPtr.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore::WebGPU {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BufferImpl);
 
 BufferImpl::BufferImpl(WebGPUPtr<WGPUBuffer>&& buffer, ConvertToBackingContext& convertToBackingContext)
     : m_backing(WTFMove(buffer))
@@ -70,7 +73,7 @@ void BufferImpl::mapAsync(MapModeFlags mapModeFlags, Size64 offset, std::optiona
     wgpuBufferMapAsync(m_backing.get(), backingMapModeFlags, static_cast<size_t>(offset), static_cast<size_t>(usedSize), &mapAsyncCallback, Block_copy(blockPtr.get())); // Block_copy is matched with Block_release above in mapAsyncCallback().
 }
 
-void BufferImpl::getMappedRange(Size64 offset, std::optional<Size64> size, Function<void(MappedRange)>&& callback)
+void BufferImpl::getMappedRange(Size64 offset, std::optional<Size64> size, Function<void(std::span<uint8_t>)>&& callback)
 {
     auto usedSize = getMappedSize(m_backing.get(), size, offset);
 
@@ -83,10 +86,10 @@ void BufferImpl::getMappedRange(Size64 offset, std::optional<Size64> size, Funct
     callback({ static_cast<uint8_t*>(pointer) - actualOffset, actualSize });
 }
 
-auto BufferImpl::getBufferContents() -> MappedRange
+std::span<uint8_t> BufferImpl::getBufferContents()
 {
     if (!m_backing.get())
-        return { nullptr, 0 };
+        return { };
 
     auto* pointer = wgpuBufferGetBufferContents(m_backing.get());
     auto bufferSize = wgpuBufferGetCurrentSize(m_backing.get());

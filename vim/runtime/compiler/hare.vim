@@ -1,31 +1,29 @@
-" Vim compiler file
-" Compiler: Hare Compiler
-" Maintainer: Amelia Clarke <me@rsaihe.dev>
-" Last Change: 2022-09-21
+" Vim compiler file.
+" Compiler:    Hare
+" Maintainer:  Amelia Clarke <selene@perilune.dev>
+" Last Change: 2024-05-23
+" Upstream:    https://git.sr.ht/~sircmpwn/hare.vim
 
-if exists("g:current_compiler")
+if exists('current_compiler')
   finish
 endif
-let g:current_compiler = "hare"
+let current_compiler = 'hare'
 
 let s:cpo_save = &cpo
 set cpo&vim
 
-if exists(':CompilerSet') != 2
-  command -nargs=* CompilerSet setlocal <args>
-endif
-
-if filereadable("Makefile") || filereadable("makefile")
+if filereadable('Makefile') || filereadable('makefile')
   CompilerSet makeprg=make
 else
   CompilerSet makeprg=hare\ build
 endif
 
 CompilerSet errorformat=
-  \Error\ %f:%l:%c:\ %m,
-  \Syntax\ error:\ %.%#\ at\ %f:%l:%c\\,\ %m,
+  \%f:%l:%c:\ syntax\ error:\ %m,
+  \%f:%l:%c:\ error:\ %m,
   \%-G%.%#
 
 let &cpo = s:cpo_save
 unlet s:cpo_save
-" vim: tabstop=2 shiftwidth=2 expandtab
+
+" vim: et sts=2 sw=2 ts=8

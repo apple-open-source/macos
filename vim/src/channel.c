@@ -1493,7 +1493,7 @@ channel_set_req_callback(
 write_buf_line(buf_T *buf, linenr_T lnum, channel_T *channel)
 {
     char_u  *line = ml_get_buf(buf, lnum, FALSE);
-    int	    len = (int)STRLEN(line);
+    int	    len = ml_get_buf_len(buf, lnum);
     char_u  *p;
     int	    i;
 
@@ -2277,7 +2277,7 @@ channel_parse_json(channel_T *channel, ch_part_T part)
 	{
 	    int timeout;
 #ifdef MSWIN
-	    timeout = GetTickCount() > chanpart->ch_deadline;
+	    timeout = (int)(GetTickCount() - chanpart->ch_deadline) > 0;
 #else
 	    {
 		struct timeval now_tv;

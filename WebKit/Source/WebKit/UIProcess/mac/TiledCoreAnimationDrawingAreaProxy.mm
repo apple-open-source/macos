@@ -38,10 +38,13 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/MachSendRight.h>
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 using namespace IPC;
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(TiledCoreAnimationDrawingAreaProxy);
 
 TiledCoreAnimationDrawingAreaProxy::TiledCoreAnimationDrawingAreaProxy(WebPageProxy& webPageProxy, WebProcessProxy& webProcessProxy)
     : DrawingAreaProxy(DrawingAreaType::TiledCoreAnimation, webPageProxy, webProcessProxy)
@@ -135,7 +138,7 @@ void TiledCoreAnimationDrawingAreaProxy::didUpdateGeometry()
 void TiledCoreAnimationDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStateChangeID, WebProcessProxy& process)
 {
     Seconds activityStateUpdateTimeout = Seconds::fromMilliseconds(250);
-    process.connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DidUpdateActivityState>(protectedWebPageProxy()->webPageIDInMainFrameProcess(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+    process.connection().waitForAndDispatchImmediately<Messages::WebPageProxy::DidUpdateActivityState>(protectedWebPageProxy()->webPageIDInMainFrameProcess(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
 }
 
 void TiledCoreAnimationDrawingAreaProxy::willSendUpdateGeometry()
@@ -160,7 +163,7 @@ MachSendRight TiledCoreAnimationDrawingAreaProxy::createFence()
     if (!m_webProcessProxy->hasConnection())
         return MachSendRight();
 
-    RefPtr connection = m_webProcessProxy->connection();
+    Ref connection = m_webProcessProxy->connection();
 
     // Don't fence if we have incoming synchronous messages, because we may not
     // be able to reply to the message until the fence times out.

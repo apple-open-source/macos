@@ -112,6 +112,36 @@ public enum HashFunction {
 }
 
 public class Digest {
+    var ctx: any CryptoKit.HashFunction
+
+    public required init<T: CryptoKit.HashFunction>(_: T.Type) {
+        ctx = T()
+    }
+
+    public static func sha1Init() -> Digest {
+        return Self(Insecure.SHA1.self)
+    }
+
+    public static func sha256Init() -> Digest {
+        return Self(SHA256.self)
+    }
+
+    public static func sha384Init() -> Digest {
+        return Self(SHA384.self)
+    }
+
+    public static func sha512Init() -> Digest {
+        return Self(SHA512.self)
+    }
+
+    public func update(_ data: SpanConstUInt8) {
+        ctx.update(data: data)
+    }
+
+    public func finalize() -> VectorUInt8 {
+        ctx.finalize().copyToVectorUInt8()
+    }
+
     public static func sha1(_ data: SpanConstUInt8) -> VectorUInt8 {
         return digest(data, t: Insecure.SHA1.self)
     }
@@ -494,6 +524,7 @@ public class EdKey {
             case .x25519:
                 let priv = try Curve25519.KeyAgreement.PrivateKey(span: priv)
                 rv.result = try priv.sharedSecretFromKeyAgreement(pubSpan: pub)
+                rv.errorCode = .Success
             case .x448:
                 rv.errorCode = .UnsupportedAlgorithm
             }

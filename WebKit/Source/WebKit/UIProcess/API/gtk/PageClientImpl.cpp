@@ -57,6 +57,7 @@
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/ValidationBubble.h>
 #include <wtf/Compiler.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/GWeakPtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
@@ -68,6 +69,8 @@
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PageClientImpl);
 
 PageClientImpl::PageClientImpl(GtkWidget* viewWidget)
     : m_viewWidget(viewWidget)
@@ -288,11 +291,7 @@ void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool 
     }
 
     WebKitWebViewBase* webkitWebViewBase = WEBKIT_WEB_VIEW_BASE(m_viewWidget);
-#if USE(GTK4)
-    webkitWebViewBaseProcessAcceleratorsForKeyPressEvent(webkitWebViewBase, event.nativeEvent());
-#else
     webkitWebViewBasePropagateKeyEvent(webkitWebViewBase, event.nativeEvent());
-#endif
 }
 
 RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy& page)

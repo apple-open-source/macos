@@ -33,12 +33,13 @@
 #include "WebRTCResolver.h"
 #include <WebCore/LibWebRTCSocketIdentifier.h>
 #include <wtf/FunctionDispatcher.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebKit {
 
 class LibWebRTCNetwork : private FunctionDispatcher, private IPC::MessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(LibWebRTCNetwork);
 public:
     static UniqueRef<LibWebRTCNetwork> create() { return UniqueRef { *new LibWebRTCNetwork() }; }
     ~LibWebRTCNetwork();
@@ -70,7 +71,7 @@ private:
 #if USE(LIBWEBRTC)
     void setSocketFactoryConnection();
 
-    void signalReadPacket(WebCore::LibWebRTCSocketIdentifier, std::span<const uint8_t>, const RTCNetwork::IPAddress&, uint16_t port, int64_t);
+    void signalReadPacket(WebCore::LibWebRTCSocketIdentifier, std::span<const uint8_t>, const RTCNetwork::IPAddress&, uint16_t port, int64_t, RTC::Network::EcnMarking);
     void signalSentPacket(WebCore::LibWebRTCSocketIdentifier, int64_t, int64_t);
     void signalAddressReady(WebCore::LibWebRTCSocketIdentifier, const RTCNetwork::SocketAddress&);
     void signalConnect(WebCore::LibWebRTCSocketIdentifier);

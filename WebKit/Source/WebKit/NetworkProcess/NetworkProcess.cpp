@@ -100,6 +100,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/ProcessPrivilege.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/UUID.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WTFProcess.h>
@@ -146,6 +147,8 @@ static void callExitSoon(IPC::Connection*)
         terminateProcess(EXIT_FAILURE);
     });
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(NetworkProcess);
 
 NetworkProcess::NetworkProcess(AuxiliaryProcessInitializationParameters&& parameters)
     : m_downloadManager(*this)
@@ -416,6 +419,13 @@ void NetworkProcess::createNetworkConnectionToWebProcess(ProcessIdentifier ident
     }
 }
 
+void NetworkProcess::sharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier identifier, SharedPreferencesForWebProcess&& sharedPreferences, CompletionHandler<void()>&& completionHandler)
+{
+    if (RefPtr connection = m_webProcessConnections.get(identifier))
+        connection->updateSharedPreferencesForWebProcess(WTFMove(sharedPreferences));
+    completionHandler();
+}
+
 void NetworkProcess::addAllowedFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, WebCore::RegistrableDomain&& firstPartyForCookies, LoadedWebArchive loadedWebArchive, CompletionHandler<void()>&& completionHandler)
 {
     if (!HashSet<WebCore::RegistrableDomain>::isValidValue(firstPartyForCookies))
@@ -448,48 +458,49 @@ void NetworkProcess::webProcessWillLoadWebArchive(WebCore::ProcessIdentifier pro
     }).iterator->value.first = LoadedWebArchive::Yes;
 }
 
-bool NetworkProcess::allowsFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, const URL& firstParty)
+auto NetworkProcess::allowsFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, const URL& firstParty) -> AllowCookieAccess
 {
-    // FIXME: This should probably not be necessary. If about:blank is the first party for cookies,
-    // we should set it to be the inherited origin then remove this exception.
-    if (firstParty.isAboutBlank())
-        return true;
+    auto allowCookieAccess = allowsFirstPartyForCookies(processIdentifier, RegistrableDomain { firstParty });
+    if (allowCookieAccess == NetworkProcess::AllowCookieAccess::Terminate) {
+        // FIXME: This should probably not be necessary. If about:blank is the first party for cookies,
+        // we should set it to be the inherited origin then remove this exception.
+        if (firstParty.isAboutBlank())
+            return AllowCookieAccess::Disallow;
 
-    if (firstParty.isNull())
-        return true; // FIXME: This shouldn't be allowed.
+        if (firstParty.isNull())
+            return AllowCookieAccess::Disallow; // FIXME: This shouldn't be allowed.
+    }
 
-    return allowsFirstPartyForCookies(processIdentifier, RegistrableDomain { firstParty });
+    return allowCookieAccess;
 }
 
-bool NetworkProcess::allowsFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, const RegistrableDomain& firstPartyDomain)
+auto NetworkProcess::allowsFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, const RegistrableDomain& firstPartyDomain) -> AllowCookieAccess
 {
     // FIXME: This shouldn't be needed but it is hit sometimes at least with PDFs.
-    if (firstPartyDomain.isEmpty())
-        return true;
-
+    auto terminateOrDisallow = firstPartyDomain.isEmpty() ? AllowCookieAccess::Disallow : AllowCookieAccess::Terminate;
     if (!decltype(m_allowedFirstPartiesForCookies)::isValidKey(processIdentifier)) {
         ASSERT_NOT_REACHED();
-        return false;
+        return terminateOrDisallow;
     }
 
     auto iterator = m_allowedFirstPartiesForCookies.find(processIdentifier);
     if (iterator == m_allowedFirstPartiesForCookies.end()) {
         ASSERT_NOT_REACHED();
-        return false;
+        return terminateOrDisallow;
     }
 
     if (iterator->value.first == LoadedWebArchive::Yes)
-        return true;
+        return AllowCookieAccess::Allow;
 
     auto& set = iterator->value.second;
     if (!std::remove_reference_t<decltype(set)>::isValidValue(firstPartyDomain)) {
         ASSERT_NOT_REACHED();
-        return false;
+        return terminateOrDisallow;
     }
 
     auto result = set.contains(firstPartyDomain);
-    ASSERT(result);
-    return result;
+    ASSERT(result || terminateOrDisallow == AllowCookieAccess::Disallow);
+    return result ? AllowCookieAccess::Allow : terminateOrDisallow;
 }
 
 void NetworkProcess::addStorageSession(PAL::SessionID sessionID, const WebsiteDataStoreParameters& parameters)
@@ -863,19 +874,6 @@ void NetworkProcess::statisticsDatabaseHasAllTables(PAL::SessionID sessionID, Co
     } else {
         ASSERT_NOT_REACHED();
         completionHandler(false);
-    }
-}
-
-void NetworkProcess::setNotifyPagesWhenDataRecordsWereScanned(PAL::SessionID sessionID, bool value, CompletionHandler<void()>&& completionHandler)
-{
-    if (auto* session = networkSession(sessionID)) {
-        if (auto* resourceLoadStatistics = session->resourceLoadStatistics())
-            resourceLoadStatistics->setNotifyPagesWhenDataRecordsWereScanned(value, WTFMove(completionHandler));
-        else
-            completionHandler();
-    } else {
-        ASSERT_NOT_REACHED();
-        completionHandler();
     }
 }
 
@@ -1880,7 +1878,7 @@ static Vector<WebCore::SecurityOriginData> filterForRegistrableDomains(const Has
     return originsDeleted;
 }
 
-void NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains(PAL::SessionID sessionID, OptionSet<WebsiteDataType> websiteDataTypes, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&& domains, bool shouldNotifyPage, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&& completionHandler)
+void NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains(PAL::SessionID sessionID, OptionSet<WebsiteDataType> websiteDataTypes, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&& domains, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&& completionHandler)
 {
     RELEASE_LOG(Storage, "NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains started to delete and restrict data for session %" PRIu64 " - %zu domainsToDeleteAllCookiesFor, %zu domainsToDeleteAllButHttpOnlyCookiesFor, %zu domainsToDeleteAllScriptWrittenStorageFor", sessionID.toUInt64(), domains.domainsToDeleteAllCookiesFor.size(), domains.domainsToDeleteAllButHttpOnlyCookiesFor.size(), domains.domainsToDeleteAllScriptWrittenStorageFor.size());
     auto* session = networkSession(sessionID);
@@ -1905,10 +1903,7 @@ void NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains(PAL::Sess
         HashSet<RegistrableDomain> m_domains;
     };
     
-    auto callbackAggregator = adoptRef(*new CallbackAggregator([this, completionHandler = WTFMove(completionHandler), shouldNotifyPage] (HashSet<RegistrableDomain>&& domainsWithData) mutable {
-        if (shouldNotifyPage)
-            parentProcessConnection()->send(Messages::NetworkProcessProxy::NotifyWebsiteDataDeletionForRegistrableDomainsFinished(), 0);
-        
+    auto callbackAggregator = adoptRef(*new CallbackAggregator([completionHandler = WTFMove(completionHandler)] (HashSet<RegistrableDomain>&& domainsWithData) mutable {
         RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler), domainsWithData = crossThreadCopy(WTFMove(domainsWithData))] () mutable {
             completionHandler(WTFMove(domainsWithData));
         });
@@ -2031,13 +2026,13 @@ void NetworkProcess::deleteCookiesForTesting(PAL::SessionID sessionID, Registrab
     else
         toDeleteFor.domainsToDeleteAllButHttpOnlyCookiesFor.append(domain);
 
-    deleteAndRestrictWebsiteDataForRegistrableDomains(sessionID, cookieType, WTFMove(toDeleteFor), true, [completionHandler = WTFMove(completionHandler)] (HashSet<RegistrableDomain>&& domainsDeletedFor) mutable {
+    deleteAndRestrictWebsiteDataForRegistrableDomains(sessionID, cookieType, WTFMove(toDeleteFor), [completionHandler = WTFMove(completionHandler)] (HashSet<RegistrableDomain>&& domainsDeletedFor) mutable {
         UNUSED_PARAM(domainsDeletedFor);
         completionHandler();
     });
 }
 
-void NetworkProcess::registrableDomainsWithWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDataType> websiteDataTypes, bool shouldNotifyPage, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&& completionHandler)
+void NetworkProcess::registrableDomainsWithWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDataType> websiteDataTypes, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&& completionHandler)
 {
     auto* session = networkSession(sessionID);
     struct CallbackAggregator final : public ThreadSafeRefCounted<CallbackAggregator> {
@@ -2067,10 +2062,7 @@ void NetworkProcess::registrableDomainsWithWebsiteData(PAL::SessionID sessionID,
         WebsiteData m_websiteData;
     };
     
-    auto callbackAggregator = adoptRef(*new CallbackAggregator([this, completionHandler = WTFMove(completionHandler), shouldNotifyPage] (HashSet<RegistrableDomain>&& domainsWithData) mutable {
-        if (shouldNotifyPage)
-            parentProcessConnection()->send(Messages::NetworkProcessProxy::NotifyWebsiteDataScanForRegistrableDomainsFinished(), 0);
-
+    auto callbackAggregator = adoptRef(*new CallbackAggregator([completionHandler = WTFMove(completionHandler)] (HashSet<RegistrableDomain>&& domainsWithData) mutable {
         RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler), domainsWithData = crossThreadCopy(WTFMove(domainsWithData))] () mutable {
             completionHandler(WTFMove(domainsWithData));
         });
@@ -2138,9 +2130,9 @@ void NetworkProcess::downloadRequest(PAL::SessionID sessionID, DownloadID downlo
     downloadManager().startDownload(sessionID, downloadID, request, topOrigin, isNavigatingToAppBoundDomain, suggestedFilename);
 }
 
-void NetworkProcess::resumeDownload(PAL::SessionID sessionID, DownloadID downloadID, std::span<const uint8_t> resumeData, const String& path, WebKit::SandboxExtensionHandle&& sandboxExtensionHandle, CallDownloadDidStart callDownloadDidStart)
+void NetworkProcess::resumeDownload(PAL::SessionID sessionID, DownloadID downloadID, std::span<const uint8_t> resumeData, const String& path, WebKit::SandboxExtensionHandle&& sandboxExtensionHandle, CallDownloadDidStart callDownloadDidStart, std::span<const uint8_t> activityAccessToken)
 {
-    downloadManager().resumeDownload(sessionID, downloadID, resumeData, path, WTFMove(sandboxExtensionHandle), callDownloadDidStart);
+    downloadManager().resumeDownload(sessionID, downloadID, resumeData, path, WTFMove(sandboxExtensionHandle), callDownloadDidStart, activityAccessToken);
 }
 
 void NetworkProcess::cancelDownload(DownloadID downloadID, CompletionHandler<void(std::span<const uint8_t>)>&& completionHandler)
@@ -2149,23 +2141,47 @@ void NetworkProcess::cancelDownload(DownloadID downloadID, CompletionHandler<voi
 }
 
 #if PLATFORM(COCOA)
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+void NetworkProcess::publishDownloadProgress(DownloadID downloadID, const URL& url, std::span<const uint8_t> bookmarkData, WebKit::UseDownloadPlaceholder useDownloadPlaceholder, std::span<const uint8_t> activityAccessToken)
+{
+    downloadManager().publishDownloadProgress(downloadID, url, bookmarkData, useDownloadPlaceholder, activityAccessToken);
+}
+#else
 void NetworkProcess::publishDownloadProgress(DownloadID downloadID, const URL& url, SandboxExtension::Handle&& sandboxExtensionHandle)
 {
     downloadManager().publishDownloadProgress(downloadID, url, WTFMove(sandboxExtensionHandle));
 }
 #endif
+#endif
 
 void NetworkProcess::findPendingDownloadLocation(NetworkDataTask& networkDataTask, ResponseCompletionHandler&& completionHandler, const ResourceResponse& response)
 {
-    uint64_t destinationID = networkDataTask.pendingDownloadID().toUInt64();
-
     String suggestedFilename = networkDataTask.suggestedFilename();
 
-    downloadProxyConnection()->sendWithAsyncReply(Messages::DownloadProxy::DecideDestinationWithSuggestedFilename(response, suggestedFilename), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), networkDataTask = Ref { networkDataTask }] (String&& destination, SandboxExtension::Handle&& sandboxExtensionHandle, AllowOverwrite allowOverwrite) mutable {
-        auto downloadID = networkDataTask->pendingDownloadID();
+    downloadProxyConnection()->sendWithAsyncReply(Messages::DownloadProxy::DecideDestinationWithSuggestedFilename(response, suggestedFilename), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), networkDataTask = Ref { networkDataTask }] (String&& destination, SandboxExtension::Handle&& sandboxExtensionHandle, AllowOverwrite allowOverwrite, WebKit::UseDownloadPlaceholder usePlaceholder, URL&& alternatePlaceholderURL, SandboxExtension::Handle&& placeholderSandboxExtensionHandle, std::span<const uint8_t> placeholderBookmarkData, std::span<const uint8_t> activityAccessToken) mutable {
+#if !HAVE(MODERN_DOWNLOADPROGRESS)
+        UNUSED_PARAM(placeholderBookmarkData);
+        UNUSED_PARAM(activityAccessToken);
+#endif
+        auto downloadID = *networkDataTask->pendingDownloadID();
         if (destination.isEmpty())
             return completionHandler(PolicyAction::Ignore);
         networkDataTask->setPendingDownloadLocation(destination, WTFMove(sandboxExtensionHandle), allowOverwrite == AllowOverwrite::Yes);
+
+#if PLATFORM(COCOA)
+        URL publishURL;
+        if (usePlaceholder == UseDownloadPlaceholder::No && !alternatePlaceholderURL.isEmpty())
+            publishURL = alternatePlaceholderURL;
+        else
+            publishURL = URL::fileURLWithFileSystemPath(destination);
+        if (usePlaceholder == UseDownloadPlaceholder::Yes || !alternatePlaceholderURL.isEmpty())
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+            publishDownloadProgress(downloadID, publishURL, placeholderBookmarkData, usePlaceholder, activityAccessToken);
+#else
+            publishDownloadProgress(downloadID, publishURL, WTFMove(placeholderSandboxExtensionHandle));
+#endif // HAVE(MODERN_DOWNLOADPROGRESS)
+#endif // PLATFORM(COCOA)
+
         completionHandler(PolicyAction::Download);
         if (networkDataTask->state() == NetworkDataTask::State::Canceling || networkDataTask->state() == NetworkDataTask::State::Completed)
             return;
@@ -2176,7 +2192,7 @@ void NetworkProcess::findPendingDownloadLocation(NetworkDataTask& networkDataTas
         }
 
         downloadManager().downloadDestinationDecided(downloadID, WTFMove(networkDataTask));
-    }, destinationID);
+    }, *networkDataTask.pendingDownloadID());
 }
 
 void NetworkProcess::dataTaskWithRequest(WebPageProxyIdentifier pageID, PAL::SessionID sessionID, WebCore::ResourceRequest&& request, const std::optional<WebCore::SecurityOriginData>& topOrigin, IPC::FormDataReference&& httpBody, CompletionHandler<void(DataTaskIdentifier)>&& completionHandler)
@@ -2315,9 +2331,6 @@ void NetworkProcess::processDidResume(bool forForegroundActivity)
     RELEASE_LOG(ProcessSuspension, "%p - NetworkProcess::processDidResume() forForegroundActivity=%d", this, forForegroundActivity);
 
     m_isSuspended = false;
-
-    for (auto& connection : m_webProcessConnections.values())
-        connection->endSuspension();
 
     WebResourceLoadStatisticsStore::resume();
     PCM::PersistentStore::processDidResume();
@@ -2512,14 +2525,28 @@ void NetworkProcess::clickBackgroundFetch(PAL::SessionID sessionID, const String
 }
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
 
+void NetworkProcess::getPendingPushMessage(PAL::SessionID sessionID, CompletionHandler<void(const std::optional<WebPushMessage>&)>&& callback)
+{
+    if (auto* session = networkSession(sessionID)) {
+        RELEASE_LOG(Push, "NetworkProcess getting pending push messages for session ID %" PRIu64, sessionID.toUInt64());
+        session->notificationManager().getPendingPushMessage(WTFMove(callback));
+        return;
+    }
+
+    RELEASE_LOG(Push, "NetworkProcess could not find session for ID %llu to get pending push messages", sessionID.toUInt64());
+    callback(std::nullopt);
+}
+
 void NetworkProcess::getPendingPushMessages(PAL::SessionID sessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&& callback)
 {
     if (auto* session = networkSession(sessionID)) {
         LOG(Notifications, "NetworkProcess getting pending push messages for session ID %" PRIu64, sessionID.toUInt64());
         session->notificationManager().getPendingPushMessages(WTFMove(callback));
         return;
-    } else
-        LOG(Notifications, "NetworkProcess could not find session for ID %llu to get pending push messages", sessionID.toUInt64());
+    }
+
+    LOG(Notifications, "NetworkProcess could not find session for ID %llu to get pending push messages", sessionID.toUInt64());
+    callback({ });
 }
 
 void NetworkProcess::processPushMessage(PAL::SessionID sessionID, WebPushMessage&& pushMessage, PushPermissionState permissionState, CompletionHandler<void(bool, std::optional<WebCore::NotificationPayload>&&)>&& callback)
@@ -2547,7 +2574,8 @@ void NetworkProcess::processPushMessage(PAL::SessionID sessionID, WebPushMessage
         auto scope = pushMessage.registrationURL.string();
         bool isDeclarative = !!pushMessage.notificationPayload;
         session->ensureSWServer().processPushMessage(WTFMove(pushMessage.pushData), WTFMove(pushMessage.notificationPayload), WTFMove(pushMessage.registrationURL), [this, protectedThis = Ref { *this }, sessionID, origin = WTFMove(origin), scope = WTFMove(scope), callback = WTFMove(callback), isDeclarative](bool result, std::optional<WebCore::NotificationPayload>&& resultPayload) mutable {
-            if (!isDeclarative && !result) {
+            // When using built-in notifications, we expect clients to use getPendingPushMessage, which automatically tracks silent push counts within webpushd.
+            if (!m_builtInNotificationsEnabled &&!isDeclarative && !result) {
                 if (auto* session = networkSession(sessionID)) {
                     session->notificationManager().incrementSilentPushCount(WTFMove(origin), [scope = WTFMove(scope), callback = WTFMove(callback), result](unsigned newSilentPushCount) mutable {
                         RELEASE_LOG_ERROR(Push, "Push message for scope %" SENSITIVE_LOG_STRING " not handled properly; new silent push count: %u", scope.utf8().data(), newSilentPushCount);
@@ -2566,6 +2594,11 @@ void NetworkProcess::processPushMessage(PAL::SessionID sessionID, WebPushMessage
 }
 
 #else
+
+void NetworkProcess::getPendingPushMessage(PAL::SessionID, CompletionHandler<void(const std::optional<WebPushMessage>&)>&& callback)
+{
+    callback({ });
+}
 
 void NetworkProcess::getPendingPushMessages(PAL::SessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&& callback)
 {
@@ -2613,6 +2646,18 @@ void NetworkProcess::hasPushSubscriptionForTesting(PAL::SessionID sessionID, URL
 #endif
 
     callback(false);
+}
+
+void NetworkProcess::getAppBadgeForTesting(PAL::SessionID sessionID, CompletionHandler<void(std::optional<uint64_t>)>&& callback)
+{
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
+    if (auto* session = networkSession(sessionID)) {
+        session->notificationManager().getAppBadgeForTesting(WTFMove(callback));
+        return;
+    }
+#endif
+
+    callback(std::nullopt);
 }
 
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
@@ -2990,6 +3035,22 @@ void NetworkProcess::countNonDefaultSessionSets(PAL::SessionID sessionID, Comple
     completionHandler(session ? session->countNonDefaultSessionSets() : 0);
 }
 
+void NetworkProcess::allowFilesAccessFromWebProcess(WebCore::ProcessIdentifier processID, const Vector<String>& paths, CompletionHandler<void()>&& completionHandler)
+{
+    if (auto* connection = webProcessConnection(processID)) {
+        for (auto& path : paths)
+            connection->allowAccessToFile(path);
+    }
+    completionHandler();
+}
+
+void NetworkProcess::allowFileAccessFromWebProcess(WebCore::ProcessIdentifier processID, const String& path, CompletionHandler<void()>&& completionHandler)
+{
+    if (auto* connection = webProcessConnection(processID))
+        connection->allowAccessToFile(path);
+    completionHandler();
+}
+
 void NetworkProcess::requestBackgroundFetchPermission(PAL::SessionID sessionID, const ClientOrigin& origin, CompletionHandler<void(bool)>&& callback)
 {
     parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::RequestBackgroundFetchPermission(sessionID, origin), WTFMove(callback));
@@ -3027,6 +3088,12 @@ void NetworkProcess::setStorageSiteValidationEnabled(PAL::SessionID sessionID, b
 {
     if (auto* session = networkSession(sessionID))
         session->protectedStorageManager()->setStorageSiteValidationEnabled(enabled);
+}
+
+void NetworkProcess::setPersistedDomains(PAL::SessionID sessionID, HashSet<RegistrableDomain>&& domains)
+{
+    if (auto* session = networkSession(sessionID))
+        session->setPersistedDomains(WTFMove(domains));
 }
 
 } // namespace WebKit

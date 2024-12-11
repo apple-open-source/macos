@@ -33,7 +33,7 @@ class StyleRuleCounterStyle;
 // Used to render the list item's marker.
 // The RenderListMarker always has to be a child of a RenderListItem.
 class RenderListMarker final : public RenderBox {
-    WTF_MAKE_ISO_ALLOCATED(RenderListMarker);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderListMarker);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderListMarker);
 public:
     RenderListMarker(RenderListItem&, RenderStyle&&);
@@ -63,6 +63,7 @@ private:
     LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode) const final;
     LayoutRect selectionRectForRepaint(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent) final;
     bool canBeSelectionLeaf() const final { return true; }
+    void styleWillChange(StyleDifference, const RenderStyle& newStyle) final;
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) final;
 
     void element() const = delete;

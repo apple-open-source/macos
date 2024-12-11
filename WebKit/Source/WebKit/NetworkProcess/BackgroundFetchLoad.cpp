@@ -35,6 +35,7 @@
 #include "WebErrors.h"
 #include <WebCore/BackgroundFetchRequest.h>
 #include <WebCore/ClientOrigin.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 #define BGLOAD_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - BackgroundFetchLoad::" fmt, this, ##__VA_ARGS__)
@@ -42,6 +43,8 @@
 namespace WebKit {
 
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BackgroundFetchLoad);
 
 BackgroundFetchLoad::BackgroundFetchLoad(NetworkProcess& networkProcess, PAL::SessionID sessionID, BackgroundFetchRecordLoaderClient& client, const BackgroundFetchRequest& request, size_t responseDataSize, const ClientOrigin& clientOrigin)
     : m_sessionID(WTFMove(sessionID))
@@ -138,7 +141,7 @@ void BackgroundFetchLoad::didReceiveChallenge(AuthenticationChallenge&& challeng
 {
     BGLOAD_RELEASE_LOG("didReceiveChallenge");
     if (challenge.protectionSpace().authenticationScheme() == ProtectionSpace::AuthenticationScheme::ServerTrustEvaluationRequested) {
-        m_networkLoadChecker->networkProcess().authenticationManager().didReceiveAuthenticationChallenge(m_sessionID, { },  m_parameters.topOrigin ? &m_parameters.topOrigin->data() : nullptr, challenge, negotiatedLegacyTLS, WTFMove(completionHandler));
+        m_networkLoadChecker->networkProcess().authenticationManager().didReceiveAuthenticationChallenge(m_sessionID, { }, nullptr, challenge, negotiatedLegacyTLS, WTFMove(completionHandler));
         return;
     }
     WeakPtr weakThis { *this };

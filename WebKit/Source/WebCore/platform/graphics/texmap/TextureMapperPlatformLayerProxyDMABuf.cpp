@@ -35,6 +35,7 @@
 #include <fcntl.h>
 #include <initializer_list>
 #include <unistd.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if USE(LIBEPOXY)
 #include <epoxy/egl.h>
@@ -48,13 +49,16 @@
 
 namespace WebCore {
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(TextureMapperPlatformLayerProxyDMABuf);
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(TextureMapperPlatformLayerProxyDMABufDMABufLayer, TextureMapperPlatformLayerProxyDMABuf::DMABufLayer);
+
 struct TextureMapperPlatformLayerProxyDMABuf::DMABufLayer::EGLImageData {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
 
     ~EGLImageData()
     {
         if (numImages) {
-            auto& platformDisplay = PlatformDisplay::sharedDisplayForCompositing();
+            auto& platformDisplay = PlatformDisplay::sharedDisplay();
             glDeleteTextures(numImages, texture.data());
 
             for (unsigned i = 0; i < numImages; ++i) {
@@ -191,7 +195,7 @@ void TextureMapperPlatformLayerProxyDMABuf::DMABufLayer::paintToTextureMapper(Te
         return;
 
     if (m_fence) {
-        m_fence->wait(WebCore::GLFence::FlushCommands::No);
+        m_fence->serverWait();
         m_fence = nullptr;
     }
 
@@ -303,7 +307,7 @@ std::unique_ptr<TextureMapperPlatformLayerProxyDMABuf::DMABufLayer::EGLImageData
 {
     using EGLImageData = TextureMapperPlatformLayerProxyDMABuf::DMABufLayer::EGLImageData;
 
-    auto& platformDisplay = PlatformDisplay::sharedDisplayForCompositing();
+    auto& platformDisplay = PlatformDisplay::sharedDisplay();
 
     EGLImageKHR image[DMABufFormat::c_maxPlanes];
     for (unsigned i = 0; i < object.format.numPlanes; ++i) {

@@ -36,7 +36,10 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         NSSet* arrayOfCuttlefishCurrentItemSpecifiers = [NSSet setWithArray:@[[NSArray class], [CuttlefishCurrentItemSpecifier class]]];
         NSSet* arrayOfCuttlefishCurrentItems = [NSSet setWithArray:@[[NSArray class], [CuttlefishCurrentItem class]]];
 
+        [interface setClasses:errClasses forSelector:@selector(honorIDMSListChangesForSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(dumpWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(octagonPeerIDGivenBottleIDWithSpecificUser:bottleID:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(trustedDeviceNamesByPeerIDWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(departByDistrustingSelfWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(distrustPeerIDsWithSpecificUser:peerIDs:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(dropPeerIDsWithSpecificUser:peerIDs:reply:) argumentIndex:0 ofReply:YES];
@@ -588,6 +591,12 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     return self;
 }
 
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CuttlefishPCSServiceIdentifier(%@): %@>",
+            self.zoneID,
+            self.PCSServiceID];
+}
+
 @end
 
 @implementation CuttlefishPCSIdentity
@@ -600,6 +609,10 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         _item = item;
     }
     return self;
+}
+
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CuttlefishPCSIdentity(%@)>", self.service];
 }
 
 + (BOOL)supportsSecureCoding {
@@ -652,6 +665,12 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     return self;
 }
 
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CuttlefishCurrentItemSpecifier(%@): %@>",
+            self.zoneID,
+            self.itemPtrName];
+}
+
 @end
 
 
@@ -665,6 +684,10 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         _item = item;
     }
     return self;
+}
+
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CuttlefishCurrentItem(%@)>", self.itemPtr];
 }
 
 + (BOOL)supportsSecureCoding {

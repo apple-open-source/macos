@@ -38,6 +38,8 @@
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include "IOHIDEventServiceKeys.h"
 #include "IOHIDFamilyPrivate.h"
+#include "IOHIDEventData.h"
+#include <math.h>
 
 enum {
     kIOHIDEventDriverDebugSkipGCAuth    = 0x00000001
@@ -283,6 +285,7 @@ OSDefineMetaClassAndStructors( IOHIDEventDriver, IOHIDEventService )
 #define _proximity                      _reserved->proximity
 #define _workLoop                       _reserved->workLoop
 #define _commandGate                    _reserved->commandGate
+#define _appleVendorSupported           _reserved->appleVendorSupported
 
 
 //====================================================================================================
@@ -321,6 +324,7 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_digitizer.relativeScanTime);
     OSSafeReleaseNULL(_digitizer.surfaceSwitch);
     OSSafeReleaseNULL(_digitizer.reportRate);
+    OSSafeReleaseNULL(_digitizer.height);
     OSSafeReleaseNULL(_scroll.elements);
     OSSafeReleaseNULL(_led.elements);
     OSSafeReleaseNULL(_keyboard.elements);
@@ -422,7 +426,7 @@ bool IOHIDEventDriver::handleStart(IOService *provider)
     // Get array of blessed vendor keyboard usages.
     require_action(getBlessedUsagePairs(), exit, HIDServiceLogError("Error parsing the blessed usage pair array!"));
     
-    _keyboard.appleVendorSupported = getProperty(kIOHIDAppleVendorSupported, gIOServicePlane);
+    _appleVendorSupported = getProperty(kIOHIDAppleVendorSupported, gIOServicePlane);
     
     elements = _interface->createMatchingElements();
     require(elements, exit);
@@ -1889,11 +1893,19 @@ bool IOHIDEventDriver::parseDigitizerElement(IOHIDElement * element)
         // element of transducerIndex 0
     }
     
-    if (element->getUsagePage() == kHIDPage_AppleVendorMultitouch && element->getUsage() == kHIDUsage_AppleVendorMultitouch_TouchCancel) {
-        OSSafeReleaseNULL(_digitizer.touchCancelElement);
-        element->retain();
-        _digitizer.touchCancelElement = element;
-    }
+    if(_appleVendorSupported) {
+         if (element->getUsagePage() == kHIDPage_AppleVendorMultitouch && element->getUsage() == kHIDUsage_AppleVendorMultitouch_NoiseMetric) {
+             OSSafeReleaseNULL(_digitizer.noiseMetric);
+             element->retain();
+             _digitizer.noiseMetric = element;
+         }
+
+         if (element->getUsagePage() == kHIDPage_AppleVendorMultitouch && element->getUsage() == kHIDUsage_AppleVendorMultitouch_TouchCancel) {
+             OSSafeReleaseNULL(_digitizer.touchCancelElement);
+             element->retain();
+             _digitizer.touchCancelElement = element;
+         }
+     }
     
     if (element->getUsagePage() == kHIDPage_Digitizer && element->getUsage() == kHIDUsage_Dig_Untouch) {
         _digitizer.collectionDispatch = true;
@@ -1925,6 +1937,11 @@ bool IOHIDEventDriver::parseDigitizerElement(IOHIDElement * element)
         }
     }
     
+    if (element->getUsagePage() == kHIDPage_Digitizer && element->getUsage() == kHIDUsage_Dig_Height) {
+        OSSafeReleaseNULL(_digitizer.height);
+        element->retain();
+        _digitizer.height = element;
+    }
     
     switch ( parent->getUsage() ) {
         case kHIDUsage_Dig_DeviceSettings:
@@ -2323,7 +2340,7 @@ bool IOHIDEventDriver::parseKeyboardElement(IOHIDElement * element)
             store = true;
             break;
         case kHIDPage_AppleVendorTopCase:
-            if (_keyboard.appleVendorSupported) {
+            if (_appleVendorSupported) {
                 switch (usage) {
                     case kHIDUsage_AV_TopCase_BrightnessDown:
                     case kHIDUsage_AV_TopCase_BrightnessUp:
@@ -2336,7 +2353,7 @@ bool IOHIDEventDriver::parseKeyboardElement(IOHIDElement * element)
             }
             break;
         case kHIDPage_AppleVendorKeyboard:
-            if (_keyboard.appleVendorSupported) {
+            if (_appleVendorSupported) {
                 switch (usage) {
                     case kHIDUsage_AppleVendorKeyboard_Spotlight:
                     case kHIDUsage_AppleVendorKeyboard_Dashboard:
@@ -3496,11 +3513,18 @@ void IOHIDEventDriver::handleDigitizerCollectionReport(AbsoluteTime timeStamp, U
     IOFixed touchY      = 0;
     IOFixed inRangeX    = 0;
     IOFixed inRangeY    = 0;
+    IOFixed noiseMetric = 0;
     UInt32  touchCount  = 0;
     UInt32  inRangeCount= 0;
+    uint32_t orientationType = kIOHIDDigitizerOrientationTypeTilt; //default orientation type
     IOHIDEvent *scanTimeEvent = NULL;
     OSData *scanTimeValue = NULL;
   
+    if (_digitizer.noiseMetric && _digitizer.noiseMetric->getReportID()==reportID) {
+        noiseMetric = _digitizer.noiseMetric->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
+        orientationType = kIOHIDDigitizerOrientationTypeQuality;
+    }
+    
     if (_digitizer.touchCancelElement && _digitizer.touchCancelElement->getReportID()==reportID) {
         AbsoluteTime elementTimeStamp =  _digitizer.touchCancelElement->getTimeStamp();
         if (CMP_ABSOLUTETIME(&timeStamp, &elementTimeStamp)==0) {
@@ -3592,6 +3616,14 @@ void IOHIDEventDriver::handleDigitizerCollectionReport(AbsoluteTime timeStamp, U
         collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, mask);
         collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerTouch, touch);
         collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerButtonMask, buttons);
+        
+        //IOHIDEvent::digitizerEvent sets quality as orientation type if given
+        //kIOHIDDigitizerTransducerTypeFinger, therefore the purpose of orientationType
+        //is solely to track categories of values being set within handleDigitizerCollectionReport
+        if(orientationType == kIOHIDDigitizerOrientationTypeQuality) {
+            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerIrregularity, noiseMetric);
+        }
+    
         if (finger > 1) {
             collectionEvent->getIntegerValue(kIOHIDDigitizerTransducerTypeHand);
         }
@@ -3757,11 +3789,15 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
     IOFixed                 tipPressure     = 0;
     IOFixed                 barrelPressure  = 0;
     IOFixed                 twist           = 0;
+    IOFixed                 width           = 0;
+    IOFixed                 height          = 0;
+    IOFixed                 signalSum       = 0;
     bool                    inRange         = true;
     bool                    hasInRangeUsage = false;
     bool                    valid           = true;
     UInt32                  eventMask       = 0;
     UInt32                  eventOptions    = 0;
+    UInt32                  orientationType = kIOHIDDigitizerOrientationTypeTilt; //default orientation type
     bool                    touch           = false;
     bool                    unTouch         = false;
     IOHIDEvent              *event          = NULL;
@@ -3769,6 +3805,10 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
     TransducerState       * state           = NULL;
     TransducerState       * backup          = NULL;
     IOHIDDigitizerTransducerType transducerType = transducer->type;
+    IOHIDEvent            * unfilteredXEvent = NULL;
+    OSData                * unfilteredXValue = NULL;
+    IOHIDEvent            * unfilteredYEvent = NULL;
+    OSData                * unfilteredYValue = NULL;
   
     require_quiet(transducer->elements, exit);
   
@@ -3882,11 +3922,38 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
                             isFinger = true;
                         }
                         break;
+                    case kHIDUsage_Dig_Width:
+                        width = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
+                        orientationType = kIOHIDDigitizerOrientationTypeQuality;
+                        handled |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_Height:
+                        height = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
+                        orientationType = kIOHIDDigitizerOrientationTypeQuality;
+                        handled |= elementIsCurrent;
+                        break;
                     default:
                         break;
                 }
                 break;
-        }        
+            case kHIDPage_AppleVendorMultitouch:
+                switch(usage) {
+                    case kHIDUsage_AppleVendorMultitouch_SignalSum:
+                        signalSum = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
+                        orientationType = kIOHIDDigitizerOrientationTypeQuality;
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_AppleVendorMultitouch_UnfilteredX:
+                        unfilteredXValue = element->getDataValue(0);
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_AppleVendorMultitouch_UnfilteredY:
+                        unfilteredYValue = element->getDataValue(0);
+                        handled    |= elementIsCurrent;
+                        break;
+                }
+                break;
+        }
     }
     
     require(handled, exit);
@@ -3974,6 +4041,39 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
     // ui layer application
     if (state->touch == touch && !touch && !inRange) {
         OSSafeReleaseNULL(event);
+    } else {
+        // Set remaining event fields
+        if(orientationType == kIOHIDDigitizerOrientationTypeQuality) {
+            //Divide by 2 to convert to radius; perform normalization to height of the display
+            IOFixed heightPhysicalMax = CAST_INTEGER_TO_FIXED(_digitizer.height->getPhysicalMax());
+            IOFixed heightLogicalMax = CAST_INTEGER_TO_FIXED(_digitizer.height->getLogicalMax());
+            IOFixed accuracy = IOFixedDivide(CAST_INTEGER_TO_FIXED(1), heightLogicalMax);
+            IOFixed minorRadius = IOFixedDivide(IOFixedDivide(width, CAST_INTEGER_TO_FIXED(2)), heightPhysicalMax);
+            IOFixed majorRadius = IOFixedDivide(IOFixedDivide(height, CAST_INTEGER_TO_FIXED(2)), heightPhysicalMax);
+            event->setFixedValue(kIOHIDEventFieldDigitizerMajorRadius, majorRadius);
+            event->setFixedValue(kIOHIDEventFieldDigitizerMinorRadius, minorRadius);
+            event->setFixedValue(kIOHIDEventFieldDigitizerQualityRadiiAccuracy, accuracy);
+            if(_appleVendorSupported) {
+                event->setFixedValue(kIOHIDEventFieldDigitizerQuality, signalSum);
+            }
+        }
+                
+        if(_appleVendorSupported) {
+            if (unfilteredXValue && unfilteredXValue->getLength()) {
+                unfilteredXEvent =  IOHIDEvent::vendorDefinedEvent( timeStamp, kHIDPage_AppleVendorMultitouch, kHIDUsage_AppleVendorMultitouch_UnfilteredX, 0, (uint8_t *)unfilteredXValue->getBytesNoCopy(), unfilteredXValue->getLength());
+                if (unfilteredXEvent) {
+                    event->appendChild(unfilteredXEvent);
+                    unfilteredXEvent->release();
+                }
+            }
+            if (unfilteredYValue && unfilteredYValue->getLength()) {
+                unfilteredYEvent =  IOHIDEvent::vendorDefinedEvent( timeStamp, kHIDPage_AppleVendorMultitouch, kHIDUsage_AppleVendorMultitouch_UnfilteredY, 0, (uint8_t *)unfilteredYValue->getBytesNoCopy(), unfilteredYValue->getLength());
+                if (unfilteredYEvent) {
+                    event->appendChild(unfilteredYEvent);
+                    unfilteredYEvent->release();
+                }
+            }
+        }
     }
     
     if (inRange) {

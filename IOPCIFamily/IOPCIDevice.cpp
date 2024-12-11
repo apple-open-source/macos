@@ -1927,8 +1927,9 @@ void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
             configShadow(this)->configSave.savedConfig[1] &= 0xFFFF0000;
             configShadow(this)->configSave.savedConfig[1] |= (command & ~commandMask);
 
-            // Clear the shadow permanent flag for the next dext instance
+            // Reset the shadow config state for the next dext instance
             configShadow(this)->flags &= ~kIOPCIConfigShadowPermanent;
+            configShadow(this)->restoreCount = 0;
         }
 
 #if ACPI_SUPPORT

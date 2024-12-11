@@ -165,6 +165,9 @@
 		95B2F4AC266ADD8B0051A87B /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95B2F4AB266ADD8B0051A87B /* SystemConfiguration.framework */; };
 		95C3007926851EB90016F757 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95AB0D2B2683D57C00682648 /* DiskArbitration.framework */; };
 		A407C29F2908897A00928858 /* FSKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A407C29E2908897A00928858 /* FSKit.framework */; platformFilters = (ios, macos, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		A4C105602C652A2B00689640 /* DATelemetry.h in Headers */ = {isa = PBXBuildFile; fileRef = A4C1055F2C652A2B00689640 /* DATelemetry.h */; };
+		A4C105622C652AEA00689640 /* DATelemetry.m in Sources */ = {isa = PBXBuildFile; fileRef = A4C105612C652AEA00689640 /* DATelemetry.m */; };
+		A4C105642C6563A700689640 /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4C105632C6563A700689640 /* CoreAnalytics.framework */; platformFilters = (ios, macos, ); settings = {ATTRIBUTES = (Weak, ); }; };
 		DB0BFD1929DE382200CE569E /* DiskArbitration.plist in Copy Feature Flag plist */ = {isa = PBXBuildFile; fileRef = DB0BFD1729DE37C600CE569E /* DiskArbitration.plist */; };
 		DB7355FC29C3E24800840238 /* DAUserFSMount.m in Sources */ = {isa = PBXBuildFile; fileRef = 957575E025D36E9A002758FF /* DAUserFSMount.m */; };
 /* End PBXBuildFile section */
@@ -386,6 +389,9 @@
 		95AB0D2B2683D57C00682648 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/DiskArbitration.framework; sourceTree = DEVELOPER_DIR; };
 		95B2F4AB266ADD8B0051A87B /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
 		A407C29E2908897A00928858 /* FSKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FSKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/Frameworks/FSKit.framework; sourceTree = DEVELOPER_DIR; };
+		A4C1055F2C652A2B00689640 /* DATelemetry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = DATelemetry.h; path = diskarbitrationd/DATelemetry.h; sourceTree = "<group>"; };
+		A4C105612C652AEA00689640 /* DATelemetry.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = DATelemetry.m; path = diskarbitrationd/DATelemetry.m; sourceTree = "<group>"; };
+		A4C105632C6563A700689640 /* CoreAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAnalytics.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.Internal.sdk/System/Library/PrivateFrameworks/CoreAnalytics.framework; sourceTree = DEVELOPER_DIR; };
 		DB0BFD1729DE37C600CE569E /* DiskArbitration.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = DiskArbitration.plist; path = diskarbitrationd/DiskArbitration.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -413,6 +419,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A4C105642C6563A700689640 /* CoreAnalytics.framework in Frameworks */,
 				A407C29F2908897A00928858 /* FSKit.framework in Frameworks */,
 				95005613268D087800C60718 /* libbsm.tbd in Frameworks */,
 				95B2F4AC266ADD8B0051A87B /* SystemConfiguration.framework in Frameworks */,
@@ -459,6 +466,7 @@
 		1236382F031ABDC703A87B01 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A4C105632C6563A700689640 /* CoreAnalytics.framework */,
 				A407C29E2908897A00928858 /* FSKit.framework */,
 				9505A5F2271E11490003E6AA /* libFSInfo.a */,
 				9505A5F0271E0F240003E6AA /* libfs.a */,
@@ -546,6 +554,8 @@
 				124AF311030AD9AD03A87B01 /* DASession.c */,
 				124AF310030AD9AD03A87B01 /* DASession.h */,
 				125B1A7F039D119A03A87B01 /* DAStage.c */,
+				A4C1055F2C652A2B00689640 /* DATelemetry.h */,
+				A4C105612C652AEA00689640 /* DATelemetry.m */,
 				125B1A7E039D119A03A87B01 /* DAStage.h */,
 				12BA01D7038C2A5803A87B01 /* DASupport.h */,
 				12BA01D8038C2A5803A87B01 /* DASupport.m */,
@@ -750,6 +760,7 @@
 				603C87CC08EC8117004474CD /* DAMount.h in Headers */,
 				603C87CD08EC8117004474CD /* DAPrivate.h in Headers */,
 				601EB24E16ADF815002F70EF /* DAProbe.h in Headers */,
+				A4C105602C652A2B00689640 /* DATelemetry.h in Headers */,
 				603C87CE08EC8117004474CD /* DAQueue.h in Headers */,
 				603C87CF08EC8117004474CD /* DARequest.h in Headers */,
 				603C87D008EC8117004474CD /* DAServer.h in Headers */,
@@ -1058,6 +1069,7 @@
 				603C87D908EC8117004474CD /* DABase.c in Sources */,
 				603C87DA08EC8117004474CD /* DACallback.c in Sources */,
 				603C87DB08EC8117004474CD /* DACommand.c in Sources */,
+				A4C105622C652AEA00689640 /* DATelemetry.m in Sources */,
 				603C87DC08EC8117004474CD /* DADialog.c in Sources */,
 				603C87DD08EC8117004474CD /* DADisk.c in Sources */,
 				603C87DE08EC8117004474CD /* DADissenter.c in Sources */,

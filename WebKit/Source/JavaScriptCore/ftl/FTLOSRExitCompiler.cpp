@@ -152,6 +152,7 @@ static void compileStub(VM& vm, unsigned exitID, JITCode* jitCode, OSRExit& exit
         SpeculationFailureDebugInfo* debugInfo = new SpeculationFailureDebugInfo;
         debugInfo->codeBlock = jit.codeBlock();
         debugInfo->kind = exit.m_kind;
+        debugInfo->exitIndex = exitID;
         debugInfo->bytecodeIndex = exit.m_codeOrigin.bytecodeIndex();
         jit.probe(tagCFunction<JITProbePtrTag>(operationDebugPrintSpeculationFailure), debugInfo, SavedFPWidth::DontSaveVectors);
     }
@@ -623,7 +624,7 @@ static void compileStub(VM& vm, unsigned exitID, JITCode* jitCode, OSRExit& exit
         patchBuffer, OSRExitPtrTag, nullptr,
         "FTL OSR exit #%u (D@%u, %s, %s) from %s, with operands = %s",
             exitID, exit.m_dfgNodeIndex, toCString(exit.m_codeOrigin).data(),
-            exitKindToString(exit.m_kind).characters(), toCString(*codeBlock).data(),
+            toCString(exit.m_kind).data(), toCString(*codeBlock).data(),
             toCString(ignoringContext<DumpContext>(exit.m_descriptor->m_values)).data()
         );
 }

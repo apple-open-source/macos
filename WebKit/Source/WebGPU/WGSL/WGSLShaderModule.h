@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,13 +36,14 @@
 
 #include <wtf/HashSet.h>
 #include <wtf/OptionSet.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
 namespace WGSL {
 
 class ShaderModule {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(ShaderModule);
 public:
     explicit ShaderModule(const String& source)
         : ShaderModule(source, { })
@@ -141,6 +142,9 @@ public:
     bool usesPackedVec3() const { return m_usesPackedVec3; }
     void setUsesPackedVec3() { m_usesPackedVec3 = true; }
     void clearUsesPackedVec3() { m_usesPackedVec3 = false; }
+
+    bool usesMin() const { return m_usesMin; }
+    void setUsesMin() { m_usesMin = true; }
 
     template<typename T>
     std::enable_if_t<std::is_base_of_v<AST::Node, T>, void> replace(T* current, T&& replacement)
@@ -266,6 +270,15 @@ public:
     }
     bool hasFeature(const String& featureName) const { return m_configuration.supportedFeatures.contains(featureName); }
 
+    template<typename Validator>
+    void addOverrideValidation(AST::Expression& expression, Validator&& validator)
+    {
+        auto result = m_overrideValidations.add(&expression, Vector<Function<std::optional<String>(const ConstantValue&)>> { });
+        result.iterator->value.append(WTFMove(validator));
+    }
+
+    std::optional<Error> validateOverrides(const HashMap<String, ConstantValue>&);
+
 private:
     String m_source;
     bool m_usesExternalTextures { false };
@@ -291,6 +304,7 @@ private:
     bool m_usesDot4U8Packed { false };
     bool m_usesExtractBits { false };
     bool m_usesPackedVec3 { false };
+    bool m_usesMin { false };
     OptionSet<Extension> m_enabledExtensions;
     OptionSet<LanguageFeature> m_requiredFeatures;
     Configuration m_configuration;
@@ -301,6 +315,7 @@ private:
     std::optional<CallGraph> m_callGraph;
     Vector<std::function<void()>> m_replacements;
     HashSet<uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_pipelineOverrideIds;
+    HashMap<const AST::Expression*, Vector<Function<std::optional<String>(const ConstantValue&)>>> m_overrideValidations;
 };
 
 } // namespace WGSL

@@ -30,6 +30,7 @@
 
 #include "ChromeClient.h"
 #include "CryptoClient.h"
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 
 // Empty client classes for use by WebCore.
@@ -45,7 +46,7 @@ class HTMLImageElement;
 class PageConfiguration;
 
 class EmptyChromeClient : public ChromeClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(EmptyChromeClient);
 
     void chromeDestroyed() override { }
 
@@ -102,8 +103,6 @@ class EmptyChromeClient : public ChromeClient {
     bool selectItemAlignmentFollowsMenuWritingDirection() final { return false; }
     RefPtr<PopupMenu> createPopupMenu(PopupMenuClient&) const final;
     RefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient&) const final;
-
-    void setStatusbarText(const String&) final { }
 
     KeyboardUIMode keyboardUIMode() final { return KeyboardAccessDefault; }
 
@@ -235,7 +234,7 @@ DiagnosticLoggingClient& emptyDiagnosticLoggingClient();
 WEBCORE_EXPORT PageConfiguration pageConfigurationWithEmptyClients(std::optional<PageIdentifier>, PAL::SessionID);
 
 class EmptyCryptoClient: public CryptoClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(EmptyCryptoClient);
 public:
     EmptyCryptoClient() = default;
     ~EmptyCryptoClient() = default;

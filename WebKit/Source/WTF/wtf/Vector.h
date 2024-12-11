@@ -361,8 +361,8 @@ public:
         Malloc::free(bufferToDeallocate);
     }
 
-    T* buffer() { return m_buffer; }
-    const T* buffer() const { return m_buffer; }
+    T* buffer() LIFETIME_BOUND { return m_buffer; }
+    const T* buffer() const LIFETIME_BOUND { return m_buffer; }
     static constexpr ptrdiff_t bufferMemoryOffset() { return OBJECT_OFFSETOF(VectorBufferBase, m_buffer); }
     size_t capacity() const { return m_capacity; }
 
@@ -433,7 +433,7 @@ public:
     void restoreInlineBufferIfNeeded() { }
 
 #if ASAN_ENABLED
-    void* endOfBuffer()
+    void* endOfBuffer() LIFETIME_BOUND
     {
         return buffer() + capacity();
     }
@@ -561,13 +561,13 @@ public:
     }
 
 #if ASAN_ENABLED
-    void* endOfBuffer()
+    void* endOfBuffer() LIFETIME_BOUND
     {
         ASSERT_WITH_SECURITY_IMPLICATION(buffer());
 
-        IGNORE_GCC_WARNINGS_BEGIN("invalid-offsetof")
+        IGNORE_WARNINGS_BEGIN("invalid-offsetof")
         static_assert((offsetof(VectorBuffer, m_inlineBuffer) + sizeof(m_inlineBuffer)) % 8 == 0, "Inline buffer end needs to be on 8 byte boundary for ASan annotations to work.");
-        IGNORE_GCC_WARNINGS_END
+        IGNORE_WARNINGS_END
 
         if (buffer() == inlineBuffer())
             return reinterpret_cast<char*>(m_inlineBuffer) + sizeof(m_inlineBuffer);
@@ -644,8 +644,8 @@ private:
         VectorTypeOperations<T>::move(right + swapBound, right + rightSize, left + swapBound);
     }
 
-    T* inlineBuffer() { return reinterpret_cast_ptr<T*>(m_inlineBuffer); }
-    const T* inlineBuffer() const { return reinterpret_cast_ptr<const T*>(m_inlineBuffer); }
+    T* inlineBuffer() LIFETIME_BOUND { return reinterpret_cast_ptr<T*>(m_inlineBuffer); }
+    const T* inlineBuffer() const LIFETIME_BOUND { return reinterpret_cast_ptr<const T*>(m_inlineBuffer); }
 
 #if ASAN_ENABLED
     // ASan needs the buffer to begin and end on 8-byte boundaries for annotations to work.
@@ -711,7 +711,7 @@ public:
             TypeOperations::uninitializedFill(begin(), end(), val);
     }
 
-    template<typename Functor, typename = typename std::enable_if_t<std::is_invocable_v<Functor, size_t>>>
+    template<std::invocable<size_t> Functor>
     Vector(size_t size, const Functor& valueGenerator)
     {
         reserveInitialCapacity(size);
@@ -797,53 +797,53 @@ public:
     static constexpr ptrdiff_t sizeMemoryOffset() { return OBJECT_OFFSETOF(Vector, m_size); }
     size_t capacity() const { return Base::capacity(); }
     bool isEmpty() const { return !size(); }
-    std::span<const T> span() const { return { data(), size() }; }
-    std::span<T> mutableSpan() { return { data(), size() }; }
+    std::span<const T> span() const LIFETIME_BOUND { return { data(), size() }; }
+    std::span<T> mutableSpan() LIFETIME_BOUND { return { data(), size() }; }
 
     Vector<T> subvector(size_t offset, size_t length = std::dynamic_extent) const
     {
         return { span().subspan(offset, length) };
     }
 
-    std::span<const T> subspan(size_t offset, size_t length = std::dynamic_extent) const
+    std::span<const T> subspan(size_t offset, size_t length = std::dynamic_extent) const LIFETIME_BOUND
     {
         return span().subspan(offset, length);
     }
 
-    T& at(size_t i)
+    T& at(size_t i) LIFETIME_BOUND
     {
         if (UNLIKELY(i >= size()))
             OverflowHandler::overflowed();
         return Base::buffer()[i];
     }
-    const T& at(size_t i) const 
+    const T& at(size_t i) const LIFETIME_BOUND
     {
         if (UNLIKELY(i >= size()))
             OverflowHandler::overflowed();
         return Base::buffer()[i];
     }
 
-    T& operator[](size_t i) { return at(i); }
-    const T& operator[](size_t i) const { return at(i); }
+    T& operator[](size_t i) LIFETIME_BOUND { return at(i); }
+    const T& operator[](size_t i) const LIFETIME_BOUND { return at(i); }
 
-    T* data() { return Base::buffer(); }
-    const T* data() const { return Base::buffer(); }
+    T* data() LIFETIME_BOUND { return Base::buffer(); }
+    const T* data() const LIFETIME_BOUND { return Base::buffer(); }
     static constexpr ptrdiff_t dataMemoryOffset() { return Base::bufferMemoryOffset(); }
 
-    iterator begin() { return data(); }
-    iterator end() { return begin() + m_size; }
-    const_iterator begin() const { return data(); }
-    const_iterator end() const { return begin() + m_size; }
+    iterator begin() LIFETIME_BOUND { return data(); }
+    iterator end() LIFETIME_BOUND { return begin() + m_size; }
+    const_iterator begin() const LIFETIME_BOUND { return data(); }
+    const_iterator end() const LIFETIME_BOUND { return begin() + m_size; }
 
-    reverse_iterator rbegin() { return reverse_iterator(end()); }
-    reverse_iterator rend() { return reverse_iterator(begin()); }
-    const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
-    const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+    reverse_iterator rbegin() LIFETIME_BOUND { return reverse_iterator(end()); }
+    reverse_iterator rend() LIFETIME_BOUND { return reverse_iterator(begin()); }
+    const_reverse_iterator rbegin() const LIFETIME_BOUND { return const_reverse_iterator(end()); }
+    const_reverse_iterator rend() const LIFETIME_BOUND { return const_reverse_iterator(begin()); }
 
-    T& first() { return at(0); }
-    const T& first() const { return at(0); }
-    T& last() { return at(size() - 1); }
-    const T& last() const { return at(size() - 1); }
+    T& first() LIFETIME_BOUND { return at(0); }
+    const T& first() const LIFETIME_BOUND { return at(0); }
+    T& last() LIFETIME_BOUND { return at(size() - 1); }
+    const T& last() const LIFETIME_BOUND { return at(size() - 1); }
     
     T takeLast()
     {
@@ -852,14 +852,14 @@ public:
         return result;
     }
     
-    template<typename U> bool contains(const U&) const;
-    template<typename U> size_t find(const U&) const;
-    template<typename MatchFunction> size_t findIf(const MatchFunction&) const;
-    template<typename U> size_t reverseFind(const U&) const;
-    template<typename MatchFunction> size_t reverseFindIf(const MatchFunction&) const;
-    template<typename MatchFunction> bool containsIf(const MatchFunction& matches) const { return findIf(matches) != notFound; }
+    bool contains(const auto&) const;
+    size_t find(const auto&) const;
+    size_t findIf(const Invocable<bool(const T&)> auto& matches) const;
+    size_t reverseFind(const auto&) const;
+    size_t reverseFindIf(const Invocable<bool(const T&)> auto& matches) const;
+    bool containsIf(const Invocable<bool(const T&)> auto& matches) const { return findIf(matches) != notFound; }
 
-    template<typename U> bool appendIfNotContains(const U&);
+    bool appendIfNotContains(const auto&);
 
     void shrink(size_t size);
     ALWAYS_INLINE void grow(size_t size) { growImpl<FailureAction::Crash>(size); }
@@ -893,8 +893,7 @@ public:
     template<typename U, size_t otherCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc> void appendVector(const Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>&);
     template<typename U, size_t otherCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc> void appendVector(Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>&&);
 
-    template<typename Functor, typename = typename std::enable_if_t<std::is_invocable_v<Functor, size_t>>>
-    void appendUsingFunctor(size_t, const Functor&);
+    void appendUsingFunctor(size_t, const Invocable<T(size_t)> auto&);
 
     void insert(size_t position, value_type&& value) { insert<value_type>(position, std::forward<value_type>(value)); }
     void insertFill(size_t position, const T& value, size_t dataSize);
@@ -904,15 +903,15 @@ public:
 
     void remove(size_t position);
     void remove(size_t position, size_t length);
-    template<typename U> bool removeFirst(const U&);
-    template<typename MatchFunction> bool removeFirstMatching(const MatchFunction&, size_t startIndex = 0);
-    template<typename U> bool removeLast(const U&);
-    template<typename MatchFunction> bool removeLastMatching(const MatchFunction&);
-    template<typename MatchFunction> bool removeLastMatching(const MatchFunction&, size_t startIndex);
-    template<typename U> unsigned removeAll(const U&);
-    template<typename MatchFunction> unsigned removeAllMatching(const MatchFunction&, size_t startIndex = 0);
+    bool removeFirst(const auto&);
+    bool removeFirstMatching(const Invocable<bool(T&)> auto&, size_t startIndex = 0);
+    bool removeLast(const auto&);
+    bool removeLastMatching(const Invocable<bool(T&)> auto&);
+    bool removeLastMatching(const Invocable<bool(T&)> auto&, size_t startIndex);
+    unsigned removeAll(const auto&);
+    unsigned removeAllMatching(const Invocable<bool(T&)> auto&, size_t startIndex = 0);
 
-    void removeLast() 
+    void removeLast()
     {
         if (UNLIKELY(isEmpty()))
             OverflowHandler::overflowed();
@@ -949,11 +948,11 @@ public:
 
     void checkConsistency();
 
-    template<typename ResultVector, typename MapFunction>
-    auto map(MapFunction&&) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, ResultVector>;
+    template<typename ResultVector>
+    ResultVector map(const std::invocable<const T&> auto& mapFunction) const;
 
-    template<typename MapFunction>
-    auto map(MapFunction&&) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, Vector<typename std::invoke_result_t<MapFunction, const T&>>>;
+    template<std::invocable<const T&> MapFunction>
+    Vector<std::invoke_result_t<MapFunction, const T&>> map(const MapFunction&) const;
 
     bool isHashTableDeletedValue() const { return m_size == std::numeric_limits<decltype(m_size)>::max(); }
 
@@ -1116,15 +1115,13 @@ inline Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& Vector<T
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename U>
-bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::contains(const U& value) const
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::contains(const auto& value) const
 {
     return find(value) != notFound;
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename MatchFunction>
-size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::findIf(const MatchFunction& matches) const
+size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::findIf(const Invocable<bool(const T&)> auto& matches) const
 {
     for (size_t i = 0; i < size(); ++i) {
         if (matches(at(i)))
@@ -1134,8 +1131,7 @@ size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::findIf(c
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename U>
-size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::find(const U& value) const
+size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::find(const auto& value) const
 {
     return findIf([&](auto& item) {
         return item == value;
@@ -1143,8 +1139,7 @@ size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::find(con
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename U>
-size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseFind(const U& value) const
+size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseFind(const auto& value) const
 {
     for (size_t i = 1; i <= size(); ++i) {
         const size_t index = size() - i;
@@ -1155,8 +1150,7 @@ size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseF
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename MatchFunction>
-size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseFindIf(const MatchFunction& matches) const
+size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseFindIf(const Invocable<bool(const T&)> auto& matches) const
 {
     for (size_t i = 1; i <= size(); ++i) {
         const size_t index = size() - i;
@@ -1167,8 +1161,7 @@ size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseF
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename U>
-bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendIfNotContains(const U& value)
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendIfNotContains(const auto& value)
 {
     if (contains(value))
         return false;
@@ -1213,8 +1206,7 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendRang
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename Functor, typename>
-void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendUsingFunctor(size_t size, const Functor& valueGenerator)
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendUsingFunctor(size_t size, const Invocable<T(size_t)> auto& valueGenerator)
 {
     reserveCapacity(this->size() + size);
     for (size_t i = 0; i < size; ++i)
@@ -1225,7 +1217,7 @@ template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t min
 template<FailureAction action>
 bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::expandCapacity(size_t newMinCapacity)
 {
-    return reserveCapacity<action>(std::max(newMinCapacity, std::max(static_cast<size_t>(minCapacity), capacity() + capacity() / 4 + 1)));
+    return reserveCapacity<action>(std::max(newMinCapacity, std::max(static_cast<size_t>(minCapacity), Malloc::nextCapacity(capacity()))));
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
@@ -1694,8 +1686,7 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rem
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename U>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeFirst(const U& value)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeFirst(const auto& value)
 {
     return removeFirstMatching([&value] (const T& current) {
         return current == value;
@@ -1703,8 +1694,7 @@ inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rem
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename MatchFunction>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeFirstMatching(const MatchFunction& matches, size_t startIndex)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeFirstMatching(const Invocable<bool(T&)> auto& matches, size_t startIndex)
 {
     for (size_t i = startIndex; i < size(); ++i) {
         if (matches(at(i))) {
@@ -1716,8 +1706,7 @@ inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rem
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename U>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeLast(const U& value)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeLast(const auto& value)
 {
     return removeLastMatching([&value] (const T& current) {
         return current == value;
@@ -1725,15 +1714,13 @@ inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rem
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename MatchFunction>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeLastMatching(const MatchFunction& matches)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeLastMatching(const Invocable<bool(T&)> auto& matches)
 {
     return removeLastMatching(matches, size());
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename MatchFunction>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeLastMatching(const MatchFunction& matches, size_t startIndex)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeLastMatching(const Invocable<bool(T&)> auto& matches, size_t startIndex)
 {
     for (size_t i = std::min(startIndex + 1, size()); i > 0; --i) {
         if (matches(at(i - 1))) {
@@ -1745,8 +1732,7 @@ inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rem
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename U>
-inline unsigned Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeAll(const U& value)
+inline unsigned Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeAll(const auto& value)
 {
     return removeAllMatching([&value] (const T& current) {
         return current == value;
@@ -1754,8 +1740,7 @@ inline unsigned Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>:
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename MatchFunction>
-inline unsigned Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeAllMatching(const MatchFunction& matches, size_t startIndex)
+inline unsigned Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeAllMatching(const Invocable<bool(T&)> auto& matches, size_t startIndex)
 {
     iterator holeBegin = end();
     iterator holeEnd = end();
@@ -1788,8 +1773,8 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rev
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename ResultVector, typename MapFunction>
-inline auto Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::map(MapFunction&& mapFunction) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, ResultVector>
+template<typename ResultVector>
+inline ResultVector Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::map(const std::invocable<const T&> auto& mapFunction) const
 {
     ResultVector result;
     result.reserveInitialCapacity(size());
@@ -1802,10 +1787,10 @@ template <typename ContainerType>
 size_t containerSize(const ContainerType& container) { return std::size(container); }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename MapFunction>
-inline auto Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::map(MapFunction&& mapFunction) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, Vector<typename std::invoke_result_t<MapFunction, const T&>>>
+template<std::invocable<const T&> MapFunction>
+inline Vector<std::invoke_result_t<MapFunction, const T&>> Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::map(const MapFunction& mapFunction) const
 {
-    return map<Vector<typename std::invoke_result_t<MapFunction, const T&>>, MapFunction>(std::forward<MapFunction>(mapFunction));
+    return map<Vector<typename std::invoke_result_t<MapFunction, const T&>>, MapFunction>(mapFunction);
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>

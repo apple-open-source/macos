@@ -33,6 +33,7 @@
 #include "CSSLayerStatementRule.h"
 #include "CSSMediaRule.h"
 #include "CSSParser.h"
+#include "CSSParserEnum.h"
 #include "CSSParserImpl.h"
 #include "CSSParserObserver.h"
 #include "CSSPropertyNames.h"
@@ -69,6 +70,7 @@
 #include <JavaScriptCore/ContentSearchUtilities.h>
 #include <JavaScriptCore/RegularExpression.h>
 #include <wtf/NotFound.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -118,6 +120,8 @@ static RuleFlatteningStrategy flatteningStrategyForStyleRuleType(StyleRuleType s
     case StyleRuleType::FontFeatureValuesBlock:
     case StyleRuleType::FontPaletteValues:
     case StyleRuleType::Property:
+    case StyleRuleType::ViewTransition:
+    case StyleRuleType::NestedDeclarations:
         // These rule types do not contain rules that apply directly to an element (i.e. these rules should not appear
         // in the Styles details sidebar of the Elements tab in Web Inspector).
         return RuleFlatteningStrategy::Ignore;
@@ -148,7 +152,7 @@ static ASCIILiteral atRuleIdentifierForType(StyleRuleType styleRuleType)
     }
 }
 
-static bool isValidRuleHeaderText(const String& headerText, StyleRuleType styleRuleType, Document* document, CSSParserEnum::IsNestedContext isNestedContext)
+static bool isValidRuleHeaderText(const String& headerText, StyleRuleType styleRuleType, Document* document, CSSParserEnum::NestedContext nestedContext = { })
 {
     auto isValidAtRuleHeaderText = [&] (const String& atRuleIdentifier) {
         if (headerText.isEmpty())
@@ -183,7 +187,7 @@ static bool isValidRuleHeaderText(const String& headerText, StyleRuleType styleR
     switch (styleRuleType) {
     case StyleRuleType::Style: {
         CSSParser parser(parserContextForDocument(document));
-        return !!parser.parseSelectorList(headerText, nullptr, isNestedContext);
+        return !!parser.parseSelectorList(headerText, nullptr, nestedContext);
     }
     case StyleRuleType::Media:
     case StyleRuleType::Supports:
@@ -214,7 +218,7 @@ static std::optional<Inspector::Protocol::CSS::Grouping::Type> protocolGroupingT
 }
 
 class ParsedStyleSheet {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(ParsedStyleSheet);
 public:
     ParsedStyleSheet();
 
@@ -1084,16 +1088,6 @@ ExceptionOr<String> InspectorStyleSheet::ruleHeaderText(const InspectorCSSId& id
     return sheetText.substring(sourceData->ruleHeaderRange.start, sourceData->ruleHeaderRange.length());
 }
 
-static CSSParserEnum::IsNestedContext isNestedContext(CSSRule* rule)
-{
-    for (CSSRule *parentRule = rule->parentRule(); parentRule; parentRule = parentRule->parentRule()) {
-        if (is<CSSStyleRule>(parentRule))
-            return CSSParserEnum::IsNestedContext::Yes;
-    }
-
-    return CSSParserEnum::IsNestedContext::No;
-}
-
 ExceptionOr<void> InspectorStyleSheet::setRuleHeaderText(const InspectorCSSId& id, const String& newHeaderText)
 {
     if (!m_pageStyleSheet)
@@ -1103,7 +1097,7 @@ ExceptionOr<void> InspectorStyleSheet::setRuleHeaderText(const InspectorCSSId& i
     if (!rule)
         return Exception { ExceptionCode::NotFoundError };
 
-    if (!isValidRuleHeaderText(newHeaderText, rule->styleRuleType(), m_pageStyleSheet->ownerDocument(), isNestedContext(rule)))
+    if (!isValidRuleHeaderText(newHeaderText, rule->styleRuleType(), m_pageStyleSheet->ownerDocument(), rule->nestedContext()))
         return Exception { ExceptionCode::SyntaxError };
 
     CSSStyleSheet* styleSheet = rule->parentStyleSheet();
@@ -1155,7 +1149,7 @@ ExceptionOr<CSSStyleRule*> InspectorStyleSheet::addRule(const String& selector)
     if (!m_pageStyleSheet)
         return Exception { ExceptionCode::NotSupportedError };
 
-    if (!isValidRuleHeaderText(selector, StyleRuleType::Style, m_pageStyleSheet->ownerDocument(), CSSParserEnum::IsNestedContext::No))
+    if (!isValidRuleHeaderText(selector, StyleRuleType::Style, m_pageStyleSheet->ownerDocument()))
         return Exception { ExceptionCode::SyntaxError };
 
     auto text = this->text();

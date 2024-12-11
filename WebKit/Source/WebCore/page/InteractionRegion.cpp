@@ -26,6 +26,7 @@
 #include "config.h"
 #include "InteractionRegion.h"
 
+#include "BorderShape.h"
 #include "Document.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementInlines.h"
@@ -208,18 +209,30 @@ static bool hasTransparentContainerStyle(const RenderStyle& style)
             || !(style.borderTopWidth() && style.borderRightWidth() && style.borderBottomWidth() && style.borderLeftWidth()));
 }
 
-static bool usesFillColorWithExtremeLuminance(const RenderStyle& style)
+static bool colorIsChallengingToHighlight(const Color& color)
+{
+    constexpr double luminanceThreshold = 0.01;
+
+    return color.isValid()
+        && ((color.luminance() < luminanceThreshold || std::abs(color.luminance() - 1) < luminanceThreshold));
+}
+
+static bool styleIsChallengingToHighlight(const RenderStyle& style)
 {
     auto fillPaintType = style.fillPaintType();
+
+    if (fillPaintType == SVGPaintType::None) {
+        auto strokePaintType = style.strokePaintType();
+        if (strokePaintType != SVGPaintType::RGBColor && strokePaintType != SVGPaintType::CurrentColor)
+            return false;
+
+        return colorIsChallengingToHighlight(style.colorResolvingCurrentColor(style.strokePaintColor()));
+    }
+
     if (fillPaintType != SVGPaintType::RGBColor && fillPaintType != SVGPaintType::CurrentColor)
         return false;
 
-    auto fillColor = style.colorResolvingCurrentColor(style.fillPaintColor());
-
-    constexpr double luminanceThreshold = 0.01;
-
-    return fillColor.isValid()
-        && ((fillColor.luminance() < luminanceThreshold || std::abs(fillColor.luminance() - 1) < luminanceThreshold));
+    return colorIsChallengingToHighlight(style.colorResolvingCurrentColor(style.fillPaintColor()));
 }
 
 static bool isGuardContainer(const Element& element)
@@ -477,7 +490,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     auto& style = regionRenderer.style();
     RefPtr styleClipPath = style.clipPath();
 
-    if (!hasRotationOrShear && styleClipPath && styleClipPath->type() == PathOperation::OperationType::Shape && originalElement) {
+    if (!hasRotationOrShear && styleClipPath && styleClipPath->type() == PathOperation::Type::Shape && originalElement) {
         auto size = boundingSize(regionRenderer, transform);
         auto path = styleClipPath->getPath(TransformOperationData(FloatRect(FloatPoint(), size)));
 
@@ -510,7 +523,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
 
         constexpr float smallShapeDimension = 30;
         bool shouldFallbackToContainerRegion = shapeBoundingBox.size().minDimension() < smallShapeDimension
-            && usesFillColorWithExtremeLuminance(style)
+            && styleIsChallengingToHighlight(style)
             && matchedElementIsGuardContainer;
 
         // Bail out, we'll convert the guard container to Interaction.
@@ -524,8 +537,8 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
 
         clipPath = path;
     } else if (const auto& renderBox = dynamicDowncast<RenderBox>(regionRenderer)) {
-        auto roundedRect = renderBox->borderRoundedRect();
-        auto borderRadii = roundedRect.radii();
+        auto borderShape = BorderShape::shapeForBorderRect(renderBox->style(), renderBox->borderBoxRect());
+        auto borderRadii = borderShape.radii();
         auto minRadius = borderRadii.minimumRadius();
         auto maxRadius = borderRadii.maximumRadius();
 
@@ -552,9 +565,8 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
             if (borderRadii.bottomRight().minDimension() == maxRadius)
                 maskedCorners.add(InteractionRegion::CornerMask::MaxXMaxYCorner);
         } else {
-            Path path;
-            path.addRoundedRect(roundedRect);
-            clipPath = path;
+            clipPath = borderShape.pathForOuterShape(renderBox->document().deviceScaleFactor());
+            WTF_ALWAYS_LOG("interactionRegionForRenderedRegion - rounded rect" << borderShape.deprecatedRoundedRect() << " device scale " << renderBox->document().deviceScaleFactor() << " " << clipPath);
         }
     }
 

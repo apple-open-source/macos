@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "BifurcatedGraphicsContext.h"
+#include <wtf/TZoneMallocInlines.h>
 
 #if ASSERT_ENABLED
 #define VERIFY_STATE_SYNCHRONIZATION() do { \
@@ -35,6 +36,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BifurcatedGraphicsContext);
 
 BifurcatedGraphicsContext::BifurcatedGraphicsContext(GraphicsContext& primaryContext, GraphicsContext& secondaryContext)
     : m_primaryContext(primaryContext)
@@ -159,9 +162,15 @@ void BifurcatedGraphicsContext::beginTransparencyLayer(float opacity)
     VERIFY_STATE_SYNCHRONIZATION();
 }
 
-void BifurcatedGraphicsContext::beginTransparencyLayer(CompositeOperator, BlendMode)
+void BifurcatedGraphicsContext::beginTransparencyLayer(CompositeOperator compositeOperator, BlendMode blendMode)
 {
-    beginTransparencyLayer(1);
+    GraphicsContext::beginTransparencyLayer(compositeOperator, blendMode);
+    m_primaryContext.beginTransparencyLayer(compositeOperator, blendMode);
+    m_secondaryContext.beginTransparencyLayer(compositeOperator, blendMode);
+
+    GraphicsContext::save(GraphicsContextState::Purpose::TransparencyLayer);
+
+    VERIFY_STATE_SYNCHRONIZATION();
 }
 
 void BifurcatedGraphicsContext::endTransparencyLayer()

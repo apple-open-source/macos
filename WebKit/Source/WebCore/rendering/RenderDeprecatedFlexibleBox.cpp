@@ -37,14 +37,14 @@
 #include "RenderObjectInlines.h"
 #include "RenderStyleInlines.h"
 #include "RenderView.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Scope.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderDeprecatedFlexibleBox);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderDeprecatedFlexibleBox);
 
 class FlexBoxIterator {
 public:
@@ -203,7 +203,7 @@ void RenderDeprecatedFlexibleBox::styleWillChange(StyleDifference diff, const Re
 void RenderDeprecatedFlexibleBox::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
     auto addScrollbarWidth = [&]() {
-        LayoutUnit scrollbarWidth = intrinsicScrollbarLogicalWidth();
+        LayoutUnit scrollbarWidth = intrinsicScrollbarLogicalWidthIncludingGutter();
         maxLogicalWidth += scrollbarWidth;
         minLogicalWidth += scrollbarWidth;
     };
@@ -985,13 +985,13 @@ std::optional<RenderDeprecatedFlexibleBox::ClampedContent> RenderDeprecatedFlexi
     // If the first block with inline content supports modern line layout, all siblings (and descendants) do as well.
     // see LayoutIntegrationCoverage::canUseForStyle.
     firstBlockFlowWithInlineChildren->computeAndSetLineLayoutPath();
-    if (firstBlockFlowWithInlineChildren->lineLayoutPath() != RenderBlockFlow::ModernPath)
+    if (firstBlockFlowWithInlineChildren->lineLayoutPath() != RenderBlockFlow::InlinePath)
         return { };
 
     auto& layoutState = *view().frameView().layoutContext().layoutState();
-    auto ancestorLineClamp = layoutState.lineClamp();
+    auto ancestorLineClamp = layoutState.legacyLineClamp();
     auto restoreAncestorLineClamp = makeScopeExit([&] {
-        layoutState.setLineClamp(ancestorLineClamp);
+        layoutState.setLegacyLineClamp(ancestorLineClamp);
     });
 
     auto lineCountForLineClamp = [&]() -> size_t {
@@ -1013,7 +1013,7 @@ std::optional<RenderDeprecatedFlexibleBox::ClampedContent> RenderDeprecatedFlexi
         return std::max<size_t>(1, (numberOfLines + 1) * lineClamp.value() / 100.f);
     };
 
-    layoutState.setLineClamp(RenderLayoutState::LineClamp { lineCountForLineClamp(), { }, { }, { } });
+    layoutState.setLegacyLineClamp(RenderLayoutState::LegacyLineClamp { lineCountForLineClamp(), { }, { }, { } });
     for (auto* child = iterator.first(); child; child = iterator.next()) {
         if (childDoesNotAffectWidthOrFlexing(child))
             continue;
@@ -1021,7 +1021,7 @@ std::optional<RenderDeprecatedFlexibleBox::ClampedContent> RenderDeprecatedFlexi
         child->layoutIfNeeded();
     }
 
-    auto lineClamp = *layoutState.lineClamp();
+    auto lineClamp = *layoutState.legacyLineClamp();
     if (!lineClamp.clampedContentLogicalHeight) {
         // We've managed to run line clamping but it came back with no clamped content (i.e. there are fewer lines than the line-clamp limit).
         return RenderDeprecatedFlexibleBox::ClampedContent { };

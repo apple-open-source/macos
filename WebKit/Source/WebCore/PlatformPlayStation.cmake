@@ -39,6 +39,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/egl/GLContext.cpp
     platform/graphics/egl/GLContextLibWPE.cpp
     platform/graphics/egl/GLContextWrapper.cpp
+    platform/graphics/egl/GLDisplay.cpp
 
     platform/graphics/libwpe/PlatformDisplayLibWPE.cpp
 
@@ -99,7 +100,11 @@ if (ENABLE_WEBGL)
 endif ()
 
 if (USE_SKIA)
-    list(APPEND WebCore_SOURCES platform/graphics/egl/GLFence.cpp)
+    list(APPEND WebCore_SOURCES
+        platform/graphics/egl/GLFence.cpp
+        platform/graphics/egl/GLFenceEGL.cpp
+        platform/graphics/egl/GLFenceGL.cpp
+    )
 endif ()
 
 # Find the extras needed to copy for EGL besides the libraries

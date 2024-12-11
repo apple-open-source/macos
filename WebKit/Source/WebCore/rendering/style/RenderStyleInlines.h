@@ -97,6 +97,7 @@ inline const LengthSize& RenderStyle::backgroundSizeLength() const { return back
 inline FillSizeType RenderStyle::backgroundSizeType() const { return backgroundLayers().sizeType(); }
 inline const Length& RenderStyle::backgroundXPosition() const { return backgroundLayers().xPosition(); }
 inline const Length& RenderStyle::backgroundYPosition() const { return backgroundLayers().yPosition(); }
+inline const BlockEllipsis& RenderStyle::blockEllipsis() const { return m_rareInheritedData->blockEllipsis; }
 inline BlockStepInsert RenderStyle::blockStepInsert() const { return static_cast<BlockStepInsert>(m_nonInheritedData->rareData->blockStepInsert); }
 inline std::optional<Length> RenderStyle::blockStepSize() const { return m_nonInheritedData->rareData->blockStepSize; }
 inline const BorderData& RenderStyle::border() const { return m_nonInheritedData->surroundData->border; }
@@ -218,6 +219,7 @@ inline std::optional<FontSelectionValue> RenderStyle::fontItalic() const { retur
 inline const FontPalette& RenderStyle::fontPalette() const { return fontDescription().fontPalette(); }
 inline FontSizeAdjust RenderStyle::fontSizeAdjust() const { return fontDescription().fontSizeAdjust(); }
 inline FontSelectionValue RenderStyle::fontStretch() const { return fontDescription().stretch(); }
+inline FontOpticalSizing RenderStyle::fontOpticalSizing() const { return fontDescription().opticalSizing(); }
 inline FontVariationSettings RenderStyle::fontVariationSettings() const { return fontDescription().variationSettings(); }
 inline FontSelectionValue RenderStyle::fontWeight() const { return fontDescription().weight(); }
 inline void RenderStyle::getBoxShadowBlockDirectionExtent(LayoutUnit& logicalTop, LayoutUnit& logicalBottom) const { getShadowBlockDirectionExtent(boxShadow(), logicalTop, logicalBottom); }
@@ -254,7 +256,8 @@ inline bool RenderStyle::hasAnimationsOrTransitions() const { return hasAnimatio
 inline bool RenderStyle::hasAnyFixedBackground() const { return backgroundLayers().hasImageWithAttachment(FillAttachment::FixedBackground); }
 inline bool RenderStyle::hasAnyLocalBackground() const { return backgroundLayers().hasImageWithAttachment(FillAttachment::LocalBackground); }
 inline bool RenderStyle::hasAnyPublicPseudoStyles() const { return m_nonInheritedFlags.hasAnyPublicPseudoStyles(); }
-inline bool RenderStyle::hasAppearance() const { return appearance() != StyleAppearance::None; }
+// FIXME: Rename this function.
+inline bool RenderStyle::hasAppearance() const { return appearance() != StyleAppearance::None && appearance() != StyleAppearance::Base; }
 inline bool RenderStyle::hasAppleColorFilter() const { return !appleColorFilter().isEmpty(); }
 inline bool RenderStyle::hasAspectRatio() const { return aspectRatioType() == AspectRatioType::Ratio || aspectRatioType() == AspectRatioType::AutoAndRatio; }
 inline bool RenderStyle::hasAttrContent() const { return m_nonInheritedData->miscData->hasAttrContent; }
@@ -279,7 +282,8 @@ inline bool RenderStyle::hasBorderRadius() const { return border().hasBorderRadi
 inline bool RenderStyle::hasClip() const { return m_nonInheritedData->rareData->hasClip; }
 inline bool RenderStyle::hasContent() const { return contentData(); }
 inline bool RenderStyle::hasDisplayAffectedByAnimations() const { return m_nonInheritedData->miscData->hasDisplayAffectedByAnimations; }
-inline bool RenderStyle::hasUsedAppearance() const { return usedAppearance() != StyleAppearance::None; }
+// FIXME: Rename this function.
+inline bool RenderStyle::hasUsedAppearance() const { return usedAppearance() != StyleAppearance::None && usedAppearance() != StyleAppearance::Base; }
 inline bool RenderStyle::hasUsedContentNone() const { return !contentData() && (m_nonInheritedFlags.hasContentNone || pseudoElementType() == PseudoId::Before || pseudoElementType() == PseudoId::After); }
 inline bool RenderStyle::hasExplicitlySetBorderBottomLeftRadius() const { return m_nonInheritedData->surroundData->hasExplicitlySetBorderBottomLeftRadius; }
 inline bool RenderStyle::hasExplicitlySetBorderBottomRightRadius() const { return m_nonInheritedData->surroundData->hasExplicitlySetBorderBottomRightRadius; }
@@ -329,6 +333,7 @@ inline FilterOperations RenderStyle::initialAppleColorFilter() { return { }; }
 constexpr AspectRatioType RenderStyle::initialAspectRatioType() { return AspectRatioType::Auto; }
 constexpr BackfaceVisibility RenderStyle::initialBackfaceVisibility() { return BackfaceVisibility::Visible; }
 inline StyleColor RenderStyle::initialBackgroundColor() { return Color::transparentBlack; }
+inline BlockEllipsis RenderStyle::initialBlockEllipsis() { return { }; }
 constexpr BlockStepInsert RenderStyle::initialBlockStepInsert() { return BlockStepInsert::Margin; }
 inline std::optional<Length> RenderStyle::initialBlockStepSize() { return std::nullopt; }
 constexpr BorderCollapse RenderStyle::initialBorderCollapse() { return BorderCollapse::Separate; }
@@ -381,6 +386,8 @@ inline GridPosition RenderStyle::initialGridItemColumnEnd() { return { }; }
 inline GridPosition RenderStyle::initialGridItemColumnStart() { return { }; }
 inline GridPosition RenderStyle::initialGridItemRowEnd() { return { }; }
 inline GridPosition RenderStyle::initialGridItemRowStart() { return { }; }
+inline GridTrackList RenderStyle::initialGridColumnList() { return { }; }
+inline GridTrackList RenderStyle::initialGridRowList() { return { }; }
 inline Vector<GridTrackSize> RenderStyle::initialGridRowTrackSizes() { return { }; }
 constexpr OptionSet<HangingPunctuation> RenderStyle::initialHangingPunctuation() { return { }; }
 inline const AtomString& RenderStyle::initialHyphenationString() { return nullAtom(); }
@@ -428,6 +435,7 @@ inline OrderedNamedGridLinesMap RenderStyle::initialOrderedNamedGridColumnLines(
 inline OrderedNamedGridLinesMap RenderStyle::initialOrderedNamedGridRowLines() { return { }; }
 constexpr OutlineIsAuto RenderStyle::initialOutlineStyleIsAuto() { return OutlineIsAuto::Off; }
 constexpr OverflowAnchor RenderStyle::initialOverflowAnchor() { return OverflowAnchor::Auto; }
+inline OverflowContinue RenderStyle::initialOverflowContinue() { return OverflowContinue::Auto; }
 constexpr OverflowWrap RenderStyle::initialOverflowWrap() { return OverflowWrap::Normal; }
 constexpr Overflow RenderStyle::initialOverflowX() { return Overflow::Visible; }
 constexpr Overflow RenderStyle::initialOverflowY() { return Overflow::Visible; }
@@ -445,7 +453,9 @@ constexpr Order RenderStyle::initialRTLOrdering() { return Order::Logical; }
 inline Length RenderStyle::initialRadius() { return LengthType::Auto; }
 constexpr Resize RenderStyle::initialResize() { return Resize::None; }
 inline GapLength RenderStyle::initialRowGap() { return { }; }
-constexpr RubyPosition RenderStyle::initialRubyPosition() { return RubyPosition::Before; }
+constexpr RubyPosition RenderStyle::initialRubyPosition() { return RubyPosition::Over; }
+constexpr RubyAlign RenderStyle::initialRubyAlign() { return RubyAlign::SpaceAround; }
+constexpr RubyOverhang RenderStyle::initialRubyOverhang() { return RubyOverhang::Auto; }
 inline Length RenderStyle::initialScrollMargin() { return zeroLength(); }
 inline Length RenderStyle::initialScrollPadding() { return { }; }
 inline std::optional<ScrollbarColor> RenderStyle::initialScrollbarColor() { return std::nullopt; }
@@ -484,8 +494,8 @@ constexpr TextOverflow RenderStyle::initialTextOverflow() { return TextOverflow:
 constexpr TextSecurity RenderStyle::initialTextSecurity() { return TextSecurity::None; }
 inline StyleColor RenderStyle::initialTextStrokeColor() { return StyleColor::currentColor(); }
 constexpr OptionSet<TextTransform> RenderStyle::initialTextTransform() { return { }; }
-constexpr TextUnderlineOffset RenderStyle::initialTextUnderlineOffset() { return TextUnderlineOffset::createWithAuto(); }
-constexpr TextUnderlinePosition RenderStyle::initialTextUnderlinePosition() { return TextUnderlinePosition::Auto; }
+inline TextUnderlineOffset RenderStyle::initialTextUnderlineOffset() { return TextUnderlineOffset::createWithAuto(); }
+constexpr OptionSet<TextUnderlinePosition> RenderStyle::initialTextUnderlinePosition() { return { }; }
 constexpr TextWrapMode RenderStyle::initialTextWrapMode() { return TextWrapMode::Wrap; }
 constexpr TextWrapStyle RenderStyle::initialTextWrapStyle() { return TextWrapStyle::Auto; }
 constexpr TextZoom RenderStyle::initialTextZoom() { return TextZoom::Normal; }
@@ -501,7 +511,8 @@ constexpr UserModify RenderStyle::initialUserModify() { return UserModify::ReadO
 constexpr UserSelect RenderStyle::initialUserSelect() { return UserSelect::Text; }
 constexpr VerticalAlign RenderStyle::initialVerticalAlign() { return VerticalAlign::Baseline; }
 inline Vector<ViewTimelineInsets> RenderStyle::initialViewTimelineInsets() { return { }; }
-inline std::optional<Style::ScopedName> RenderStyle::initialViewTransitionName() { return std::nullopt; }
+inline Vector<Style::ScopedName> RenderStyle::initialViewTransitionClasses() { return { }; }
+inline Style::ViewTransitionName RenderStyle::initialViewTransitionName() { return Style::ViewTransitionName::createWithNone(); }
 constexpr Visibility RenderStyle::initialVisibility() { return Visibility::Visible; }
 constexpr WhiteSpaceCollapse RenderStyle::initialWhiteSpaceCollapse() { return WhiteSpaceCollapse::Collapse; }
 constexpr WordBreak RenderStyle::initialWordBreak() { return WordBreak::Normal; }
@@ -580,8 +591,13 @@ inline const Length& RenderStyle::marqueeIncrement() const { return m_nonInherit
 inline int RenderStyle::marqueeLoopCount() const { return m_nonInheritedData->rareData->marquee->loops; }
 inline int RenderStyle::marqueeSpeed() const { return m_nonInheritedData->rareData->marquee->speed; }
 inline const NinePieceImage& RenderStyle::maskBorder() const { return m_nonInheritedData->rareData->maskBorder; }
+inline NinePieceImageRule RenderStyle::maskBorderHorizontalRule() const { return maskBorder().horizontalRule(); }
+inline const LengthBox& RenderStyle::maskBorderOutset() const { return maskBorder().outset(); }
 inline LayoutBoxExtent RenderStyle::maskBorderOutsets() const { return imageOutsets(maskBorder()); }
+inline const LengthBox& RenderStyle::maskBorderSlices() const { return maskBorder().imageSlices(); }
 inline StyleImage* RenderStyle::maskBorderSource() const { return maskBorder().image(); }
+inline NinePieceImageRule RenderStyle::maskBorderVerticalRule() const { return maskBorder().verticalRule(); }
+inline const LengthBox& RenderStyle::maskBorderWidth() const { return maskBorder().borderSlices(); }
 inline FillBox RenderStyle::maskClip() const { return maskLayers().clip(); }
 inline CompositeOperator RenderStyle::maskComposite() const { return maskLayers().composite(); }
 inline StyleImage* RenderStyle::maskImage() const { return maskLayers().image(); }
@@ -596,6 +612,7 @@ inline const Length& RenderStyle::maskYPosition() const { return maskLayers().yP
 inline MasonryAutoFlow RenderStyle::masonryAutoFlow() const { return m_nonInheritedData->rareData->grid->masonryAutoFlow; }
 inline MathStyle RenderStyle::mathStyle() const { return static_cast<MathStyle>(m_rareInheritedData->mathStyle); }
 inline const Length& RenderStyle::maxHeight() const { return m_nonInheritedData->boxData->maxHeight(); }
+inline size_t RenderStyle::maxLines() const { return m_nonInheritedData->rareData->maxLines; }
 inline const Length& RenderStyle::maxWidth() const { return m_nonInheritedData->boxData->maxWidth(); }
 inline const Length& RenderStyle::minHeight() const { return m_nonInheritedData->boxData->minHeight(); }
 inline const Length& RenderStyle::minWidth() const { return m_nonInheritedData->boxData->minWidth(); }
@@ -623,6 +640,7 @@ inline const StyleColor& RenderStyle::outlineColor() const { return m_nonInherit
 inline BorderStyle RenderStyle::outlineStyle() const { return m_nonInheritedData->backgroundData->outline.style(); }
 inline OutlineIsAuto RenderStyle::outlineStyleIsAuto() const { return static_cast<OutlineIsAuto>(m_nonInheritedData->backgroundData->outline.isAuto()); }
 inline OverflowAnchor RenderStyle::overflowAnchor() const { return static_cast<OverflowAnchor>(m_nonInheritedData->rareData->overflowAnchor); }
+inline OverflowContinue RenderStyle::overflowContinue() const { return m_nonInheritedData->rareData->overflowContinue; }
 inline OverflowWrap RenderStyle::overflowWrap() const { return static_cast<OverflowWrap>(m_rareInheritedData->overflowWrap); }
 inline OverscrollBehavior RenderStyle::overscrollBehaviorX() const { return static_cast<OverscrollBehavior>(m_nonInheritedData->rareData->overscrollBehaviorX); }
 inline OverscrollBehavior RenderStyle::overscrollBehaviorY() const { return static_cast<OverscrollBehavior>(m_nonInheritedData->rareData->overscrollBehaviorY); }
@@ -651,6 +669,8 @@ inline const Length& RenderStyle::right() const { return m_nonInheritedData->sur
 inline RotateTransformOperation* RenderStyle::rotate() const { return m_nonInheritedData->rareData->rotate.get(); }
 inline const GapLength& RenderStyle::rowGap() const { return m_nonInheritedData->rareData->rowGap; }
 inline RubyPosition RenderStyle::rubyPosition() const { return static_cast<RubyPosition>(m_rareInheritedData->rubyPosition); }
+inline RubyAlign RenderStyle::rubyAlign() const { return static_cast<RubyAlign>(m_rareInheritedData->rubyAlign); }
+inline RubyOverhang RenderStyle::rubyOverhang() const { return static_cast<RubyOverhang>(m_rareInheritedData->rubyOverhang); }
 inline ScaleTransformOperation* RenderStyle::scale() const { return m_nonInheritedData->rareData->scale.get(); }
 inline const Vector<Ref<ScrollTimeline>>& RenderStyle::scrollTimelines() const { return m_nonInheritedData->rareData->scrollTimelines; }
 inline const Vector<ScrollAxis>& RenderStyle::scrollTimelineAxes() const { return m_nonInheritedData->rareData->scrollTimelineAxes; }
@@ -673,10 +693,11 @@ inline const AtomString& RenderStyle::specifiedLocale() const { return fontDescr
 inline int RenderStyle::specifiedZIndex() const { return m_nonInheritedData->boxData->specifiedZIndex(); }
 inline bool RenderStyle::specifiesColumns() const { return !hasAutoColumnCount() || !hasAutoColumnWidth() || !hasInlineColumnAxis(); }
 constexpr OptionSet<Containment> RenderStyle::strictContainment() { return { Containment::Size, Containment::Layout, Containment::Paint, Containment::Style }; }
-inline StyleColor RenderStyle::strokeColor() const { return m_rareInheritedData->strokeColor; }
+inline const StyleColor& RenderStyle::strokeColor() const { return m_rareInheritedData->strokeColor; }
 inline float RenderStyle::strokeMiterLimit() const { return m_rareInheritedData->miterLimit; }
 inline const AtomString& RenderStyle::pseudoElementNameArgument() const { return m_nonInheritedData->rareData->pseudoElementNameArgument; }
 inline const TabSize& RenderStyle::tabSize() const { return m_rareInheritedData->tabSize; }
+inline TableLayoutType RenderStyle::tableLayout() const { return static_cast<TableLayoutType>(m_nonInheritedData->miscData->tableLayout); }
 inline TextAlignLast RenderStyle::textAlignLast() const { return static_cast<TextAlignLast>(m_rareInheritedData->textAlignLast); }
 inline TextBoxTrim RenderStyle::textBoxTrim() const { return static_cast<TextBoxTrim>(m_nonInheritedData->rareData->textBoxTrim); }
 inline TextCombine RenderStyle::textCombine() const { return static_cast<TextCombine>(m_rareInheritedData->textCombine); }
@@ -705,7 +726,7 @@ inline const StyleColor& RenderStyle::textStrokeColor() const { return m_rareInh
 inline float RenderStyle::textStrokeWidth() const { return m_rareInheritedData->textStrokeWidth; }
 inline OptionSet<TextTransform> RenderStyle::textTransform() const { return OptionSet<TextTransform>::fromRaw(m_inheritedFlags.textTransform); }
 inline TextUnderlineOffset RenderStyle::textUnderlineOffset() const { return m_rareInheritedData->textUnderlineOffset; }
-inline TextUnderlinePosition RenderStyle::textUnderlinePosition() const { return static_cast<TextUnderlinePosition>(m_rareInheritedData->textUnderlinePosition); }
+inline OptionSet<TextUnderlinePosition> RenderStyle::textUnderlinePosition() const { return OptionSet<TextUnderlinePosition>::fromRaw(m_rareInheritedData->textUnderlinePosition); }
 inline TextZoom RenderStyle::textZoom() const { return static_cast<TextZoom>(m_rareInheritedData->textZoom); }
 inline const Length& RenderStyle::top() const { return m_nonInheritedData->surroundData->offset.top(); }
 inline OptionSet<TouchAction> RenderStyle::touchActions() const { return m_nonInheritedData->rareData->touchActions; }
@@ -728,7 +749,8 @@ inline UserModify RenderStyle::userModify() const { return static_cast<UserModif
 inline UserSelect RenderStyle::userSelect() const { return static_cast<UserSelect>(m_rareInheritedData->userSelect); }
 inline VerticalAlign RenderStyle::verticalAlign() const { return m_nonInheritedData->boxData->verticalAlign(); }
 inline const Length& RenderStyle::verticalAlignLength() const { return m_nonInheritedData->boxData->verticalAlignLength(); }
-inline std::optional<Style::ScopedName> RenderStyle::viewTransitionName() const { return m_nonInheritedData->rareData->viewTransitionName; }
+inline const Vector<Style::ScopedName>& RenderStyle::viewTransitionClasses() const { return m_nonInheritedData->rareData->viewTransitionClasses; }
+inline Style::ViewTransitionName RenderStyle::viewTransitionName() const { return m_nonInheritedData->rareData->viewTransitionName; }
 inline const StyleColor& RenderStyle::visitedLinkBackgroundColor() const { return m_nonInheritedData->miscData->visitedLinkColor->background; }
 inline const StyleColor& RenderStyle::visitedLinkBorderBottomColor() const { return m_nonInheritedData->miscData->visitedLinkColor->borderBottom; }
 inline const StyleColor& RenderStyle::visitedLinkBorderLeftColor() const { return m_nonInheritedData->miscData->visitedLinkColor->borderLeft; }
@@ -804,7 +826,7 @@ inline bool RenderStyle::useTouchOverflowScrolling() const { return m_rareInheri
 #endif
 
 #if ENABLE(TEXT_AUTOSIZING)
-inline Length RenderStyle::initialSpecifiedLineHeight() { return { -100.0f, LengthType::Percent }; }
+inline Length RenderStyle::initialSpecifiedLineHeight() { return LengthType::Normal; }
 constexpr TextSizeAdjustment RenderStyle::initialTextSizeAdjust() { return { }; }
 inline TextSizeAdjustment RenderStyle::textSizeAdjust() const { return m_rareInheritedData->textSizeAdjust; }
 #endif
@@ -859,8 +881,7 @@ inline bool RenderStyle::hasInlineColumnAxis() const
 
 inline Length RenderStyle::initialLineHeight()
 {
-    // Returning -100% here means the line-height is not set.
-    return { -100.0f, LengthType::Percent };
+    return LengthType::Normal;
 }
 
 inline bool RenderStyle::isCollapsibleWhiteSpace(UChar character) const
@@ -938,7 +959,7 @@ constexpr bool RenderStyle::preserveNewline(WhiteSpace mode)
     return mode != WhiteSpace::Normal && mode != WhiteSpace::NoWrap;
 }
 
-inline BlockFlowDirection RenderStyle::blockFlowDirection() const
+inline FlowDirection RenderStyle::blockFlowDirection() const
 {
     return writingModeToBlockFlowDirection(writingMode());
 }
@@ -984,7 +1005,7 @@ inline int adjustForAbsoluteZoom(int value, const RenderStyle& style)
     double zoomFactor = style.usedZoom();
     if (zoomFactor == 1)
         return value;
-    // Needed because computeLengthInt truncates (rather than rounds) when scaling up.
+    // Needed because resolveAsLength<int> truncates (rather than rounds) when scaling up.
     if (zoomFactor > 1) {
         if (value < 0)
             value--;
@@ -1013,6 +1034,12 @@ constexpr BorderStyle collapsedBorderStyle(BorderStyle style)
     if (style == BorderStyle::Inset)
         return BorderStyle::Ridge;
     return style;
+}
+
+inline bool RenderStyle::isInterCharacterRubyPosition() const
+{
+    auto rubyPosition = this->rubyPosition();
+    return rubyPosition == RubyPosition::InterCharacter || rubyPosition == RubyPosition::LegacyInterCharacter;
 }
 
 inline bool generatesBox(const RenderStyle& style)

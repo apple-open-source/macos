@@ -95,6 +95,14 @@
     self.keyCache[keyUUID] = key;
 }
 
+- (void)populateWithRecords:(NSArray<CKRecord*>*)syncKeys
+                  contextID:(NSString*)contextID {
+    for (CKRecord* obj in syncKeys) {
+        CKKSKey* key = [[CKKSKey alloc] initWithCKRecord:obj contextID:contextID];
+        [self addKeyToCache:key.uuid key:key];
+    }
+}
+
 @end
 
 #endif

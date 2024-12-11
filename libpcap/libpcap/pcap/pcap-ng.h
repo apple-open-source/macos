@@ -321,6 +321,7 @@ struct pcapng_decryption_secrets_fields {
 #define PCAPNG_EPB_DROP_REASON  0x8007  /* 32 bits drop reason */
 #define PCAPNG_EPB_DROP_LINE    0x8008  /* 16 bits drop line */
 #define PCAPNG_EPB_DROP_FUNC    0x8009  /* String with drop function */
+#define PCAPNG_EPB_COMP_GENCNT  0x800A  /* 32 bits compression generation count */
 
 /*
  * Packet Metadata Flags (PCAPNG_EPB_PMD_FLAGS option)

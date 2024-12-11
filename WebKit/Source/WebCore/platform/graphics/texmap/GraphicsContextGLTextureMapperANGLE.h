@@ -30,12 +30,6 @@
 #include "GLContextWrapper.h"
 #include "GraphicsContextGLANGLE.h"
 
-#if USE(NICOSIA)
-namespace Nicosia {
-class GCGLANGLELayer;
-}
-#endif
-
 namespace WebCore {
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -59,20 +53,22 @@ public:
 #endif
     RefPtr<PixelBuffer> readCompositedResults() final;
 
-    void setContextVisibility(bool) final;
-    bool reshapeDrawingBuffer() final;
-    void prepareForDisplay() final;
+    bool reshapeDrawingBuffer() override;
+    void prepareForDisplay() override;
 #if ENABLE(WEBXR)
     bool addFoveation(IntSize, IntSize, IntSize, std::span<const GCGLfloat>, std::span<const GCGLfloat>, std::span<const GCGLfloat>) final;
     void enableFoveation(GCGLuint) final;
     void disableFoveation() final;
 #endif
 
-private:
-    GraphicsContextGLTextureMapperANGLE(WebCore::GraphicsContextGLAttributes&&);
+protected:
+    explicit GraphicsContextGLTextureMapperANGLE(WebCore::GraphicsContextGLAttributes&&);
 
+    RefPtr<GraphicsLayerContentsDisplayDelegate> m_layerContentsDisplayDelegate;
+
+private:
     bool platformInitializeContext() final;
-    bool platformInitialize() final;
+    bool platformInitialize() override;
 
     void swapCompositorTexture();
 
@@ -85,8 +81,6 @@ private:
     bool makeCurrentImpl() override;
     bool unmakeCurrentImpl() override;
 
-    RefPtr<GraphicsLayerContentsDisplayDelegate> m_layerContentsDisplayDelegate;
-
     GCGLuint m_compositorTexture { 0 };
     bool m_isCompositorTextureInitialized { false };
 
@@ -97,11 +91,9 @@ private:
 #if USE(NICOSIA)
     GCGLuint m_textureID { 0 };
     GCGLuint m_compositorTextureID { 0 };
+#endif
 
-    std::unique_ptr<Nicosia::GCGLANGLELayer> m_nicosiaLayer;
-
-    friend class Nicosia::GCGLANGLELayer;
-#else
+#if !USE(COORDINATED_GRAPHICS)
     std::unique_ptr<TextureMapperGCGLPlatformLayer> m_texmapLayer;
 
     friend class TextureMapperGCGLPlatformLayer;

@@ -34,7 +34,6 @@
 #include "JSDOMPromiseDeferredForward.h"
 #include "WebCodecsAudioDecoderConfig.h"
 #include "WebCodecsAudioDecoderSupport.h"
-#include "WebCodecsBaseClass.h"
 #include "WebCodecsCodecState.h"
 #include "WebCodecsControlMessage.h"
 #include "WebCodecsEncodedAudioChunkType.h"
@@ -48,11 +47,10 @@ class WebCodecsErrorCallback;
 class WebCodecsAudioDataOutputCallback;
 
 class WebCodecsAudioDecoder
-    : private WebCodecsBaseClass
-    , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<WebCodecsAudioDecoder>
+    : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<WebCodecsAudioDecoder>
     , public ActiveDOMObject
     , public EventTarget {
-    WTF_MAKE_ISO_ALLOCATED(WebCodecsAudioDecoder);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebCodecsAudioDecoder);
 public:
     ~WebCodecsAudioDecoder();
 
@@ -114,6 +112,7 @@ private:
     bool m_isKeyChunkRequired { false };
     Deque<WebCodecsControlMessage<WebCodecsAudioDecoder>> m_controlMessageQueue;
     bool m_isMessageQueueBlocked { false };
+    size_t m_decoderCount { 0 };
 };
 
 }

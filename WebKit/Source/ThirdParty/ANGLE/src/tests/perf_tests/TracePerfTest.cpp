@@ -954,6 +954,18 @@ TracePerfTest::TracePerfTest(std::unique_ptr<const TracePerfParams> params)
             "TODO: http://anglebug.com/42266346 Non-deterministic image on 31.0.101.2111 driver");
     }
 
+    if (isIntelWinANGLE && traceNameIs("animal_crossing"))
+    {
+        skipTest(
+            "TODO: http://anglebug.com/353690308 Non-deterministic image on UHD770 31.0.101.5333");
+    }
+
+    if (isIntelWinANGLE && traceNameIs("black_clover_m"))
+    {
+        skipTest(
+            "TODO: http://anglebug.com/353690308 Non-deterministic image on UHD770 31.0.101.5333");
+    }
+
     if (traceNameIs("brawl_stars"))
     {
         addExtensionPrerequisite("GL_EXT_shadow_samplers");
@@ -1781,6 +1793,11 @@ TracePerfTest::TracePerfTest(std::unique_ptr<const TracePerfParams> params)
                 "https://issuetracker.google.com/42267261 Causing thermal failures on Pixel 6 with "
                 "Android 13");
         }
+    }
+
+    if (traceNameIs("grand_mountain_adventure"))
+    {
+        addIntegerPrerequisite(GL_MAX_TEXTURE_SIZE, 11016);
     }
 
     if (IsGalaxyS22())

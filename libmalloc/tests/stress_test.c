@@ -359,7 +359,7 @@ do_test(void)
 {
 	time_t start_time = time_seconds();
 #if DARWINTEST
-	T_ASSERT_NE(start_time, -1, "Failed to get start time");
+	T_ASSERT_NE(start_time, (time_t)-1, "Failed to get start time");
 #endif // DARWINTEST
 
 #if !MALLOC_TARGET_EXCLAVES

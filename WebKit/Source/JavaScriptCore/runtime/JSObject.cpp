@@ -1387,8 +1387,9 @@ ArrayStorage* JSObject::constructConvertedArrayStorageWithoutCopyingElements(VM&
     unsigned propertyCapacity = structure->outOfLineCapacity();
 
     Butterfly* newButterfly = Butterfly::createUninitialized(vm, this, 0, propertyCapacity, true, ArrayStorage::sizeFor(neededLength));
-    
-    gcSafeMemcpy(
+
+    // memcpy is fine since newButterfly is not tied to any object yet.
+    memcpy(
         static_cast<JSValue*>(newButterfly->base(0, propertyCapacity)),
         static_cast<JSValue*>(m_butterfly->base(0, propertyCapacity)),
         propertyCapacity * sizeof(EncodedJSValue));
@@ -1706,7 +1707,8 @@ void JSObject::convertFromCopyOnWrite(VM& vm)
     unsigned newVectorLength = Butterfly::optimalContiguousVectorLength(propertyCapacity, std::min(oldButterfly->vectorLength() * 2, MAX_STORAGE_VECTOR_LENGTH));
     Butterfly* newButterfly = Butterfly::createUninitialized(vm, this, 0, propertyCapacity, hasIndexingHeader, newVectorLength * sizeof(JSValue));
 
-    gcSafeMemcpy(newButterfly->propertyStorage(), oldButterfly->propertyStorage(), oldButterfly->vectorLength() * sizeof(JSValue) + sizeof(IndexingHeader));
+    // memcpy is fine since newButterfly is not tied to any object yet.
+    memcpy(newButterfly->propertyStorage(), oldButterfly->propertyStorage(), oldButterfly->vectorLength() * sizeof(JSValue) + sizeof(IndexingHeader));
 
     WTF::storeStoreFence();
     TransitionKind transition = ([&] () {
@@ -3511,14 +3513,14 @@ JSFunction* JSObject::putDirectBuiltinFunction(VM& vm, JSGlobalObject* globalObj
     if (!name)
         name = vm.propertyNames->anonymous.impl();
     ASSERT(name);
-    JSFunction* function = JSFunction::create(vm, static_cast<FunctionExecutable*>(functionExecutable), globalObject);
+    JSFunction* function = JSFunction::create(vm, globalObject, static_cast<FunctionExecutable*>(functionExecutable), globalObject);
     putDirect(vm, propertyName, function, attributes);
     return function;
 }
 
 JSFunction* JSObject::putDirectBuiltinFunctionWithoutTransition(VM& vm, JSGlobalObject* globalObject, const PropertyName& propertyName, FunctionExecutable* functionExecutable, unsigned attributes)
 {
-    JSFunction* function = JSFunction::create(vm, static_cast<FunctionExecutable*>(functionExecutable), globalObject);
+    JSFunction* function = JSFunction::create(vm, globalObject, static_cast<FunctionExecutable*>(functionExecutable), globalObject);
     putDirectWithoutTransition(vm, propertyName, function, attributes);
     return function;
 }
@@ -3957,7 +3959,8 @@ void JSObject::shiftButterflyAfterFlattening(const GCSafeConcurrentJSLocker&, VM
     void* currentBase = oldButterfly->base(0, outOfLineCapacityAfter);
     void* newBase = newButterfly->base(0, outOfLineCapacityAfter);
 
-    gcSafeMemcpy(static_cast<JSValue*>(newBase), static_cast<JSValue*>(currentBase), Butterfly::totalSize(0, outOfLineCapacityAfter, hasIndexingHeader, indexingPayloadSizeInBytes));
+    // memcpy is fine since newButterfly is not tied to any object yet.
+    memcpy(static_cast<JSValue*>(newBase), static_cast<JSValue*>(currentBase), Butterfly::totalSize(0, outOfLineCapacityAfter, hasIndexingHeader, indexingPayloadSizeInBytes));
     
     setButterfly(vm, newButterfly);
 }

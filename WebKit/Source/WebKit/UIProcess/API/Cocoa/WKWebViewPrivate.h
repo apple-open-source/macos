@@ -41,6 +41,7 @@
 #import <WebKit/_WKOverlayScrollbarStyle.h>
 #import <WebKit/_WKRectEdge.h>
 #import <WebKit/_WKRenderingProgressEvents.h>
+#import <WebKit/_WKTextPreview.h>
 
 typedef NS_ENUM(NSInteger, _WKPaginationMode) {
     _WKPaginationModeUnpaginated,
@@ -420,6 +421,12 @@ for this property.
 - (NSUUID *)_enableFinalTextAnimationForElementWithID:(NSString *)elementID WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
 - (void)_disableTextAnimationWithUUID:(NSUUID *)nsUUID WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
 
+#if TARGET_OS_IPHONE && !TARGET_OS_WATCH
+- (void)_targetedPreviewForElementWithID:(NSString *)elementID completionHandler:(WK_SWIFT_UI_ACTOR void (^)(UITargetedPreview *))completionHandler WK_API_AVAILABLE(ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+#elif TARGET_OS_OSX
+- (void)_textPreviewsForElementWithID:(NSString *)elementID completionHandler:(WK_SWIFT_UI_ACTOR void (^)(NSArray<_WKTextPreview *> *))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA));
+#endif
+
 // FIXME: Remove old `-[WKWebView _themeColor]` SPI <rdar://76662644>
 #if TARGET_OS_IPHONE
 @property (nonatomic, readonly) UIColor *_themeColor WK_API_DEPRECATED_WITH_REPLACEMENT("themeColor", ios(15.0, 15.0));
@@ -566,6 +573,10 @@ typedef NS_OPTIONS(NSUInteger, WKDisplayCaptureSurfaces) {
 
 - (void)_playPredominantOrNowPlayingMediaSession:(void(^)(BOOL))completionHandler WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
 - (void)_pauseNowPlayingMediaSession:(void(^)(BOOL))completionHandler WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
+
+- (void)_simulateClickOverFirstMatchingTextInViewportWithUserInteraction:(NSString *)targetText completionHandler:(void(^)(BOOL))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
+@property (nonatomic, setter=_setDontResetTransientActivationAfterRunJavaScript:) BOOL _dontResetTransientActivationAfterRunJavaScript WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 
 @end
 
@@ -823,11 +834,16 @@ typedef NS_OPTIONS(NSUInteger, WKDisplayCaptureSurfaces) {
 - (void)_prepareForMoveToWindow:(NSWindow *)targetWindow completionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(10.13));
 
 - (void)_simulateMouseMove:(NSEvent *)event WK_API_AVAILABLE(macos(13.0));
+- (void)_simulateMouseEnter:(NSEvent *)event WK_API_AVAILABLE(macos(15.0));
 
 - (void)_setFont:(NSFont *)font sender:(id)sender WK_API_AVAILABLE(macos(13.3));
 
 - (void)_showWritingTools WK_API_AVAILABLE(macos(WK_MAC_TBA));
 
+@end
+
+@interface WKWebView (WKWindowSnapshot)
+- (NSImage *)_windowSnapshotInRect:(CGRect)rect withOptions:(CGWindowImageOption)options;
 @end
 
 #endif // !TARGET_OS_IPHONE

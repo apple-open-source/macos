@@ -50,34 +50,93 @@
 #include "StyleScope.h"
 #include "Styleable.h"
 #include "WebAnimation.h"
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-static std::pair<Ref<DOMPromise>, Ref<DeferredPromise>> createPromiseAndWrapper(Document& document)
-{
-    auto& globalObject = *JSC::jsCast<JSDOMGlobalObject*>(document.globalObject());
-    JSC::JSLockHolder lock(globalObject.vm());
-    RefPtr deferredPromise = DeferredPromise::create(globalObject);
-    Ref domPromise = DOMPromise::create(globalObject, *JSC::jsCast<JSC::JSPromise*>(deferredPromise->promise()));
-    return { WTFMove(domPromise), deferredPromise.releaseNonNull() };
-}
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CapturedElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ViewTransitionParams);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ViewTransition);
 
-ViewTransition::ViewTransition(Document& document, RefPtr<ViewTransitionUpdateCallback>&& updateCallback)
+ViewTransition::ViewTransition(Document& document, RefPtr<ViewTransitionUpdateCallback>&& updateCallback, Vector<AtomString>&& initialActiveTypes)
     : ActiveDOMObject(document)
     , m_updateCallback(WTFMove(updateCallback))
     , m_ready(createPromiseAndWrapper(document))
     , m_updateCallbackDone(createPromiseAndWrapper(document))
     , m_finished(createPromiseAndWrapper(document))
+    , m_types(ViewTransitionTypeSet::create(document, WTFMove(initialActiveTypes)))
+{
+    document.registerForVisibilityStateChangedCallbacks(*this);
+}
+
+ViewTransition::ViewTransition(Document& document, Vector<AtomString>&& initialActiveTypes)
+    : ActiveDOMObject(document)
+    , m_isCrossDocument(true)
+    , m_ready(createPromiseAndWrapper(document))
+    , m_updateCallbackDone(createPromiseAndWrapper(document))
+    , m_finished(createPromiseAndWrapper(document))
+    , m_types(ViewTransitionTypeSet::create(document, WTFMove(initialActiveTypes)))
 {
 }
 
+
 ViewTransition::~ViewTransition() = default;
 
-Ref<ViewTransition> ViewTransition::create(Document& document, RefPtr<ViewTransitionUpdateCallback>&& updateCallback)
+Ref<ViewTransition> ViewTransition::createSamePage(Document& document, RefPtr<ViewTransitionUpdateCallback>&& updateCallback, Vector<AtomString>&& initialActiveTypes)
 {
-    Ref viewTransition = adoptRef(*new ViewTransition(document, WTFMove(updateCallback)));
+    Ref viewTransition = adoptRef(*new ViewTransition(document, WTFMove(updateCallback), WTFMove(initialActiveTypes)));
     viewTransition->suspendIfNeeded();
+    return viewTransition;
+}
+
+// https://www.w3.org/TR/css-view-transitions-2/#resolve-inbound-cross-document-view-transition
+RefPtr<ViewTransition> ViewTransition::resolveInboundCrossDocumentViewTransition(Document& document, std::unique_ptr<ViewTransitionParams> inboundViewTransitionParams)
+{
+    if (!inboundViewTransitionParams)
+        return nullptr;
+
+    if (MonotonicTime::now() - inboundViewTransitionParams->startTime > defaultTimeout)
+        return nullptr;
+
+    if (document.activeViewTransition())
+        return nullptr;
+
+    auto types = document.resolveViewTransitionRule();
+    if (std::holds_alternative<Document::SkipTransition>(types))
+        return nullptr;
+
+    RefPtr viewTransition = adoptRef(*new ViewTransition(document, WTFMove(std::get<Vector<AtomString>>(types))));
+    viewTransition->suspendIfNeeded();
+
+    viewTransition->m_namedElements.swap(inboundViewTransitionParams->namedElements);
+    viewTransition->m_initialLargeViewportSize = inboundViewTransitionParams->initialLargeViewportSize;
+    viewTransition->m_initialPageZoom = inboundViewTransitionParams->initialPageZoom;
+
+    document.setActiveViewTransition(RefPtr { viewTransition });
+
+    viewTransition->m_updateCallbackDone.second->resolve();
+    viewTransition->m_phase = ViewTransitionPhase::UpdateCallbackCalled;
+
+    // FIXME: Setup implementation-defined timeout.
+
+    return viewTransition;
+}
+
+// https://drafts.csswg.org/css-view-transitions-2/#setup-cross-document-view-transition
+Ref<ViewTransition> ViewTransition::setupCrossDocumentViewTransition(Document& document)
+{
+    auto types = document.resolveViewTransitionRule();
+    ASSERT(!std::holds_alternative<Document::SkipTransition>(types));
+
+    if (RefPtr activeViewTransition =  document.activeViewTransition())
+        activeViewTransition->skipViewTransition(Exception { ExceptionCode::AbortError, "Old view transition aborted by new view transition."_s });
+
+    Ref viewTransition = adoptRef(*new ViewTransition(document, WTFMove(std::get<Vector<AtomString>>(types))));
+    viewTransition->suspendIfNeeded();
+
+    document.setActiveViewTransition(RefPtr { viewTransition.ptr() });
+
     return viewTransition;
 }
 
@@ -110,6 +169,9 @@ void ViewTransition::skipViewTransition(ExceptionOr<JSC::JSValue>&& reason)
             if (protectedThis)
                 callUpdateCallback();
         });
+
+        if (m_isCrossDocument)
+            m_updateCallbackDone.second->resolve();
     }
 
     document()->clearRenderingIsSuppressedForViewTransition();
@@ -144,6 +206,11 @@ void ViewTransition::skipViewTransition(ExceptionOr<JSC::JSValue>&& reason)
     });
 }
 
+bool ViewTransition::virtualHasPendingActivity() const
+{
+    return m_phase != ViewTransitionPhase::Done;
+}
+
 // https://drafts.csswg.org/css-view-transitions/#ViewTransition-skipTransition
 void ViewTransition::skipTransition()
 {
@@ -159,8 +226,15 @@ void ViewTransition::callUpdateCallback()
 
     ASSERT(m_phase < ViewTransitionPhase::UpdateCallbackCalled || m_phase == ViewTransitionPhase::Done);
 
+    if (m_phase != ViewTransitionPhase::Done)
+        m_phase = ViewTransitionPhase::UpdateCallbackCalled;
+
+    if (m_isCrossDocument)
+        return;
+
     Ref document = *this->document();
     RefPtr<DOMPromise> callbackPromise;
+
     if (!m_updateCallback) {
         auto promiseAndWrapper = createPromiseAndWrapper(document);
         promiseAndWrapper.second->resolve();
@@ -178,9 +252,6 @@ void ViewTransition::callUpdateCallback()
             callbackPromise = WTFMove(promiseAndWrapper.first);
         }
     }
-
-    if (m_phase != ViewTransitionPhase::Done)
-        m_phase = ViewTransitionPhase::UpdateCallbackCalled;
 
     callbackPromise->whenSettled([this, weakThis = WeakPtr { *this }, callbackPromise] () mutable {
         RefPtr protectedThis = weakThis.get();
@@ -207,7 +278,7 @@ void ViewTransition::callUpdateCallback()
         }
     });
 
-    m_updateCallbackTimeout = protectedDocument()->checkedEventLoop()->scheduleTask(4_s, TaskSource::DOMManipulation, [this, weakThis = WeakPtr { *this }] {
+    m_updateCallbackTimeout = protectedDocument()->checkedEventLoop()->scheduleTask(defaultTimeout, TaskSource::DOMManipulation, [this, weakThis = WeakPtr { *this }] {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -233,7 +304,11 @@ void ViewTransition::setupViewTransition()
         return;
     }
 
-    document()->setRenderingIsSuppressedForViewTransitionAfterUpdateRendering();
+    if (m_isCrossDocument)
+        document()->setRenderingIsSuppressedForViewTransitionImmediately();
+    else
+        document()->setRenderingIsSuppressedForViewTransitionAfterUpdateRendering();
+
     protectedDocument()->checkedEventLoop()->queueTask(TaskSource::DOMManipulation, [this, weakThis = WeakPtr { *this }] {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
@@ -245,17 +320,27 @@ void ViewTransition::setupViewTransition()
     });
 }
 
-static AtomString effectiveViewTransitionName(RenderLayerModelObject& renderer, Element& originatingElement, Style::Scope& documentScope)
+static AtomString effectiveViewTransitionName(RenderLayerModelObject& renderer, Element& originatingElement, Style::Scope& documentScope, bool isCrossDocument)
 {
     if (renderer.isSkippedContent())
         return nullAtom();
     auto transitionName = renderer.style().viewTransitionName();
-    if (!transitionName)
+    if (transitionName.isNone())
         return nullAtom();
-    auto scope = Style::Scope::forOrdinal(originatingElement, transitionName->scopeOrdinal);
+    auto scope = Style::Scope::forOrdinal(originatingElement, transitionName.scopeOrdinal());
     if (!scope || scope != &documentScope)
         return nullAtom();
-    return transitionName->name;
+    if (transitionName.isCustomIdent())
+        return transitionName.customIdent();
+    ASSERT(transitionName.isAuto());
+    if (!renderer.element())
+        return nullAtom();
+    if (scope == &Style::Scope::forNode(*renderer.element()) && renderer.element()->hasID())
+        return renderer.element()->getIdAttribute();
+    if (isCrossDocument)
+        return nullAtom();
+
+    return makeAtomString("-ua-auto-"_s, String::number(renderer.element()->identifier().toRawValue()));
 }
 
 static ExceptionOr<void> checkDuplicateViewTransitionName(const AtomString& name, ListHashSet<AtomString>& usedTransitionNames)
@@ -264,6 +349,21 @@ static ExceptionOr<void> checkDuplicateViewTransitionName(const AtomString& name
         return Exception { ExceptionCode::InvalidStateError, makeString("Multiple elements found with view-transition-name: "_s, name) };
     usedTransitionNames.add(name);
     return { };
+}
+
+static Vector<AtomString> effectiveViewTransitionClassList(RenderLayerModelObject& renderer, Element& originatingElement, Style::Scope& documentScope)
+{
+    auto classList = renderer.style().viewTransitionClasses();
+    if (classList.isEmpty())
+        return { };
+
+    auto scope = Style::Scope::forOrdinal(originatingElement, classList.first().scopeOrdinal);
+    if (!scope || scope != &documentScope)
+        return { };
+
+    return WTF::map(classList, [&](auto& item) {
+        return item.name;
+    });
 }
 
 static LayoutRect captureOverflowRect(RenderLayerModelObject& renderer)
@@ -376,7 +476,7 @@ ExceptionOr<void> ViewTransition::captureOldState()
             if (!styleable)
                 return { };
 
-            if (auto name = effectiveViewTransitionName(renderer, styleable->element, document()->styleScope()); !name.isNull()) {
+            if (auto name = effectiveViewTransitionName(renderer, styleable->element, document()->styleScope(), isCrossDocument()); !name.isNull()) {
                 if (auto check = checkDuplicateViewTransitionName(name, usedTransitionNames); check.hasException())
                     return check.releaseException();
 
@@ -400,8 +500,12 @@ ExceptionOr<void> ViewTransition::captureOldState()
             capture.oldImage = snapshotElementVisualOverflowClippedToViewport(*frame, renderer.get(), capture.oldOverflowRect);
         capture.oldLayerToLayoutOffset = layerToLayoutOffset(renderer.get());
 
-        auto transitionName = renderer->style().viewTransitionName();
-        m_namedElements.add(transitionName->name, capture);
+        auto styleable = Styleable::fromRenderer(renderer);
+        ASSERT(styleable);
+        capture.classList = effectiveViewTransitionClassList(renderer, styleable->element, document()->styleScope());
+
+        auto transitionName = effectiveViewTransitionName(renderer, styleable->element, document()->styleScope(), isCrossDocument());
+        m_namedElements.add(transitionName, capture);
     }
 
     for (auto& renderer : captureRenderers)
@@ -422,7 +526,7 @@ ExceptionOr<void> ViewTransition::captureNewState()
             if (!styleable)
                 return { };
 
-            if (auto name = effectiveViewTransitionName(renderer, styleable->element, document()->styleScope()); !name.isNull()) {
+            if (auto name = effectiveViewTransitionName(renderer, styleable->element, document()->styleScope(), isCrossDocument()); !name.isNull()) {
                 if (auto check = checkDuplicateViewTransitionName(name, usedTransitionNames); check.hasException())
                     return check.releaseException();
 
@@ -430,7 +534,9 @@ ExceptionOr<void> ViewTransition::captureNewState()
                     CapturedElement capturedElement;
                     m_namedElements.add(name, capturedElement);
                 }
-                m_namedElements.find(name)->newElement = *styleable;
+                auto namedElement = m_namedElements.find(name);
+                namedElement->classList = effectiveViewTransitionClassList(renderer, styleable->element, document()->styleScope());
+                namedElement->newElement = *styleable;
             }
             return { };
         }, *view->layer());
@@ -777,12 +883,26 @@ RenderViewTransitionCapture* ViewTransition::viewTransitionNewPseudoForCapturedE
     return nullptr;
 }
 
+// https://drafts.csswg.org/css-view-transitions/#page-visibility-change-steps
+void ViewTransition::visibilityStateChanged()
+{
+    if (!document())
+        return;
+
+    if (protectedDocument()->hidden()) {
+        if (protectedDocument()->activeViewTransition() == this)
+            skipViewTransition(Exception { ExceptionCode::InvalidStateError, "Skipping view transition because document visibility state has become hidden."_s });
+    } else
+        ASSERT(!protectedDocument()->activeViewTransition());
+}
+
 void ViewTransition::stop()
 {
     if (!document())
         return;
 
     m_phase = ViewTransitionPhase::Done;
+    document()->unregisterForVisibilityStateChangedCallbacks(*this);
 
     if (document()->activeViewTransition() == this)
         clearViewTransition();
@@ -803,6 +923,16 @@ bool ViewTransition::documentElementIsCaptured() const
         return false;
 
     return renderer->capturedInViewTransition();
+}
+
+UniqueRef<ViewTransitionParams> ViewTransition::takeViewTransitionParams()
+{
+    auto params = makeUniqueRef<ViewTransitionParams>();
+    params->namedElements.swap(m_namedElements);
+    params->initialLargeViewportSize = m_initialLargeViewportSize;
+    params->initialPageZoom = m_initialPageZoom;
+
+    return params;
 }
 
 }

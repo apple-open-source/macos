@@ -22,6 +22,7 @@ notify_register_mach_port: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
 notify_register_mach_port: OTHER_CFLAGS += $(OBJROOT)/rnserver.c -I $(OBJROOT)
 
 notify_introspect: CODE_SIGN_ENTITLEMENTS = notify_introspect.entitlements
+notify_restrict_post: CODE_SIGN_ENTITLEMENTS = notify_restrict_post.entitlements
 
 ifneq ($(wildcard $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common),)
 

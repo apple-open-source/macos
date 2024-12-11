@@ -40,15 +40,15 @@
 #include "RenderStyleInlines.h"
 #include "RenderText.h"
 #include <cmath>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/MathExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
 using namespace MathMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLOperator);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderMathMLOperator);
 
 RenderMathMLOperator::RenderMathMLOperator(Type type, MathMLOperatorElement& element, RenderStyle&& style)
     : RenderMathMLToken(type, element, WTFMove(style))
@@ -294,6 +294,7 @@ void RenderMathMLOperator::styleDidChange(StyleDifference diff, const RenderStyl
 {
     RenderMathMLBlock::styleDidChange(diff, oldStyle);
     m_mathOperator.reset(style());
+    resetStretchSize();
 
     // MathML displaystyle can affect isLargeOperatorInDisplayStyle()
     if (oldStyle && style().mathStyle() != oldStyle->mathStyle() && !isAnonymous())

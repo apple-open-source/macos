@@ -42,6 +42,7 @@
 #include <wtf/HashFunctions.h>
 #include <wtf/HashMap.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(COCOA)
 #include <WebCore/MediaPlayerPrivateMediaStreamAVFObjC.h>
@@ -53,6 +54,7 @@ using namespace PAL;
 using namespace WebCore;
 
 class MediaPlayerRemoteFactory final : public MediaPlayerFactory {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(MediaPlayerRemoteFactory);
 public:
     MediaPlayerRemoteFactory(MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, RemoteMediaPlayerManager& manager)
         : m_remoteEngineIdentifier(remoteEngineIdentifier)
@@ -102,6 +104,8 @@ private:
     MediaPlayerEnums::MediaEngineIdentifier m_remoteEngineIdentifier;
     RemoteMediaPlayerManager& m_manager;
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteMediaPlayerManager);
 
 Ref<RemoteMediaPlayerManager> RemoteMediaPlayerManager::create()
 {
@@ -235,7 +239,7 @@ bool RemoteMediaPlayerManager::supportsKeySystem(MediaPlayerEnums::MediaEngineId
 
 void RemoteMediaPlayerManager::didReceivePlayerMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    if (RefPtr player = m_players.get(ObjectIdentifier<MediaPlayerIdentifierType>(decoder.destinationID())).get())
+    if (RefPtr player = m_players.get(LegacyNullableObjectIdentifier<MediaPlayerIdentifierType>(decoder.destinationID())).get())
         player->didReceiveMessage(connection, decoder);
 }
 

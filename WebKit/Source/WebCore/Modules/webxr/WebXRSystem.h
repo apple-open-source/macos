@@ -38,8 +38,8 @@
 #include "XRReferenceSpaceType.h"
 #include "XRSessionMode.h"
 #include <wtf/HashSet.h>
-#include <wtf/IsoMalloc.h>
 #include <wtf/RefCounted.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeWeakHashSet.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 
@@ -57,7 +57,7 @@ class SecurityOriginData;
 struct XRSessionInit;
 
 class WebXRSystem final : public RefCounted<WebXRSystem>, public EventTarget, public ActiveDOMObject {
-    WTF_MAKE_ISO_ALLOCATED(WebXRSystem);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WebXRSystem);
 public:
     using IsSessionSupportedPromise = DOMPromiseDeferred<IDLBoolean>;
     using RequestSessionPromise = DOMPromiseDeferred<IDLInterface<WebXRSession>>;
@@ -124,7 +124,7 @@ private:
         void shutDownTrackingAndRendering() final { }
         void initializeReferenceSpace(PlatformXR::ReferenceSpaceType) final { }
 
-        void requestFrame(PlatformXR::Device::RequestFrameCallback&&) final;
+        void requestFrame(std::optional<PlatformXR::RequestData>&&, PlatformXR::Device::RequestFrameCallback&&) final;
         Vector<Device::ViewData> views(XRSessionMode) const final;
         std::optional<PlatformXR::LayerHandle> createLayerProjection(uint32_t, uint32_t, bool) final { return std::nullopt; }
         void deleteLayer(PlatformXR::LayerHandle) final { }

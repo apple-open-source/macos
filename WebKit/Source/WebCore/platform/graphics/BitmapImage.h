@@ -84,7 +84,7 @@ public:
     RefPtr<NativeImage> nativeImageAtIndex(unsigned index) final { return m_source->nativeImageAtIndex(index); }
 
     // Testing support.
-    const char* sourceUTF8() const { return sourceURL().string().utf8().data(); }
+    CString sourceUTF8() const { return sourceURL().string().utf8(); }
     void setAsyncDecodingEnabledForTesting(bool enabled) { m_source->setAsyncDecodingEnabledForTesting(enabled); }
     bool isAsyncDecodingEnabledForTesting() const { return m_source->isAsyncDecodingEnabledForTesting(); }
     void setMinimumDecodingDurationForTesting(Seconds duration) { m_source->setMinimumDecodingDurationForTesting(duration); }
@@ -116,6 +116,10 @@ private:
 
 #if ENABLE(QUICKLOOK_FULLSCREEN)
     bool shouldUseQuickLookForFullscreen() const final { return m_source->shouldUseQuickLookForFullscreen(); }
+#endif
+
+#if ENABLE(SPATIAL_IMAGE_DETECTION)
+    bool isSpatial() const final { return m_source->isSpatial(); }
 #endif
 
     // Image methods

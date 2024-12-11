@@ -526,7 +526,7 @@ bool StyleSheetContents::traverseRules(const Function<bool(const StyleRuleBase&)
     for (auto& importRule : m_importRules) {
         if (handler(importRule))
             return true;
-        auto* importedStyleSheet = importRule->styleSheet();
+        RefPtr importedStyleSheet = importRule->styleSheet();
         if (importedStyleSheet && importedStyleSheet->traverseRules(handler))
             return true;
     }
@@ -555,6 +555,8 @@ bool StyleSheetContents::traverseSubresources(const Function<bool(const CachedRe
             return uncheckedDowncast<StyleRule>(rule).properties().traverseSubresources(handler);
         case StyleRuleType::StyleWithNesting:
             return uncheckedDowncast<StyleRuleWithNesting>(rule).properties().traverseSubresources(handler);
+        case StyleRuleType::NestedDeclarations:
+            return uncheckedDowncast<StyleRuleNestedDeclarations>(rule).properties().traverseSubresources(handler);
         case StyleRuleType::FontFace:
             return uncheckedDowncast<StyleRuleFontFace>(rule).properties().traverseSubresources(handler);
         case StyleRuleType::Import:
@@ -581,6 +583,7 @@ bool StyleSheetContents::traverseSubresources(const Function<bool(const CachedRe
         case StyleRuleType::Property:
         case StyleRuleType::Scope:
         case StyleRuleType::StartingStyle:
+        case StyleRuleType::ViewTransition:
             return false;
         };
         ASSERT_NOT_REACHED();
@@ -603,7 +606,7 @@ bool StyleSheetContents::subresourcesAllowReuse(CachePolicy cachePolicy, FrameLo
         auto* documentLoader = loader.documentLoader();
         if (page && documentLoader) {
             const auto& request = resource.resourceRequest();
-            auto results = page->userContentProvider().processContentRuleListsForLoad(*page, request.url(), ContentExtensions::toResourceType(resource.type(), resource.resourceRequest().requester()), *documentLoader);
+            auto results = page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, request.url(), ContentExtensions::toResourceType(resource.type(), resource.resourceRequest().requester()), *documentLoader);
             if (results.summary.blockedLoad || results.summary.madeHTTPS)
                 return true;
         }
@@ -631,6 +634,8 @@ bool StyleSheetContents::mayDependOnBaseURL() const
             return uncheckedDowncast<StyleRule>(rule).properties().mayDependOnBaseURL();
         case StyleRuleType::StyleWithNesting:
             return uncheckedDowncast<StyleRuleWithNesting>(rule).properties().mayDependOnBaseURL();
+        case StyleRuleType::NestedDeclarations:
+            return uncheckedDowncast<StyleRule>(rule).properties().mayDependOnBaseURL();
         case StyleRuleType::FontFace:
             return uncheckedDowncast<StyleRuleFontFace>(rule).properties().mayDependOnBaseURL();
         case StyleRuleType::Import:
@@ -653,6 +658,7 @@ bool StyleSheetContents::mayDependOnBaseURL() const
         case StyleRuleType::Property:
         case StyleRuleType::Scope:
         case StyleRuleType::StartingStyle:
+        case StyleRuleType::ViewTransition:
             return false;
         };
         ASSERT_NOT_REACHED();

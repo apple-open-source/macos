@@ -31,9 +31,12 @@
 #include "WebExtensionDataType.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/text/WTFString.h>
 
-OBJC_CLASS _WKWebExtensionDataRecord;
+OBJC_CLASS NSArray;
+OBJC_CLASS NSMutableArray;
+OBJC_CLASS WKWebExtensionDataRecord;
 
 namespace WebKit {
 
@@ -66,7 +69,7 @@ public:
     void addError(NSString *debugDescription, Type);
 
 #ifdef __OBJC__
-    _WKWebExtensionDataRecord *wrapper() const { return (_WKWebExtensionDataRecord *)API::ObjectImpl<API::Object::Type::WebExtensionDataRecord>::wrapper(); }
+    WKWebExtensionDataRecord *wrapper() const { return (WKWebExtensionDataRecord *)API::ObjectImpl<API::Object::Type::WebExtensionDataRecord>::wrapper(); }
 #endif
 
     bool operator==(const WebExtensionDataRecord&) const;
@@ -80,7 +83,7 @@ private:
 
 class WebExtensionDataRecordHolder : public RefCounted<WebExtensionDataRecordHolder> {
     WTF_MAKE_NONCOPYABLE(WebExtensionDataRecordHolder);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WebExtensionDataRecordHolder);
 
 public:
     template<typename... Args>

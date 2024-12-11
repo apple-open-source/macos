@@ -27,11 +27,13 @@
 #include "HTMLNames.h"
 #include "LiveNodeList.h"
 #include <wtf/HashMap.h>
+#include <wtf/TZoneMalloc.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 class CollectionNamedElementCache {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(CollectionNamedElementCache);
 public:
     inline const Vector<WeakRef<Element, WeakPtrImplWithEventTargetData>>* findElementsWithId(const AtomString& id) const;
     inline const Vector<WeakRef<Element, WeakPtrImplWithEventTargetData>>* findElementsWithName(const AtomString& name) const;
@@ -60,7 +62,7 @@ private:
 
 // HTMLCollection subclasses NodeList to maintain legacy ObjC API compatibility.
 class HTMLCollection : public NodeList {
-    WTF_MAKE_ISO_ALLOCATED_EXPORT(HTMLCollection, WEBCORE_EXPORT);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(HTMLCollection, WEBCORE_EXPORT);
 public:
     WEBCORE_EXPORT virtual ~HTMLCollection();
 

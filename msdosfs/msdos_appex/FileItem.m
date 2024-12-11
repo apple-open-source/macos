@@ -151,7 +151,6 @@
 
     uint64_t originalAllocatedSize  = self.numberOfClusters * clusterSize;
     uint64_t originalSize           = [self.entryData getSize];
-    uint64_t originalValidLength    = [self.entryData getValidDataLength];
     uint64_t effectiveLength        = length;
     uint64_t writeEndOffset         = offset + length;
     uint64_t newAllocatedSize       = originalAllocatedSize;
@@ -203,10 +202,8 @@
     }
 
     /* Do the actual blockmap work */
-    uint64_t maxValidOffset = isWrite ? MAX(offset + effectiveLength, originalValidLength) : originalValidLength;
     [self fetchFileExtentsFrom:offset
                             to:newAllocatedSize
-               lastValidOffset:maxValidOffset
                    usingBlocks:packer
                   replyHandler:^(NSError *fetchError) {
         if (fetchError) {
@@ -365,7 +362,6 @@
 
 -(void)fetchFileExtentsFrom:(uint64_t)startOffset
                          to:(uint64_t)endOffset
-            lastValidOffset:(uint64_t)lastValidOffset
                 usingBlocks:(FSExtentPacker)packer
                replyHandler:(nonnull void (^)(NSError * _Nullable error))reply
 {
@@ -437,23 +433,17 @@
 
         /* Calculate the extent's length */
         extentLength = numContigClusters * clusterSize - (currentOffsetInFile % clusterSize);
-
-        if (currentOffsetInFile < lastValidOffset) {
-            extentType = FSExtentTypeData;
-            if (extentLength > lastValidOffset - currentOffsetInFile) {
-                /* Part of the current cluster chain is beyond the last valid offset. */
-                extentLength = lastValidOffset - currentOffsetInFile;
-            }
-        } else {
-            /* For read/write beyond valid file size (but inside allocated size limits)
-             we should pass zero-fill extents (because the on-disk data is garbage). */
-            extentType = FSExtentTypeZero;
-        }
-
         /* Make sure the returned extent length is sector-aligned. */
         extentLength = roundup(extentLength, sectorSize);
         /* Clip the extent length to UINT32_MAX, while keeping it sector-aligned. */
         extentLength = MIN(extentLength, ROUND_DOWN(UINT32_MAX, sectorSize));
+
+        /*
+         * All extents are DATAFILL extents for file systems which don't support
+         * sparse files.  The kernel knows that it should return zeros for reads
+         * beyond EOF.
+         */
+        extentType = FSExtentTypeData;
 
         if (packer(self.volume.resource, extentType, currentOffsetInFile, extentOffset, (uint32_t)extentLength)) {
             break;
@@ -531,61 +521,48 @@
       replyHandler:(nonnull void (^)(NSError * _Nullable error,
                                      uint64_t allocatedSize))reply
 {
-    /* Update file size */
     uint64_t clusterSize = self.volume.systemInfo.bytesPerCluster;
-    uint64_t curAllocatedClusters = self.numberOfClusters;
     uint64_t curAllocatedSize = self.numberOfClusters * clusterSize;
-    uint64_t sizeToPreAllocate = size + curAllocatedSize;
-    uint32_t amountOfAllocatedClusters = 0;
+    uint64_t desiredFileSize = size + curAllocatedSize;
+    uint32_t desiredFileSizeInClusters = (uint32_t)(ROUND_UP(desiredFileSize, clusterSize) / clusterSize);
+    uint32_t clustersToAlloc = desiredFileSizeInClusters - self.numberOfClusters;
     NSError *err = nil;
 
-    /* Check file size not too big */
-    if (size > DOS_FILESIZE_MAX) {
+    /* Check that the new file size is not too big. */
+    if (desiredFileSize > DOS_FILESIZE_MAX) {
         return reply(fs_errorForPOSIXError(EFBIG), 0);
     }
 
-    // If we already have enough allocted clusters
-    if (size == 0) {
+    /* If we already have enough allocated clusters, do nothing. */
+    if (clustersToAlloc == 0) {
         return reply(nil, 0);
     }
 
-    uint64_t needToAllocSize = ROUND_UP(size, clusterSize);
-    uint32_t needToAllocClusters = (uint32_t)(needToAllocSize / clusterSize);
-    uint32_t currentNumOfClusters = self.numberOfClusters;
+    /*
+     * In case there's not enough space for desiredFileSize:
+     * - if allowPartial is true, allocateClusters will allocate the
+     * available clusters and return no error.  self.numberOfClusters is
+     * updated with the amount of allocated clusters.
+     * - else, allocateClusters will return ENOSPC without allocating at all.
+     */
+    err = [self truncateTo:desiredFileSize
+              allowPartial:allowPartial
+              mustBeContig:mustBeContig];
 
-    if (needToAllocClusters > 0) {
-        err = [self truncateTo:sizeToPreAllocate
-                  allowPartial:allowPartial
-                  mustBeContig:mustBeContig];
-
-        if ((needToAllocClusters) > (self.numberOfClusters - curAllocatedClusters)) {
-            // Failed to allocate needed amount of clusters.
-            // We can handle this situation if partial allocation allowed
-            // o.w we should just exit and report error.
-            if (allowPartial && (err && err.code == ENOSPC) && (self.numberOfClusters > currentNumOfClusters)) {
-                err = nil;
-            }
-            else {
-                os_log_error(fskit_std_log(), "%s: uNeedToAllocClusters %u, uAmountOfAllocatedClusters %u iErr %@",
-                          __FUNCTION__, needToAllocClusters, amountOfAllocatedClusters, err);
-                // Paranoid check to make sure we return some error
-                err = (err) ? err : fs_errorForPOSIXError(EIO);
-                return reply(err, 0);
-            }
-        }
+    if (err == nil) {
+        [self updatePreallocStatus];
     }
 
-    [self updatePreallocStatus];
     return reply(err, ((self.numberOfClusters * clusterSize) - curAllocatedSize));
 }
 
 /*
- * MSDOS always supports KOIO, make sure the inhibitKOIO property is set to false.
+ * MSDOS always supports KOIO, make sure the inhibitKernelOffloadedIO property is set to false.
  */
 -(FSItemAttributes *)getAttributes:(nonnull FSItemGetAttributesRequest *)desired
 {
     FSItemAttributes *attrs = [super getAttributes:desired];
-    attrs.inhibitKOIO = false;
+    attrs.inhibitKernelOffloadedIO = false;
     return attrs;
 }
 

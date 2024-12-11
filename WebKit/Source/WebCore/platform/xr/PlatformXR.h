@@ -29,6 +29,7 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
@@ -222,6 +223,15 @@ enum class HandJoint : unsigned {
 
 class TrackingAndRenderingClient;
 
+struct DepthRange {
+    float near { 0.1f };
+    float far { 1000.0f };
+};
+
+struct RequestData {
+    DepthRange depthRange;
+};
+
 struct FrameData {
     struct FloatQuaternion {
         float x { 0.0f };
@@ -293,6 +303,8 @@ struct FrameData {
         std::optional<LayerSetupData> layerSetup = { std::nullopt };
         uint64_t renderingFrameIndex { 0 };
         std::optional<ExternalTextureData> textureData;
+        // FIXME: <rdar://134998122> Remove when new CC lands.
+        bool requestDepth { false };
 #else
         WebCore::IntSize framebufferSize;
         PlatformGLObject opaqueTexture { 0 };
@@ -349,7 +361,7 @@ struct FrameData {
 };
 
 class Device : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Device> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(Device);
     WTF_MAKE_NONCOPYABLE(Device);
 public:
     virtual ~Device() = default;
@@ -410,7 +422,7 @@ public:
     virtual Vector<ViewData> views(SessionMode) const = 0;
 
     using RequestFrameCallback = Function<void(FrameData&&)>;
-    virtual void requestFrame(RequestFrameCallback&&) = 0;
+    virtual void requestFrame(std::optional<RequestData>&&, RequestFrameCallback&&) = 0;
     virtual void submitFrame(Vector<Layer>&&) { };
 protected:
     Device() = default;

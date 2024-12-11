@@ -1,6 +1,6 @@
 set -ex
 
-COMMAND="sed -e s@__CSECTION__@1@g -e s@__FSECTION__@5@g -e s@__VERSION__@5.04@g -e s@__MAGIC__@/usr/share/file/magic@g"
+COMMAND="sed -e s@__CSECTION__@1@g -e s@__FSECTION__@5@g -e s@__VERSION__@5.41@g -e s@__MAGIC__@/usr/share/file/magic@g"
 
 case "$TARGET_NAME" in
 file)

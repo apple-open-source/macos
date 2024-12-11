@@ -370,6 +370,7 @@
     XCTAssertNil(error, "no error fetching key from database");
 
     CKKSKeychainBackedKey* keycore = [extractedkey ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                                         cache:nil
                                                                          error:&error];
     XCTAssertNotNil(keycore, @"Should be able to ensure that a key is loaded");
     XCTAssertNil(error, "no error forcing unwrap on fetched key");
@@ -688,6 +689,7 @@
     XCTAssertTrue([receivedTLK wrapsSelf], "TLKs should wrap themselves, even when received from CloudKit");
 
     XCTAssertFalse([receivedTLK ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                      cache:nil
                                                       error:&error], "Received keys can't load themselves when there's no key data");
     XCTAssertNotNil(error, "Error should exist when a key fails to load itself");
     error = nil;
@@ -696,6 +698,7 @@
     XCTAssertNil(error, "Shouldn't be an error giving a CKKSKey its key material");
 
     XCTAssertTrue([receivedTLK ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                     cache:nil
                                                      error:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
     XCTAssertNil(error, "Shouldn't be an error loading a loaded CKKSKey");
 }
@@ -713,6 +716,7 @@
     XCTAssertTrue([receivedTLK wrapsSelf], "TLKs should wrap themselves, even when received from CloudKit");
 
     XCTAssertFalse([receivedTLK ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                      cache:nil
                                                       error:&error], "Received keys can't load themselves when there's no key data");
     XCTAssertNotNil(error, "Error should exist when a key fails to load itself");
     error = nil;
@@ -721,6 +725,7 @@
     XCTAssertNotNil(error, "Should be an error giving a CKKSKey the wrong key material");
 
     XCTAssertFalse([receivedTLK ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                      cache:nil
                                                       error:&error], "Received keys can't load themselves when there's no key data");
     XCTAssertNotNil(error, "Error should exist when a key fails to load itself");
     error = nil;
@@ -735,6 +740,7 @@
     XCTAssertFalse([classC wrapsSelf], "Wrapped keys should not wrap themselves");
 
     XCTAssertTrue([classC ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                cache:nil
                                                 error:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
     XCTAssertNil(error, "Shouldn't be an error loading a loaded CKKSKey");
 
@@ -745,6 +751,7 @@
 
     // But, since we didn't throw away its key, it's still loaded
     XCTAssertTrue([classC ensureKeyLoadedForContextID:CKKSMockCloudKitContextID
+                                                cache:nil
                                                 error:&error], "Once a CKKSKey has its key material, it doesn't need to load it again");
     XCTAssertNil(error, "Shouldn't be an error loading a loaded CKKSKey");
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,12 +50,12 @@ OBJC_CLASS NSMutableDictionary;
 OBJC_CLASS NSString;
 OBJC_CLASS NSURL;
 OBJC_CLASS UTType;
-OBJC_CLASS _WKWebExtension;
+OBJC_CLASS WKWebExtension;
+OBJC_CLASS WKWebExtensionMatchPattern;
 OBJC_CLASS _WKWebExtensionLocalization;
-OBJC_CLASS _WKWebExtensionMatchPattern;
 
 #ifdef __OBJC__
-#include "_WKWebExtensionPermission.h"
+#include "WKWebExtensionPermission.h"
 #endif
 
 namespace API {
@@ -82,7 +82,6 @@ public:
     ~WebExtension() { }
 
     enum class CacheResult : bool { No, Yes };
-    enum class SuppressNotification : bool { No, Yes };
     enum class SuppressNotFoundErrors : bool { No, Yes };
 
     enum class Error : uint8_t {
@@ -118,6 +117,11 @@ public:
     enum class Environment : bool {
         Document,
         ServiceWorker,
+    };
+
+    enum class ColorScheme : uint8_t {
+        Light = 1 << 0,
+        Dark  = 1 << 1
     };
 
     using PermissionsSet = HashSet<String>;
@@ -209,12 +213,10 @@ public:
 
     bool isWebAccessibleResource(const URL& resourceURL, const URL& pageURL);
 
-    NSURL *resourceFileURLForPath(NSString *);
-
     UTType *resourceTypeForPath(NSString *);
 
-    NSString *resourceStringForPath(NSString *, CacheResult = CacheResult::No, SuppressNotFoundErrors = SuppressNotFoundErrors::No);
-    NSData *resourceDataForPath(NSString *, CacheResult = CacheResult::No, SuppressNotFoundErrors = SuppressNotFoundErrors::No);
+    NSString *resourceStringForPath(NSString *, NSError **, CacheResult = CacheResult::No, SuppressNotFoundErrors = SuppressNotFoundErrors::No);
+    NSData *resourceDataForPath(NSString *, NSError **, CacheResult = CacheResult::No, SuppressNotFoundErrors = SuppressNotFoundErrors::No);
 
     _WKWebExtensionLocalization *localization();
     NSLocale *defaultLocale();
@@ -237,11 +239,26 @@ public:
     bool hasBrowserAction();
     bool hasPageAction();
 
-    CocoaImage *imageForPath(NSString *);
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    bool hasSidebar();
+    CocoaImage *sidebarIcon(CGSize idealSize);
+    NSString *sidebarDocumentPath();
+    NSString *sidebarTitle();
+#endif
 
+    CocoaImage *imageForPath(NSString *, NSError **, CGSize sizeForResizing = CGSizeZero);
+
+    size_t bestSizeInIconsDictionary(NSDictionary *, size_t idealPixelSize);
     NSString *pathForBestImageInIconsDictionary(NSDictionary *, size_t idealPixelSize);
-    CocoaImage *bestImageInIconsDictionary(NSDictionary *, size_t idealPointSize);
-    CocoaImage *bestImageForIconsDictionaryManifestKey(NSDictionary *, NSString *manifestKey, CGSize idealSize, RetainPtr<CocoaImage>& cacheLocation, Error, NSString *customLocalizedDescription);
+
+    CocoaImage *bestImageInIconsDictionary(NSDictionary *, CGSize idealSize, const Function<void(NSError *)>&);
+    CocoaImage *bestImageForIconsDictionaryManifestKey(NSDictionary *, NSString *manifestKey, CGSize idealSize, RetainPtr<NSMutableDictionary>& cacheLocation, Error, NSString *customLocalizedDescription);
+
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    NSDictionary *iconsDictionaryForBestIconVariant(NSArray *, size_t idealPixelSize, ColorScheme);
+    CocoaImage *bestImageForIconVariants(NSArray *, CGSize idealSize, const Function<void(NSError *)>&);
+    CocoaImage *bestImageForIconVariantsManifestKey(NSDictionary *, NSString *manifestKey, CGSize idealSize, RetainPtr<NSMutableDictionary>& cacheLocation, Error, NSString *customLocalizedDescription);
+#endif
 
     bool hasBackgroundContent();
     bool backgroundContentIsPersistent();
@@ -291,16 +308,13 @@ public:
     MatchPatternSet allRequestedMatchPatterns();
 
     NSError *createError(Error, NSString *customLocalizedDescription = nil, NSError *underlyingError = nil);
-
-    // If an error can't be synchronously determined by one of the populate methods in the errors() getter,
-    // then the caller of recordError() should pass SuppressNotification::No.
-    void recordError(NSError *, SuppressNotification = SuppressNotification::Yes);
-    void removeError(Error, SuppressNotification = SuppressNotification::No);
+    void recordErrorIfNeeded(NSError *error) { if (error) recordError(error); }
+    void recordError(NSError *);
 
     NSArray *errors();
 
 #ifdef __OBJC__
-    _WKWebExtension *wrapper() const { return (_WKWebExtension *)API::ObjectImpl<API::Object::Type::WebExtension>::wrapper(); }
+    WKWebExtension *wrapper() const { return (WKWebExtension *)API::ObjectImpl<API::Object::Type::WebExtension>::wrapper(); }
 #endif
 
 private:
@@ -318,6 +332,13 @@ private:
     void populateCommandsIfNeeded();
     void populateDeclarativeNetRequestPropertiesIfNeeded();
     void populateExternallyConnectableIfNeeded();
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    void populateSidebarPropertiesIfNeeded();
+    void populateSidebarActionProperties(RetainPtr<NSDictionary>);
+    void populateSidePanelProperties(RetainPtr<NSDictionary>);
+#endif
+
+    NSURL *resourceFileURLForPath(NSString *);
 
     std::optional<WebExtension::DeclarativeNetRequestRulesetData> parseDeclarativeNetRequestRulesetDictionary(NSDictionary *, NSError **);
 
@@ -351,12 +372,19 @@ private:
     RetainPtr<NSString> m_displayDescription;
     RetainPtr<NSString> m_version;
 
-    RetainPtr<CocoaImage> m_icon;
+    RetainPtr<NSMutableDictionary> m_iconsCache;
 
     RetainPtr<NSDictionary> m_actionDictionary;
-    RetainPtr<CocoaImage> m_actionIcon;
+    RetainPtr<NSMutableDictionary> m_actionIconsCache;
+    RetainPtr<CocoaImage> m_defaultActionIcon;
     RetainPtr<NSString> m_displayActionLabel;
     RetainPtr<NSString> m_actionPopupPath;
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    RetainPtr<NSMutableDictionary> m_sidebarIconsCache;
+    RetainPtr<NSString> m_sidebarDocumentPath;
+    RetainPtr<NSString> m_sidebarTitle;
+#endif
 
     RetainPtr<NSString> m_contentSecurityPolicy;
 
@@ -386,6 +414,9 @@ private:
     bool m_parsedManifestCommands : 1 { false };
     bool m_parsedManifestDeclarativeNetRequestRulesets : 1 { false };
     bool m_parsedExternallyConnectable : 1 { false };
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    bool m_parsedManifestSidebarProperties : 1 { false };
+#endif
 };
 
 } // namespace WebKit

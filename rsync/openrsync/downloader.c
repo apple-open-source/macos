@@ -58,7 +58,8 @@
 enum	downloadst {
 	DOWNLOAD_READ_NEXT = 0,
 	DOWNLOAD_READ_LOCAL,
-	DOWNLOAD_READ_REMOTE
+	DOWNLOAD_READ_REMOTE,
+	DOWNLOAD_FLUSH_REMOTE,	/* I/O error -- flush until EOF */
 };
 
 static enum zlib_state	 dec_state; /* decompression state */
@@ -73,8 +74,7 @@ struct	download {
 	enum downloadst	    state; /* state of affairs */
 	size_t		    idx; /* index of current file */
 	struct blkset	    blk; /* its blocks */
-	void		   *map; /* mmap of current file */
-	size_t		    mapsz; /* length of mapsz */
+	struct fmap	   *map; /* mmap of current file */
 	int		    ofd; /* open origin file */
 	int		    fd; /* open output file */
 	char		   *fname; /* output filename */
@@ -143,8 +143,7 @@ download_reinit(struct sess *sess, struct download *p, size_t idx)
 
 	p->idx = idx;
 	memset(&p->blk, 0, sizeof(struct blkset));
-	p->map = MAP_FAILED;
-	p->mapsz = 0;
+	p->map = NULL;
 	p->ofd = -1;
 	p->fd = -1;
 	p->fname = NULL;
@@ -411,11 +410,9 @@ static void
 download_cleanup(struct sess *sess, struct download *p, int cleanup)
 {
 
-	if (p->map != MAP_FAILED) {
-		assert(p->mapsz);
-		munmap(p->map, p->mapsz);
-		p->map = MAP_FAILED;
-		p->mapsz = 0;
+	if (p->map != NULL) {
+		fmap_close(p->map);
+		p->map = NULL;
 	}
 	if (p->ofd != -1) {
 		close(p->ofd);
@@ -936,9 +933,9 @@ protocol_token_ff_compress(struct sess *sess, struct download *p, size_t tok)
 	}
 	sz = (tok == p->blk.blksz - 1 && p->blk.rem) ? p->blk.rem : p->blk.len;
 	assert(sz);
-	assert(p->map != MAP_FAILED);
+	assert(p->map != NULL);
 	off = tok * p->blk.len;
-	buf = p->map + off;
+	buf = fmap_data(p->map, off);
 
 	if (!decompress_reinit()) {
 		ERRX("decompress_reinit");
@@ -978,7 +975,16 @@ protocol_token_ff_compress(struct sess *sess, struct download *p, size_t tok)
 		}
 		dectx.next_out = (Bytef *)dbuf;
 		dectx.avail_out = MAX_CHUNK_BUF;
+		if (!fmap_trap(p->map)) {
+			WARNX("%s: file truncated while reading",
+			    p->fl[p->idx].path);
+			p->state = DOWNLOAD_FLUSH_REMOTE;
+			return TOKEN_NEXT;
+		}
+
 		res = inflate(&dectx, Z_SYNC_FLUSH);
+		fmap_untrap(p->map);
+
 		if (res != Z_OK) {
 			ERRX("inflate ff res=%d", res);
 			if (dectx.msg) {
@@ -1004,6 +1010,8 @@ protocol_token_ff(struct sess *sess, struct download *p, size_t tok)
 	off_t		 off;
 	int		 c;
 
+	assert(p->state != DOWNLOAD_FLUSH_REMOTE);
+
 	if (tok >= p->blk.blksz) {
 		ERRX("%s: token not in block set: %zu (have %zu blocks)",
 		    p->fname, tok, p->blk.blksz);
@@ -1011,9 +1019,10 @@ protocol_token_ff(struct sess *sess, struct download *p, size_t tok)
 	}
 	sz = (tok == p->blk.blksz - 1 && p->blk.rem) ? p->blk.rem : p->blk.len;
 	assert(sz);
-	assert(p->map != MAP_FAILED);
+	assert(p->map != NULL);
 	off = tok * p->blk.len;
-	buf = p->map + off;
+	buf = fmap_data(p->map, off);
+
 	/*
 	 * Now we read from our block.
 	 * We should only be at this point if we have a
@@ -1032,10 +1041,23 @@ protocol_token_ff(struct sess *sess, struct download *p, size_t tok)
 			ERRX1("lseek");
 			return TOKEN_ERROR;
 		}
-	} else if (!buf_copy(buf, sz, p, sess)) {
-		ERRX("buf_copy");
-		return TOKEN_ERROR;
+	} else {
+		if (!fmap_trap(p->map)) {
+			WARNX("%s: file truncated while reading",
+			    p->fl[p->idx].path);
+			p->state = DOWNLOAD_FLUSH_REMOTE;
+			return TOKEN_NEXT;
+		}
+
+		if (!buf_copy(buf, sz, p, sess)) {
+			fmap_untrap(p->map);
+			ERRX("buf_copy");
+			return TOKEN_ERROR;
+		}
+
+		fmap_untrap(p->map);
 	}
+
 	if (!sess->opts->dry_run && !buf_copy(NULL, 0, p, sess)) {
 		ERRX("buf_copy");
 		return TOKEN_ERROR;
@@ -1045,11 +1067,23 @@ protocol_token_ff(struct sess *sess, struct download *p, size_t tok)
 			ERRX1("protocol_token_ff_compress");
 			return TOKEN_ERROR;
 		}
+
+		if (p->state == DOWNLOAD_FLUSH_REMOTE)
+			return TOKEN_NEXT;
 	}
 	p->total += sz;
 	sess->total_matched += sz;
 	LOG4("%s: copied %zu B", p->fname, sz);
+
+	if (!fmap_trap(p->map)) {
+		WARNX("%s: file truncated while reading",
+		    p->fl[p->idx].path);
+		p->state = DOWNLOAD_FLUSH_REMOTE;
+		return TOKEN_NEXT;
+	}
 	MD4_Update(&p->ctx, buf, sz);
+	fmap_untrap(p->map);
+
 	/* Fast-track more reads as they arrive. */
 	if ((c = io_read_check(sess, p->fdin)) < 0) {
 		ERRX1("io_read_check");
@@ -1106,6 +1140,9 @@ protocol_token_compressed(struct sess *sess, struct download *p)
 			free(dbuf);
 			return TOKEN_ERROR;
 		}
+
+		if (p->state == DOWNLOAD_FLUSH_REMOTE)
+			return TOKEN_NEXT;
 
 		dec_state_change(COMPRESS_RUN);
 		dectx.next_in = (Bytef *)buf;
@@ -1211,12 +1248,14 @@ protocol_token_compressed(struct sess *sess, struct download *p)
 		dec_state_change(COMPRESS_SEQUENCE);
 	}
 
-	for (dsz = 0; dsz < runsize + 1; dsz++) {
+	for (dsz = 0; dsz < runsize + 1 && p->state != DOWNLOAD_FLUSH_REMOTE;
+	    dsz++) {
 		if (dsz == runsize) {
 			dec_state_change(COMPRESS_READY);
 		}
 		if ((res = protocol_token_ff(sess, p, tok++)) != TOKEN_RETRY) {
-			ERRX("protocol_token_ff res=%d", res);
+			if (p->state != DOWNLOAD_FLUSH_REMOTE)
+				ERRX("protocol_token_ff res=%d", res);
 			return res;
 		}
 	}
@@ -1249,7 +1288,8 @@ protocol_token_raw(struct sess *sess, struct download *p)
 			ERRX1("io_read_buf");
 			free(buf);
 			return TOKEN_ERROR;
-		} else if (!buf_copy(buf, sz, p, sess)) {
+		} else if (p->state != DOWNLOAD_FLUSH_REMOTE &&
+		    !buf_copy(buf, sz, p, sess)) {
 			ERRX("buf_copy");
 			free(buf);
 			return TOKEN_ERROR;
@@ -1273,6 +1313,8 @@ protocol_token_raw(struct sess *sess, struct download *p)
 		return TOKEN_NEXT;
 	} else if (rawtok < 0) {
 		tok = -rawtok - 1;
+		if (p->state == DOWNLOAD_FLUSH_REMOTE)
+			return TOKEN_NEXT;
 		return protocol_token_ff(sess, p, tok);
 	}
 
@@ -1493,10 +1535,8 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 		hl_p = find_hl(f, hl);
 
 		if (p->ofd != -1 && st.st_size > 0) {
-			p->mapsz = st.st_size;
-			p->map = mmap(NULL, p->mapsz,
-				PROT_READ, MAP_SHARED, p->ofd, 0);
-			if (p->map == MAP_FAILED) {
+			p->map = fmap_open(p->ofd, st.st_size, PROT_READ);
+			if (p->map == NULL) {
 				ERR("%s: mmap", f->path);
 				goto out;
 			}
@@ -1536,12 +1576,21 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 
 			LOG3("%s: writing inplace", f->path);
 
-			if (sess->role->append && p->mapsz > 0) {
-				MD4_Update(&p->ctx, p->map, p->mapsz);
+			if (sess->role->append && fmap_size(p->map) > 0) {
+				if (!fmap_trap(p->map)) {
+					WARNX("%s: file truncated while reading",
+					    p->fl[p->idx].path);
+					p->state = DOWNLOAD_FLUSH_REMOTE;
+				} else {
+					MD4_Update(&p->ctx, fmap_data(p->map, 0),
+					    fmap_size(p->map));
+					fmap_untrap(p->map);
 
-				if (lseek(p->fd, 0, SEEK_END) != st.st_size) {
-					ERRX1("lseek");
-					goto out;
+					if (lseek(p->fd, 0, SEEK_END) !=
+					    st.st_size) {
+						ERRX1("lseek");
+						goto out;
+					}
 				}
 			}
 		} else {
@@ -1629,7 +1678,8 @@ rsync_downloader(struct download *p, struct sess *sess, int *ofd, size_t flsz,
 again:
 	progress(sess, p->fl[p->idx].st.size, p->total, false);
 
-	assert(p->state == DOWNLOAD_READ_REMOTE);
+	assert(p->state == DOWNLOAD_READ_REMOTE ||
+	    p->state == DOWNLOAD_FLUSH_REMOTE);
 	assert(p->fname != NULL || sess->opts->dry_run);
 	assert(p->fd != -1 || sess->opts->dry_run);
 	assert(p->fdin != -1);
@@ -1650,10 +1700,18 @@ again:
 		goto out;
 	}
 
-	if (!sess->opts->dry_run && !buf_copy(NULL, 0, p, sess)) {
+	if (!sess->opts->dry_run && p->state == DOWNLOAD_READ_REMOTE &&
+	    !buf_copy(NULL, 0, p, sess)) {
 		ERRX("buf_copy");
 		goto out;
 	}
+
+	/*
+	 * Just clear anything that was left in the output buffer; we weren't
+	 * going to waste disk writes on a failed file.
+	 */
+	if (p->state == DOWNLOAD_FLUSH_REMOTE)
+		p->obufsz = 0;
 
 	assert(p->obufsz == 0);
 	assert(tokres == TOKEN_EOF);

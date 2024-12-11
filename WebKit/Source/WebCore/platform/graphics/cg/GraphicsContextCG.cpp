@@ -46,10 +46,13 @@
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 #include <wtf/MathExtras.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GraphicsContextCG);
 
 static void setCGFillColor(CGContextRef context, const Color& color)
 {
@@ -1034,7 +1037,9 @@ void GraphicsContextCG::beginTransparencyLayer(float opacity)
 
 void GraphicsContextCG::beginTransparencyLayer(CompositeOperator, BlendMode)
 {
-    beginTransparencyLayer(1);
+    // Passing state().alpha() to beginTransparencyLayer(opacity) will
+    // preserve the current global alpha.
+    beginTransparencyLayer(state().alpha());
 }
 
 void GraphicsContextCG::endTransparencyLayer()

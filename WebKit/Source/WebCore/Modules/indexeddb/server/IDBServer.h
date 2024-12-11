@@ -37,6 +37,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
@@ -49,6 +50,7 @@ struct IDBGetRecordData;
 namespace IDBServer {
 
 class IDBServer : public UniqueIDBDatabaseManager {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(IDBServer, WEBCORE_EXPORT);
 public:
     using SpaceRequester = Function<bool(const ClientOrigin&, uint64_t spaceRequested)>;
     WEBCORE_EXPORT IDBServer(const String& databaseDirectoryPath, SpaceRequester&&, Lock&);

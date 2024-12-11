@@ -3,7 +3,7 @@
 " Maintainer:           D. Ben Knoble <ben.knoble+github@gmail.com>
 " Previous Maintainer:  Will Langstroth <will@langstroth.com>
 " URL:                  https://github.com/benknoble/vim-racket
-" Last Change:          2022 Aug 29
+" Last Change:          2024 May 28
 
 if exists("b:did_ftplugin")
   finish
@@ -20,7 +20,7 @@ setlocal iskeyword=@,!,#-',*-:,<-Z,a-z,~,_,94
 setlocal comments=:;;;;,:;;;,:;;,:;
 setlocal formatoptions+=r
 
-"setlocal commentstring=;;%s
+"setlocal commentstring=;;\ %s
 setlocal commentstring=#\|\ %s\ \|#
 
 setlocal formatprg=raco\ fmt
@@ -68,8 +68,12 @@ endif
 
 if (has("gui_win32") || has("gui_gtk")) && !exists("b:browsefilter")
   let b:browsefilter =
-        \  "Racket Source Files (*.rkt *.rktl)\t*.rkt;*.rktl\n"
-        \. "All Files (*.*)\t*.*\n"
+        \  "Racket Source Files (*.rkt, *.rktl)\t*.rkt;*.rktl\n"
+  if has("win32")
+    let b:browsefilter .= "All Files (*.*)\t*\n"
+  else
+    let b:browsefilter .= "All Files (*)\t*\n"
+  endif
   let b:undo_ftplugin .= " | unlet! b:browsefilter"
 endif
 

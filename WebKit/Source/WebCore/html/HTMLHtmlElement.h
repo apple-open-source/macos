@@ -28,7 +28,8 @@
 namespace WebCore {
 
 class HTMLHtmlElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLHtmlElement);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(HTMLHtmlElement);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLHtmlElement);
 public:
     WEBCORE_EXPORT static Ref<HTMLHtmlElement> create(Document&);
     static Ref<HTMLHtmlElement> create(const QualifiedName&, Document&);

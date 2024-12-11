@@ -292,7 +292,7 @@ shortpath_for_partial(
 modify_fname(
     char_u	*src,		// string with modifiers
     int		tilde_file,	// "~" is a file name, not $HOME
-    int		*usedlen,	// characters after src that are used
+    size_t	*usedlen,	// characters after src that are used
     char_u	**fnamep,	// file name so far
     char_u	**bufp,		// buffer for allocated file name or NULL
     int		*fnamelen)	// length of fnamep
@@ -668,7 +668,7 @@ repeat:
 			str = vim_strnsave(*fnamep, *fnamelen);
 			if (sub != NULL && str != NULL)
 			{
-			    *usedlen = (int)(p + 1 - src);
+			    *usedlen = p + 1 - src;
 			    s = do_string_sub(str, pat, sub, NULL, flags);
 			    if (s != NULL)
 			    {
@@ -1038,7 +1038,7 @@ f_fnamemodify(typval_T *argvars, typval_T *rettv)
 {
     char_u	*fname;
     char_u	*mods;
-    int		usedlen = 0;
+    size_t	usedlen = 0;
     int		len = 0;
     char_u	*fbuf = NULL;
     char_u	buf[NUMBUFLEN];
@@ -2110,6 +2110,7 @@ f_resolve(typval_T *argvars, typval_T *rettv)
 	if (buf == NULL)
 	{
 	    vim_free(p);
+	    vim_free(remain);
 	    goto fail;
 	}
 
@@ -2648,6 +2649,31 @@ f_browsedir(typval_T *argvars UNUSED, typval_T *rettv)
     rettv->v_type = VAR_STRING;
 }
 
+/*
+ * "filecopy()" function
+ */
+    void
+f_filecopy(typval_T *argvars, typval_T *rettv)
+{
+    char_u	*from;
+    stat_T	st;
+
+    rettv->vval.v_number = FALSE;
+
+    if (check_restricted() || check_secure()
+	|| check_for_string_arg(argvars, 0) == FAIL
+	|| check_for_string_arg(argvars, 1) == FAIL)
+	return;
+
+    from = tv_get_string(&argvars[0]);
+
+    if (mch_lstat((char *)from, &st) >= 0
+	&& (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)))
+	rettv->vval.v_number = vim_copyfile(
+	    tv_get_string(&argvars[0]),
+	    tv_get_string(&argvars[1])) == OK ? TRUE : FALSE;
+}
+
 #endif // FEAT_EVAL
 
 /*
@@ -2706,7 +2732,7 @@ home_replace(
 
     if (homedir_env != NULL && *homedir_env == '~')
     {
-	int	usedlen = 0;
+	size_t	usedlen = 0;
 	int	flen;
 	char_u	*fbuf = NULL;
 
@@ -2953,7 +2979,7 @@ get_past_head(char_u *path)
 
 #if defined(MSWIN)
     // may skip "c:"
-    if (isalpha(path[0]) && path[1] == ':')
+    if (SAFE_isalpha(path[0]) && path[1] == ':')
 	retval = path + 2;
     else
 	retval = path;
@@ -3169,7 +3195,7 @@ expand_wildcards_eval(
     char_u	*eval_pat = NULL;
     char_u	*exp_pat = *pat;
     char	*ignored_msg;
-    int		usedlen;
+    size_t	usedlen;
     int		is_cur_alt_file = *exp_pat == '%' || *exp_pat == '#';
     int		star_follows = FALSE;
 
@@ -3619,11 +3645,15 @@ dos_expandpath(
 	    }
 	    else
 	    {
+		stat_T  sb;
+
 		// no more wildcards, check if there is a match
 		// remove backslashes for the remaining components only
 		if (*path_end != 0)
 		    backslash_halve(buf + len + 1);
-		if (mch_getperm(buf) >= 0)	// add existing file
+		// add existing file
+		if ((flags & EW_ALLLINKS) ? mch_lstat((char *)buf, &sb) >= 0
+			: mch_getperm(buf) >= 0)
 		    addfile(gap, buf, flags);
 	    }
 	}
@@ -3973,6 +4003,8 @@ gen_expand_wildcards(
     int			add_pat;
     int			retval = OK;
     int			did_expand_in_path = FALSE;
+    char_u		*path_option = *curbuf->b_p_path == NUL ?
+					p_path : curbuf->b_p_path;
 
     /*
      * expand_env() is called to expand things like "~user".  If this fails,
@@ -4062,7 +4094,7 @@ gen_expand_wildcards(
 	     */
 	    if (mch_has_exp_wildcard(p) || (flags & EW_ICASE))
 	    {
-		if ((flags & EW_PATH)
+		if ((flags & (EW_PATH | EW_CDPATH))
 			&& !mch_isFullName(p)
 			&& !(p[0] == '.'
 			    && (vim_ispathsep(p[1])
@@ -4096,8 +4128,8 @@ gen_expand_wildcards(
 		vim_free(t);
 	}
 
-	if (did_expand_in_path && ga.ga_len > 0 && (flags & EW_PATH))
-	    uniquefy_paths(&ga, p);
+	if (did_expand_in_path && ga.ga_len > 0 && (flags & (EW_PATH | EW_CDPATH)))
+	    uniquefy_paths(&ga, p, path_option);
 	if (p != pat[i])
 	    vim_free(p);
     }

@@ -102,7 +102,7 @@ struct ScrollRectToVisibleOptions;
 enum class DateComponentsType : uint8_t;
 
 enum class AXIDType { };
-using AXID = ObjectIdentifier<AXIDType>;
+using AXID = LegacyNullableObjectIdentifier<AXIDType>;
 
 enum class AXAncestorFlag : uint8_t {
     // When the flags aren't initialized, it means the object hasn't been inserted into the tree,
@@ -640,17 +640,17 @@ enum class AccessibilityTextOperationType {
     Replace,
     Capitalize,
     Lowercase,
-    Uppercase
+    Uppercase,
+    ReplacePreserveCase
 };
+
+enum class AccessibilityTextOperationSmartReplace : bool { No, Yes };
 
 struct AccessibilityTextOperation {
     Vector<SimpleRange> textRanges; // text on which perform the operation.
-    AccessibilityTextOperationType type;
-    String replacementText; // For type = replace.
-
-    AccessibilityTextOperation()
-        : type(AccessibilityTextOperationType::Select)
-    { }
+    AccessibilityTextOperationType type { AccessibilityTextOperationType::Select };
+    Vector<String> replacementStrings; // For type = Replace, ReplacePreserveCase.
+    AccessibilityTextOperationSmartReplace smartReplace { AccessibilityTextOperationSmartReplace::Yes };
 };
 
 enum class AccessibilityOrientation {
@@ -919,7 +919,9 @@ public:
 
     virtual bool hasBoldFont() const = 0;
     virtual bool hasItalicFont() const = 0;
-    virtual Vector<CharacterRange> spellCheckerResultRanges() const = 0;
+
+    // Returns all ranges of misspellings contained within the object.
+    virtual Vector<AXTextMarkerRange> misspellingRanges() const = 0;
     virtual std::optional<SimpleRange> misspellingRange(const SimpleRange& start, AccessibilitySearchDirection) const = 0;
     virtual std::optional<SimpleRange> visibleCharacterRange() const = 0;
     virtual bool hasPlainText() const = 0;
@@ -948,7 +950,7 @@ public:
     virtual Node* node() const = 0;
     virtual RenderObject* renderer() const = 0;
 
-    virtual bool accessibilityIsIgnored() const = 0;
+    virtual bool isIgnored() const = 0;
 
     virtual unsigned blockquoteLevel() const = 0;
     virtual unsigned headingLevel() const = 0;

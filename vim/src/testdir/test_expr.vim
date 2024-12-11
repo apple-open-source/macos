@@ -36,11 +36,13 @@ func Test_version()
   call assert_true(has('patch-7.1.999'))
   call assert_true(has('patch-7.4.123'))
   call assert_true(has('patch-7.4.123 ')) " Trailing space can be allowed.
+  call assert_true(has('patch-9.1.0'))
+  call assert_true(has('patch-9.1.0000'))
 
   call assert_false(has('patch-7'))
   call assert_false(has('patch-7.4'))
   call assert_false(has('patch-7.4.'))
-  call assert_false(has('patch-9.1.0'))
+  call assert_false(has('patch-9.2.0'))
   call assert_false(has('patch-9.9.1'))
 
   call assert_false(has('patch-abc'))
@@ -947,6 +949,22 @@ func Test_string_interp()
       echo "${ LET tmp += 1 }"
     endif
     call assert_equal(0, tmp)
+
+    #" Dict interpolation
+    VAR d = {'a': 10, 'b': [1, 2]}
+    call assert_equal("{'a': 10, 'b': [1, 2]}", $'{d}')
+    VAR emptydict = {}
+    call assert_equal("a{}b", $'a{emptydict}b')
+    VAR nulldict = test_null_dict()
+    call assert_equal("a{}b", $'a{nulldict}b')
+
+    #" List interpolation
+    VAR l = ['a', 'b', 'c']
+    call assert_equal("['a', 'b', 'c']", $'{l}')
+    VAR emptylist = []
+    call assert_equal("a[]b", $'a{emptylist}b')
+    VAR nulllist = test_null_list()
+    call assert_equal("a[]b", $'a{nulllist}b')
 
     #" Stray closing brace.
     call assert_fails('echo $"moo}"', 'E1278:')

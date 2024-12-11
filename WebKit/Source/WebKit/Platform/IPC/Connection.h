@@ -34,6 +34,7 @@
 #include "ReceiverMatcher.h"
 #include "Timeout.h"
 #include <wtf/Assertions.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Condition.h>
 #include <wtf/Deque.h>
@@ -114,13 +115,30 @@ extern ASCIILiteral errorAsString(Error);
 #define CONNECTION_STRINGIFY(line) #line
 #define CONNECTION_STRINGIFY_MACRO(line) CONNECTION_STRINGIFY(line)
 
+#define MESSAGE_CHECK_WITH_MESSAGE_BASE(assertion, connection, message) do { \
+    if (UNLIKELY(!(assertion))) { \
+        RELEASE_LOG_FAULT(IPC, __FILE__ " " CONNECTION_STRINGIFY_MACRO(__LINE__) ": Invalid message dispatched %" PUBLIC_LOG_STRING ": " message, WTF_PRETTY_FUNCTION); \
+        (connection)->markCurrentlyDispatchedMessageAsInvalid(); \
+        return; \
+    } \
+} while (0)
+
 #define MESSAGE_CHECK_BASE(assertion, connection) MESSAGE_CHECK_COMPLETION_BASE(assertion, connection, (void)0)
 #define MESSAGE_CHECK_BASE_COROUTINE(assertion, connection) MESSAGE_CHECK_COMPLETION_BASE_COROUTINE(assertion, connection, (void)0)
 
+#define MESSAGE_CHECK_OPTIONAL_CONNECTION_BASE(assertion, connection) do { \
+    if (UNLIKELY(!(assertion))) { \
+        RELEASE_LOG_FAULT(IPC, __FILE__ " " CONNECTION_STRINGIFY_MACRO(__LINE__) ": Invalid message dispatched %" PUBLIC_LOG_STRING, WTF_PRETTY_FUNCTION); \
+        if (RefPtr processConnection = connection) \
+            processConnection->markCurrentlyDispatchedMessageAsInvalid(); \
+        return; \
+    } \
+} while (0)
+
 #define MESSAGE_CHECK_COMPLETION_BASE(assertion, connection, completion) do { \
     if (UNLIKELY(!(assertion))) { \
-        RELEASE_LOG_FAULT(IPC, __FILE__ " " CONNECTION_STRINGIFY_MACRO(__LINE__) ": Invalid message dispatched %s", WTF_PRETTY_FUNCTION); \
-        (connection)->markCurrentlyDispatchedMessageAsInvalid(); \
+        RELEASE_LOG_FAULT(IPC, __FILE__ " " CONNECTION_STRINGIFY_MACRO(__LINE__) ": Invalid message dispatched %" PUBLIC_LOG_STRING, WTF_PRETTY_FUNCTION); \
+        (connection).markCurrentlyDispatchedMessageAsInvalid(); \
         { completion; } \
         return; \
     } \
@@ -128,8 +146,8 @@ extern ASCIILiteral errorAsString(Error);
 
 #define MESSAGE_CHECK_COMPLETION_BASE_COROUTINE(assertion, connection, completion) do { \
     if (UNLIKELY(!(assertion))) { \
-        RELEASE_LOG_FAULT(IPC, __FILE__ " " CONNECTION_STRINGIFY_MACRO(__LINE__) ": Invalid message dispatched %s", WTF_PRETTY_FUNCTION); \
-        (connection)->markCurrentlyDispatchedMessageAsInvalid(); \
+        RELEASE_LOG_FAULT(IPC, __FILE__ " " CONNECTION_STRINGIFY_MACRO(__LINE__) ": Invalid message dispatched %" PUBLIC_LOG_STRING, WTF_PRETTY_FUNCTION); \
+        (connection).markCurrentlyDispatchedMessageAsInvalid(); \
         { completion; } \
         co_return { }; \
     } \
@@ -138,7 +156,7 @@ extern ASCIILiteral errorAsString(Error);
 #define MESSAGE_CHECK_WITH_RETURN_VALUE_BASE(assertion, connection, returnValue) do { \
     if (UNLIKELY(!(assertion))) { \
         RELEASE_LOG_FAULT(IPC, __FILE__ " " CONNECTION_STRINGIFY_MACRO(__LINE__) ": Invalid message dispatched %" PUBLIC_LOG_STRING, WTF_PRETTY_FUNCTION); \
-        (connection)->markCurrentlyDispatchedMessageAsInvalid(); \
+        (connection).markCurrentlyDispatchedMessageAsInvalid(); \
         return (returnValue); \
     } \
 } while (0)
@@ -154,7 +172,7 @@ class UnixMessage;
 class WorkQueueMessageReceiver;
 
 struct AsyncReplyIDType;
-using AsyncReplyID = AtomicObjectIdentifier<AsyncReplyIDType>;
+using AsyncReplyID = LegacyNullableAtomicObjectIdentifier<AsyncReplyIDType>;
 
 // Sync message sender is expected to hold this instance alive as long as the reply() is being
 // accessed. View type data types in replies, such as std::span, refer to data stored in
@@ -206,7 +224,7 @@ struct ConnectionAsyncReplyHandler {
 };
 
 enum class ConnectionSyncRequestIDType { };
-using ConnectionSyncRequestID = AtomicObjectIdentifier<ConnectionSyncRequestIDType>;
+using ConnectionSyncRequestID = LegacyNullableAtomicObjectIdentifier<ConnectionSyncRequestIDType>;
 
 class Connection : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Connection, WTF::DestructionThread::MainRunLoop> {
 public:
@@ -214,7 +232,9 @@ public:
     using SyncRequestID = ConnectionSyncRequestID;
     using AsyncReplyID = IPC::AsyncReplyID;
 
-    class Client : public MessageReceiver {
+    class Client : public MessageReceiver, public CanMakeThreadSafeCheckedPtr<Client> {
+        WTF_MAKE_FAST_ALLOCATED;
+        WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Client);
     public:
         virtual void didClose(Connection&) = 0;
         virtual void didReceiveInvalidMessage(Connection&, MessageName, int32_t indexOfObjectFailingDecoding) = 0;
@@ -287,10 +307,10 @@ public:
 
     ~Connection();
 
-    Client* client() const { return m_client; }
+    Client* client() const { return m_client.get(); }
 
     enum UniqueIDType { };
-    using UniqueID = AtomicObjectIdentifier<UniqueIDType>;
+    using UniqueID = LegacyNullableAtomicObjectIdentifier<UniqueIDType>;
     using DecoderOrError = Expected<UniqueRef<Decoder>, Error>;
 
     static RefPtr<Connection> connection(UniqueID);
@@ -557,7 +577,7 @@ private:
 
     static constexpr size_t largeOutgoingMessageQueueCountThreshold { 128 };
 
-    Client* m_client { nullptr };
+    CheckedPtr<Client> m_client;
     std::unique_ptr<SyncMessageState, SyncMessageStateRelease> m_syncState;
     UniqueID m_uniqueID;
     bool m_isServer;
@@ -658,7 +678,7 @@ private:
     std::unique_ptr<MachMessage> m_pendingOutgoingMachMessage;
 
     OSObjectPtr<xpc_connection_t> m_xpcConnection;
-    bool m_wasKilled { false };
+    std::atomic<bool> m_didRequestProcessTermination { false };
 #elif OS(WINDOWS)
     // Called on the connection queue.
     void readEventHandler();
@@ -806,7 +826,7 @@ template<typename T> Error Connection::waitForAsyncReplyAndDispatchImmediately(A
     ASSERT(decoderOrError.value()->messageReceiverName() == ReceiverName::AsyncReply);
     ASSERT(decoderOrError.value()->destinationID() == replyID.toUInt64());
     ASSERT(!isAsyncReplyHandlerWithDispatcher(replyID), "Not supported with AsyncReplyHandlerWithDispatcher");
-    auto handler = takeAsyncReplyHandler(AtomicObjectIdentifier<AsyncReplyIDType>(decoderOrError.value()->destinationID()));
+    auto handler = takeAsyncReplyHandler(LegacyNullableAtomicObjectIdentifier<AsyncReplyIDType>(decoderOrError.value()->destinationID()));
     if (!handler) {
         ASSERT_NOT_REACHED();
         return Error::FailedToFindReplyHandler;

@@ -43,9 +43,12 @@
 #include <WebCore/WebAuthenticationUtils.h>
 #include <wtf/MainThread.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebAuthenticatorCoordinatorProxy);
 
 WebAuthenticatorCoordinatorProxy::WebAuthenticatorCoordinatorProxy(WebPageProxy& webPageProxy)
     : m_webPageProxy(webPageProxy)
@@ -59,6 +62,11 @@ WebAuthenticatorCoordinatorProxy::~WebAuthenticatorCoordinatorProxy()
     cancel([]() { });
 #endif // HAVE(UNIFIED_ASC_AUTH_UI)
     m_webPageProxy.legacyMainFrameProcess().removeMessageReceiver(Messages::WebAuthenticatorCoordinatorProxy::messageReceiverName(), m_webPageProxy.webPageIDInMainFrameProcess());
+}
+
+const SharedPreferencesForWebProcess& WebAuthenticatorCoordinatorProxy::sharedPreferencesForWebProcess() const
+{
+    return m_webPageProxy.legacyMainFrameProcess().sharedPreferencesForWebProcess();
 }
 
 void WebAuthenticatorCoordinatorProxy::makeCredential(FrameIdentifier frameId, FrameInfoData&& frameInfo, PublicKeyCredentialCreationOptions&& options, MediationRequirement mediation, RequestCompletionHandler&& handler)

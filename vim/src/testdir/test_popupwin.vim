@@ -2499,6 +2499,88 @@ func Test_popup_settext_null()
   call popup_close(id)
 endfunc
 
+func Test_popup_setbuf()
+  CheckScreendump
+
+  let lines =<< trim END
+    let opts = #{wrap: 0}
+    let p = popup_create('test', opts)
+    let buf = bufnr('%')
+  END
+
+  call writefile(lines, 'XtestPopupSetBuf', 'D')
+  let buf = RunVimInTerminal('-S XtestPopupSetBuf', #{rows: 10})
+  call VerifyScreenDump(buf, 'Test_popup_setbuf_01', {})
+
+  " Setting to an non-existing buffer doesn't do anything
+  call term_sendkeys(buf, ":call popup_setbuf(p, 'foobar.txt')\<CR>")
+  call VerifyScreenDump(buf, 'Test_popup_setbuf_02', {})
+
+  " Error
+  call term_sendkeys(buf, ":call popup_setbuf(p, ['a','b','c'])\<CR>")
+  call VerifyScreenDump(buf, 'Test_popup_setbuf_03', {})
+
+  " Set to help window
+  call term_sendkeys(buf, ":help\<CR>")
+  call term_sendkeys(buf, ":call popup_setbuf(p, 'help.txt')\<CR>")
+  call VerifyScreenDump(buf, 'Test_popup_setbuf_04', {})
+
+  " Setting back to original buffer
+  call term_sendkeys(buf, ":call popup_setbuf(p, buf)\<CR>")
+  call VerifyScreenDump(buf, 'Test_popup_setbuf_05', {})
+
+  " use method
+  call term_sendkeys(buf, ":echo p->popup_setbuf('help.txt')\<CR>")
+  call VerifyScreenDump(buf, 'Test_popup_setbuf_06', {})
+
+  call term_sendkeys(buf, ":echo p->popup_setbuf(buf)\<CR>")
+  call VerifyScreenDump(buf, 'Test_popup_setbuf_05', {})
+
+  " clean up
+  call StopVimInTerminal(buf)
+endfunc
+
+func Test_popup_setbuf_terminal()
+  CheckFeature terminal
+
+  " Check Terminal Feature
+  let termbuf = term_start(&shell, #{hidden: 1})
+  " Wait for shell to start
+  call WaitForAssert({-> assert_equal("run", job_status(term_getjob(termbuf)))})
+
+  let popup = popup_create('test', {})
+  call assert_true(popup->popup_setbuf(termbuf))
+  call popup_close(popup)
+
+  let popup1 = popup_create(termbuf, #{minwidth: 40, minheight: 10, border: []})
+
+  let popup = popup_create('test', {})
+  try
+    call assert_fails(call popup_setbuf(popup, termbuf))
+  catch
+  endtry
+  call popup_close(popup)
+  call popup_close(popup1)
+  call assert_equal([], popup_list())
+  " Close the terminal
+  call term_sendkeys(termbuf, "exit\<CR>")
+  " Wait for shell to exit
+  call WaitForAssert({-> assert_equal("dead", job_status(term_getjob(termbuf)))})
+endfunc
+
+func Test_popup_setbuf_null()
+  let id = popup_create('', {})
+  call assert_false(popup_setbuf(id, -1))
+  call popup_close(id)
+
+  let id = popup_create('', {})
+  call assert_true(popup_setbuf(id, test_null_string()))
+  call assert_true(popup_setbuf(id, ''))
+  call popup_close(id)
+
+  call assert_false(popup_setbuf(id, 0))
+endfunc
+
 func Test_popup_hidden()
   new
 
@@ -4206,10 +4288,94 @@ func Test_popupwin_with_error()
 endfunc
 
 func Test_popup_close_callback_recursive()
+  set maxfuncdepth=20
   " this invokes the callback recursively
   let winid = popup_create('something', #{callback: 'popup_close'})
   redraw
-  call assert_fails('call popup_close(winid)', 'E169')
+  call assert_fails('call popup_close(winid)', 'E169:')
+
+  set maxfuncdepth&
+endfunc
+
+func Test_popupwin_setbufvar_changing_window_view()
+  " Test for Github Issue https://github.com/vim/vim/issues/13863
+  " using setbufvar(buf, '&option') should not scroll
+  " the current window
+  20new
+  call append(0, range(1, 25))
+  setlocal scrollbind
+  norm! G
+  let topline = winsaveview()['topline']
+  call setbufvar(winbufnr(popup_atcursor(['foobar'], {})), '&syntax', 'python')
+  " close popup
+  call popup_clear()
+  call assert_equal(topline, winsaveview()['topline'])
+
+  " clean up
+  bw!
+endfunc
+
+func Test_popupwin_clears_cmdline_on_hide()
+  " Test that the command line is properly cleared for overlong
+  " popup windows and using popup_hide()
+  CheckScreendump
+
+  let lines =<< trim END
+    vim9script
+    var id: number
+    def Filter(winid: number, key: string): bool
+      if key == 'q'
+        popup_hide(winid)
+      else
+        return false
+      endif
+      return true
+    enddef
+    setline(1, repeat(['foobar one two three'], &lines))
+    id = popup_create(1, {
+      col: 1,
+      minwidth: &columns,
+      maxwidth: &columns,
+      minheight: &lines,
+      maxheight: &lines,
+      filter: Filter,
+    })
+  END
+  call writefile(lines, 'XtestPopup_win', 'D')
+  let buf = RunVimInTerminal('-S XtestPopup_win', #{rows: 10})
+  call term_sendkeys(buf, "q")
+  call term_wait(buf)
+  call VerifyScreenDump(buf, 'Test_popupwin_hide_clear_cmdline_01', {})
+  call StopVimInTerminal(buf)
+  let lines =<< trim END
+    vim9script
+    var id: number
+    def Filter(winid: number, key: string): bool
+      if key == 'q'
+        popup_close(winid)
+      else
+        return false
+      endif
+      return true
+    enddef
+    setline(1, repeat(['foobar one two three'], &lines))
+    id = popup_create(1, {
+      col: 1,
+      minwidth: &columns,
+      maxwidth: &columns,
+      minheight: &lines,
+      maxheight: &lines,
+      filter: Filter,
+    })
+  END
+  call writefile(lines, 'XtestPopup_win2', 'D')
+  let buf = RunVimInTerminal('-S XtestPopup_win2', #{rows: 10})
+  call term_sendkeys(buf, "q")
+  call term_wait(buf)
+  call VerifyScreenDump(buf, 'Test_popupwin_hide_clear_cmdline_01', {})
+
+  " clean up
+  call StopVimInTerminal(buf)
 endfunc
 
 " vim: shiftwidth=2 sts=2

@@ -47,6 +47,7 @@
 #import <WebCore/ScrollingTreeScrollingNode.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/SetForScope.h>
+#import <wtf/TZoneMallocInlines.h>
 
 @interface WKScrollingNodeScrollViewDelegate () <WKBaseScrollViewDelegate>
 @end
@@ -248,6 +249,8 @@
 namespace WebKit {
 using namespace WebCore;
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ScrollingTreeScrollingNodeDelegateIOS);
+
 ScrollingTreeScrollingNodeDelegateIOS::ScrollingTreeScrollingNodeDelegateIOS(ScrollingTreeScrollingNode& scrollingNode)
     : ScrollingTreeScrollingNodeDelegate(scrollingNode)
 {
@@ -368,6 +371,18 @@ void ScrollingTreeScrollingNodeDelegateIOS::commitStateAfterChildren(const Scrol
     if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::RequestedScrollPosition)) {
         scrollingNode().handleScrollPositionRequest(scrollingStateNode.requestedScrollData());
         scrollingTree().setNeedsApplyLayerPositionsAfterCommit();
+    }
+
+    if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollbarWidth)) {
+        auto scrollbarWidth = scrollingStateNode.scrollbarWidth();
+
+        BEGIN_BLOCK_OBJC_EXCEPTIONS
+        UIScrollView *scrollView = this->scrollView();
+
+        [scrollView setShowsHorizontalScrollIndicator:(scrollbarWidth != ScrollbarWidth::None && scrollingNode().horizontalNativeScrollbarVisibility() != NativeScrollbarVisibility::HiddenByStyle)];
+        [scrollView setShowsVerticalScrollIndicator:(scrollbarWidth != ScrollbarWidth::None && scrollingNode().horizontalNativeScrollbarVisibility() != NativeScrollbarVisibility::HiddenByStyle)];
+
+        END_BLOCK_OBJC_EXCEPTIONS
     }
 }
 

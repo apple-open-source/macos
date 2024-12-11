@@ -141,6 +141,11 @@ int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length,
     uint8_t *passphrase_data = NULL;
     size_t passphrase_data_len = 0;
     size_t passphrase_length = CFDataGetLength(passphrase_be_unicode_null_term);
+#if TARGET_OS_OSX
+    /* on macOS only, treat an empty passphrase as a null passphrase to match previous behavior. */
+    /* if passphrase is actually null, then passphrase_length must be 0, not 2. rdar://130682585. */
+    if (CFStringGetLength(passphrase) == 0) { passphrase_length = 0; }
+#endif
     const unsigned char *passphrase_ptr = CFDataGetBytePtr(passphrase_be_unicode_null_term);
     passphrase_data = concatenate_to_blocksize(passphrase_ptr, passphrase_length, hash_blocksize, &passphrase_data_len);
     CFRelease(passphrase_be_unicode_null_term);

@@ -43,7 +43,7 @@
 #import "NativeWebKeyboardEvent.h"
 #import "NavigationState.h"
 #import "PageClient.h"
-#import "PaymentAuthorizationViewController.h"
+#import "PaymentAuthorizationController.h"
 #import "PrintInfo.h"
 #import "ProvisionalPageProxy.h"
 #import "RemoteLayerTreeHost.h"
@@ -736,7 +736,7 @@ void WebPageProxy::setSmartInsertDeleteEnabled(bool)
 void WebPageProxy::registerWebProcessAccessibilityToken(std::span<const uint8_t> data, FrameIdentifier frameID)
 {
     // Note: The WebFrameProxy with this FrameIdentifier might not exist in the UI process. See rdar://130998804.
-    pageClient().accessibilityWebProcessTokenReceived(data, frameID, legacyMainFrameProcess().connection()->remoteProcessID());
+    pageClient().accessibilityWebProcessTokenReceived(data, frameID, legacyMainFrameProcess().connection().remoteProcessID());
 }
 
 void WebPageProxy::relayAccessibilityNotification(const String& notificationName, std::span<const uint8_t> data)
@@ -1287,7 +1287,7 @@ void WebPageProxy::requestPasswordForQuickLookDocumentInMainFrameShared(const St
 
 std::unique_ptr<PaymentAuthorizationPresenter> WebPageProxy::Internals::paymentCoordinatorAuthorizationPresenter(WebPaymentCoordinatorProxy& paymentCoordinatorProxy, PKPaymentRequest *paymentRequest)
 {
-    return makeUnique<PaymentAuthorizationViewController>(paymentCoordinatorProxy, paymentRequest);
+    return makeUnique<PaymentAuthorizationController>(paymentCoordinatorProxy, paymentRequest);
 }
 
 UIViewController *WebPageProxy::Internals::paymentCoordinatorPresentingViewController(const WebPaymentCoordinatorProxy&)
@@ -1426,6 +1426,9 @@ WebContentMode WebPageProxy::effectiveContentModeAfterAdjustingPolicies(API::Web
         policies.setMediaSourcePolicy(WebsiteMediaSourcePolicy::Enable);
     }
 
+    if (auto selectors = Quirks::defaultVisibilityAdjustmentSelectors(request.url()))
+        policies.setVisibilityAdjustmentSelectors({ WTFMove(*selectors) });
+
     if (Quirks::needsIPhoneUserAgent(request.url())) {
         policies.setCustomUserAgent(makeStringByReplacingAll(standardUserAgentWithApplicationName(m_applicationNameForUserAgent), "iPad"_s, "iPhone"_s));
         policies.setCustomNavigatorPlatform("iPhone"_s);
@@ -1546,13 +1549,12 @@ void WebPageProxy::Internals::isUserFacingChanged(bool isUserFacing)
 
 #endif
 
-void WebPageProxy::willPerformPasteCommand(DOMPasteAccessCategory pasteAccessCategory, std::optional<FrameIdentifier> frameID)
+std::optional<IPC::AsyncReplyID> WebPageProxy::willPerformPasteCommand(DOMPasteAccessCategory pasteAccessCategory, CompletionHandler<void()>&& completionHandler, std::optional<FrameIdentifier> frameID)
 {
     switch (pasteAccessCategory) {
     case DOMPasteAccessCategory::General:
     case DOMPasteAccessCategory::Fonts:
-        grantAccessToCurrentPasteboardData(UIPasteboardNameGeneral, frameID);
-        return;
+        return grantAccessToCurrentPasteboardData(UIPasteboardNameGeneral, WTFMove(completionHandler), frameID);
     }
 }
 
@@ -1569,6 +1571,14 @@ void WebPageProxy::showDataDetectorsUIForPositionInformation(const InteractionIn
 void WebPageProxy::insertionPointColorDidChange()
 {
     legacyMainFrameProcess().send(Messages::WebPage::SetInsertionPointColor(protectedPageClient()->insertionPointColor()), webPageIDInMainFrameProcess());
+}
+
+void WebPageProxy::shouldDismissKeyboardAfterTapAtPoint(FloatPoint point, CompletionHandler<void(bool)>&& completion)
+{
+    if (!hasRunningProcess())
+        return completion(false);
+
+    legacyMainFrameProcess().sendWithAsyncReply(Messages::WebPage::ShouldDismissKeyboardAfterTapAtPoint(point), WTFMove(completion), webPageIDInMainFrameProcess());
 }
 
 Color WebPageProxy::platformUnderPageBackgroundColor() const

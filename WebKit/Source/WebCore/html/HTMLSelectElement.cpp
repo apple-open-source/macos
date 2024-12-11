@@ -59,12 +59,12 @@
 #include "RenderTheme.h"
 #include "Settings.h"
 #include "SpatialNavigation.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLSelectElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLSelectElement);
 
 using namespace WTF::Unicode;
 
@@ -226,18 +226,20 @@ int HTMLSelectElement::activeSelectionEndListIndex() const
 ExceptionOr<void> HTMLSelectElement::add(const OptionOrOptGroupElement& element, const std::optional<HTMLElementOrInt>& before)
 {
     RefPtr<HTMLElement> beforeElement;
+    Ref<ContainerNode> parent = *this;
     if (before) {
         beforeElement = WTF::switchOn(before.value(),
             [](const RefPtr<HTMLElement>& element) -> HTMLElement* { return element.get(); },
             [this](int index) -> HTMLElement* { return item(index); }
         );
+        if (std::holds_alternative<int>(before.value()) && beforeElement && beforeElement->parentNode())
+            parent = *beforeElement->parentNode();
     }
     Ref toInsert = WTF::switchOn(element,
         [](const auto& htmlElement) -> HTMLElement& { return *htmlElement; }
     );
 
-
-    return insertBefore(toInsert, WTFMove(beforeElement));
+    return parent->insertBefore(toInsert, WTFMove(beforeElement));
 }
 
 void HTMLSelectElement::remove(int optionIndex)
@@ -265,7 +267,7 @@ void HTMLSelectElement::setValue(const String& value)
     // Find the option with value() matching the given parameter and make it the current selection.
     unsigned optionIndex = 0;
     for (auto& item : listItems()) {
-        if (auto* option = dynamicDowncast<HTMLOptionElement>(item.get())) {
+        if (RefPtr option = dynamicDowncast<HTMLOptionElement>(item.get())) {
             if (option->value() == value) {
                 setSelectedIndex(optionIndex);
                 return;
@@ -397,7 +399,7 @@ CompletionHandlerCallingScope HTMLSelectElement::optionToSelectFromChildChangeSc
         if (auto* option = dynamicDowncast<HTMLOptionElement>(*change.siblingChanged)) {
             if (option->selectedWithoutUpdate())
                 optionToSelect = option;
-        } else if (auto* optGroup = dynamicDowncast<HTMLOptGroupElement>(change.siblingChanged); !parentOptGroup && optGroup)
+        } else if (RefPtr optGroup = dynamicDowncast<HTMLOptGroupElement>(change.siblingChanged); !parentOptGroup && optGroup)
             optionToSelect = getLastSelectedOption(*optGroup);
     } else if (parentOptGroup && change.type == ContainerNode::ChildChange::Type::AllChildrenReplaced)
         optionToSelect = getLastSelectedOption(*parentOptGroup);
@@ -839,15 +841,15 @@ void HTMLSelectElement::recalcListItems(bool updateSelectedStates, AllowStyleInv
         }
     };
 
-    for (auto& child : childrenOfType<HTMLElement>(*const_cast<HTMLSelectElement*>(this))) {
-        if (is<HTMLOptGroupElement>(child)) {
-            m_listItems.append(&child);
-            for (Ref option : childrenOfType<HTMLOptionElement>(child))
+    for (Ref child : childrenOfType<HTMLElement>(*const_cast<HTMLSelectElement*>(this))) {
+        if (is<HTMLOptGroupElement>(child.get())) {
+            m_listItems.append(&child.get());
+            for (Ref option : childrenOfType<HTMLOptionElement>(child.get()))
                 handleOptionElement(option);
-        } else if (RefPtr option = dynamicDowncast<HTMLOptionElement>(child))
+        } else if (RefPtr option = dynamicDowncast<HTMLOptionElement>(child.get()))
             handleOptionElement(*option);
-        else if (is<HTMLHRElement>(child))
-            m_listItems.append(&child);
+        else if (is<HTMLHRElement>(child.get()))
+            m_listItems.append(&child.get());
     }
 
     if (!foundSelected && m_size <= 1 && firstOption && !firstOption->selected())
@@ -1016,7 +1018,7 @@ size_t HTMLSelectElement::searchOptionsForValue(const String& value, size_t list
     auto& items = listItems();
     size_t loopEndIndex = std::min(items.size(), listIndexEnd);
     for (size_t i = listIndexStart; i < loopEndIndex; ++i) {
-        auto* option = dynamicDowncast<HTMLOptionElement>(*items[i]);
+        RefPtr option = dynamicDowncast<HTMLOptionElement>(*items[i]);
         if (!option)
             continue;
         if (option->value() == value)

@@ -30,8 +30,11 @@
 
 #include "RemoteBindGroupMessages.h"
 #include "WebGPUConvertToBackingContext.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit::WebGPU {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteBindGroupProxy);
 
 RemoteBindGroupProxy::RemoteBindGroupProxy(RemoteDeviceProxy& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
     : m_backing(identifier)
@@ -49,6 +52,12 @@ RemoteBindGroupProxy::~RemoteBindGroupProxy()
 void RemoteBindGroupProxy::setLabelInternal(const String& label)
 {
     auto sendResult = send(Messages::RemoteBindGroup::SetLabel(label));
+    UNUSED_VARIABLE(sendResult);
+}
+
+void RemoteBindGroupProxy::updateExternalTextures(const WebCore::WebGPU::ExternalTexture& externalTexture)
+{
+    auto sendResult = send(Messages::RemoteBindGroup::UpdateExternalTextures(Ref { m_convertToBackingContext }->convertToBacking(externalTexture)));
     UNUSED_VARIABLE(sendResult);
 }
 

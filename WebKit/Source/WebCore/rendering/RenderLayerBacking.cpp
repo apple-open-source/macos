@@ -30,6 +30,7 @@
 #include "BackgroundPainter.h"
 #include "BitmapImage.h"
 #include "BlendingKeyframes.h"
+#include "BorderShape.h"
 #include "CSSPropertyNames.h"
 #include "CachedImage.h"
 #include "CanvasRenderingContext2DBase.h"
@@ -83,6 +84,7 @@
 #include "TiledBacking.h"
 #include "ViewTransition.h"
 #include <wtf/SystemTracing.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
 
@@ -108,6 +110,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderLayerBacking);
 
 using namespace HTMLNames;
 
@@ -360,7 +364,7 @@ Ref<GraphicsLayer> RenderLayerBacking::createGraphicsLayer(const String& name, G
 
     graphicsLayer->setName(name);
 
-#if PLATFORM(COCOA) && USE(CA)
+#if USE(CA)
     graphicsLayer->setAcceleratesDrawing(compositor().acceleratedDrawingEnabled());
 #endif
 
@@ -546,7 +550,7 @@ void RenderLayerBacking::createPrimaryGraphicsLayer()
     }
 #endif
 
-#if PLATFORM(COCOA) && USE(CA)
+#if USE(CA)
     if (!compositor().acceleratedDrawingEnabled() && renderer().isRenderHTMLCanvas()) {
         const HTMLCanvasElement* canvas = downcast<HTMLCanvasElement>(renderer().element());
         if (canvas->shouldAccelerate(canvas->size()))
@@ -782,7 +786,8 @@ void RenderLayerBacking::updateBackdropFiltersGeometry()
 
     FloatRoundedRect backdropFiltersRect;
     if (renderBox->style().hasBorderRadius() && !renderBox->hasClip()) {
-        auto roundedBoxRect = renderBox->borderRoundedRect();
+        auto borderShape = BorderShape::shapeForBorderRect(renderBox->style(), renderBox->borderBoxRect());
+        auto roundedBoxRect = borderShape.deprecatedRoundedRect();
         roundedBoxRect.move(contentOffsetInCompositingLayer());
         backdropFiltersRect = roundedBoxRect.pixelSnappedRoundedRectForPainting(deviceScaleFactor());
     } else {
@@ -1015,6 +1020,7 @@ void RenderLayerBacking::updateAfterLayout(bool needsClippingUpdate, bool needsF
         m_owningLayer.setNeedsCompositingGeometryUpdate();
         // This layer's geometry affects those of its children.
         m_owningLayer.setChildrenNeedCompositingGeometryUpdate();
+        m_owningLayer.setSubsequentLayersNeedCompositingRequirementsTraversal();
     } else if (needsClippingUpdate) {
         m_owningLayer.setNeedsCompositingConfigurationUpdate();
         m_owningLayer.setNeedsCompositingGeometryUpdate();
@@ -1080,7 +1086,9 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
 
     if (usesCompositedScrolling) {
         // If it's scrollable, it has to be a box.
-        FloatRoundedRect contentsClippingRect = downcast<RenderBox>(renderer()).roundedBorderBoxRect().pixelSnappedRoundedRectForPainting(deviceScaleFactor());
+        auto& renderBox = downcast<RenderBox>(renderer());
+        auto borderShape = BorderShape::shapeForBorderRect(renderBox.style(), renderBox.borderBoxRect());
+        FloatRoundedRect contentsClippingRect = borderShape.deprecatedPixelSnappedInnerRoundedRect(deviceScaleFactor());
         needsDescendantsClippingLayer = contentsClippingRect.isRounded();
     } else
         needsDescendantsClippingLayer = RenderLayerCompositor::clipsCompositingDescendants(m_owningLayer);
@@ -1507,7 +1515,8 @@ void RenderLayerBacking::updateGeometry(const RenderLayer* compositedAncestor)
 
         auto computeMasksToBoundsRect = [&] {
             if ((renderer().style().clipPath() || renderer().style().hasBorderRadius())) {
-                auto contentsClippingRect = FloatRoundedRect(renderer().style().getRoundedInnerBorderFor(m_owningLayer.rendererBorderBoxRect()));
+                auto borderShape = BorderShape::shapeForBorderRect(renderer().style(), m_owningLayer.rendererBorderBoxRect());
+                auto contentsClippingRect = borderShape.deprecatedPixelSnappedInnerRoundedRect(deviceScaleFactor);
                 contentsClippingRect.move(LayoutSize(-clipLayer->offsetFromRenderer()));
                 return contentsClippingRect;
             }
@@ -1746,7 +1755,7 @@ void RenderLayerBacking::updateMaskingLayerGeometry()
     
     if (!m_maskLayer->drawsContent()) {
         if (renderer().hasClipPath()) {
-            ASSERT(renderer().style().clipPath()->type() != PathOperation::Reference);
+            ASSERT(renderer().style().clipPath()->type() != PathOperation::Type::Reference);
 
             // FIXME: Use correct reference box for inlines: https://bugs.webkit.org/show_bug.cgi?id=129047, https://github.com/w3c/csswg-drafts/issues/6383
             LayoutRect boundingBox = m_owningLayer.boundingBox(&m_owningLayer);
@@ -1867,7 +1876,8 @@ void RenderLayerBacking::updateContentsRects()
     m_graphicsLayer->setContentsRect(snapRectToDevicePixelsIfNeeded(contentsBox(), renderer()));
     
     if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(renderer())) {
-        FloatRoundedRect contentsClippingRect = renderReplaced->roundedContentBoxRect(renderReplaced->borderBoxRect()).pixelSnappedRoundedRectForPainting(deviceScaleFactor());
+        auto borderShape = renderReplaced->borderShapeForContentClipping(renderReplaced->borderBoxRect());
+        auto contentsClippingRect = borderShape.deprecatedPixelSnappedInnerRoundedRect(deviceScaleFactor());
         contentsClippingRect.move(contentOffsetInCompositingLayer());
         m_graphicsLayer->setContentsClippingRect(contentsClippingRect);
     }
@@ -2356,7 +2366,7 @@ bool RenderLayerBacking::updateOverflowControlsLayers(bool needsHorizontalScroll
 
     layersChanged |= createOrDestroyLayer(m_layerForScrollCorner, needsScrollCornerLayer, true, "scroll corner"_s);
 
-    if (auto* scrollingCoordinator = m_owningLayer.page().scrollingCoordinator()) {
+    if (RefPtr scrollingCoordinator = m_owningLayer.page().scrollingCoordinator()) {
         if (auto* scrollableArea = m_owningLayer.scrollableArea()) {
             if (horizontalScrollbarLayerChanged)
                 scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(*scrollableArea, ScrollbarOrientation::Horizontal);
@@ -2524,7 +2534,7 @@ bool RenderLayerBacking::updateMaskingLayer(bool hasMask, bool hasClipPath)
         
         if (hasClipPath) {
             // If we have a mask, we need to paint the combined clip-path and mask into the mask layer.
-            if (hasMask || renderer().style().clipPath()->type() == PathOperation::Reference || !GraphicsLayer::supportsLayerType(GraphicsLayer::Type::Shape))
+            if (hasMask || renderer().style().clipPath()->type() == PathOperation::Type::Reference || !GraphicsLayer::supportsLayerType(GraphicsLayer::Type::Shape))
                 maskPhases.add(GraphicsLayerPaintingPhase::ClipPath);
         }
 
@@ -2593,7 +2603,7 @@ void RenderLayerBacking::detachFromScrollingCoordinator(OptionSet<ScrollCoordina
     if (!m_scrollingNodeID && !m_ancestorClippingStack && !m_frameHostingNodeID && !m_pluginHostingNodeID && !m_viewportConstrainedNodeID && !m_positioningNodeID)
         return;
 
-    auto* scrollingCoordinator = m_owningLayer.page().scrollingCoordinator();
+    RefPtr scrollingCoordinator = m_owningLayer.page().scrollingCoordinator();
     if (!scrollingCoordinator)
         return;
 
@@ -3307,11 +3317,11 @@ LayoutRect RenderLayerBacking::contentsBox() const
 static LayoutRect backgroundRectForBox(const RenderBox& box)
 {
     switch (box.style().backgroundClip()) {
-    case FillBox::Border:
+    case FillBox::BorderBox:
         return box.borderBoxRect();
-    case FillBox::Padding:
+    case FillBox::PaddingBox:
         return box.paddingBoxRect();
-    case FillBox::Content:
+    case FillBox::ContentBox:
         return box.contentBoxRect();
     default:
         break;
@@ -4355,7 +4365,7 @@ TextStream& operator<<(TextStream& ts, const RenderLayerBacking& backing)
     if (backing.paintsIntoCompositedAncestor())
         ts << " paintsIntoCompositedAncestor";
 
-    ts << " primary layer ID " << backing.graphicsLayer()->primaryLayerID().object();
+    ts << " primary layer ID " << (backing.graphicsLayer()->primaryLayerID() ? backing.graphicsLayer()->primaryLayerID()->object().toUInt64() : 0);
     if (auto nodeID = backing.scrollingNodeIDForRole(ScrollCoordinationRole::ViewportConstrained))
         ts << " viewport constrained scrolling node " << nodeID;
     if (auto nodeID = backing.scrollingNodeIDForRole(ScrollCoordinationRole::Scrolling))

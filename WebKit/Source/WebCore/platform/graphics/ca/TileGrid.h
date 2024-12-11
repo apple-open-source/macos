@@ -34,6 +34,7 @@
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
+#include <wtf/TZoneMalloc.h>
 
 #if USE(CG)
 typedef struct CGContext *CGContextRef;
@@ -48,8 +49,8 @@ class TileController;
 using TileIndex = IntPoint;
 
 class TileGrid : public PlatformCALayerClient {
+    WTF_MAKE_TZONE_ALLOCATED(TileGrid);
     WTF_MAKE_NONCOPYABLE(TileGrid);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit TileGrid(TileController&);
     ~TileGrid();
@@ -115,7 +116,7 @@ private:
     bool getTileIndexRangeForRect(const IntRect&, TileIndex& topLeft, TileIndex& bottomRight) const;
 
     enum class CoverageType { PrimaryTiles, SecondaryTiles };
-    IntRect ensureTilesForRect(const FloatRect&, CoverageType);
+    IntRect ensureTilesForRect(const FloatRect&, HashSet<TileIndex>& tilesNeedingDisplay, CoverageType);
 
     struct TileCohortInfo {
         TileCohort cohort;
@@ -174,6 +175,7 @@ private:
     IntSize m_tileSize;
 
     float m_scale { 1 };
+    std::optional<float> m_scaleAtLastRevalidation;
 };
 
 }

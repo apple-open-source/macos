@@ -31,6 +31,7 @@
 #include "ReadableStreamSource.h"
 #include "RealtimeMediaSource.h"
 #include "WebCodecsVideoFrame.h"
+#include <wtf/TZoneMalloc.h>
 
 namespace JSC {
 class JSGlobaObject;
@@ -46,7 +47,7 @@ class MediaStreamTrackProcessor
     : public RefCounted<MediaStreamTrackProcessor>
     , public CanMakeWeakPtr<MediaStreamTrackProcessor>
     , private ContextDestructionObserver {
-    WTF_MAKE_ISO_ALLOCATED(MediaStreamTrackProcessor);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MediaStreamTrackProcessor);
 public:
     struct Init {
         RefPtr<MediaStreamTrack> track;
@@ -61,7 +62,7 @@ public:
     class Source final
         : public ReadableStreamSource
         , public MediaStreamTrackPrivateObserver {
-        WTF_MAKE_ISO_ALLOCATED(Source);
+        WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Source);
     public:
         Source(Ref<MediaStreamTrack>&&, MediaStreamTrackProcessor&);
         ~Source();
@@ -106,7 +107,7 @@ private:
     void tryEnqueueingVideoFrame();
 
     class VideoFrameObserver final : private RealtimeMediaSource::VideoFrameObserver {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED(VideoFrameObserver);
     public:
         explicit VideoFrameObserver(ScriptExecutionContextIdentifier, WeakPtr<MediaStreamTrackProcessor>&&, Ref<RealtimeMediaSource>&&, unsigned short maxVideoFramesCount);
         ~VideoFrameObserver();

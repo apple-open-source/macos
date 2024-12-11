@@ -31,6 +31,7 @@
 #include "WebPage.h"
 #include "WebProcess.h"
 #include "WebProcessCreationParameters.h"
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(NOTIFICATIONS)
 #include "NetworkProcessConnection.h"
@@ -44,6 +45,7 @@
 #include <WebCore/Notification.h>
 #include <WebCore/NotificationData.h>
 #include <WebCore/Page.h>
+#include <WebCore/PushPermissionState.h>
 #include <WebCore/SWContextManager.h>
 #include <WebCore/ScriptExecutionContext.h>
 #include <WebCore/SecurityOrigin.h>
@@ -85,13 +87,16 @@ template<typename U> static bool sendNotificationMessage(U&& message, WebPage* p
     });
 }
 
-template<typename U> static bool sendNotificationMessageWithAsyncReply(U&& message, WebPage* page, CompletionHandler<void()>&& callback)
+template<typename U, typename C>
+static bool sendNotificationMessageWithAsyncReply(U&& message, WebPage* page, C&& callback)
 {
     return sendMessage(page, [&] (auto& connection, auto destinationIdentifier) {
         return !!connection.sendWithAsyncReply(std::forward<U>(message), WTFMove(callback), destinationIdentifier);
     });
 }
 #endif // ENABLE(NOTIFICATIONS)
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebNotificationManager);
 
 ASCIILiteral WebNotificationManager::supplementName()
 {
@@ -143,6 +148,28 @@ void WebNotificationManager::didRemoveNotificationDecisions(const Vector<String>
 
 NotificationClient::Permission WebNotificationManager::policyForOrigin(const String& originString, WebPage* page) const
 {
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
+    if (DeprecatedGlobalSettings::builtInNotificationsEnabled()) {
+        Ref connection = WebProcess::singleton().ensureNetworkProcessConnection().connection();
+        auto origin = SecurityOriginData::fromURL(URL { originString });
+        auto result = connection->sendSync(Messages::NotificationManagerMessageHandler::GetPermissionStateSync(WTFMove(origin)), WebProcess::singleton().sessionID().toUInt64());
+        if (!result.succeeded())
+            RELEASE_LOG_ERROR(Notifications, "Could not look up notification permission for origin %" SENSITIVE_LOG_STRING": %u", originString.utf8().data(), static_cast<unsigned>(result.error()));
+
+        auto [pushPermission] = result.takeReplyOr(PushPermissionState::Denied);
+        switch (pushPermission) {
+        case PushPermissionState::Denied:
+            return NotificationPermission::Denied;
+        case PushPermissionState::Granted:
+            return NotificationPermission::Granted;
+        case PushPermissionState::Prompt:
+            return NotificationPermission::Default;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+    }
+#endif
+
 #if ENABLE(NOTIFICATIONS)
     if (originString.isEmpty())
         return NotificationClient::Permission::Default;
@@ -184,7 +211,8 @@ bool WebNotificationManager::show(NotificationData&& notification, RefPtr<Notifi
 
     if (!notification.isPersistent()) {
         ASSERT(!m_nonPersistentNotificationsContexts.contains(notificationID));
-        m_nonPersistentNotificationsContexts.add(notificationID, notification.contextIdentifier);
+        RELEASE_ASSERT(notification.contextIdentifier);
+        m_nonPersistentNotificationsContexts.add(notificationID, *notification.contextIdentifier);
     }
     return true;
 #else
@@ -203,11 +231,24 @@ void WebNotificationManager::cancel(NotificationData&& notification, WebPage* pa
     auto identifier = notification.notificationID;
     ASSERT(notification.isPersistent() || m_nonPersistentNotificationsContexts.contains(identifier));
 
-    if (!sendNotificationMessage(Messages::NotificationManagerMessageHandler::CancelNotification(identifier), page))
+    auto origin = WebCore::SecurityOriginData::fromURL(URL { notification.originString });
+    if (!sendNotificationMessage(Messages::NotificationManagerMessageHandler::CancelNotification(WTFMove(origin), identifier), page))
         return;
 #else
     UNUSED_PARAM(notification);
     UNUSED_PARAM(page);
+#endif
+}
+
+void WebNotificationManager::requestPermission(WebCore::SecurityOriginData&& origin, RefPtr<WebPage> page, CompletionHandler<void(bool)>&& callback)
+{
+    ASSERT(isMainRunLoop());
+
+#if ENABLE(NOTIFICATIONS)
+    sendNotificationMessageWithAsyncReply(Messages::NotificationManagerMessageHandler::RequestPermission(WTFMove(origin)), page.get(), WTFMove(callback));
+#else
+    UNUSED_PARAM(origin);
+    callback(false);
 #endif
 }
 

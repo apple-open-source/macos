@@ -27,6 +27,7 @@
 
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebKit {
@@ -35,7 +36,7 @@ class WebNotificationManagerProxy;
 class WebPageProxy;
 
 enum class WebNotificationIdentifierType;
-using WebNotificationIdentifier = ObjectIdentifier<WebNotificationIdentifierType>;
+using WebNotificationIdentifier = LegacyNullableObjectIdentifier<WebNotificationIdentifierType>;
 }
 
 namespace WebCore {
@@ -45,7 +46,7 @@ class NotificationResources;
 namespace API {
 
 class NotificationProvider {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(NotificationProvider);
 public:
     virtual ~NotificationProvider() = default;
 

@@ -212,26 +212,26 @@
     FSItemAttributes *attrs = [[FSItemAttributes alloc] init];
     struct timespec timespec = {0};
 
-    if ([desired isWanted:FSItemAttributeType]) {
+    if ([desired isAttributeWanted:FSItemAttributeType]) {
         attrs.type = (self.entryData) ? self.entryData.type : FSItemTypeUnknown;
     }
 
-    if ([desired isWanted:FSItemAttributeMode]) {
+    if ([desired isAttributeWanted:FSItemAttributeMode]) {
         attrs.mode = (0000007 << 6); // (LI_FA_MODE_RWX) TBD
     }
 
-    if ([desired isWanted:FSItemAttributeLinkCount]) {
+    if ([desired isAttributeWanted:FSItemAttributeLinkCount]) {
         attrs.linkCount = 1;
     }
 
     uint64_t allocSize = (uint64_t)self.numberOfClusters * (uint64_t)self.volume.systemInfo.bytesPerCluster;
-    if ([desired isWanted:FSItemAttributeAllocSize]) {
+    if ([desired isAttributeWanted:FSItemAttributeAllocSize]) {
         // This is true for most of the FAT item. In case the allocSize should be something else
         // for specific items, that item will have to override getAttributes and do what it should
         attrs.allocSize = allocSize;
     }
 
-    if ((self.entryData) && ([desired isWanted:FSItemAttributeSize])) {
+    if ((self.entryData) && ([desired isAttributeWanted:FSItemAttributeSize])) {
         if (self.entryData.type == FSItemTypeDirectory) {
             attrs.size = allocSize;
         } else if (self.entryData.type == FSItemTypeFile) {
@@ -239,11 +239,11 @@
         }
     }
 
-    if ([desired isWanted:FSItemAttributeFileID]) {
+    if ([desired isAttributeWanted:FSItemAttributeFileID]) {
         attrs.fileID = [self getFileID];
     }
 
-    if ([desired isWanted:FSItemAttributeParentID]) {
+    if ([desired isAttributeWanted:FSItemAttributeParentID]) {
         if (self.parentDir) {
             attrs.parentID = [self.parentDir getFileID];
         } else {
@@ -261,28 +261,28 @@
         }
     }
 
-    if ([desired isWanted:FSItemAttributeFlags]) {
+    if ([desired isAttributeWanted:FSItemAttributeFlags]) {
         attrs.flags = self.entryData.bsdFlags;
     }
 
-    attrs.inhibitKOIO = false;
+    attrs.inhibitKernelOffloadedIO = false;
 
-    if (([desired isWanted:FSItemAttributeAccessTime]) && (self.entryData)) {
+    if (([desired isAttributeWanted:FSItemAttributeAccessTime]) && (self.entryData)) {
         [self.entryData getAccessTime:&timespec];
         attrs.accessTime = timespec;
     }
 
-    if (([desired isWanted:FSItemAttributeModifyTime]) && (self.entryData)) {
+    if (([desired isAttributeWanted:FSItemAttributeModifyTime]) && (self.entryData)) {
         [self.entryData getModifyTime:&timespec];
         attrs.modifyTime = timespec;
     }
 
-    if (([desired isWanted:FSItemAttributeChangeTime]) && (self.entryData)) {
+    if (([desired isAttributeWanted:FSItemAttributeChangeTime]) && (self.entryData)) {
         [self.entryData getChangeTime:&timespec];
         attrs.changeTime = timespec;
     }
 
-    if (([desired isWanted:FSItemAttributeBirthTime]) && (self.entryData)) {
+    if (([desired isAttributeWanted:FSItemAttributeBirthTime]) && (self.entryData)) {
         [self.entryData getBirthTime:&timespec];
         attrs.birthTime = timespec;
     }
@@ -355,7 +355,7 @@
                 [theFileItem setPreAllocated:false];
             }
         }
-        [newAttributes wasConsumed:FSItemAttributeSize];
+        consumedAttributes |= FSItemAttributeSize;
         modified = true;
     }
 
@@ -655,7 +655,7 @@
     /*
      * The inner loop goes through the allocated clusters,
      * and saves up-to MAX_META_BLOCK_RANGES ranges in the array.
-     * The outer loop calls synchronousMetadataPurge: for these ranges.
+     * The outer loop calls metadataPurge: for these ranges.
      * We exit both loops once we reach the end of the cluster chain.
      */
     while (sizeLeftToPurge && [self.volume.systemInfo isClusterValid:startCluster]) {
@@ -726,11 +726,11 @@
 {
     FSItemAttributes *attrs = [super getAttributes:desired];
 
-    if ([desired isWanted:FSItemAttributeType]) {
+    if ([desired isAttributeWanted:FSItemAttributeType]) {
         attrs.type = FSItemTypeSymlink;
     }
 
-    if ([desired isWanted:FSItemAttributeSize]) {
+    if ([desired isAttributeWanted:FSItemAttributeSize]) {
         attrs.size = self.symlinkLength;
     }
     

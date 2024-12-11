@@ -31,6 +31,7 @@
 #include <WebCore/LibWebRTCSocketIdentifier.h>
 #include <wtf/Forward.h>
 #include <wtf/Identified.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
 ALLOW_COMMA_BEGIN
@@ -58,7 +59,7 @@ namespace WebKit {
 class LibWebRTCSocketFactory;
 
 class LibWebRTCSocket final : public rtc::AsyncPacketSocket, public CanMakeWeakPtr<LibWebRTCSocket>, public Identified<WebCore::LibWebRTCSocketIdentifier> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(LibWebRTCSocket);
 public:
     enum class Type { UDP, ClientTCP, ServerConnectionTCP };
 
@@ -79,7 +80,7 @@ private:
     bool willSend(size_t);
 
     friend class LibWebRTCNetwork;
-    void signalReadPacket(std::span<const uint8_t>, rtc::SocketAddress&&, int64_t);
+    void signalReadPacket(std::span<const uint8_t>, rtc::SocketAddress&&, int64_t, rtc::EcnMarking);
     void signalSentPacket(int64_t, int64_t);
     void signalAddressReady(const rtc::SocketAddress&);
     void signalConnect();

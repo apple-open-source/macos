@@ -32,21 +32,17 @@
 
 namespace WebCore {
 
-namespace Style {
-enum class ForVisitedLink : bool;
-}
-
+class CSSToLengthConversionData;
 class CSSUnresolvedColor;
-class Document;
-class RenderStyle;
 
-struct CSSUnresolvedColorResolutionContext;
+struct CSSUnresolvedColorResolutionState;
+struct CSSUnresolvedStyleColorResolutionState;
 
 struct CSSUnresolvedColorMix {
     struct Component {
         bool operator==(const Component&) const;
 
-        using Percentage = std::variant<PercentRaw, UnevaluatedCalc<PercentRaw>>;
+        using Percentage = std::variant<PercentageRaw, UnevaluatedCalc<PercentageRaw>>;
 
         UniqueRef<CSSUnresolvedColor> color;
         std::optional<Percentage> percentage;
@@ -59,13 +55,14 @@ struct CSSUnresolvedColorMix {
     Component mixComponents2;
 };
 
-PercentRaw resolveComponentPercentage(const CSSUnresolvedColorMix::Component::Percentage&);
+PercentageRaw resolveComponentPercentage(const CSSUnresolvedColorMix::Component::Percentage&, const CSSToLengthConversionData&);
+PercentageRaw resolveComponentPercentageNoConversionDataRequired(const CSSUnresolvedColorMix::Component::Percentage&);
 
 void serializationForCSS(StringBuilder&, const CSSUnresolvedColorMix&);
 String serializationForCSS(const CSSUnresolvedColorMix&);
 
-StyleColor createStyleColor(const CSSUnresolvedColorMix&, const Document&, RenderStyle&, Style::ForVisitedLink);
-Color createColor(const CSSUnresolvedColorMix&, const CSSUnresolvedColorResolutionContext&);
+StyleColor createStyleColor(const CSSUnresolvedColorMix&, CSSUnresolvedStyleColorResolutionState&);
+Color createColor(const CSSUnresolvedColorMix&, CSSUnresolvedColorResolutionState&);
 
 bool containsCurrentColor(const CSSUnresolvedColorMix&);
 bool containsColorSchemeDependentColor(const CSSUnresolvedColorMix&);

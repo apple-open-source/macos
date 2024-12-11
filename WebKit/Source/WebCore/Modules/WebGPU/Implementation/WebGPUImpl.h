@@ -35,6 +35,7 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/Deque.h>
 #include <wtf/Function.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 class GraphicsContext;
@@ -68,9 +69,12 @@ class Sampler;
 class ShaderModule;
 class Texture;
 class TextureView;
+class XRBinding;
+class XRProjectionLayer;
+class XRSubImage;
 
 class GPUImpl final : public GPU, public RefCounted<GPUImpl> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(GPUImpl);
 public:
     static Ref<GPUImpl> create(WebGPUPtr<WGPUInstance>&& instance, ConvertToBackingContext& convertToBackingContext)
     {
@@ -124,6 +128,10 @@ private:
     bool isValid(const ShaderModule&) const final;
     bool isValid(const Texture&) const final;
     bool isValid(const TextureView&) const final;
+    bool isValid(const XRBinding&) const final;
+    bool isValid(const XRSubImage&) const final;
+    bool isValid(const XRProjectionLayer&) const final;
+    bool isValid(const XRView&) const final;
 
     WebGPUPtr<WGPUInstance> m_backing;
     Ref<ConvertToBackingContext> m_convertToBackingContext;

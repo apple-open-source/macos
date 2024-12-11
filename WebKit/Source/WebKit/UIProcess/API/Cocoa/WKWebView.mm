@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 #import "APIPageConfiguration.h"
 #import "APISecurityOrigin.h"
 #import "APISerializedScriptValue.h"
+#import "BrowsingWarning.h"
 #import "CocoaImage.h"
 #import "CompletionHandlerCallChecker.h"
 #import "ContentAsStringIncludesChildFrames.h"
@@ -55,7 +56,6 @@
 #import "RemoteObjectRegistry.h"
 #import "RemoteObjectRegistryMessages.h"
 #import "ResourceLoadDelegate.h"
-#import "SafeBrowsingWarning.h"
 #import "SessionStateCoding.h"
 #import "UIDelegate.h"
 #import "VideoPresentationManagerProxy.h"
@@ -79,7 +79,6 @@
 #import "WKPDFConfiguration.h"
 #import "WKPreferencesInternal.h"
 #import "WKProcessPoolInternal.h"
-#import "WKSafeBrowsingWarning.h"
 #import "WKSecurityOriginInternal.h"
 #import "WKSharedAPICast.h"
 #import "WKSnapshotConfigurationPrivate.h"
@@ -122,6 +121,7 @@
 #import "_WKHitTestResultInternal.h"
 #import "_WKInputDelegate.h"
 #import "_WKInspectorInternal.h"
+#import "_WKPageLoadTimingInternal.h"
 #import "_WKRemoteObjectRegistryInternal.h"
 #import "_WKSessionStateInternal.h"
 #import "_WKTargetedElementInfoInternal.h"
@@ -132,7 +132,9 @@
 #import "_WKTextManipulationExclusionRule.h"
 #import "_WKTextManipulationItem.h"
 #import "_WKTextManipulationToken.h"
+#import "_WKTextPreview.h"
 #import "_WKVisitedLinkStoreInternal.h"
+#import "_WKWarningView.h"
 #import <WebCore/AppHighlight.h>
 #import <WebCore/ArchiveError.h>
 #import <WebCore/AttributedString.h>
@@ -169,6 +171,7 @@
 #import <wtf/NeverDestroyed.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/SystemTracing.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/UUID.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/SpanCocoa.h>
@@ -179,8 +182,10 @@
 #import <wtf/text/TextStream.h>
 
 #if ENABLE(WK_WEB_EXTENSIONS)
-#import "_WKWebExtensionControllerInternal.h"
+#import "WKWebExtensionControllerInternal.h"
 #endif
+
+#import "WebKitSwiftSoftLink.h"
 
 #if PLATFORM(IOS_FAMILY)
 #import "RemoteLayerTreeDrawingAreaProxy.h"
@@ -335,6 +340,7 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
     _configuration = adoptNS([configuration copy]);
 
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (WKWebView *relatedWebView = [_configuration _relatedWebView]) {
         WKProcessPool *processPool = [_configuration processPool];
         WKProcessPool *relatedWebViewProcessPool = [relatedWebView->_configuration processPool];
@@ -345,12 +351,13 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
         [_configuration setProcessPool:relatedWebViewProcessPool];
     }
+    ALLOW_DEPRECATED_DECLARATIONS_END
 
     WebKit::WebProcessPool& processPool = *[_configuration processPool]->_processPool;
 
     // FIXME: This copy is probably not necessary.
     Ref pageConfiguration = _configuration->_pageConfiguration->copy();
-    [self _setupPageConfiguration:pageConfiguration];
+    [self _setupPageConfiguration:pageConfiguration withPool:processPool];
 
     _usePlatformFindUI = YES;
 
@@ -433,13 +440,20 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
     _activeWritingToolsSession = nil;
     _writingToolsTextSuggestions = [NSMapTable strongToWeakObjectsMapTable];
 #endif
+
+#if PLATFORM(APPLETV)
+    // FIXME: This is a workaround for <rdar://135515434> to prevent the tint color from being set to either solid black or white.
+    self.tintColor = UIColor.systemBlueColor;
+#endif
 }
 
-- (void)_setupPageConfiguration:(Ref<API::PageConfiguration>&)pageConfiguration
+- (void)_setupPageConfiguration:(Ref<API::PageConfiguration>&)pageConfiguration withPool:(WebKit::WebProcessPool&)pool
 {
     pageConfiguration->setPreferences([_configuration preferences]->_preferences.get());
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (WKWebView *relatedWebView = [_configuration _relatedWebView])
         pageConfiguration->setRelatedPage(relatedWebView->_page.get());
+    ALLOW_DEPRECATED_DECLARATIONS_END
     if (WKWebView *webViewToCloneSessionStorageFrom = [_configuration _webViewToCloneSessionStorageFrom])
         pageConfiguration->setPageToCloneSessionStorageFrom(webViewToCloneSessionStorageFrom->_page.get());
 
@@ -462,6 +476,12 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
     pageConfiguration->setAdditionalSupportedImageTypes(makeVector<String>([_configuration _additionalSupportedImageTypes]));
 
+    pageConfiguration->setWaitsForPaintAfterViewDidMoveToWindow([_configuration _waitsForPaintAfterViewDidMoveToWindow]);
+    pageConfiguration->setDrawsBackground([_configuration _drawsBackground]);
+    pageConfiguration->setControlledByAutomation([_configuration _isControlledByAutomation]);
+
+    pageConfiguration->preferences().startBatchingUpdates();
+
     pageConfiguration->preferences().setSuppressesIncrementalRendering(!![_configuration suppressesIncrementalRendering]);
 #if !PLATFORM(MAC)
     // FIXME: rdar://99156546. Remove this and WKWebViewConfiguration._printsBackgrounds once all iOS clients adopt the new API.
@@ -474,9 +494,6 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
     pageConfiguration->preferences().setHTTPEquivEnabled(!![_configuration _allowsMetaRefresh]);
     pageConfiguration->preferences().setAllowUniversalAccessFromFileURLs(!![_configuration _allowUniversalAccessFromFileURLs]);
     pageConfiguration->preferences().setAllowTopNavigationToDataURLs(!![_configuration _allowTopNavigationToDataURLs]);
-    pageConfiguration->setWaitsForPaintAfterViewDidMoveToWindow([_configuration _waitsForPaintAfterViewDidMoveToWindow]);
-    pageConfiguration->setDrawsBackground([_configuration _drawsBackground]);
-    pageConfiguration->setControlledByAutomation([_configuration _isControlledByAutomation]);
     pageConfiguration->preferences().setIncompleteImageBorderEnabled(!![_configuration _incompleteImageBorderEnabled]);
     pageConfiguration->preferences().setShouldDeferAsynchronousScriptsUntilAfterDocumentLoadOrFirstPaint(!![_configuration _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad]);
     pageConfiguration->preferences().setShouldRestrictBaseURLSchemes(shouldRestrictBaseURLSchemes());
@@ -567,7 +584,19 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
 #if PLATFORM(IOS_FAMILY)
     pageConfiguration->preferences().setAlternateFormControlDesignEnabled(WebKit::defaultAlternateFormControlDesignEnabled());
-    pageConfiguration->preferences().setVideoFullscreenRequiresElementFullscreen(WebKit::defaultVideoFullscreenRequiresElementFullscreen());
+#endif
+
+    // For SharedPreferencesForWebProcess
+    pageConfiguration->preferences().setAllowTestOnlyIPC(!![_configuration _allowTestOnlyIPC]);
+    pageConfiguration->preferences().setUsesSingleWebProcess(pool.usesSingleWebProcess());
+
+    pageConfiguration->preferences().endBatchingUpdates();
+
+#if PLATFORM(APPLETV)
+    if (RefPtr dataStore = pageConfiguration->websiteDataStoreIfExists(); !dataStore || dataStore->isPersistent()) {
+        RELEASE_LOG_ERROR(API, "Created web view with persistent data store");
+        WTFReportBacktraceWithStackDepth(7);
+    }
 #endif
 }
 
@@ -633,6 +662,8 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 #if PLATFORM(MAC)
     [_textFinderClient willDestroyView:self];
 #endif
+
+    [self _setResourceLoadDelegate:nil];
 
 #if PLATFORM(IOS_FAMILY)
     [_contentView _webViewDestroyed];
@@ -725,6 +756,9 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
 - (void)_setResourceLoadDelegate:(id<_WKResourceLoadDelegate>)delegate
 {
+    if (!_page || !_resourceLoadDelegate)
+        return;
+
     if (delegate) {
         _page->setResourceLoadClient(_resourceLoadDelegate->createResourceLoadClient());
         _resourceLoadDelegate->setDelegate(delegate);
@@ -771,7 +805,7 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
     if (_page->isServiceWorkerPage())
         [NSException raise:NSInternalInconsistencyException format:@"The WKWebView was used to load a service worker"];
 
-    return wrapper(_page->loadData(span(data), MIMEType, characterEncodingName, baseURL.absoluteString)).autorelease();
+    return wrapper(_page->loadData(WebCore::SharedBuffer::create(data), MIMEType, characterEncodingName, baseURL.absoluteString)).autorelease();
 }
 
 - (void)startDownloadUsingRequest:(NSURLRequest *)request completionHandler:(void(^)(WKDownload *))completionHandler
@@ -1165,7 +1199,7 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
     if (frame && frame._handle && frame._handle->_frameHandle->frameID())
         frameID = frame._handle->_frameHandle->frameID();
 
-    auto removeTransientActivation = WebKit::shouldEvaluateJavaScriptWithoutTransientActivation() ? WebCore::RemoveTransientActivation::Yes : WebCore::RemoveTransientActivation::No;
+    auto removeTransientActivation = !_dontResetTransientActivationAfterRunJavaScript && WebKit::shouldEvaluateJavaScriptWithoutTransientActivation() ? WebCore::RemoveTransientActivation::Yes : WebCore::RemoveTransientActivation::No;
     _page->runJavaScriptInFrameInScriptWorld({ javaScriptString, JSC::SourceTaintedOrigin::Untainted, sourceURL, !!asAsyncFunction, WTFMove(argumentsMap), !!forceUserGesture, removeTransientActivation }, frameID, *world->_contentWorld.get(), [handler] (auto&& result) {
         if (!handler)
             return;
@@ -1181,7 +1215,7 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
             return;
         }
 
-        id body = API::SerializedScriptValue::deserialize(result.value()->internalRepresentation(), 0);
+        id body = API::SerializedScriptValue::deserialize(result.value()->internalRepresentation());
         rawHandler(body, nil);
     });
 }
@@ -1224,21 +1258,21 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
 
     WebKit::SnapshotOptions snapshotOptions;
     if (snapshotConfiguration._usesContentsRect) {
-        snapshotOptions = WebKit::SnapshotOptionsFullContentRect;
+        snapshotOptions = WebKit::SnapshotOption::FullContentRect;
         // Let WebPage decide the image size.
         bitmapSize = WebCore::IntSize { };
     } else
-        snapshotOptions = WebKit::SnapshotOptionsInViewCoordinates;
+        snapshotOptions = WebKit::SnapshotOption::InViewCoordinates;
     if (!snapshotConfiguration._includesSelectionHighlighting)
-        snapshotOptions |= WebKit::SnapshotOptionsExcludeSelectionHighlighting;
+        snapshotOptions.add(WebKit::SnapshotOption::ExcludeSelectionHighlighting);
     if (snapshotConfiguration._usesTransparentBackground)
-        snapshotOptions |= WebKit::SnapshotOptionsTransparentBackground;
+        snapshotOptions.add(WebKit::SnapshotOption::TransparentBackground);
 
     // Software snapshot will not capture elements rendered with hardware acceleration (WebGL, video, etc).
     // This code doesn't consider snapshotConfiguration.afterScreenUpdates since the software snapshot always
     // contains recent updates. If we ever have a UI-side snapshot mechanism on macOS, we will need to factor
     // in snapshotConfiguration.afterScreenUpdates at that time.
-    _page->takeSnapshot(WebCore::enclosingIntRect(rectInViewCoordinates), bitmapSize, snapshotOptions, [handler, snapshotWidth, imageHeight, usesContentRect = snapshotOptions & WebKit::SnapshotOptionsFullContentRect](std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle) {
+    _page->takeSnapshot(WebCore::enclosingIntRect(rectInViewCoordinates), bitmapSize, snapshotOptions, [handler, snapshotWidth, imageHeight, usesContentRect = snapshotOptions.contains(WebKit::SnapshotOption::FullContentRect)](std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle) {
         if (!imageHandle) {
             tracePoint(TakeSnapshotEnd, snapshotFailedTraceValue);
             handler(nil, createNSError(WKErrorUnknown).get());
@@ -1576,9 +1610,9 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 
 #pragma mark - macOS/iOS internal
 
-- (void)_showSafeBrowsingWarning:(const WebKit::SafeBrowsingWarning&)warning completionHandler:(CompletionHandler<void(std::variant<WebKit::ContinueUnsafeLoad, URL>&&)>&&)completionHandler
+- (void)_showWarningView:(const WebKit::BrowsingWarning&)warning completionHandler:(CompletionHandler<void(std::variant<WebKit::ContinueUnsafeLoad, URL>&&)>&&)completionHandler
 {
-    _safeBrowsingWarning = adoptNS([[WKSafeBrowsingWarning alloc] initWithFrame:self.bounds safeBrowsingWarning:warning completionHandler:[weakSelf = WeakObjCPtr<WKWebView>(self), completionHandler = WTFMove(completionHandler)] (auto&& result) mutable {
+    _warningView = adoptNS([[_WKWarningView alloc] initWithFrame:self.bounds browsingWarning:warning completionHandler:[weakSelf = WeakObjCPtr<WKWebView>(self), completionHandler = WTFMove(completionHandler)] (auto&& result) mutable {
         completionHandler(std::forward<decltype(result)>(result));
         auto strongSelf = weakSelf.get();
         if (!strongSelf)
@@ -1587,29 +1621,44 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
             [] (WebKit::ContinueUnsafeLoad continueUnsafeLoad) { return continueUnsafeLoad == WebKit::ContinueUnsafeLoad::Yes; },
             [] (const URL&) { return true; }
         );
-        bool forMainFrameNavigation = [strongSelf->_safeBrowsingWarning forMainFrameNavigation];
+        bool forMainFrameNavigation = [strongSelf->_warningView forMainFrameNavigation];
         if (navigatesFrame && forMainFrameNavigation) {
             // The safe browsing warning will be hidden once the next page is shown.
             return;
         }
-        if (!navigatesFrame && strongSelf->_safeBrowsingWarning && !forMainFrameNavigation) {
+        if (!navigatesFrame && strongSelf->_warningView && !forMainFrameNavigation) {
             strongSelf->_page->goBack();
             return;
         }
-        [std::exchange(strongSelf->_safeBrowsingWarning, nullptr) removeFromSuperview];
+        [std::exchange(strongSelf->_warningView, nullptr) removeFromSuperview];
     }]);
-    [self addSubview:_safeBrowsingWarning.get()];
+    [self addSubview:_warningView.get()];
 }
 
-- (void)_clearSafeBrowsingWarning
+- (void)_showBrowsingWarning:(const WebKit::BrowsingWarning&)warning completionHandler:(CompletionHandler<void(std::variant<WebKit::ContinueUnsafeLoad, URL>&&)>&&)completionHandler
 {
-    [std::exchange(_safeBrowsingWarning, nullptr) removeFromSuperview];
+    [self _showWarningView:warning completionHandler:WTFMove(completionHandler)];
 }
 
-- (void)_clearSafeBrowsingWarningIfForMainFrameNavigation
+- (void)_clearWarningView
 {
-    if ([_safeBrowsingWarning forMainFrameNavigation])
-        [self _clearSafeBrowsingWarning];
+    [std::exchange(_warningView, nullptr) removeFromSuperview];
+}
+
+- (void)_clearBrowsingWarning
+{
+    [self _clearWarningView];
+}
+
+- (void)_clearWarningViewIfForMainFrameNavigation
+{
+    if ([_warningView forMainFrameNavigation])
+        [self _clearWarningView];
+}
+
+- (void)_clearBrowsingWarningIfForMainFrameNavigation
+{
+    [self _clearWarningViewIfForMainFrameNavigation];
 }
 
 - (void)_internalDoAfterNextPresentationUpdate:(void (^)(void))updateBlock withoutWaitingForPainting:(BOOL)withoutWaitingForPainting withoutWaitingForAnimatedResize:(BOOL)withoutWaitingForAnimatedResize
@@ -1899,7 +1948,7 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 - (WKNavigation *)loadSimulatedRequest:(NSURLRequest *)request response:(NSURLResponse *)response responseData:(NSData *)data
 {
     THROW_IF_SUSPENDED;
-    return wrapper(_page->loadSimulatedRequest(request, response, span(data))).autorelease();
+    return wrapper(_page->loadSimulatedRequest(request, response, WebCore::SharedBuffer::create(data))).autorelease();
 }
 
 // FIXME(223658): Remove this once adopters have moved to the final API.
@@ -2084,6 +2133,11 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     }
 
     _page->didBeginWritingToolsSession(*webSession, contextData);
+
+    if (session.type == WTSessionTypeProofreading) {
+        _intelligenceTextEffectCoordinator = adoptNS([WebKit::allocWKIntelligenceTextEffectCoordinatorInstance() initWithDelegate:(id<WKIntelligenceTextEffectCoordinatorDelegate>)self]);
+        [_intelligenceTextEffectCoordinator startAnimationForRange:contexts.firstObject.range completion:^{ }];
+    }
 }
 
 - (void)proofreadingSession:(WTSession *)session didReceiveSuggestions:(NSArray<WTTextSuggestion *> *)suggestions processedRange:(NSRange)range inContext:(WTContext *)context finished:(BOOL)finished
@@ -2113,7 +2167,21 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
         [_writingToolsTextSuggestions setObject:suggestion forKey:suggestion.uuid];
     }
 
-    _page->proofreadingSessionDidReceiveSuggestions(*webSession, replacementData, *webContext, finished);
+    NSInteger delta = [WebKit::getWKIntelligenceTextEffectCoordinatorClass() characterDeltaForReceivedSuggestions:suggestions];
+
+    auto operation = makeBlockPtr([webSession, replacementData, range, webContext, finished, weakSelf = WeakObjCPtr<WKWebView>(self)](void (^completion)(void)) {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf) {
+            completion();
+            return;
+        }
+
+        strongSelf->_page->proofreadingSessionDidReceiveSuggestions(*webSession, replacementData, range, *webContext, finished, [completion = makeBlockPtr(completion)] {
+            completion();
+        });
+    });
+
+    [_intelligenceTextEffectCoordinator requestReplacementWithProcessedRange:range finished:finished characterDelta:delta operation:operation.get() completion:^{ }];
 }
 
 - (void)proofreadingSession:(WTSession *)session didUpdateState:(WTTextSuggestionState)state forSuggestionWithUUID:(NSUUID *)suggestionUUID inContext:(WTContext *)context
@@ -2158,9 +2226,31 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     _activeWritingToolsSession = nil;
     [_writingToolsTextSuggestions removeAllObjects];
 
-    _page->setWritingToolsActive(false);
+    if (session.type != WTSessionTypeProofreading) {
+        _page->setWritingToolsActive(false);
+        _page->didEndWritingToolsSession(*webSession, accepted);
+        return;
+    }
 
-    _page->didEndWritingToolsSession(*webSession, accepted);
+    // Flush and invoke all replacement operations, then dismiss the markers (and revert the text if not accepted),
+    // then set the selection to the updated context range, and finally clear the state in the web process.
+    //
+    // It's possible that the selection has already been restored by this point if the entire animation has already
+    // finished, but this is not guaranteed.
+
+    [_intelligenceTextEffectCoordinator flushReplacementsWithCompletion:makeBlockPtr([webSession, accepted, weakSelf = WeakObjCPtr<WKWebView>(self)] {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf)
+            return;
+
+        strongSelf->_page->setWritingToolsActive(false);
+
+        strongSelf->_page->willEndWritingToolsSession(*webSession, accepted, [webSession, accepted, weakSelf] {
+            [weakSelf.get()->_intelligenceTextEffectCoordinator restoreSelectionAcceptedReplacements:accepted completion:makeBlockPtr([webSession, accepted, weakSelf] {
+                weakSelf.get()->_page->didEndWritingToolsSession(*webSession, accepted);
+            }).get()];
+        });
+    }).get()];
 }
 
 - (void)compositionSession:(WTSession *)session didReceiveText:(NSAttributedString *)attributedText replacementRange:(NSRange)range inContext:(WTContext *)context finished:(BOOL)finished
@@ -2200,6 +2290,137 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 
     _page->writingToolsSessionDidReceiveAction(*webSession, webAction);
 }
+
+#pragma mark - WKIntelligenceTextEffectCoordinatorDelegate conformance
+
+#if !PLATFORM(APPLETV) && !PLATFORM(WATCHOS)
+
+#if PLATFORM(IOS_FAMILY)
+- (UIView *)viewForIntelligenceTextEffectCoordinator:(WKIntelligenceTextEffectCoordinator *)coordinator
+{
+    return _contentView.get();
+}
+#else
+- (NSView *)viewForIntelligenceTextEffectCoordinator:(WKIntelligenceTextEffectCoordinator *)coordinator
+{
+    return self;
+}
+#endif
+
+- (void)intelligenceTextEffectCoordinator:(WKIntelligenceTextEffectCoordinator *)coordinator rectsForProofreadingSuggestionsInRange:(NSRange)range completion:(void (^)(NSArray<NSValue *> *))completion
+{
+    _page->proofreadingSessionSuggestionTextRectsInRootViewCoordinates(range, [completion = makeBlockPtr(completion)](auto&& rects) {
+        RetainPtr nsArray = createNSArray(rects, [](auto& rect) {
+            return [NSValue valueWithRect:rect];
+        });
+
+        completion(nsArray.get());
+    });
+}
+
+- (void)intelligenceTextEffectCoordinator:(WKIntelligenceTextEffectCoordinator *)coordinator updateTextVisibilityForRange:(NSRange)range visible:(BOOL)visible identifier:(NSUUID *)identifier completion:(void (^)(void))completion
+{
+    auto convertedIdentifier = WTF::UUID::fromNSUUID(identifier);
+    if (!convertedIdentifier) {
+        ASSERT_NOT_REACHED();
+        completion();
+        return;
+    }
+
+    _page->updateTextVisibilityForActiveWritingToolsSession(range, visible, *convertedIdentifier, [completion = makeBlockPtr(completion), weakSelf = WeakObjCPtr<WKWebView>(self)] {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf) {
+            completion();
+            return;
+        }
+
+        // Ensure the rendering of the visibility has actually taken effect.
+        [strongSelf _doAfterNextPresentationUpdate:completion.get()];
+    });
+}
+
+#if PLATFORM(IOS_FAMILY)
+- (void)intelligenceTextEffectCoordinator:(WKIntelligenceTextEffectCoordinator *)coordinator textPreviewsForRange:(NSRange)range completion:(void (^)(UITargetedPreview *))completion
+{
+    _page->textPreviewDataForActiveWritingToolsSession(range, [completion = makeBlockPtr(completion), weakSelf = WeakObjCPtr<WKWebView>(self)](auto&& textIndicatorData) {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf) {
+            completion(nil);
+            return;
+        }
+
+        if (!textIndicatorData) {
+            completion(nil);
+            return;
+        }
+
+        RetainPtr preview = [strongSelf->_contentView _createTargetedPreviewFromTextIndicator:*textIndicatorData previewContainer:strongSelf.get()];
+        completion(preview.get());
+    });
+}
+#else
+- (void)intelligenceTextEffectCoordinator:(WKIntelligenceTextEffectCoordinator *)coordinator textPreviewsForRange:(NSRange)range completion:(void (^)(NSArray<_WKTextPreview *> *))completion
+{
+    // FIXME: This logic is currently duplicated in a bunch of places; it should be unified.
+    _page->textPreviewDataForActiveWritingToolsSession(range, [completion = makeBlockPtr(completion)](auto&& textIndicatorData) {
+        if (!textIndicatorData) {
+            completion(@[ ]);
+            return;
+        }
+
+        RefPtr contentImage = textIndicatorData->contentImage;
+        if (!contentImage) {
+            ASSERT_NOT_REACHED();
+            completion(@[ ]);
+            return;
+        }
+
+        RefPtr nativeImage = contentImage->nativeImage();
+        if (!nativeImage) {
+            ASSERT_NOT_REACHED();
+            completion(@[ ]);
+            return;
+        }
+
+        RetainPtr platformImage = nativeImage->platformImage();
+
+        auto textBoundingRectInRootViewCoordinates = textIndicatorData->textBoundingRectInRootViewCoordinates;
+        auto textRectsInBoundingRectCoordinates = textIndicatorData->textRectsInBoundingRectCoordinates;
+        auto contentImageScaleFactor = textIndicatorData->contentImageScaleFactor;
+
+        RetainPtr previews = createNSArray(textRectsInBoundingRectCoordinates, [platformImage, textBoundingRectInRootViewCoordinates, contentImageScaleFactor](auto& textRectInBoundingRectCoordinates) -> _WKTextPreview * {
+
+            auto croppedTextRectInImageCoordinates = textRectInBoundingRectCoordinates;
+            croppedTextRectInImageCoordinates.scale(contentImageScaleFactor);
+
+            RetainPtr textImage = adoptCF(CGImageCreateWithImageInRect(platformImage.get(), croppedTextRectInImageCoordinates));
+
+            auto presentationFrame = CGRectOffset(textRectInBoundingRectCoordinates, textBoundingRectInRootViewCoordinates.x(), textBoundingRectInRootViewCoordinates.y());
+
+            RetainPtr textPreview = adoptNS([[_WKTextPreview alloc] initWithSnapshotImage:textImage.get() presentationFrame:presentationFrame]);
+            return textPreview.autorelease();
+        });
+
+        completion(previews.get());
+    });
+}
+#endif
+
+- (void)intelligenceTextEffectCoordinator:(WKIntelligenceTextEffectCoordinator *)coordinator decorateReplacementsForRange:(NSRange)range completion:(void (^)(void))completion
+{
+    _page->decorateTextReplacementsForActiveWritingToolsSession(range, [completion = makeBlockPtr(completion)] {
+        completion();
+    });
+}
+
+- (void)intelligenceTextEffectCoordinator:(WKIntelligenceTextEffectCoordinator *)coordinator setSelectionForRange:(NSRange)range completion:(void (^)(void))completion
+{
+    _page->setSelectionForActiveWritingToolsSession(range, [completion = makeBlockPtr(completion)] {
+        completion();
+    });
+}
+
+#endif
 
 #pragma mark - WTTextViewDelegate invoking methods
 
@@ -2648,14 +2869,14 @@ static std::optional<ItemIdentifiers> coreTextManipulationItemIdentifierFromStri
     if (!processID || !*processID || !frameID || !*frameID || !itemID || !*itemID)
         return std::nullopt;
 
-    return ItemIdentifiers { WebCore::ProcessQualified(ObjectIdentifier<WebCore::FrameIdentifierType>(*frameID),
-        ObjectIdentifier<WebCore::ProcessIdentifierType>(*processID)),
-        ObjectIdentifier<WebCore::TextManipulationItemIdentifierType>(*itemID) };
+    return ItemIdentifiers { WebCore::ProcessQualified(LegacyNullableObjectIdentifier<WebCore::FrameIdentifierType>(*frameID),
+        LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(*processID)),
+        LegacyNullableObjectIdentifier<WebCore::TextManipulationItemIdentifierType>(*itemID) };
 }
 
 static WebCore::TextManipulationTokenIdentifier coreTextManipulationTokenIdentifierFromString(NSString *identifier)
 {
-    return ObjectIdentifier<WebCore::TextManipulationTokenIdentifierType>(identifier.longLongValue);
+    return LegacyNullableObjectIdentifier<WebCore::TextManipulationTokenIdentifierType>(identifier.longLongValue);
 }
 
 - (void)_completeTextManipulation:(_WKTextManipulationItem *)item completion:(void(^)(BOOL success))completionHandler
@@ -3126,7 +3347,7 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 - (WKNavigation *)_loadData:(NSData *)data MIMEType:(NSString *)MIMEType characterEncodingName:(NSString *)characterEncodingName baseURL:(NSURL *)baseURL userData:(id)userData
 {
     THROW_IF_SUSPENDED;
-    return wrapper(_page->loadData(span(data), MIMEType, characterEncodingName, baseURL.absoluteString, [userData isKindOfClass:NSData.class] ? API::Data::createWithoutCopying((NSData *)userData).ptr() : nullptr)).autorelease();
+    return wrapper(_page->loadData(WebCore::SharedBuffer::create(data), MIMEType, characterEncodingName, baseURL.absoluteString, [userData isKindOfClass:NSData.class] ? API::Data::createWithoutCopying((NSData *)userData).ptr() : nullptr)).autorelease();
 }
 
 - (WKNavigation *)_loadRequest:(NSURLRequest *)request shouldOpenExternalURLs:(BOOL)shouldOpenExternalURLs
@@ -3546,10 +3767,24 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 #endif
 }
 
-- (void)_showSafeBrowsingWarningWithTitle:(NSString *)title warning:(NSString *)warning details:(NSAttributedString *)details completionHandler:(void(^)(BOOL))completionHandler
+- (void)_showWarningViewWithTitle:(NSString *)title warning:(NSString *)warning details:(NSAttributedString *)details completionHandler:(void(^)(BOOL))completionHandler
 {
     THROW_IF_SUSPENDED;
-    [self _showSafeBrowsingWarningWithURL:nil title:title warning:warning detailsWithLinks:details completionHandler:^(BOOL continueUnsafeLoad, NSURL *url) {
+    [self _showWarningViewWithURL:nil title:title warning:warning detailsWithLinks:details completionHandler:^(BOOL continueUnsafeLoad, NSURL *url) {
+        ASSERT(!url);
+        completionHandler(continueUnsafeLoad);
+    }];
+}
+
+- (void)_showSafeBrowsingWarningWithTitle:(NSString *)title warning:(NSString *)warning details:(NSAttributedString *)details completionHandler:(void(^)(BOOL))completionHandler
+{
+    [self _showWarningViewWithTitle:title warning:warning details:details completionHandler:completionHandler];
+}
+
+- (void)_showWarningViewWithURL:(NSURL *)url title:(NSString *)title warning:(NSString *)warning details:(NSAttributedString *)details completionHandler:(void(^)(BOOL))completionHandler
+{
+    THROW_IF_SUSPENDED;
+    [self _showWarningViewWithURL:nil title:title warning:warning detailsWithLinks:details completionHandler:^(BOOL continueUnsafeLoad, NSURL *url) {
         ASSERT(!url);
         completionHandler(continueUnsafeLoad);
     }];
@@ -3557,17 +3792,13 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 
 - (void)_showSafeBrowsingWarningWithURL:(NSURL *)url title:(NSString *)title warning:(NSString *)warning details:(NSAttributedString *)details completionHandler:(void(^)(BOOL))completionHandler
 {
-    THROW_IF_SUSPENDED;
-    [self _showSafeBrowsingWarningWithURL:nil title:title warning:warning detailsWithLinks:details completionHandler:^(BOOL continueUnsafeLoad, NSURL *url) {
-        ASSERT(!url);
-        completionHandler(continueUnsafeLoad);
-    }];
+    [self _showWarningViewWithURL:url title:title warning:warning details:details completionHandler:completionHandler];
 }
 
-- (void)_showSafeBrowsingWarningWithURL:(NSURL *)url title:(NSString *)title warning:(NSString *)warning detailsWithLinks:(NSAttributedString *)details completionHandler:(void(^)(BOOL, NSURL *))completionHandler
+- (void)_showWarningViewWithURL:(NSURL *)url title:(NSString *)title warning:(NSString *)warning detailsWithLinks:(NSAttributedString *)details completionHandler:(void(^)(BOOL, NSURL *))completionHandler
 {
     THROW_IF_SUSPENDED;
-    auto safeBrowsingWarning = WebKit::SafeBrowsingWarning::create(url, title, warning, details);
+    auto safeBrowsingWarning = WebKit::BrowsingWarning::create(url, title, warning, details, WebKit::BrowsingWarning::SafeBrowsingWarningData { });
     auto wrapper = [completionHandler = makeBlockPtr(completionHandler)] (std::variant<WebKit::ContinueUnsafeLoad, URL>&& variant) {
         switchOn(variant, [&] (WebKit::ContinueUnsafeLoad continueUnsafeLoad) {
             switch (continueUnsafeLoad) {
@@ -3581,20 +3812,25 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
         });
     };
 #if PLATFORM(MAC)
-    _impl->showSafeBrowsingWarning(safeBrowsingWarning, WTFMove(wrapper));
+    _impl->showWarningView(safeBrowsingWarning, WTFMove(wrapper));
 #else
-    [self _showSafeBrowsingWarning:safeBrowsingWarning completionHandler:WTFMove(wrapper)];
+    [self _showWarningView:safeBrowsingWarning completionHandler:WTFMove(wrapper)];
 #endif
+}
+
+- (void)_showSafeBrowsingWarningWithURL:(NSURL *)url title:(NSString *)title warning:(NSString *)warning detailsWithLinks:(NSAttributedString *)details completionHandler:(void(^)(BOOL, NSURL *))completionHandler
+{
+    [self _showWarningViewWithURL:url title:title warning:warning detailsWithLinks:details completionHandler:completionHandler];
 }
 
 + (NSURL *)_confirmMalwareSentinel
 {
-    return WebKit::SafeBrowsingWarning::confirmMalwareSentinel();
+    return WebKit::BrowsingWarning::confirmMalwareSentinel();
 }
 
 + (NSURL *)_visitUnsafeWebsiteSentinel
 {
-    return WebKit::SafeBrowsingWarning::visitUnsafeWebsiteSentinel();
+    return WebKit::BrowsingWarning::visitUnsafeWebsiteSentinel();
 }
 
 - (void)_isJITEnabled:(void(^)(BOOL))completionHandler
@@ -3822,7 +4058,7 @@ static inline OptionSet<WebCore::LayoutMilestone> layoutMilestones(_WKRenderingP
 - (void)_getContentsAsStringWithCompletionHandlerKeepIPCConnectionAliveForTesting:(void (^)(NSString *, NSError *))completionHandler
 {
     THROW_IF_SUSPENDED;
-    _page->getContentsAsString(WebKit::ContentAsStringIncludesChildFrames::No, [handler = makeBlockPtr(completionHandler), connection = RefPtr { _page->legacyMainFrameProcess().connection() }](String string) {
+    _page->getContentsAsString(WebKit::ContentAsStringIncludesChildFrames::No, [handler = makeBlockPtr(completionHandler), connection = _page->legacyMainFrameProcess().protectedConnection()](String string) {
         handler(string, nil);
     });
 }
@@ -3864,7 +4100,7 @@ static inline OptionSet<WebCore::LayoutMilestone> layoutMilestones(_WKRenderingP
 {
     THROW_IF_SUSPENDED;
     _page->getTextFragmentMatch([completionHandler = makeBlockPtr(completionHandler)](const String& textFragmentMatch) {
-        completionHandler(textFragmentMatch);
+        completionHandler(nsStringNilIfNull(textFragmentMatch));
     });
 }
 
@@ -4158,7 +4394,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
     _inputDelegate = inputDelegate;
 
     class FormClient : public API::FormClient {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED_INLINE(FormClient);
     public:
         explicit FormClient(WKWebView *webView)
             : m_webView(webView)
@@ -4658,6 +4894,94 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
         completionHandler(static_cast<BOOL>(success));
     });
 }
+
+- (void)_simulateClickOverFirstMatchingTextInViewportWithUserInteraction:(NSString *)targetText completionHandler:(void(^)(BOOL))completionHandler
+{
+    if (!targetText.length)
+        [NSException raise:NSInvalidArgumentException format:@"The target text must be non-empty."];
+
+    if (!self._isValid)
+        return completionHandler(NO);
+
+    _page->simulateClickOverFirstMatchingTextInViewportWithUserInteraction(targetText, [completionHandler = makeBlockPtr(completionHandler)](bool success) {
+        completionHandler(static_cast<BOOL>(success));
+    });
+}
+
+- (BOOL)_dontResetTransientActivationAfterRunJavaScript
+{
+    return _dontResetTransientActivationAfterRunJavaScript;
+}
+
+- (void)_setDontResetTransientActivationAfterRunJavaScript:(BOOL)value
+{
+    _dontResetTransientActivationAfterRunJavaScript = value;
+}
+
+#if USE(UICONTEXTMENU)
+- (void)_targetedPreviewForElementWithID:(NSString *)elementID completionHandler:(void (^)(UITargetedPreview *))completionHandler
+{
+    _page->createTextIndicatorForElementWithID(elementID, [completionHandler = makeBlockPtr(completionHandler), weakSelf = WeakObjCPtr<WKWebView>(self)](auto&& textIndicatorData) {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf) {
+            completionHandler(nil);
+            return;
+        }
+
+        if (!textIndicatorData) {
+            completionHandler(nil);
+            return;
+        }
+
+        RetainPtr preview = [strongSelf->_contentView _createTargetedPreviewFromTextIndicator:*textIndicatorData previewContainer:[strongSelf scrollView]];
+        completionHandler(preview.get());
+    });
+}
+#elif PLATFORM(MAC)
+- (void)_textPreviewsForElementWithID:(NSString *)elementID completionHandler:(void (^)(NSArray<_WKTextPreview *> *))completionHandler
+{
+    _page->createTextIndicatorForElementWithID(elementID, [completionHandler = makeBlockPtr(completionHandler)](auto&& textIndicatorData) {
+        if (!textIndicatorData) {
+            completionHandler(@[ ]);
+            return;
+        }
+
+        RefPtr contentImage = textIndicatorData->contentImage;
+        if (!contentImage) {
+            ASSERT_NOT_REACHED();
+            completionHandler(@[ ]);
+            return;
+        }
+
+        RefPtr nativeImage = contentImage->nativeImage();
+        if (!nativeImage) {
+            ASSERT_NOT_REACHED();
+            completionHandler(@[ ]);
+            return;
+        }
+
+        RetainPtr platformImage = nativeImage->platformImage();
+
+        auto textBoundingRectInRootViewCoordinates = textIndicatorData->textBoundingRectInRootViewCoordinates;
+        auto textRectsInBoundingRectCoordinates = textIndicatorData->textRectsInBoundingRectCoordinates;
+        auto contentImageScaleFactor = textIndicatorData->contentImageScaleFactor;
+
+        RetainPtr previews = createNSArray(textRectsInBoundingRectCoordinates, [platformImage, textBoundingRectInRootViewCoordinates, contentImageScaleFactor](auto textRectInBoundingRectCoordinates) -> _WKTextPreview * {
+            auto croppedTextRectInImageCoordinates = textRectInBoundingRectCoordinates;
+            croppedTextRectInImageCoordinates.scale(contentImageScaleFactor);
+
+            RetainPtr textImage = adoptCF(CGImageCreateWithImageInRect(platformImage.get(), croppedTextRectInImageCoordinates));
+
+            auto presentationFrame = CGRectOffset(textRectInBoundingRectCoordinates, textBoundingRectInRootViewCoordinates.x(), textBoundingRectInRootViewCoordinates.y());
+
+            RetainPtr textPreview = adoptNS([[_WKTextPreview alloc] initWithSnapshotImage:textImage.get() presentationFrame:presentationFrame]);
+            return textPreview.autorelease();
+        });
+
+        completionHandler(previews.get());
+    });
+}
+#endif
 
 - (NSUUID *)_enableSourceTextAnimationAfterElementWithID:(NSString *)elementID
 {

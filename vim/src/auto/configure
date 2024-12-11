@@ -650,6 +650,7 @@ ac_subst_vars='LTLIBOBJS
 LIBOBJS
 LINK_AS_NEEDED
 DEPEND_CFLAGS_FILTER
+MSGFMTCMD
 MSGFMT_DESKTOP
 MAKEMO
 MSGFMT
@@ -1574,7 +1575,7 @@ Optional Packages:
   --with-python-command=NAME  name of the Python 2 command (default: python2 or python)
   --with-python-config-dir=PATH  Python's config directory (deprecated)
   --with-python3-command=NAME  name of the Python 3 command (default: python3 or python)
-  --with-python3-stable-abi=VERSION  stable ABI version to target (e.g. 3.8)
+  --with-python3-stable-abi=VERSION  stable ABI version to target (default: 3.8)
   --with-python3-config-dir=PATH  Python's config directory (deprecated)
   --with-tclsh=PATH       which tclsh to use (default: tclsh8.0)
   --with-ruby-command=RUBY  name of the Ruby command (default: ruby)
@@ -6494,17 +6495,20 @@ printf "%s\n" "$vi_cv_perl_xsubpp" >&6; }
       fi
 
 
-                              perlcppflags=`$vi_cv_path_perl -Mlib=$srcdir -MExtUtils::Embed \
+                                    perlcppflags=`$vi_cv_path_perl -Mlib=$srcdir -MExtUtils::Embed \
 		-e 'ccflags;perl_inc;print"\n"' | sed -e 's/-fno[^ ]*//' \
 		-e 's/-fdebug-prefix-map[^ ]*//g' \
 		-e 's/-pipe //' \
+		-e 's/-flto\(=auto\)\? //' \
 		-e 's/-W[^ ]*//g' \
 		-e 's/-D_FORTIFY_SOURCE=.//g'`
-            perllibs=`cd $srcdir; $vi_cv_path_perl -MExtUtils::Embed -e 'ldopts' | \
+                  perllibs=`cd $srcdir; $vi_cv_path_perl -MExtUtils::Embed -e 'ldopts' | \
 		sed -e '/Warning/d' -e '/Note (probably harmless)/d' \
+			-e 's/-specs=[^ ]*//g' \
 			-e 's/-bE:perl.exp//' -e 's/-lc //'`
-                  perlldflags=`cd $srcdir; $vi_cv_path_perl -MExtUtils::Embed \
-		-e 'ccdlflags' | sed -e 's/-bE:perl.exp//'`
+                        perlldflags=`cd $srcdir; $vi_cv_path_perl -MExtUtils::Embed \
+		-e 'ccdlflags' | sed -e 's/-bE:perl.exp//' \
+		-e 's/-specs=[^ ]*//g' `
 
                   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if compile and link flags for Perl are sane" >&5
 printf %s "checking if compile and link flags for Perl are sane... " >&6; }
@@ -7079,14 +7083,21 @@ printf %s "checking Python is 3.0 or better... " >&6; }
       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yep" >&5
 printf "%s\n" "yep" >&6; }
 
-            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking --with-python3-stable-abi argument" >&5
+            python3_stable_abi_default=3.8
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking --with-python3-stable-abi argument" >&5
 printf %s "checking --with-python3-stable-abi argument... " >&6; }
 
 
 # Check whether --with-python3-stable-abi was given.
 if test ${with_python3_stable_abi+y}
 then :
-  withval=$with_python3_stable_abi; vi_cv_var_python3_stable_abi="$withval"; { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $vi_cv_var_python3_stable_abi" >&5
+  withval=$with_python3_stable_abi;
+     if test "X$withval" = "Xyes"; then
+       vi_cv_var_python3_stable_abi=$python3_stable_abi_default
+     else
+       vi_cv_var_python3_stable_abi="$withval"
+     fi
+     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $vi_cv_var_python3_stable_abi" >&5
 printf "%s\n" "$vi_cv_var_python3_stable_abi" >&6; }
 else $as_nop
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
@@ -10136,8 +10147,11 @@ system ("touch conf.gtktest");
 tmp_version = g_strdup("$min_gtk_version");
 if (sscanf(tmp_version, "%d.%d.%d", &major, &minor, &micro) != 3) {
    printf("%s, bad version string\n", "$min_gtk_version");
+   g_free(tmp_version);
    exit(1);
  }
+
+g_free(tmp_version);
 
 if ((gtk_major_version > major) ||
     ((gtk_major_version == major) && (gtk_minor_version > minor)) ||
@@ -10399,8 +10413,11 @@ system ("touch conf.gtktest");
 tmp_version = g_strdup("$min_gtk_version");
 if (sscanf(tmp_version, "%d.%d.%d", &major, &minor, &micro) != 3) {
    printf("%s, bad version string\n", "$min_gtk_version");
+   g_free(tmp_version);
    exit(1);
  }
+
+g_free(tmp_version);
 
 if ((gtk_major_version > major) ||
     ((gtk_major_version == major) && (gtk_minor_version > minor)) ||
@@ -11396,55 +11413,6 @@ else $as_nop
 printf "%s\n" "no" >&6; }
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-
-ac_fn_c_check_header_compile "$LINENO" "elf.h" "ac_cv_header_elf_h" "$ac_includes_default"
-if test "x$ac_cv_header_elf_h" = xyes
-then :
-  HAS_ELF=1
-fi
-
-if test "$HAS_ELF" = 1; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for main in -lelf" >&5
-printf %s "checking for main in -lelf... " >&6; }
-if test ${ac_cv_lib_elf_main+y}
-then :
-  printf %s "(cached) " >&6
-else $as_nop
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lelf  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-
-int
-main (void)
-{
-return main ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"
-then :
-  ac_cv_lib_elf_main=yes
-else $as_nop
-  ac_cv_lib_elf_main=no
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_elf_main" >&5
-printf "%s\n" "$ac_cv_lib_elf_main" >&6; }
-if test "x$ac_cv_lib_elf_main" = xyes
-then :
-  printf "%s\n" "#define HAVE_LIBELF 1" >>confdefs.h
-
-  LIBS="-lelf $LIBS"
-
-fi
-
-fi
 
 ac_header_dirent=no
 for ac_hdr in dirent.h sys/ndir.h sys/dir.h ndir.h; do
@@ -15915,6 +15883,30 @@ then :
 
 fi
 
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for dgettext" >&5
+printf %s "checking for dgettext... " >&6; }
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <libintl.h>
+int
+main (void)
+{
+dgettext("Test", "Test");
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }; printf "%s\n" "#define HAVE_DGETTEXT 1" >>confdefs.h
+
+else $as_nop
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
             { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for _nl_msg_cat_cntr" >&5
 printf %s "checking for _nl_msg_cat_cntr... " >&6; }
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
@@ -15955,6 +15947,18 @@ printf "%s\n" "yes" >&6; }
       else
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
+      fi
+
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if $MSGFMT supports --no-convert" >&5
+printf %s "checking if $MSGFMT supports --no-convert... " >&6; }
+      if "$MSGFMT" --help | grep -q --  '--no-convert' >/dev/null; then
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        MSGFMTCMD="OLD_PO_FILE_INPUT=yes $MSGFMT --no-convert -v"
+      else
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        MSGFMTCMD="OLD_PO_FILE_INPUT=yes $MSGFMT -v"
       fi
 
     fi

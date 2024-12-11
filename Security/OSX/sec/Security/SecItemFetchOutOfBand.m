@@ -106,6 +106,13 @@
     return YES;
 }
 
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CKKSCurrentItemQuery(%@-%@): %@>",
+            self.zoneID,
+            self.accessGroup,
+            self.identifier];
+}
+
 - (void)encodeWithCoder:(nonnull NSCoder *)coder {
     [coder encodeObject:self.identifier forKey:@"identifier"];
     [coder encodeObject:self.accessGroup forKey:@"accessGroup"];
@@ -141,6 +148,13 @@
 
 + (BOOL)supportsSecureCoding {
     return YES;
+}
+
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CKKSCurrentItemQueryResult(%@-%@): %@>",
+            self.zoneID,
+            self.accessGroup,
+            self.identifier];
 }
 
 - (void)encodeWithCoder:(nonnull NSCoder *)coder {
@@ -185,6 +199,12 @@
     return YES;
 }
 
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CKKSPCSIdentityQuery(%@): %@>",
+            self.zoneID,
+            self.serviceNumber];
+}
+
 - (void)encodeWithCoder:(nonnull NSCoder *)coder {
     [coder encodeObject:self.serviceNumber forKey:@"serviceNumber"];
     [coder encodeObject:self.accessGroup forKey:@"accessGroup"];
@@ -222,6 +242,12 @@
 
 + (BOOL)supportsSecureCoding {
     return YES;
+}
+
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<CKKSPCSIdentityQueryResult(%@): %@>",
+            self.zoneID,
+            self.serviceNumber];
 }
 
 - (void)encodeWithCoder:(nonnull NSCoder *)coder {

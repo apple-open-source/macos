@@ -42,6 +42,7 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/Scope.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/WorkQueue.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/MakeString.h>
@@ -52,8 +53,10 @@
 
 namespace WebCore {
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebCoreAVFResourceLoader);
+
 class CachedResourceMediaLoader final : CachedRawResourceClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(CachedResourceMediaLoader);
 public:
     static std::unique_ptr<CachedResourceMediaLoader> create(WebCoreAVFResourceLoader&, CachedResourceLoader&, ResourceRequest&&);
     ~CachedResourceMediaLoader() { stop(); }
@@ -142,7 +145,7 @@ void CachedResourceMediaLoader::dataReceived(CachedResource& resource, const Sha
 }
 
 class PlatformResourceMediaLoader final : public PlatformMediaResourceClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(PlatformResourceMediaLoader);
 public:
     static RefPtr<PlatformResourceMediaLoader> create(WebCoreAVFResourceLoader&, PlatformMediaResourceLoader&, ResourceRequest&&);
     ~PlatformResourceMediaLoader() = default;
@@ -231,7 +234,7 @@ void PlatformResourceMediaLoader::dataReceived(PlatformMediaResource&, const Sha
 }
 
 class DataURLResourceMediaLoader {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(DataURLResourceMediaLoader);
 public:
     DataURLResourceMediaLoader(WebCoreAVFResourceLoader&, ResourceRequest&&);
 
@@ -319,17 +322,19 @@ void WebCoreAVFResourceLoader::startLoading()
         return;
     }
 
+#if PLATFORM(IOS_FAMILY)
+    m_isBlob = request.url().protocolIsBlob();
+#endif
+
     if (auto* loader = parent->player()->cachedResourceLoader()) {
         m_resourceMediaLoader = CachedResourceMediaLoader::create(*this, *loader, ResourceRequest(request));
         if (m_resourceMediaLoader)
             return;
     }
 
-    if (auto loader = parent->player()->createResourceLoader()) {
-        m_platformMediaLoader = PlatformResourceMediaLoader::create(*this, *loader, WTFMove(request));
-        if (m_platformMediaLoader)
-            return;
-    }
+    m_platformMediaLoader = PlatformResourceMediaLoader::create(*this, parent->player()->createResourceLoader(), WTFMove(request));
+    if (m_platformMediaLoader)
+        return;
 
     LOG_ERROR("Failed to start load for media at url %s", [[[nsRequest URL] absoluteString] UTF8String]);
     [m_avRequest finishLoadingWithError:0];
@@ -378,7 +383,8 @@ bool WebCoreAVFResourceLoader::responseReceived(const String& mimeType, int stat
         // When the property is YES, AVAssetResourceLoader will request small data ranges over and over again
         // during the playback. For DataURLResourceMediaLoader, that means it needs to decode the URL repeatedly,
         // which is very inefficient for long URLs.
-        if (!m_dataURLMediaLoader && [contentInfo respondsToSelector:@selector(setEntireLengthAvailableOnDemand:)])
+        // FIXME: don't have blob exception once rdar://132719739 is fixed.
+        if (!m_dataURLMediaLoader && !m_isBlob && [contentInfo respondsToSelector:@selector(setEntireLengthAvailableOnDemand:)])
             [contentInfo setEntireLengthAvailableOnDemand:YES];
 
         if (![m_avRequest dataRequest]) {

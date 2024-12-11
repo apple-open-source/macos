@@ -115,6 +115,9 @@ extern void	arp_stats(uint32_t, char *, int);
 extern void	ipsec_stats(uint32_t, char *, int);
 #endif
 
+extern void tcp_ifstats(char *);
+extern void udp_ifstats(char *);
+
 #ifdef INET6
 extern void	ip6_stats(uint32_t, char *, int);
 extern void	ip6_ifstats(char *);
@@ -173,3 +176,10 @@ extern void	print_if_ports_used_stats(uint32_t, char *, int);
 
 extern void bpf_stats(char *);
 extern void bpf_help(void);
+
+extern void print_socket_stats_format(void);
+
+struct xsocket_n;
+struct xsockbuf_n;
+struct xsockstat_n;
+extern void print_socket_stats_data(struct xsocket_n *, struct xsockbuf_n *, struct xsockbuf_n *, struct xsockstat_n *);

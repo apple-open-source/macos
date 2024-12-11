@@ -410,6 +410,7 @@ uint32_t _IOHIDObjectRetainCount (intptr_t op, CFTypeRef cf,  boolean_t isIntern
         case 1:
             retainCount = atomic_fetch_add((_Atomic uint32_t volatile  *)cnt, 1);
             os_assert(retainCount < UINT_MAX);
+            os_assert(retainCount > 0, "retainCount:%d on attempt to retain object", retainCount);
             retainCount = 0;
             break;
         case 0:

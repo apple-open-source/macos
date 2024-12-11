@@ -31,15 +31,13 @@ namespace WebCore {
 class VisibilityChangeClient;
 }
 
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::VisibilityChangeClient> : std::true_type { };
-}
-
 namespace WebCore {
 
 class VisibilityChangeClient : public CanMakeWeakPtr<VisibilityChangeClient> {
 public:
+    virtual void ref() const = 0;
+    virtual void deref() const = 0;
+
     virtual ~VisibilityChangeClient() = default;
 
     virtual void visibilityStateChanged() = 0;

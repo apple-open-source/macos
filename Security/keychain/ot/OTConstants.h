@@ -95,6 +95,7 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorInvalidPeerIDforPermanentInfo                   = 74,
     OctagonErrorInvalidPeerTypeForMaxCapability                 = 75,
     OctagonErrorCKKSLackingTrust                                = 76,
+    OctagonErrorAuthKitNoAccountManager                         = 77,
 };
 
 /* used for defaults writes */
@@ -149,6 +150,7 @@ typedef NS_ERROR_ENUM(TrustedPeersHelperRecoveryKeySetErrorDomain, TrustedPeersH
     TrustedPeersHelperRecoveryKeySetErrorCoreCryptoKeyGeneration = 5,
     TrustedPeersHelperRecoveryKeySetErrorFailedToGenerateRandomKey = 6
 };
+
 
 #endif // __OBJC__
 

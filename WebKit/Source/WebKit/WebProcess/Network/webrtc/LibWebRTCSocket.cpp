@@ -38,8 +38,11 @@
 #include <WebCore/SharedBuffer.h>
 #include <wtf/Function.h>
 #include <wtf/MainThread.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCSocket);
 
 LibWebRTCSocket::LibWebRTCSocket(LibWebRTCSocketFactory& factory, WebCore::ScriptExecutionContextIdentifier contextIdentifier, Type type, const rtc::SocketAddress& localAddress, const rtc::SocketAddress& remoteAddress)
     : m_factory(factory)
@@ -74,7 +77,7 @@ void LibWebRTCSocket::signalAddressReady(const rtc::SocketAddress& address)
     SignalAddressReady(this, m_localAddress);
 }
 
-void LibWebRTCSocket::signalReadPacket(std::span<const uint8_t> data, rtc::SocketAddress&& address, int64_t timestamp)
+void LibWebRTCSocket::signalReadPacket(std::span<const uint8_t> data, rtc::SocketAddress&& address, int64_t timestamp, rtc::EcnMarking ecn)
 {
     if (m_isSuspended)
         return;
@@ -83,7 +86,7 @@ void LibWebRTCSocket::signalReadPacket(std::span<const uint8_t> data, rtc::Socke
     absl::optional<webrtc::Timestamp> packetTimestamp;
     if (timestamp)
         packetTimestamp = webrtc::Timestamp::Micros(timestamp);
-    NotifyPacketReceived({ { data.data(), data.size() }, m_remoteAddress, packetTimestamp });
+    NotifyPacketReceived({ { data.data(), data.size() }, m_remoteAddress, packetTimestamp, ecn });
 }
 
 void LibWebRTCSocket::signalSentPacket(int64_t rtcPacketID, int64_t sendTimeMs)

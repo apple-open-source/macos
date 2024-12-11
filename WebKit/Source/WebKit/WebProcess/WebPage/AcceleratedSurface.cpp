@@ -28,6 +28,7 @@
 
 #include "WebPage.h"
 #include <WebCore/PlatformDisplay.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if USE(WPE_RENDERER)
 #include "AcceleratedSurfaceLibWPE.h"
@@ -46,14 +47,16 @@
 namespace WebKit {
 using namespace WebCore;
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(AcceleratedSurface);
+
 std::unique_ptr<AcceleratedSurface> AcceleratedSurface::create(WebPage& webPage, Client& client)
 {
 #if (PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM)))
 #if USE(GBM)
-    if (PlatformDisplay::sharedDisplayForCompositing().type() == PlatformDisplay::Type::GBM)
+    if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::GBM)
         return AcceleratedSurfaceDMABuf::create(webPage, client);
 #endif
-    if (PlatformDisplay::sharedDisplayForCompositing().type() == PlatformDisplay::Type::Surfaceless)
+    if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Surfaceless)
         return AcceleratedSurfaceDMABuf::create(webPage, client);
 #endif
 #if USE(WPE_RENDERER)

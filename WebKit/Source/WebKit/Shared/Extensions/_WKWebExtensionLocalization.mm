@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,8 +32,8 @@
 
 #import "CocoaHelpers.h"
 #import "Logging.h"
+#import "WKWebExtensionInternal.h"
 #import "WebExtension.h"
-#import <WebKit/_WKWebExtensionInternal.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <UIKit/UIKit.h>
@@ -240,7 +240,11 @@ using namespace WebKit;
 - (LocalizationDictionary *)_localizationDictionaryForWebExtension:(WebExtension&)webExtension withLocale:(NSString *)localeString
 {
     auto *path = [NSString stringWithFormat:pathToJSONFile, localeString];
-    auto *data = [NSData dataWithData:webExtension.resourceDataForPath(path, WebExtension::CacheResult::No, WebExtension::SuppressNotFoundErrors::Yes)];
+
+    NSError *error;
+    NSData *data = [NSData dataWithData:webExtension.resourceDataForPath(path, &error, WebExtension::CacheResult::No, WebExtension::SuppressNotFoundErrors::Yes)];
+    webExtension.recordErrorIfNeeded(error);
+
     return parseJSON(data);
 }
 

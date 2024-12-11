@@ -130,6 +130,7 @@
 #include <JavaScriptCore/JSCInlines.h>
 #include <pal/crypto/CryptoDigest.h>
 #include <wtf/Function.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
@@ -138,6 +139,8 @@
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(InspectorDOMAgent);
 
 using namespace Inspector;
 
@@ -194,7 +197,7 @@ static bool parseQuad(Ref<JSON::Array>&& quadArray, FloatQuad* quad)
 }
 
 class RevalidateStyleAttributeTask {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(RevalidateStyleAttributeTask);
 public:
     RevalidateStyleAttributeTask(InspectorDOMAgent*);
     void scheduleFor(Element*);
@@ -2318,8 +2321,8 @@ Ref<Inspector::Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildO
                     focused = axObject->isFocused();
             }
 
-            ignored = axObject->accessibilityIsIgnored();
-            ignoredByDefault = axObject->accessibilityIsIgnoredByDefault();
+            ignored = axObject->isIgnored();
+            ignoredByDefault = axObject->isIgnoredByDefault();
             
             String invalidValue = axObject->invalidStatus();
             if (invalidValue == "false"_s)
@@ -3154,7 +3157,7 @@ Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::DOM::MediaStats>> In
         .release();
     stats->setViewport(WTFMove(viewportJSON));
 
-    if (auto* window = mediaElement->document().domWindow())
+    if (RefPtr window = mediaElement->document().domWindow())
         stats->setDevicePixelRatio(window->devicePixelRatio());
 
     if (videoTrack) {

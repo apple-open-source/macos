@@ -43,6 +43,10 @@
 #include <IOSurface/IOSurfaceRef.h>
 #endif
 
+#if PLATFORM(COCOA) && ENABLE(VIDEO)
+#include <WebCore/MediaPlayerIdentifier.h>
+#endif
+
 namespace WebCore::WebGPU {
 
 class BindGroup;
@@ -76,6 +80,7 @@ struct ShaderModuleDescriptor;
 class Surface;
 class Texture;
 struct TextureDescriptor;
+class XRBinding;
 
 class Device : public RefCounted<Device>, public CanMakeWeakPtr<Device> {
 public:
@@ -98,10 +103,14 @@ public:
 
     virtual void destroy() = 0;
 
+    virtual RefPtr<XRBinding> createXRBinding() = 0;
     virtual RefPtr<Buffer> createBuffer(const BufferDescriptor&) = 0;
     virtual RefPtr<Texture> createTexture(const TextureDescriptor&) = 0;
     virtual RefPtr<Sampler> createSampler(const SamplerDescriptor&) = 0;
     virtual RefPtr<ExternalTexture> importExternalTexture(const ExternalTextureDescriptor&) = 0;
+#if PLATFORM(COCOA) && ENABLE(VIDEO)
+    virtual void updateExternalTexture(const WebCore::WebGPU::ExternalTexture&, const WebCore::MediaPlayerIdentifier&) = 0;
+#endif
 
     virtual RefPtr<BindGroupLayout> createBindGroupLayout(const BindGroupLayoutDescriptor&) = 0;
     virtual RefPtr<PipelineLayout> createPipelineLayout(const PipelineLayoutDescriptor&) = 0;
@@ -122,12 +131,6 @@ public:
     virtual void popErrorScope(CompletionHandler<void(bool, std::optional<Error>&&)>&&) = 0;
     virtual void resolveUncapturedErrorEvent(CompletionHandler<void(bool, std::optional<Error>&&)>&&) = 0;
     virtual void resolveDeviceLostPromise(CompletionHandler<void(WebCore::WebGPU::DeviceLostReason)>&&) = 0;
-    class DeviceLostClient {
-        virtual ~DeviceLostClient() = default;
-        virtual void deviceLost() = 0;
-    };
-    void registerDeviceLostClient(DeviceLostClient& client) { m_deviceLostClients.add(&client); }
-    void unregisterDeviceLostClient(DeviceLostClient& client) { m_deviceLostClients.remove(&client); }
 
 protected:
     Device(Ref<SupportedFeatures>&& features, Ref<SupportedLimits>&& limits)
@@ -145,7 +148,6 @@ private:
     virtual void setLabelInternal(const String&) = 0;
 
     String m_label;
-    HashSet<DeviceLostClient*> m_deviceLostClients;
     Ref<SupportedFeatures> m_features;
     Ref<SupportedLimits> m_limits;
 };

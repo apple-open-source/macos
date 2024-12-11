@@ -8,7 +8,73 @@ func PrepIndent(arg)
   return [a:arg] + repeat(["\t".a:arg], 5)
 endfu
 
-func Test_address_fold()
+func Test_address_fold_new_default_commentstring()
+  " Test with the new commentstring defaults, that includes padding after v9.1.464
+  new
+  call setline(1, ['int FuncName() {/* {{{ */', 1, 2, 3, 4, 5, '}/* }}} */',
+	      \ 'after fold 1', 'after fold 2', 'after fold 3'])
+  setl fen fdm=marker
+  " The next commands should all copy the same part of the buffer,
+  " regardless of the addressing type, since the part to be copied
+  " is folded away
+  :1y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3', '4', '5', '}/* }}} */'], getreg(0,1,1))
+  :.y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3', '4', '5', '}/* }}} */'], getreg(0,1,1))
+  :.+y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3', '4', '5', '}/* }}} */'], getreg(0,1,1))
+  :.,.y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3', '4', '5', '}/* }}} */'], getreg(0,1,1))
+  :sil .1,.y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3', '4', '5', '}/* }}} */'], getreg(0,1,1))
+  " use silent to make E493 go away
+  :sil .+,.y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3', '4', '5', '}/* }}} */'], getreg(0,1,1))
+  :,y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3', '4', '5', '}/* }}} */'], getreg(0,1,1))
+  :,+y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3', '4', '5', '}/* }}} */','after fold 1'], getreg(0,1,1))
+  " using .+3 as second address should c opy  the whole folded line + the next  3
+  " lines
+  :.,+3y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3', '4', '5', '}/* }}} */',
+	      \ 'after fold 1', 'after fold 2' , 'after fold 3'], getreg(0,1,1))
+  :sil .,-2y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3', '4', '5', '}/* }}} */'], getreg(0,1,1))
+
+  " now test again with folding disabled
+  set nofoldenable
+  :1y
+  call assert_equal(['int FuncName() {/* {{{ */'], getreg(0,1,1))
+  :.y
+  call assert_equal(['int FuncName() {/* {{{ */'], getreg(0,1,1))
+  :.+y
+  call assert_equal(['1'], getreg(0,1,1) )
+  :.,.y
+  call assert_equal(['int FuncName() {/* {{{ */'], getreg(0,1,1))
+  " use silent to make E493 go away
+  :sil .1,.y
+  call assert_equal(['int FuncName() {/* {{{ */', '1'], getreg(0,1,1))
+  " use silent to make E493 go away
+  :sil .+,.y
+  call assert_equal(['int FuncName() {/* {{{ */', '1'], getreg(0,1,1))
+  :,y
+  call assert_equal(['int FuncName() {/* {{{ */'], getreg(0,1,1))
+  :,+y
+  call assert_equal(['int FuncName() {/* {{{ */', '1'], getreg(0,1,1))
+  " using .+3 as second address should c opy  the whole folded line + the next 3
+  " lines
+  :.,+3y
+  call assert_equal(['int FuncName() {/* {{{ */', '1', '2', '3'], getreg(0,1,1))
+  :7
+  :sil .,-2y
+  call assert_equal(['4', '5', '}/* }}} */'], getreg(0,1,1))
+
+  quit!
+endfunc
+
+func Test_address_fold_old_default_commentstring()
+  " Test with the old commentstring defaults, before v9.1.464
   new
   call setline(1, ['int FuncName() {/*{{{*/', 1, 2, 3, 4, 5, '}/*}}}*/',
 	      \ 'after fold 1', 'after fold 2', 'after fold 3'])
@@ -719,7 +785,7 @@ func Test_fold_create_marker_in_C()
     call append(0, content)
     call cursor(c + 1, 1)
     norm! zfG
-    call assert_equal(content[c] . (c < 4 ? '{{{' : '/*{{{*/'), getline(c + 1))
+    call assert_equal(content[c] . (c < 4 ? '{{{' : '/* {{{ */'), getline(c + 1))
   endfor
 
   set fdm& fdl&
@@ -1611,6 +1677,63 @@ func Test_foldtext_scriptlocal_func()
   delfunc s:FoldText
 endfunc
 
+" Test for setting 'foldtext' from the modeline and executing the expression
+" in a sandbox
+func Test_foldtext_in_modeline()
+  func ModelineFoldText()
+    call feedkeys('aFoo', 'xt')
+    return "folded text"
+  endfunc
+  let lines =<< trim END
+    func T()
+      let i = 1
+    endfunc
+    " vim: foldenable foldtext=ModelineFoldText()
+  END
+  call writefile(lines, 'Xmodelinefoldtext', 'D')
+
+  set modeline modelineexpr
+  split Xmodelinefoldtext
+
+  call cursor(1, 1)
+  normal! zf3j
+  call assert_equal('folded text', foldtextresult(1))
+  call assert_equal(lines, getbufline('', 1, '$'))
+
+  bw!
+  set modeline& modelineexpr&
+  delfunc ModelineFoldText
+endfunc
+
+" Test for setting 'foldexpr' from the modeline and executing the expression
+" in a sandbox
+func Test_foldexpr_in_modeline()
+  func ModelineFoldExpr()
+    call feedkeys('aFoo', 'xt')
+    return strlen(matchstr(getline(v:lnum),'^\s*'))
+  endfunc
+  let lines =<< trim END
+    aaa
+     bbb
+      ccc
+      ccc
+     bbb
+    aaa
+    " vim: foldenable foldmethod=expr foldexpr=ModelineFoldExpr()
+  END
+  call writefile(lines, 'Xmodelinefoldexpr', 'D')
+
+  set modeline modelineexpr
+  split Xmodelinefoldexpr
+
+  call assert_equal(2, foldlevel(3))
+  call assert_equal(lines, getbufline('', 1, '$'))
+
+  bw!
+  set modeline& modelineexpr&
+  delfunc ModelineFoldExpr
+endfunc
+
 " Make sure a fold containing a nested fold is split correctly when using
 " foldmethod=indent
 func Test_fold_split()
@@ -1785,6 +1908,54 @@ func Test_foldexpr_return_empty_string()
   setlocal foldexpr='' foldmethod=expr
   redraw
 
+  bwipe!
+endfunc
+
+" Make sure that when ending a fold that hasn't been started, it does not
+" start a new fold.
+func Test_foldexpr_end_fold()
+  new
+  setlocal foldmethod=expr
+  let &l:foldexpr = 'v:lnum == 2 ? "<2" : "="'
+  call setline(1, range(1, 3))
+  redraw
+  call assert_equal([0, 0, 0], range(1, 3)->map('foldlevel(v:val)'))
+
+  bwipe!
+endfunc
+
+" Test moving cursor down to or beyond start of folded end of buffer.
+func Test_cursor_down_fold_eob()
+  call setline(1, range(1, 4))
+  norm Gzf2kj
+  call assert_equal(2, line('.'))
+  norm zojzc
+  call assert_equal(3, line('.'))
+  norm j
+  call assert_equal(3, line('.'))
+  norm k2j
+  call assert_equal(4, line('.'))
+  bwipe!
+endfunc
+
+" issue: #15455
+func Test_cursor_fold_marker_undo()
+  new
+  call setline(1, ['{{{', '', 'This is a Line', '', 'This is a Line', '', '}}}'])
+  let &ul=&ul
+  setl foldmethod=marker
+  call cursor(2, 1)
+  norm! zo1vjdu
+  call assert_equal(1, foldlevel('.'))
+  bwipe!
+  new
+  call setline(1, ['', '{{{', '', 'This is a Line', '', 'This is a Line', '', '}}}'])
+  let &ul=&ul
+  setl foldmethod=marker
+  call cursor(3, 1)
+  norm! zo
+  norm! vjdu
+  call assert_equal(1, foldlevel('.'))
   bwipe!
 endfunc
 

@@ -391,7 +391,7 @@ public:
     void deferModalChange(Element&);
     void deferMenuListValueChange(Element*);
     void deferNodeAddedOrRemoved(Node*);
-    void handleScrolledToAnchor(const Node* anchorNode);
+    void handleScrolledToAnchor(const Node& anchorNode);
     void onScrollbarUpdate(ScrollView&);
     void onRemoteFrameInitialized(AXRemoteFrame&);
 
@@ -399,7 +399,7 @@ public:
     Node* modalNode();
 
     void deferAttributeChangeIfNeeded(Element&, const QualifiedName&, const AtomString&, const AtomString&);
-    void recomputeIsIgnored(RenderObject*);
+    void recomputeIsIgnored(RenderObject&);
     void recomputeIsIgnored(Node*);
 
     static void enableAccessibility();
@@ -542,6 +542,14 @@ public:
     Document& document() const { return const_cast<Document&>(m_document.get()); }
     Ref<Document> protectedDocument() const;
     constexpr const std::optional<PageIdentifier>& pageID() const { return m_pageID; }
+
+#if !ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE) && ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    void objectBecameIgnored(AXID axID)
+    {
+        if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID))
+            tree->objectBecameIgnored(axID);
+    }
+#endif // !ENABLE(INCLUDE_IGNORED_IN_CORE_AX_TREE)
 
 #if PLATFORM(MAC)
     static void setShouldRepostNotificationsForTests(bool);

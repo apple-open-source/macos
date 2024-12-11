@@ -42,9 +42,12 @@
 #import <WebCore/Page.h>
 #import <wtf/SetForScope.h>
 #import <wtf/SystemTracing.h>
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
 using namespace WebCore;
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteLayerTreeContext);
 
 RemoteLayerTreeContext::RemoteLayerTreeContext(WebPage& webPage)
     : m_webPage(webPage)
@@ -138,8 +141,7 @@ void RemoteLayerTreeContext::layerDidEnterContext(PlatformCALayerRemote& layer, 
 
 void RemoteLayerTreeContext::layerWillLeaveContext(PlatformCALayerRemote& layer)
 {
-    ASSERT(layer.layerID());
-    PlatformLayerIdentifier layerID = layer.layerID();
+    auto layerID = layer.layerID();
 
 #if HAVE(AVKIT)
     auto videoLayerIter = m_videoLayers.find(layerID);

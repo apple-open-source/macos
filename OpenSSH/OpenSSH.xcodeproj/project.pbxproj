@@ -35,6 +35,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				2EEDBC682CB4D929006BF25B /* PBXTargetDependency */,
 				735961ED17CE849200CFE215 /* PBXTargetDependency */,
 				1C76A7D10FF023FF00D35824 /* PBXTargetDependency */,
 				1C890CFE10FFE6E1002DAAE6 /* PBXTargetDependency */,
@@ -123,6 +124,17 @@
 			);
 			name = OpenSSH_embedded;
 			productName = OpenSSH_embedded;
+		};
+		2EEDBC612CB4D8B9006BF25B /* Install reset-ssh-configuration */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2EEDBC622CB4D8B9006BF25B /* Build configuration list for PBXAggregateTarget "Install reset-ssh-configuration" */;
+			buildPhases = (
+				2EEDBC662CB4D8D1006BF25B /* Install reset-ssh-configuration into /usr/libexec */,
+			);
+			dependencies = (
+			);
+			name = "Install reset-ssh-configuration";
+			productName = "Install reset-ssh-configuration";
 		};
 		735961E717CE830500CFE215 /* Install ssh-util */ = {
 			isa = PBXAggregateTarget;
@@ -966,6 +978,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 2EE99C7B2AF6A9C50042361E;
 			remoteInfo = "sshd-keygen-wrapper";
+		};
+		2EEDBC672CB4D929006BF25B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2EEDBC612CB4D8B9006BF25B;
+			remoteInfo = "Install reset-ssh-configuration";
 		};
 		6582298429C21D0D00E241A5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -3784,6 +3803,9 @@
 					2EE99CB12AF817C70042361E = {
 						CreatedOnToolsVersion = 15.2;
 					};
+					2EEDBC612CB4D8B9006BF25B = {
+						CreatedOnToolsVersion = 16.0;
+					};
 					735140321A9FE29400A40ED8 = {
 						CreatedOnToolsVersion = 7.0;
 					};
@@ -3833,6 +3855,7 @@
 				2E2B12E2261760F100DF1CCA /* Install macOS config */,
 				1C76A71D0FF0155400D35824 /* Install open source licenses */,
 				735961E717CE830500CFE215 /* Install ssh-util */,
+				2EEDBC612CB4D8B9006BF25B /* Install reset-ssh-configuration */,
 				1C7D817910FFC2BE00F0889F /* regression-tests */,
 				1C77BFA3112C99850070F7EE /* testbots */,
 				73937A8D177B8399006F7E42 /* modpipe */,
@@ -3906,7 +3929,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/zsh;
-			shellScript = "setopt pipefail\n\"${SRCROOT}/xcscripts/make-config.zsh\" | tar -C \"${DSTROOT}\" -xvf -\n";
+			shellScript = "setopt pipefail\nset -e\nmkdir -p \"${DSTROOT}/usr/share/openssh\"\n\"${SRCROOT}/xcscripts/make-config.zsh\" | \\\ntee \"${DSTROOT}\"/usr/share/openssh/default-configuration.tar.bz2 | \\\ntar -C \"${DSTROOT}\" -xvf -\n";
 			showEnvVarsInLog = 0;
 		};
 		2E35327A29DD1EE90035ED3D /* Install manpage */ = {
@@ -3963,6 +3986,25 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "prefix=/usr/local . \"${SRCROOT}/xcscripts/install-man-pages.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		2EEDBC662CB4D8D1006BF25B /* Install reset-ssh-configuration into /usr/libexec */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install reset-ssh-configuration into /usr/libexec";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"${SRCROOT}/xcscripts/include.sh\"\nxmkdir $(dst /usr/libexec)\nINSTALL_MODE=0755 xinstall $(src reset-ssh-configuration.zsh) $(dst /usr/libexec/reset-ssh-configuration)\n";
 			showEnvVarsInLog = 0;
 		};
 		735961EB17CE832600CFE215 /* Install ssh-util in /usr/local/bin */ = {
@@ -5012,6 +5054,11 @@
 			target = 2EE99C7B2AF6A9C50042361E /* sshd-keygen-wrapper */;
 			targetProxy = 2EE99CAA2AF6B86E0042361E /* PBXContainerItemProxy */;
 		};
+		2EEDBC682CB4D929006BF25B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2EEDBC612CB4D8B9006BF25B /* Install reset-ssh-configuration */;
+			targetProxy = 2EEDBC672CB4D929006BF25B /* PBXContainerItemProxy */;
+		};
 		6582298329C21D0D00E241A5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 1C6B2DAB0FEC5695004F1935 /* libssh */;
@@ -5404,6 +5451,22 @@
 		2EE99CB82AF817C70042361E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+			};
+			name = Debug;
+		};
+		2EEDBC632CB4D8B9006BF25B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		2EEDBC642CB4D8B9006BF25B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
 		};
@@ -5920,6 +5983,15 @@
 			buildConfigurations = (
 				2EE99CB72AF817C70042361E /* Release */,
 				2EE99CB82AF817C70042361E /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2EEDBC622CB4D8B9006BF25B /* Build configuration list for PBXAggregateTarget "Install reset-ssh-configuration" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2EEDBC632CB4D8B9006BF25B /* Release */,
+				2EEDBC642CB4D8B9006BF25B /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

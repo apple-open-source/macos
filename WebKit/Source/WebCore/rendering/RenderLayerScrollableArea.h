@@ -46,13 +46,14 @@
 
 #include "RenderLayer.h"
 #include "ScrollableArea.h"
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
 class RenderMarquee;
 
 class RenderLayerScrollableArea final : public ScrollableArea, public CanMakeCheckedPtr<RenderLayerScrollableArea> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RenderLayerScrollableArea);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderLayerScrollableArea);
 public:
     explicit RenderLayerScrollableArea(RenderLayer&);
@@ -268,6 +269,8 @@ public:
     void createScrollbarsController() final;
 
     FrameIdentifier rootFrameID() const final;
+
+    void scrollbarWidthChanged(ScrollbarWidth) override;
 
 private:
     bool hasHorizontalOverflow() const;

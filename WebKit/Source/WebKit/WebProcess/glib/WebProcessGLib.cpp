@@ -57,9 +57,13 @@
 #include <WebCore/DRMDeviceManager.h>
 #endif
 
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
 #include <WebCore/PlatformDisplayGBM.h>
 #include <WebCore/PlatformDisplaySurfaceless.h>
+#endif
+
+#if PLATFORM(GTK)
+#include <WebCore/PlatformDisplayDefault.h>
 #endif
 
 #if PLATFORM(GTK) && !USE(GTK4) && USE(CAIRO)
@@ -130,6 +134,43 @@ void WebProcess::platformInitializeProcess(const AuxiliaryProcessInitializationP
 #endif
 }
 
+void WebProcess::initializePlatformDisplayIfNeeded() const
+{
+    if (PlatformDisplay::sharedDisplayIfExists())
+        return;
+
+#if USE(GBM)
+    if (m_dmaBufRendererBufferMode.contains(DMABufRendererBufferMode::Hardware)) {
+        bool disabled = false;
+#if PLATFORM(GTK)
+        const char* disableGBM = getenv("WEBKIT_DMABUF_RENDERER_DISABLE_GBM");
+        disabled = disableGBM && strcmp(disableGBM, "0");
+#endif
+        if (!disabled) {
+            if (auto* device = DRMDeviceManager::singleton().mainGBMDeviceNode(DRMDeviceManager::NodeType::Render)) {
+                PlatformDisplay::setSharedDisplay(PlatformDisplayGBM::create(device));
+                return;
+            }
+        }
+    }
+#endif
+
+    if (auto display = PlatformDisplaySurfaceless::create()) {
+        PlatformDisplay::setSharedDisplay(WTFMove(display));
+        return;
+    }
+
+#if PLATFORM(GTK)
+    if (auto display = PlatformDisplayDefault::create()) {
+        PlatformDisplay::setSharedDisplay(WTFMove(display));
+        return;
+    }
+#endif
+
+    WTFLogAlways("Could not create EGL display: no supported platform available. Aborting...");
+    CRASH();
+}
+
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
 #if USE(SKIA)
@@ -142,41 +183,20 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     addSupplement<UserMediaCaptureManager>();
 #endif
 
-#if PLATFORM(WPE)
-    m_dmaBufRendererBufferMode = parameters.dmaBufRendererBufferMode;
-    if (!parameters.isServiceWorkerProcess && m_dmaBufRendererBufferMode.isEmpty()) {
-        auto& implementationLibraryName = parameters.implementationLibraryName;
-        if (!implementationLibraryName.isNull() && implementationLibraryName.data()[0] != '\0')
-            wpe_loader_init(parameters.implementationLibraryName.data());
-
-        RELEASE_ASSERT(is<PlatformDisplayLibWPE>(PlatformDisplay::sharedDisplay()));
-        downcast<PlatformDisplayLibWPE>(PlatformDisplay::sharedDisplay()).initialize(parameters.hostClientFileDescriptor.release());
-    }
-#endif
-
 #if USE(GBM)
     DRMDeviceManager::singleton().initializeMainDevice(parameters.renderDeviceFile);
 #endif
 
-#if PLATFORM(WPE)
-    if (!parameters.isServiceWorkerProcess && !m_dmaBufRendererBufferMode.isEmpty())
-        WebCore::PlatformDisplay::setUseDMABufForRendering(true);
-#endif
-
-#if PLATFORM(GTK)
     m_dmaBufRendererBufferMode = parameters.dmaBufRendererBufferMode;
-    if (!m_dmaBufRendererBufferMode.isEmpty()) {
-#if USE(GBM)
-        if (m_dmaBufRendererBufferMode.contains(DMABufRendererBufferMode::Hardware)) {
-            const char* disableGBM = getenv("WEBKIT_DMABUF_RENDERER_DISABLE_GBM");
-            if (!disableGBM || !strcmp(disableGBM, "0")) {
-                if (auto* device = DRMDeviceManager::singleton().mainGBMDeviceNode(DRMDeviceManager::NodeType::Render))
-                    m_displayForCompositing = PlatformDisplayGBM::create(device);
-            }
-        }
-#endif
-        if (!m_displayForCompositing)
-            m_displayForCompositing = WebCore::PlatformDisplaySurfaceless::create();
+#if PLATFORM(WPE)
+    if (!parameters.isServiceWorkerProcess) {
+        if (m_dmaBufRendererBufferMode.isEmpty()) {
+            auto& implementationLibraryName = parameters.implementationLibraryName;
+            if (!implementationLibraryName.isNull() && implementationLibraryName.data()[0] != '\0')
+                wpe_loader_init(parameters.implementationLibraryName.data());
+            PlatformDisplay::setSharedDisplay(PlatformDisplayLibWPE::create(parameters.hostClientFileDescriptor.release()));
+        } else
+            initializePlatformDisplayIfNeeded();
     }
 #endif
 

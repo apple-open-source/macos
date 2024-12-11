@@ -1663,7 +1663,7 @@ install_registry(void)
 	uninstall_string,
 	icon_string,
 	version_string,
-	"Bram Moolenaar et al.");
+	"The Vim Project");
     if (ERROR_SUCCESS != lRet)
 	return FAIL;
 
@@ -2760,7 +2760,7 @@ main(int argc, char **argv)
 	    rewind(stdin);
 	    if (scanf("%99s", buf) == 1)
 	    {
-		if (isdigit(buf[0]))
+		if (isdigit((unsigned char)buf[0]))
 		{
 		    // Change a choice.
 		    i = atoi(buf);

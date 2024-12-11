@@ -37,17 +37,47 @@ message Action {
     }
 }
 
-message Rule {
+message EventRule {
     optional string eventType = 1;
     optional bytes match = 2;
     optional Action action = 3;
     optional int64 repeatAfterSeconds = 4;
-    optional string process = 5;
+    optional string processName = 5;
     optional EventClass eventClass = 6;
+    optional VersionMatch versions = 7;
+    optional bool matchOnFirstFailure = 8;
 }
 
-// Structured so the sane behavior with minimal encoding is do for newer clients
-// so if you have older clients for this event type, your match better match only errors
+message VersionMatch {
+    repeated Version versions = 1;
+}
+
+enum ProductName {
+    macOS = 1;
+    iphoneOS = 2;
+    xrOS = 3;
+    watchOS = 4;
+    tvOS = 5;
+}
+
+message Version {
+    optional ProductName productName = 1;
+    optional int64 major = 2;
+    optional int64 minor = 3; // A = 1, B = 2, etc
+    optional int64 build = 4;
+}
+
+message EventFilter {
+    optional string event = 1;
+    // 0 to 100 percent propbablistic of dropping event, 0 always reporting
+    // this is expressed as drop percentage, because the default is expected to be 0, and thus save space.
+    optional int64 dropRate = 2;
+}
+
+
+// Structured minimal encoding is do for newer clients we do matching for errors only since
+// this is the most common option clients want, so if you have older clients for this event type,
+// your match better match only errors
 // but that would be true regardless of the value of eventclass.
 //
 // 0 - new: only errors, older clients: all events
@@ -63,6 +93,17 @@ enum EventClass {
     Rockwell = 14;
 }
 
+
 message Rules {
-    repeated Rule rules = 1;
+    // field one used to be eventRules, but it was unversioned, so let not use it any more
+    // older clients not get rules and that is ok
+    //reserved = 1;
+    
+    // Events that will trigger actions
+    repeated EventRule eventRules = 2;
+    // If builds are older this this version events are suppressed and
+    // only newer then these versions are reportd. HealthSummarys are never supressed.
+    optional VersionMatch allowedBuilds = 3;
+    // Allowed events, all events are counted, not only allowed events are reported
+    repeated EventFilter eventFilter = 4;
 }

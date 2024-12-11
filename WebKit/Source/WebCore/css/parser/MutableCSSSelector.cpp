@@ -25,6 +25,7 @@
 #include "CSSSelectorInlines.h"
 #include "CSSSelectorList.h"
 #include "SelectorPseudoTypeMap.h"
+#include <wtf/TZoneMallocInlines.h>
 
 #if COMPILER(MSVC)
 // See https://msdn.microsoft.com/en-us/library/1wea5zwe.aspx
@@ -32,6 +33,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MutableCSSSelector);
 
 std::unique_ptr<MutableCSSSelector> MutableCSSSelector::parsePagePseudoSelector(StringView pseudoTypeString)
 {
@@ -277,10 +280,7 @@ std::unique_ptr<MutableCSSSelector> MutableCSSSelector::releaseTagHistory()
     return WTFMove(m_tagHistory);
 }
 
-bool MutableCSSSelector::isHostPseudoSelector() const
-{
-    return match() == CSSSelector::Match::PseudoClass && pseudoClass() == CSSSelector::PseudoClass::Host;
-}
+
 
 bool MutableCSSSelector::startsWithExplicitCombinator() const
 {
@@ -289,4 +289,3 @@ bool MutableCSSSelector::startsWithExplicitCombinator() const
 }
 
 }
-

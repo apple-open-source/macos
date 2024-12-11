@@ -34,14 +34,15 @@
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "MathMLNames.h"
+#include "MouseEvent.h"
 #include "RenderMathMLRow.h"
 #include "RenderTreeUpdater.h"
 #include "SVGElement.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(MathMLSelectElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MathMLSelectElement);
 
 using namespace MathMLNames;
 
@@ -215,7 +216,7 @@ void MathMLSelectElement::updateSelectedChild()
 
 void MathMLSelectElement::defaultEventHandler(Event& event)
 {
-    if (event.type() == eventNames().clickEvent) {
+    if (isAnyClick(event)) {
         if (attributeWithoutSynchronization(MathMLNames::actiontypeAttr) == "toggle"_s) {
             toggle();
             event.setDefaultHandled();

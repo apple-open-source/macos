@@ -40,7 +40,7 @@ class HTMLCanvasElement;
 class Image;
 
 class CanvasCaptureMediaStreamTrack final : public MediaStreamTrack {
-    WTF_MAKE_ISO_ALLOCATED(CanvasCaptureMediaStreamTrack);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(CanvasCaptureMediaStreamTrack);
 public:
     static Ref<CanvasCaptureMediaStreamTrack> create(Document&, Ref<HTMLCanvasElement>&&, std::optional<double>&& frameRequestRate);
 
@@ -87,7 +87,7 @@ private:
         Timer m_requestFrameTimer;
         Timer m_captureCanvasTimer;
         std::optional<RealtimeMediaSourceSettings> m_currentSettings;
-        HTMLCanvasElement* m_canvas;
+        WeakPtr<HTMLCanvasElement, WeakPtrImplWithEventTargetData> m_canvas;
         RefPtr<Image> m_currentImage;
 #if USE(GSTREAMER)
         MediaTime m_presentationTimeStamp { MediaTime::zeroTime() };

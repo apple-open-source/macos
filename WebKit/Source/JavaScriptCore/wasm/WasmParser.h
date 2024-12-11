@@ -42,6 +42,7 @@
 #include <wtf/LEBDecoder.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/StringPrintStream.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
 #include <wtf/unicode/UTF8Conversion.h>
 
@@ -79,6 +80,7 @@ protected:
     bool WARN_UNUSED_RETURN parseInt7(int8_t&);
     bool WARN_UNUSED_RETURN peekInt7(int8_t&);
     bool WARN_UNUSED_RETURN parseUInt7(uint8_t&);
+    bool WARN_UNUSED_RETURN peekUInt8(uint8_t&);
     bool WARN_UNUSED_RETURN parseUInt8(uint8_t&);
     bool WARN_UNUSED_RETURN parseUInt32(uint32_t&);
     bool WARN_UNUSED_RETURN parseUInt64(uint64_t&);
@@ -243,6 +245,14 @@ ALWAYS_INLINE typename ParserBase::PartialResult ParserBase::parseImmLaneIdx(uin
     return { };
 }
 
+ALWAYS_INLINE bool ParserBase::peekUInt8(uint8_t& result)
+{
+    if (m_offset >= m_source.size())
+        return false;
+    result = m_source[m_offset];
+    return true;
+}
+
 ALWAYS_INLINE bool ParserBase::parseUInt8(uint8_t& result)
 {
     if (m_offset >= m_source.size())
@@ -294,10 +304,8 @@ ALWAYS_INLINE typename ParserBase::PartialResult ParserBase::parseBlockSignature
     if (peekInt7(kindByte) && isValidTypeKind(kindByte)) {
         TypeKind typeKind = static_cast<TypeKind>(kindByte);
 
-        if (UNLIKELY(Options::useWebAssemblyTypedFunctionReferences())) {
-            if ((isValidHeapTypeKind(kindByte) || typeKind == TypeKind::Ref || typeKind == TypeKind::RefNull))
-                return parseReftypeSignature(info, result);
-        }
+        if ((isValidHeapTypeKind(kindByte) || typeKind == TypeKind::Ref || typeKind == TypeKind::RefNull))
+            return parseReftypeSignature(info, result);
 
         Type type = { typeKind, TypeDefinition::invalidIndex };
         WASM_PARSER_FAIL_IF(!(isValueType(type) || type.isVoid()), "result type of block: "_s, makeString(type.kind), " is not a value type or Void"_s);
@@ -331,9 +339,6 @@ inline typename ParserBase::PartialResult ParserBase::parseReftypeSignature(cons
 
 ALWAYS_INLINE bool ParserBase::parseHeapType(const ModuleInformation& info, int32_t& result)
 {
-    if (!Options::useWebAssemblyTypedFunctionReferences())
-        return false;
-
     int32_t heapType;
     if (!parseVarInt32(heapType))
         return false;
@@ -363,7 +368,7 @@ ALWAYS_INLINE bool ParserBase::parseValueType(const ModuleInformation& info, Typ
 
     TypeKind typeKind = static_cast<TypeKind>(kind);
     TypeIndex typeIndex = 0;
-    if (Options::useWebAssemblyTypedFunctionReferences() && isValidHeapTypeKind(kind)) {
+    if (isValidHeapTypeKind(kind)) {
         typeIndex = static_cast<TypeIndex>(typeKind);
         typeKind = TypeKind::RefNull;
     } else if (typeKind == TypeKind::Ref || typeKind == TypeKind::RefNull) {
@@ -380,7 +385,8 @@ ALWAYS_INLINE bool ParserBase::parseValueType(const ModuleInformation& info, Typ
                 ASSERT(static_cast<uint32_t>(heapType) >= info.typeCount() && static_cast<uint32_t>(heapType) < m_recursionGroupInformation.end);
                 ProjectionIndex groupIndex = static_cast<ProjectionIndex>(heapType - m_recursionGroupInformation.start);
                 RefPtr<TypeDefinition> def = TypeInformation::getPlaceholderProjection(groupIndex);
-                typeIndex = def->index();
+                RELEASE_ASSERT(def->refCount() > 2); // tbl + RefPtr + owner
+                typeIndex = def->index(); // Owned by TypeInformation placeholder projections singleton.
             } else {
                 ASSERT(static_cast<uint32_t>(heapType) < info.typeCount());
                 typeIndex = TypeInformation::get(info.typeSignatures[heapType].get());

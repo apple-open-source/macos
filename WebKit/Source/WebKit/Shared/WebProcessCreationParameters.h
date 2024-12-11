@@ -36,6 +36,7 @@
 #include "WebProcessDataStoreParameters.h"
 #include <WebCore/CrossOriginMode.h>
 #include <wtf/HashMap.h>
+#include <wtf/OptionSet.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
@@ -132,7 +133,7 @@ struct WebProcessCreationParameters {
     bool hasRichContentServices { false };
 #endif
 
-    TextCheckerState textCheckerState;
+    OptionSet<TextCheckerState> textCheckerState;
 
 #if PLATFORM(COCOA)
     String uiProcessBundleIdentifier;
@@ -144,8 +145,6 @@ struct WebProcessCreationParameters {
     ProcessID presentingApplicationPID { 0 };
 
 #if PLATFORM(COCOA)
-    WTF::MachSendRight acceleratedCompositingPort;
-
     String uiProcessBundleResourcePath;
     SandboxExtension::Handle uiProcessBundleResourcePathExtensionHandle;
 

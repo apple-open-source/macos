@@ -131,7 +131,6 @@
 #include <algorithm>
 #include <memory>
 #include <variant>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
 #include <wtf/MainThread.h>
 #include <wtf/MathExtras.h>
@@ -139,6 +138,7 @@
 #include <wtf/Ref.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
@@ -191,7 +191,7 @@ static Seconds transientActivationDuration()
     return defaultTransientActivationDuration;
 }
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(LocalDOMWindow);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(LocalDOMWindow);
 
 typedef HashCountedSet<LocalDOMWindow*> LocalDOMWindowSet;
 
@@ -246,7 +246,7 @@ static void removeAllBeforeUnloadEventListeners(LocalDOMWindow* domWindow)
 static bool allowsBeforeUnloadListeners(LocalDOMWindow* window)
 {
     ASSERT_ARG(window, window);
-    auto* frame = window->frame();
+    RefPtr frame = window->frame();
     if (!frame)
         return false;
     if (!frame->page())
@@ -383,7 +383,7 @@ bool LocalDOMWindow::allowPopUp(LocalFrame& firstFrame)
 
 bool LocalDOMWindow::allowPopUp()
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     return frame && allowPopUp(*frame);
 }
 
@@ -603,7 +603,7 @@ void LocalDOMWindow::resumeFromBackForwardCache()
 
 bool LocalDOMWindow::isCurrentlyDisplayedInFrame() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     return frame && frame->document()->domWindow() == this;
 }
 
@@ -641,7 +641,7 @@ ExceptionOr<Ref<NodeList>> LocalDOMWindow::collectMatchingElementsInFlatTree(Nod
 
     Vector<Ref<Element>> result;
     for (auto& node : composedTreeDescendants(*scopeContainer)) {
-        if (RefPtr element = dynamicDowncast<Element>(node); element && query.matches(*element) && !node.isInUserAgentShadowTree())
+        if (RefPtr element = dynamicDowncast<Element>(node); element && query.matches(*element) && !element->isInUserAgentShadowTree())
             result.append(element.releaseNonNull());
     }
 
@@ -661,7 +661,7 @@ ExceptionOr<RefPtr<Element>> LocalDOMWindow::matchingElementInFlatTree(Node& sco
     SelectorQuery& query = queryOrException.releaseReturnValue();
 
     for (auto& node : composedTreeDescendants(*scopeContainer)) {
-        if (RefPtr element = dynamicDowncast<Element>(node); element && query.matches(*element) && !node.isInUserAgentShadowTree())
+        if (RefPtr element = dynamicDowncast<Element>(node); element && query.matches(*element) && !element->isInUserAgentShadowTree())
             return element;
     }
 
@@ -1101,7 +1101,7 @@ void LocalDOMWindow::closePage()
 {
     protectedDocument()->checkedEventLoop()->queueTask(TaskSource::DOMManipulation, [this, protectedThis = Ref { *this }] {
         // Calling closeWindow() may destroy the page.
-        if (auto* page = this->page())
+        if (RefPtr page = this->page())
             page->chrome().closeWindow();
     });
 }
@@ -1151,7 +1151,7 @@ void LocalDOMWindow::alert(const String& message)
         return;
 
     RefPtr document = this->document();
-    if (document->isSandboxed(SandboxModals)) {
+    if (document->isSandboxed(SandboxFlag::Modals)) {
         printErrorMessage("Use of window.alert is not allowed in a sandboxed frame when the allow-modals flag is not set."_s);
         return;
     }
@@ -1180,7 +1180,7 @@ bool LocalDOMWindow::confirmForBindings(const String& message)
         return false;
 
     RefPtr document = this->document();
-    if (document->isSandboxed(SandboxModals)) {
+    if (document->isSandboxed(SandboxFlag::Modals)) {
         printErrorMessage("Use of window.confirm is not allowed in a sandboxed frame when the allow-modals flag is not set."_s);
         return false;
     }
@@ -1209,7 +1209,7 @@ String LocalDOMWindow::prompt(const String& message, const String& defaultValue)
         return String();
 
     RefPtr document = this->document();
-    if (document->isSandboxed(SandboxModals)) {
+    if (document->isSandboxed(SandboxFlag::Modals)) {
         printErrorMessage("Use of window.prompt is not allowed in a sandboxed frame when the allow-modals flag is not set."_s);
         return String();
     }
@@ -1472,18 +1472,18 @@ void LocalDOMWindow::setStatus(const String& string)
 void LocalDOMWindow::disownOpener()
 {
     if (RefPtr frame = this->frame())
-        frame->setOpener(nullptr);
+        frame->disownOpener();
 }
 
 String LocalDOMWindow::origin() const
 {
-    auto* document = this->document();
+    RefPtr document = this->document();
     return document ? document->securityOrigin().toString() : emptyString();
 }
 
 SecurityOrigin* LocalDOMWindow::securityOrigin() const
 {
-    auto* document = this->document();
+    RefPtr document = this->document();
     return document ? &document->securityOrigin() : nullptr;
 }
 
@@ -2504,15 +2504,15 @@ String LocalDOMWindow::crossDomainAccessErrorMessage(const LocalDOMWindow& activ
     // Sandbox errors: Use the origin of the frames' location, rather than their actual origin (since we know that at least one will be "null").
     URL activeURL = activeWindow.document()->url();
     URL targetURL = document()->url();
-    if (document()->isSandboxed(SandboxOrigin) || activeWindow.document()->isSandboxed(SandboxOrigin)) {
+    if (document()->isSandboxed(SandboxFlag::Origin) || activeWindow.document()->isSandboxed(SandboxFlag::Origin)) {
         if (includeTargetOrigin == IncludeTargetOrigin::Yes)
             message = makeString("Blocked a frame at \""_s, SecurityOrigin::create(activeURL).get().toString(), "\" from accessing a frame at \""_s, SecurityOrigin::create(targetURL).get().toString(), "\". "_s);
         else
             message = makeString("Blocked a frame at \""_s, SecurityOrigin::create(activeURL).get().toString(), "\" from accessing a cross-origin frame. "_s);
 
-        if (document()->isSandboxed(SandboxOrigin) && activeWindow.document()->isSandboxed(SandboxOrigin))
+        if (document()->isSandboxed(SandboxFlag::Origin) && activeWindow.document()->isSandboxed(SandboxFlag::Origin))
             return makeString("Sandbox access violation: "_s, message, " Both frames are sandboxed and lack the \"allow-same-origin\" flag."_s);
-        if (document()->isSandboxed(SandboxOrigin))
+        if (document()->isSandboxed(SandboxFlag::Origin))
             return makeString("Sandbox access violation: "_s, message, " The frame being accessed is sandboxed and lacks the \"allow-same-origin\" flag."_s);
         return makeString("Sandbox access violation: "_s, message, " The frame requesting access is sandboxed and lacks the \"allow-same-origin\" flag."_s);
     }
@@ -2586,16 +2586,16 @@ ExceptionOr<RefPtr<Frame>> LocalDOMWindow::createWindow(const String& urlString,
     FrameLoadRequest frameLoadRequest { *activeDocument, activeDocument->protectedSecurityOrigin(), WTFMove(resourceRequest), frameName, initiatedByMainFrame };
     frameLoadRequest.setShouldOpenExternalURLsPolicy(activeDocument->shouldOpenExternalURLsPolicyToPropagate());
 
-    // We pass the opener frame for the lookupFrame in case the active frame is different from
-    // the opener frame, and the name references a frame relative to the opener frame.
     bool created;
-    RefPtr newFrame = WebCore::createWindow(*activeFrame, openerFrame, WTFMove(frameLoadRequest), windowFeatures, created);
+    RefPtr newFrame = WebCore::createWindow(openerFrame, WTFMove(frameLoadRequest), windowFeatures, created);
     if (!newFrame)
         return RefPtr<Frame> { nullptr };
 
     bool noopener = windowFeatures.wantsNoOpener();
-    if (!noopener)
-        newFrame->setOpener(&openerFrame);
+    if (!noopener) {
+        ASSERT(newFrame->opener() == &openerFrame);
+        newFrame->page()->setOpenedByDOMWithOpener(true);
+    }
 
     if (created)
         newFrame->protectedPage()->setOpenedByDOM();

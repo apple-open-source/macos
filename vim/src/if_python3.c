@@ -219,6 +219,10 @@ static HINSTANCE hinstPy3 = 0; // Instance of python.dll
 # define PyObject_GetItem py3_PyObject_GetItem
 # define PyObject_IsTrue py3_PyObject_IsTrue
 # define PyModule_GetDict py3_PyModule_GetDict
+# if defined(USE_LIMITED_API) || PY_VERSION_HEX >= 0x03080000
+#  define Py_IncRef py3_Py_IncRef
+#  define Py_DecRef py3_Py_DecRef
+# endif
 # ifdef USE_LIMITED_API
 #  define Py_CompileString py3_Py_CompileString
 #  define PyEval_EvalCode py3_PyEval_EvalCode
@@ -232,7 +236,11 @@ static HINSTANCE hinstPy3 = 0; // Instance of python.dll
 # define PyObject_HasAttrString py3_PyObject_HasAttrString
 # define PyObject_SetAttrString py3_PyObject_SetAttrString
 # define PyObject_CallFunctionObjArgs py3_PyObject_CallFunctionObjArgs
-# define _PyObject_CallFunction_SizeT py3__PyObject_CallFunction_SizeT
+# if PY_VERSION_HEX >= 0x030d0000
+#  define PyObject_CallFunction py3_PyObject_CallFunction
+# else
+#  define _PyObject_CallFunction_SizeT py3__PyObject_CallFunction_SizeT
+# endif
 # define PyObject_Call py3_PyObject_Call
 # define PyEval_GetLocals py3_PyEval_GetLocals
 # define PyEval_GetGlobals py3_PyEval_GetGlobals
@@ -252,7 +260,8 @@ static HINSTANCE hinstPy3 = 0; // Instance of python.dll
 # define _Py_NoneStruct (*py3__Py_NoneStruct)
 # define _Py_FalseStruct (*py3__Py_FalseStruct)
 # define _Py_TrueStruct (*py3__Py_TrueStruct)
-# ifndef USE_LIMITED_API
+# if !defined(USE_LIMITED_API) && PY_VERSION_HEX < 0x030D0000
+// Private symbol that used to be required as part of PyIter_Check.
 #  define _PyObject_NextNotImplemented (*py3__PyObject_NextNotImplemented)
 # endif
 # define PyModule_AddObject py3_PyModule_AddObject
@@ -284,9 +293,6 @@ static HINSTANCE hinstPy3 = 0; // Instance of python.dll
 # define PyBytes_FromString py3_PyBytes_FromString
 # undef PyBytes_FromStringAndSize
 # define PyBytes_FromStringAndSize py3_PyBytes_FromStringAndSize
-# if defined(Py_DEBUG) || PY_VERSION_HEX >= 0x030900b0 || defined(USE_LIMITED_API)
-#  define _Py_Dealloc py3__Py_Dealloc
-# endif
 # define PyFloat_FromDouble py3_PyFloat_FromDouble
 # define PyFloat_AsDouble py3_PyFloat_AsDouble
 # define PyObject_GenericGetAttr py3_PyObject_GenericGetAttr
@@ -387,6 +393,10 @@ static void (*py3_Py_Finalize)(void);
 static void (*py3_PyErr_SetString)(PyObject *, const char *);
 static void (*py3_PyErr_SetObject)(PyObject *, PyObject *);
 static int (*py3_PyErr_ExceptionMatches)(PyObject *);
+# if defined(USE_LIMITED_API) || PY_VERSION_HEX >= 0x03080000
+static void (*py3_Py_IncRef)(PyObject *);
+static void (*py3_Py_DecRef)(PyObject *);
+# endif
 # ifdef USE_LIMITED_API
 static PyObject* (*py3_Py_CompileString)(const char *, const char *, int);
 static PyObject* (*py3_PyEval_EvalCode)(PyObject *co, PyObject *globals, PyObject *locals);
@@ -398,7 +408,11 @@ static PyObject* (*py3_PyObject_GetAttrString)(PyObject *, const char *);
 static int (*py3_PyObject_HasAttrString)(PyObject *, const char *);
 static int (*py3_PyObject_SetAttrString)(PyObject *, const char *, PyObject *);
 static PyObject* (*py3_PyObject_CallFunctionObjArgs)(PyObject *, ...);
+# if PY_VERSION_HEX >= 0x030d0000
+static PyObject* (*py3_PyObject_CallFunction)(PyObject *, char *, ...);
+# else
 static PyObject* (*py3__PyObject_CallFunction_SizeT)(PyObject *, char *, ...);
+# endif
 static PyObject* (*py3_PyObject_Call)(PyObject *, PyObject *, PyObject *);
 static PyObject* (*py3_PyEval_GetGlobals)(void);
 static PyObject* (*py3_PyEval_GetLocals)(void);
@@ -454,7 +468,7 @@ static void (*py3_PyErr_Clear)(void);
 static PyObject* (*py3_PyErr_Format)(PyObject *, const char *, ...);
 static void (*py3_PyErr_PrintEx)(int);
 static PyObject*(*py3__PyObject_Init)(PyObject *, PyTypeObject *);
-# ifndef USE_LIMITED_API
+# if !defined(USE_LIMITED_API) && PY_VERSION_HEX < 0x030D0000
 static iternextfunc py3__PyObject_NextNotImplemented;
 # endif
 static PyObject* py3__Py_NoneStruct;
@@ -480,9 +494,6 @@ static char* (*py3_PyBytes_AsString)(PyObject *bytes);
 static int (*py3_PyBytes_AsStringAndSize)(PyObject *bytes, char **buffer, Py_ssize_t *length);
 static PyObject* (*py3_PyBytes_FromString)(char *str);
 static PyObject* (*py3_PyBytes_FromStringAndSize)(char *str, Py_ssize_t length);
-# if defined(Py_DEBUG) || PY_VERSION_HEX >= 0x030900b0 || defined(USE_LIMITED_API)
-static void (*py3__Py_Dealloc)(PyObject *obj);
-# endif
 # if PY_VERSION_HEX >= 0x030900b0
 static PyObject* (*py3__PyObject_New)(PyTypeObject *);
 # endif
@@ -590,6 +601,10 @@ static struct
     {"PyErr_SetString", (PYTHON_PROC*)&py3_PyErr_SetString},
     {"PyErr_SetObject", (PYTHON_PROC*)&py3_PyErr_SetObject},
     {"PyErr_ExceptionMatches", (PYTHON_PROC*)&py3_PyErr_ExceptionMatches},
+# if defined(USE_LIMITED_API) || PY_VERSION_HEX >= 0x03080000
+    {"Py_IncRef", (PYTHON_PROC*)&py3_Py_IncRef},
+    {"Py_DecRef", (PYTHON_PROC*)&py3_Py_DecRef},
+# endif
 # ifdef USE_LIMITED_API
     {"Py_CompileString", (PYTHON_PROC*)&py3_Py_CompileString},
     {"PyEval_EvalCode", (PYTHON_PROC*)&PyEval_EvalCode},
@@ -601,7 +616,11 @@ static struct
     {"PyObject_HasAttrString", (PYTHON_PROC*)&py3_PyObject_HasAttrString},
     {"PyObject_SetAttrString", (PYTHON_PROC*)&py3_PyObject_SetAttrString},
     {"PyObject_CallFunctionObjArgs", (PYTHON_PROC*)&py3_PyObject_CallFunctionObjArgs},
+# if PY_VERSION_HEX >= 0x030d0000
+    {"PyObject_CallFunction", (PYTHON_PROC*)&py3_PyObject_CallFunction},
+# else
     {"_PyObject_CallFunction_SizeT", (PYTHON_PROC*)&py3__PyObject_CallFunction_SizeT},
+# endif
     {"PyObject_Call", (PYTHON_PROC*)&py3_PyObject_Call},
     {"PyEval_GetGlobals", (PYTHON_PROC*)&py3_PyEval_GetGlobals},
     {"PyEval_GetLocals", (PYTHON_PROC*)&py3_PyEval_GetLocals},
@@ -639,7 +658,7 @@ static struct
     {"PyEval_SaveThread", (PYTHON_PROC*)&py3_PyEval_SaveThread},
     {"_PyArg_Parse_SizeT", (PYTHON_PROC*)&py3_PyArg_Parse},
     {"Py_IsInitialized", (PYTHON_PROC*)&py3_Py_IsInitialized},
-# ifndef USE_LIMITED_API
+# if !defined(USE_LIMITED_API) && PY_VERSION_HEX < 0x030D0000
     {"_PyObject_NextNotImplemented", (PYTHON_PROC*)&py3__PyObject_NextNotImplemented},
 # endif
     {"_Py_NoneStruct", (PYTHON_PROC*)&py3__Py_NoneStruct},
@@ -677,9 +696,6 @@ static struct
     {"PyBytes_AsStringAndSize", (PYTHON_PROC*)&py3_PyBytes_AsStringAndSize},
     {"PyBytes_FromString", (PYTHON_PROC*)&py3_PyBytes_FromString},
     {"PyBytes_FromStringAndSize", (PYTHON_PROC*)&py3_PyBytes_FromStringAndSize},
-# if defined(Py_DEBUG) || PY_VERSION_HEX >= 0x030900b0 || defined(USE_LIMITED_API)
-    {"_Py_Dealloc", (PYTHON_PROC*)&py3__Py_Dealloc},
-# endif
 # if PY_VERSION_HEX >= 0x030900b0
     {"_PyObject_New", (PYTHON_PROC*)&py3__PyObject_New},
 # endif
@@ -727,39 +743,24 @@ static struct
     {"", NULL},
 };
 
-# if PY_VERSION_HEX >= 0x030800f0
-    static inline void
-py3__Py_DECREF(const char *filename UNUSED, int lineno UNUSED, PyObject *op)
-{
-    if (--op->ob_refcnt != 0)
-    {
-#  ifdef Py_REF_DEBUG
-	if (op->ob_refcnt < 0)
-	{
-	    _Py_NegativeRefcount(filename, lineno, op);
-	}
-#  endif
-    }
-    else
-    {
-	_Py_Dealloc(op);
-    }
-}
+# if defined(USE_LIMITED_API) || PY_VERSION_HEX >= 0x03080000
+// Use stable versions of inc/dec ref. Note that these always null-check and
+// therefore there's no difference between XINCREF and INCREF.
+//
+// For 3.8 or above, we also use this version even if not using limited API.
+// The Py_DECREF macros in 3.8+ include references to internal functions which
+// cause link errors when building Vim. The stable versions are exposed as API
+// functions and don't have these problems (albeit slightly slower as they
+// require function calls rather than an inlined macro).
+#  undef Py_INCREF
+#  define Py_INCREF(obj) Py_IncRef((PyObject *)obj)
+#  undef Py_XINCREF
+#  define Py_XINCREF(obj) Py_IncRef((PyObject *)obj)
 
 #  undef Py_DECREF
-#  define Py_DECREF(op) py3__Py_DECREF(__FILE__, __LINE__, _PyObject_CAST(op))
-
-    static inline void
-py3__Py_XDECREF(PyObject *op)
-{
-    if (op != NULL)
-    {
-	Py_DECREF(op);
-    }
-}
-
+#  define Py_DECREF(obj) Py_DecRef((PyObject *)obj)
 #  undef Py_XDECREF
-#  define Py_XDECREF(op) py3__Py_XDECREF(_PyObject_CAST(op))
+#  define Py_XDECREF(obj) Py_DecRef((PyObject *)obj)
 # endif
 
 # if PY_VERSION_HEX >= 0x030900b0
@@ -1067,7 +1068,7 @@ static int python_end_called = FALSE;
 
 #ifdef USE_LIMITED_API
 # define DESTRUCTOR_FINISH(self) \
-    ((freefunc)PyType_GetSlot(Py_TYPE(self), Py_tp_free))((PyObject*)self)
+    ((freefunc)PyType_GetSlot(Py_TYPE((PyObject*)self), Py_tp_free))((PyObject*)self)
 #else
 # define DESTRUCTOR_FINISH(self) Py_TYPE(self)->tp_free((PyObject*)self)
 #endif

@@ -678,11 +678,11 @@ EOF
             unshift(@methodSignatureNames, "context") if $needsScriptContext;
             unshift(@parameters, "context") if $needsScriptContext;
 
-            unshift(@methodSignatureNames, "page") if $needsPage;
-            unshift(@parameters, "*page") if $needsPage;
-
             unshift(@methodSignatureNames, "frame") if $needsFrame;
             unshift(@parameters, "*frame") if $needsFrame;
+
+            unshift(@methodSignatureNames, "page") if $needsPage;
+            unshift(@parameters, "*page") if $needsPage;
 
             push(@methodSignatureNames, "outExceptionString") if $needsExceptionString;
             push(@parameters, "&exceptionString") if $needsExceptionString;
@@ -1426,6 +1426,8 @@ sub _platformTypeConstructor
         return "toNSDictionary(context, $argumentName, NullValuePolicy::NotAllowed)" if $signature->extendedAttributes->{"NSDictionary"};
         return "toNSArray(context, $argumentName, $arrayType.class)" if $signature->extendedAttributes->{"NSArray"} && $arrayType;
         return "toNSArray(context, $argumentName)" if $signature->extendedAttributes->{"NSArray"};
+        return "toNSObject(context, $argumentName, Nil, NullValuePolicy::Allowed, ValuePolicy::StopAtTopLevel)" if $signature->extendedAttributes->{"NSObject"} && $signature->extendedAttributes->{"NSObject"} eq "StopAtTopLevel";
+        return "toNSObject(context, $argumentName, Nil, NullValuePolicy::Allowed)" if $signature->extendedAttributes->{"NSObject"} && $signature->extendedAttributes->{"NSObject"} eq "NullAllowed";
         return "toNSObject(context, $argumentName)" if $signature->extendedAttributes->{"NSObject"};
         return "toJSValue(context, $argumentName)";
     }

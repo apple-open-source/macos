@@ -72,7 +72,7 @@ STATIC const CFRuntimeClass __PvDInfoRequestClass = {
 	NULL,					/* copyDebugDesc */
 };
 
-INLINE void
+STATIC void
 PvDInfoRequestFlushContext(PvDInfoRequestRef request);
 
 STATIC bool
@@ -153,7 +153,7 @@ __PvDInfoRequestAllocate(CFAllocatorRef allocator)
 #pragma mark -
 #pragma mark Internal functions
 
-INLINE void
+STATIC void
 PvDInfoRequestSetContext(PvDInfoRequestRef request, CFStringRef pvdid, 
 			 CFArrayRef prefixes, const char * ifname,
 			 uint64_t ms_delay)
@@ -222,7 +222,7 @@ PvDInfoRequestCreateCompletionSource(dispatch_queue_t queue,
 	return (completion_source);
 }
 
-INLINE void
+STATIC void
 PvDInfoRequestFlushContext(PvDInfoRequestRef request)
 {
 	my_CFRelease(&request->context.pvdid);
@@ -231,7 +231,7 @@ PvDInfoRequestFlushContext(PvDInfoRequestRef request)
 	bzero(&request->context, sizeof(request->context));
 }
 
-INLINE void
+STATIC void
 PvDInfoRequestCleanupXPC(PvDInfoRequestRef request)
 {
 	PvDInfoRequestInvalidateXPCSource(request);
@@ -248,7 +248,7 @@ PvDInfoRequestCleanupXPC(PvDInfoRequestRef request)
 	return;
 }
 
-INLINE void
+STATIC void
 PvDInfoRequestSendNotificationToClient(PvDInfoRequestRef request)
 {
 	if (request->completion_source != NULL) {
@@ -301,7 +301,7 @@ done:
 	return;
 }
 
-INLINE void
+STATIC void
 PvDInfoRequestXPCCompletionHandler(NSDictionary * xpc_return_dict, void * info)
 {
 	NSDictionary *addinfo_dict = nil;
@@ -314,6 +314,7 @@ PvDInfoRequestXPCCompletionHandler(NSDictionary * xpc_return_dict, void * info)
 		IPConfigLog(LOG_NOTICE, "%s: null object", __func__);
 		goto done;
 	}
+	CFRetain(request);
 	valid_fetch
 	= (__bridge CFBooleanRef)[xpc_return_dict
 				  valueForKey:(__bridge NSString *)kPvDInfoValidFetchXPCKey];
@@ -327,6 +328,7 @@ PvDInfoRequestXPCCompletionHandler(NSDictionary * xpc_return_dict, void * info)
 	PvDInfoRequestCompletedCallback(request, valid_fetch);
 	
 done:
+	my_CFRelease(&request);
 	return;
 }
 
@@ -445,7 +447,7 @@ done:
 	return;
 }
 
-INLINE const char *
+STATIC const char *
 _state_string(PvDInfoRequestState state)
 {
 	switch (state) {
@@ -603,10 +605,6 @@ PvDInfoRequestCancel(PvDInfoRequestRef request)
 
 		request = (PvDInfoRequestRef)ObjectWrapperGetObject(wrapper);
 		ObjectWrapperRelease(wrapper);
-		if (request->active_connection) {
-			/* for the xpc completion block that won't execute */
-			ObjectWrapperRelease(wrapper);
-		}
 		if (request == NULL) {
 			IPConfigLog(LOG_NOTICE, "request no longer valid");
 			return;
@@ -664,6 +662,7 @@ PvDInfoRequestCopyAdditionalInformation(PvDInfoRequestRef request)
 
 static dispatch_semaphore_t waiter;
 static dispatch_queue_t mock_ipconfigagent_queue;
+static dispatch_queue_t mock_iphxpc_queue;
 
 STATIC void
 _PvDInfoRequestResumeSync_tester(void * info)
@@ -732,31 +731,167 @@ _pvd_info_request_callback(PvDInfoRequestRef request)
 	dispatch_semaphore_signal(waiter);
 }
 
+/*
+ * This emulates the PvDInfoRequestRef setup flow within rtadv.c
+ */
+STATIC PvDInfoRequestRef
+_pvd_info_request_create_with_completion(dispatch_block_t completion)
+{
+	PvDInfoRequestRef request = NULL;
+
+	request = PvDInfoRequestCreate(CFSTR("test.domain.local"),
+				       (__bridge CFArrayRef)@[@"fd77::"],
+				       "lo0", 0);
+	PvDInfoRequestSetCompletionHandler(request, completion,
+					   mock_ipconfigagent_queue);
+
+	return request;
+}
+
+STATIC void
+_PvDInfoRequestCompletedCallback_tester(PvDInfoRequestRef request,
+					CFBooleanRef valid_fetch)
+{
+	ObjectWrapperRef wrapper = NULL;
+
+	if (request->queue == NULL) {
+		IPConfigLog(LOG_NOTICE, "%s: null request", __func__);
+		goto done;
+	}
+	wrapper = request->wrapper;
+	ObjectWrapperRetain(wrapper);
+	printf("xpc waiting to put block in internal queue\n");
+	dispatch_semaphore_wait(waiter, DISPATCH_TIME_FOREVER);
+	dispatch_async(request->queue, ^{
+		PvDInfoRequestRef request = NULL;
+
+		request = (PvDInfoRequestRef)ObjectWrapperGetObject(wrapper);
+		if (request == NULL) {
+			IPConfigLog(LOG_NOTICE, "request no longer valid");
+			goto done;
+		}
+		if (valid_fetch == kCFBooleanFalse) {
+			IPConfigLog(LOG_DEBUG, "xpc reply: failure");
+			request->state = kPvDInfoRequestStateFailed;
+		} else if (request->additional_info == NULL) {
+			IPConfigLog(LOG_DEBUG, "xpc reply: no internet");
+			request->state = kPvDInfoRequestStateIdle;
+		} else if (request->additional_info != NULL) {
+			/* SUCCESS */
+			IPConfigLog(LOG_DEBUG,
+				    "xpc reply: got addinfo dict:\n%@",
+				    request->additional_info);
+			request->state = kPvDInfoRequestStateObtained;
+		}
+		PvDInfoRequestCleanupXPC(request);
+		PvDInfoRequestSendNotificationToClient(request);
+	done:
+		ObjectWrapperRelease(wrapper);
+		return;
+	});
+	printf("xpc enqueued block in internal queue\n");
+
+done:
+	return;
+}
+
+STATIC void
+_PvDInfoRequestXPCCompletionHandler_tester(void * info)
+{
+	PvDInfoRequestRef request = NULL;
+	ObjectWrapperRef wrapper = (ObjectWrapperRef)info;
+
+	request = (PvDInfoRequestRef)ObjectWrapperGetObject(wrapper);
+	if (request == NULL) {
+		IPConfigLog(LOG_NOTICE, "%s: null object", __func__);
+		goto done;
+	}
+	CFRetain(request);
+	_PvDInfoRequestCompletedCallback_tester(request, kCFBooleanFalse);
+
+done:
+	my_CFRelease(&request);
+	return;
+}
+
 int
 main(int argc, char * argv[])
 {
+	__block PvDInfoRequestRef request = NULL;
+
 	waiter = dispatch_semaphore_create(0);
 	mock_ipconfigagent_queue
 	= dispatch_queue_create("Mock-IPConfigurationAgentQueue", NULL);
+
+	printf("test 1 start\n");
 	dispatch_sync(mock_ipconfigagent_queue, ^{
-		PvDInfoRequestRef request;
 		dispatch_block_t completion;
 
-		/* this emulates the PvDInfoRequest flow within rtadv.c */
-		request = PvDInfoRequestCreate(CFSTR("test.domain.local"),
-					       (__bridge CFArrayRef)@[@"fd77::"],
-					       "lo0", 0);
 		completion = ^{
+			// emulates rtadv_pvd_additional_info_request_callback()
 			_pvd_info_request_callback(request);
 		};
-		PvDInfoRequestSetCompletionHandler(request, completion, 
-						   mock_ipconfigagent_queue);
+		request = _pvd_info_request_create_with_completion(completion);
 		_PvDInfoRequestResumeSync_tester(request->wrapper);
 	});
 	dispatch_semaphore_wait(waiter, DISPATCH_TIME_FOREVER);
-	printf("exiting clean\n");
-	IPConfigLog(LOG_NOTICE, "exiting clean");
+	printf("test 1 done\n");
 
+	printf("test 2 start\n");
+	dispatch_sync(mock_ipconfigagent_queue, ^{
+		dispatch_block_t completion;
+
+		completion = ^{
+			CFRelease(request);
+		};
+		request = _pvd_info_request_create_with_completion(completion);
+		// what PvDInfoRequestResume() would do
+		request->active_connection = true;
+		// emulates rtadv_pvd_flush()
+		PvDInfoRequestCancel(request);
+		// crash from overrelease of ObjectWrapperRef
+		// rdar://135907968
+		CFRelease(request);
+	});
+	printf("test 2 done\n");
+
+	/*
+	 * NSXPCConnection object with IPH already enqueued a completion block 
+	 * to the PvDInfoRequest's internal queue, hence the queue won't be
+	 * released until said block runs. However, the PvDRequestRef was just
+	 * released by IPConfigurationAgent. When the XPC completion block gets
+	 * to run, it results in an overrelease of PvDInfoRequestRef.
+	 * rdar://135906175
+	 */
+	printf("test 3 start\n");
+	dispatch_sync(mock_ipconfigagent_queue, ^{
+		dispatch_block_t completion;
+
+		completion = ^{
+			CFRelease(request);
+		};
+		request = _pvd_info_request_create_with_completion(completion);
+		request->active_connection = true;
+	});
+	mock_iphxpc_queue = dispatch_queue_create("Mock-IPHXPCQueue", NULL);
+	dispatch_async(mock_iphxpc_queue, ^{
+		ObjectWrapperRef wrapper = NULL;
+
+		wrapper = request->wrapper;
+		ObjectWrapperRetain(wrapper);
+		_PvDInfoRequestXPCCompletionHandler_tester(wrapper);
+		ObjectWrapperRelease(wrapper);
+	});
+	dispatch_sync(mock_ipconfigagent_queue, ^{
+		PvDInfoRequestCancel(request);
+		printf("cancellation block just enqueued\n");
+		dispatch_semaphore_signal(waiter);
+		CFRelease(request);
+	});
+	sleep(1);
+	printf("test 3 done\n");
+
+	printf("exiting\n");
 	return 0;
 }
 

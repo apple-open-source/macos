@@ -29,11 +29,11 @@
 #include "RenderProgress.h"
 #include "ShadowRoot.h"
 #include "TypedElementDescendantIteratorInlines.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLProgressElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLProgressElement);
 
 using namespace HTMLNames;
 
@@ -42,8 +42,6 @@ const double HTMLProgressElement::InvalidPosition = -2;
 
 HTMLProgressElement::HTMLProgressElement(const QualifiedName& tagName, Document& document)
     : HTMLElement(tagName, document, TypeFlag::HasCustomStyleResolveCallbacks)
-    , m_value(0)
-    , m_isDeterminate(false)
 {
     ASSERT(hasTagName(progressTag));
 }

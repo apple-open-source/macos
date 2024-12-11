@@ -2145,6 +2145,60 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>rsync.tests_kyua.sh.test71_same_time</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/rsync/openrsync/tests_kyua.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/rsync/openrsync</string>
+				<string>-r</string>
+				<string>tests_kyua.sh.test71_same_time.results.txt</string>
+				<string>test71_same_time</string>
+			</array>
+			<key>Description</key>
+			<string>test71_same_time</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.tests_kyua.sh.test72_mmap_trunc</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/rsync/openrsync/tests_kyua.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/rsync/openrsync</string>
+				<string>-r</string>
+				<string>tests_kyua.sh.test72_mmap_trunc.results.txt</string>
+				<string>test72_mmap_trunc</string>
+			</array>
+			<key>Description</key>
+			<string>test72_mmap_trunc</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>rsync.tests_kyua.sh.test6b_perms</string>
 			<key>ShellEnv</key>
 			<dict>

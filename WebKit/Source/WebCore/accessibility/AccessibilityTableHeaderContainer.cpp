@@ -49,7 +49,7 @@ LayoutRect AccessibilityTableHeaderContainer::elementRect() const
     return m_headerRect;
 }
 
-bool AccessibilityTableHeaderContainer::computeAccessibilityIsIgnored() const
+bool AccessibilityTableHeaderContainer::computeIsIgnored() const
 {
     if (!m_parent)
         return true;
@@ -58,7 +58,7 @@ bool AccessibilityTableHeaderContainer::computeAccessibilityIsIgnored() const
     return true;
 #endif
 
-    return m_parent->accessibilityIsIgnored();
+    return m_parent->isIgnored();
 }
 
 void AccessibilityTableHeaderContainer::addChildren()
@@ -66,7 +66,7 @@ void AccessibilityTableHeaderContainer::addChildren()
     ASSERT(!m_childrenInitialized); 
     
     m_childrenInitialized = true;
-    auto* parentTable = dynamicDowncast<AccessibilityTable>(m_parent.get());
+    RefPtr parentTable = dynamicDowncast<AccessibilityTable>(m_parent.get());
     if (!parentTable || !parentTable->isExposable())
         return;
 

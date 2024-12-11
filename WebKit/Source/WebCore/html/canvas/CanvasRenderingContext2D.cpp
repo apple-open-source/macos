@@ -36,8 +36,9 @@
 #include "CSSFilter.h"
 #include "CSSFontSelector.h"
 #include "CSSPropertyNames.h"
+#include "CSSPropertyParserConsumer+Filter.h"
+#include "CSSPropertyParserConsumer+Font.h"
 #include "CSSPropertyParserHelpers.h"
-#include "CSSPropertyParserWorkerSafe.h"
 #include "DocumentInlines.h"
 #include "Gradient.h"
 #include "ImageBuffer.h"
@@ -54,21 +55,21 @@
 #include "StyleBuilder.h"
 #include "StyleFontSizeFunctions.h"
 #include "StyleProperties.h"
-#include "StyleResolveForFontRaw.h"
+#include "StyleResolveForFont.h"
 #include "StyleTreeResolver.h"
 #include "TextMetrics.h"
 #include "TextRun.h"
 #include "UnicodeBidi.h"
 #include <wtf/CheckedArithmetic.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/MathExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(CanvasRenderingContext2D);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(CanvasRenderingContext2D);
 
 std::unique_ptr<CanvasRenderingContext2D> CanvasRenderingContext2D::create(CanvasBase& canvas, CanvasRenderingContext2DSettings&& settings, bool usesCSSCompatibilityParseMode)
 {
@@ -98,8 +99,8 @@ std::optional<FilterOperations> CanvasRenderingContext2D::setFilterStringWithout
     if (!style)
         return std::nullopt;
 
-    auto parserMode = strictToCSSParserMode(!usesCSSCompatibilityParseMode());
-    return CSSPropertyParserWorkerSafe::parseFilterString(document, const_cast<RenderStyle&>(*style), filterString, parserMode);
+    auto parserContext = CSSParserContext(strictToCSSParserMode(!usesCSSCompatibilityParseMode()));
+    return CSSPropertyParserHelpers::parseFilterValueListOrNoneRaw(filterString, parserContext, CSSPropertyParserHelpers::AllowedFilterFunctions::PixelFilters, document, const_cast<RenderStyle&>(*style));
 }
 
 RefPtr<Filter> CanvasRenderingContext2D::createFilter(const FloatRect& bounds) const
@@ -185,9 +186,9 @@ void CanvasRenderingContext2D::setFontWithoutUpdatingStyle(const String& newFont
         return;
 
     // According to http://lists.w3.org/Archives/Public/public-html/2009Jul/0947.html,
-    // the "inherit" and "initial" values must be ignored. CSSPropertyParserWorkerSafe::parseFont() ignores these.
-    auto fontRaw = CSSPropertyParserWorkerSafe::parseFont(newFont, strictToCSSParserMode(!usesCSSCompatibilityParseMode()));
-    if (!fontRaw)
+    // the "inherit" and "initial" values must be ignored. CSSPropertyParserHelpers::parseUnresolvedFont() ignores these.
+    auto unresolvedFont = CSSPropertyParserHelpers::parseUnresolvedFont(newFont, strictToCSSParserMode(!usesCSSCompatibilityParseMode()));
+    if (!unresolvedFont)
         return;
 
     FontCascadeDescription fontDescription;
@@ -203,7 +204,7 @@ void CanvasRenderingContext2D::setFontWithoutUpdatingStyle(const String& newFont
     // Map the <canvas> font into the text style. If the font uses keywords like larger/smaller, these will work
     // relative to the canvas.
     Document& document = canvas().document();
-    auto fontCascade = Style::resolveForFontRaw(*fontRaw, WTFMove(fontDescription), document);
+    auto fontCascade = Style::resolveForUnresolvedFont(*unresolvedFont, WTFMove(fontDescription), document);
     if (!fontCascade)
         return;
 

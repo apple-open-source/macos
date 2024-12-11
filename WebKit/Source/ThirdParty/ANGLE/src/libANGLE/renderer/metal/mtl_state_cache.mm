@@ -21,15 +21,8 @@
 
 #define ANGLE_OBJC_CP_PROPERTY(DST, SRC, PROPERTY) \
     (DST).PROPERTY = static_cast<__typeof__((DST).PROPERTY)>(ToObjC((SRC).PROPERTY))
-#define ANGLE_OBJC_CP_PROPERTY2(DST, SRC, PROPERTY, DST_PROPERTY) \
-    (DST).DST_PROPERTY = static_cast<__typeof__((DST).DST_PROPERTY)>(ToObjC((SRC).PROPERTY))
 
 #define ANGLE_PROP_EQ(LHS, RHS, PROP) ((LHS).PROP == (RHS).PROP)
-
-#if (defined(__MAC_13_0) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_13_0) || \
-    (defined(__IPHONE_16_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_16_0)
-#    define ANGLE_MTL_RENDER_PIPELINE_DESC_RASTER_SAMPLE_COUNT_AVAILABLE 1
-#endif
 
 namespace rx
 {
@@ -603,8 +596,8 @@ void RenderPipelineOutputDesc::updateEnabledDrawBuffers(gl::DrawBufferMask enabl
 RenderPipelineDesc::RenderPipelineDesc()
 {
     memset(this, 0, sizeof(*this));
-    outputDescriptor.sampleCount = 1;
-    rasterizationType            = RenderPipelineRasterization::Enabled;
+    outputDescriptor.rasterSampleCount = 1;
+    rasterizationType                  = RenderPipelineRasterization::Enabled;
 }
 
 RenderPipelineDesc::RenderPipelineDesc(const RenderPipelineDesc &src)
@@ -657,13 +650,9 @@ AutoObjCPtr<MTLRenderPipelineDescriptor *> RenderPipelineDesc::createMetalDesc(
     }
     ANGLE_OBJC_CP_PROPERTY(objCDesc.get(), outputDescriptor, depthAttachmentPixelFormat);
     ANGLE_OBJC_CP_PROPERTY(objCDesc.get(), outputDescriptor, stencilAttachmentPixelFormat);
-    ANGLE_APPLE_ALLOW_DEPRECATED_BEGIN
-    ANGLE_OBJC_CP_PROPERTY(objCDesc.get(), outputDescriptor, sampleCount);
-    ANGLE_APPLE_ALLOW_DEPRECATED_END
+    ANGLE_OBJC_CP_PROPERTY(objCDesc.get(), outputDescriptor, rasterSampleCount);
 
-#if ANGLE_MTL_PRIMITIVE_TOPOLOGY_CLASS_AVAILABLE
     ANGLE_OBJC_CP_PROPERTY(objCDesc.get(), *this, inputPrimitiveTopology);
-#endif
     ANGLE_OBJC_CP_PROPERTY(objCDesc.get(), *this, alphaToCoverageEnabled);
 
     // rasterizationEnabled will be true for both EmulatedDiscard & Enabled.
@@ -738,7 +727,7 @@ void RenderPassDesc::populateRenderPipelineOutputDesc(const BlendDescArray &blen
 {
     RenderPipelineOutputDesc &outputDescriptor = *outDesc;
     outputDescriptor.numColorAttachments       = this->numColorAttachments;
-    outputDescriptor.sampleCount               = this->sampleCount;
+    outputDescriptor.rasterSampleCount         = this->rasterSampleCount;
     for (uint32_t i = 0; i < this->numColorAttachments; ++i)
     {
         auto &renderPassColorAttachment = this->colorAttachments[i];

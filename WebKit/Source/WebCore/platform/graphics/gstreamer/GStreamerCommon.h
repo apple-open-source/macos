@@ -29,6 +29,7 @@
 #include <gst/video/video-info.h>
 #include <wtf/Logger.h>
 #include <wtf/MediaTime.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
@@ -67,7 +68,7 @@ bool getVideoSizeAndFormatFromCaps(const GstCaps*, WebCore::IntSize&, GstVideoFo
 std::optional<FloatSize> getVideoResolutionFromCaps(const GstCaps*);
 bool getSampleVideoInfo(GstSample*, GstVideoInfo&);
 #endif
-const char* capsMediaType(const GstCaps*);
+StringView capsMediaType(const GstCaps*);
 bool doCapsHaveType(const GstCaps*, const char*);
 bool areEncryptedCaps(const GstCaps*);
 Vector<String> extractGStreamerOptionsFromCommandLine();
@@ -204,7 +205,7 @@ private:
 };
 
 class GstMappedFrame {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(GstMappedFrame);
     WTF_MAKE_NONCOPYABLE(GstMappedFrame);
 public:
     GstMappedFrame(GstBuffer*, GstVideoInfo*, GstMapFlags);
@@ -274,6 +275,13 @@ GstElement* makeGStreamerBin(const char* description, bool ghostUnlinkedPads);
 
 template<typename T>
 std::optional<T> gstStructureGet(const GstStructure*, ASCIILiteral key);
+template<typename T>
+std::optional<T> gstStructureGet(const GstStructure*, StringView key);
+
+StringView gstStructureGetString(const GstStructure*, ASCIILiteral key);
+StringView gstStructureGetString(const GstStructure*, StringView key);
+
+StringView gstStructureGetName(const GstStructure*);
 
 String gstStructureToJSONString(const GstStructure*);
 
@@ -294,11 +302,13 @@ bool gstObjectHasProperty(GstPad*, const char* name);
 
 GRefPtr<GstBuffer> wrapSpanData(const std::span<const uint8_t>&);
 
+std::optional<unsigned> gstGetAutoplugSelectResult(ASCIILiteral);
+
 void registerActivePipeline(const GRefPtr<GstElement>&);
 void unregisterPipeline(const GRefPtr<GstElement>&);
 
 class WebCoreLogObserver : public Logger::Observer {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WebCoreLogObserver);
     WTF_MAKE_NONCOPYABLE(WebCoreLogObserver);
     friend NeverDestroyed<WebCoreLogObserver>;
 public:

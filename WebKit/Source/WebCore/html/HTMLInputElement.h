@@ -59,7 +59,8 @@ struct InputElementClickState {
 enum class WasSetByJavaScript : bool { No, Yes };
 
 class HTMLInputElement final : public HTMLTextFormControlElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLInputElement);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(HTMLInputElement);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLInputElement);
 public:
     static Ref<HTMLInputElement> create(const QualifiedName&, Document&, HTMLFormElement*, bool createdByParser);
     virtual ~HTMLInputElement();
@@ -139,7 +140,7 @@ public:
     bool isPresentingAttachedView() const;
 
     bool isSteppable() const; // stepUp()/stepDown() for user-interaction.
-    bool isTextButton() const;
+    WEBCORE_EXPORT bool isTextButton() const;
     bool isRadioButton() const;
     WEBCORE_EXPORT bool isTextField() const final;
     WEBCORE_EXPORT bool isSearchField() const;
@@ -163,7 +164,7 @@ public:
     WEBCORE_EXPORT bool isFileUpload() const;
     bool isImageButton() const;
     WEBCORE_EXPORT bool isNumberField() const;
-    bool isSubmitButton() const final;
+    WEBCORE_EXPORT bool isSubmitButton() const final;
     WEBCORE_EXPORT bool isTelephoneField() const;
     WEBCORE_EXPORT bool isURLField() const;
     WEBCORE_EXPORT bool isDateField() const;
@@ -211,7 +212,7 @@ public:
     String localizeValue(const String&) const;
 
     // The value which is drawn by a renderer.
-    String visibleValue() const;
+    WEBCORE_EXPORT String visibleValue() const;
 
     String valueWithDefault() const;
 
@@ -275,7 +276,6 @@ public:
     void setCanReceiveDroppedFiles(bool);
 
     void addSearchResult();
-    void onSearch();
 
     bool willRespondToMouseClickEventsWithEditability(Editability) const final;
 

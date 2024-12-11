@@ -58,6 +58,7 @@
 #include "WorkerClient.h"
 #include <JavaScriptCore/VM.h>
 #include <wtf/SetForScope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(INPUT_TYPE_COLOR)
@@ -73,6 +74,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Chrome);
 
 using namespace HTMLNames;
 
@@ -345,11 +348,6 @@ bool Chrome::runJavaScriptPrompt(LocalFrame& frame, const String& prompt, const 
     return ok;
 }
 
-void Chrome::setStatusbarText(LocalFrame& frame, const String& status)
-{
-    m_client->setStatusbarText(frame.displayStringModifiedByEncoding(status));
-}
-
 void Chrome::mouseDidMoveOverElement(const HitTestResult& result, OptionSet<PlatformEventModifier> modifiers)
 {
     if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame())) {
@@ -424,7 +422,7 @@ bool Chrome::print(LocalFrame& frame)
 {
     // FIXME: This should have PageGroupLoadDeferrer, like runModal() or runJavaScriptAlert(), because it's no different from those.
 
-    if (frame.document()->isSandboxed(SandboxModals)) {
+    if (frame.document()->isSandboxed(SandboxFlag::Modals)) {
         frame.document()->protectedWindow()->printErrorMessage("Use of window.print is not allowed in a sandboxed frame when the allow-modals flag is not set."_s);
         return false;
     }
@@ -559,7 +557,7 @@ RefPtr<ImageBuffer> Chrome::sinkIntoImageBuffer(std::unique_ptr<SerializedImageB
     return m_client->sinkIntoImageBuffer(WTFMove(imageBuffer));
 }
 
-std::unique_ptr<WorkerClient> Chrome::createWorkerClient(SerialFunctionDispatcher& dispatcher)
+std::unique_ptr<WorkerClient> Chrome::createWorkerClient(WorkerOrWorkletThread& dispatcher)
 {
     return m_client->createWorkerClient(dispatcher);
 }

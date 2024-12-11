@@ -57,12 +57,15 @@
 #include <JavaScriptCore/JSCJSValueInlines.h>
 #include <wtf/Deque.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
 namespace WebCore {
 
 using namespace Inspector;
+WTF_MAKE_TZONE_ALLOCATED_IMPL(InspectorFrontendClientLocal);
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(InspectorFrontendClientLocalSettings, InspectorFrontendClientLocal::Settings);
 
 static constexpr ASCIILiteral inspectorAttachedHeightSetting = "inspectorAttachedHeight"_s;
 static const unsigned defaultAttachedHeight = 300;
@@ -72,7 +75,7 @@ static const float minimumAttachedWidth = 500.0f;
 static const float minimumAttachedInspectedWidth = 320.0f;
 
 class InspectorBackendDispatchTask : public RefCounted<InspectorBackendDispatchTask> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(InspectorBackendDispatchTask);
 public:
     static Ref<InspectorBackendDispatchTask> create(InspectorController* inspectedPageController)
     {
@@ -283,12 +286,13 @@ void InspectorFrontendClientLocal::openURLExternally(const String& url)
 
     bool created;
     WindowFeatures features;
-    RefPtr frame = dynamicDowncast<LocalFrame>(WebCore::createWindow(mainFrame, mainFrame, WTFMove(frameLoadRequest), features, created));
+    RefPtr frame = dynamicDowncast<LocalFrame>(WebCore::createWindow(mainFrame, WTFMove(frameLoadRequest), features, created));
     if (!frame)
         return;
 
-    frame->setOpener(mainFrame.ptr());
+    ASSERT(frame->opener() == mainFrame.ptr());
     frame->page()->setOpenedByDOM();
+    frame->page()->setOpenedByDOMWithOpener(true);
 
     // FIXME: Why do we compute the absolute URL with respect to |frame| instead of |mainFrame|?
     ResourceRequest resourceRequest { frame->document()->completeURL(url) };

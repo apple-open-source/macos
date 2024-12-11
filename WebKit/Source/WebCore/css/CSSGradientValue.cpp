@@ -95,24 +95,22 @@ template<StopPositionResolution resolution> static inline std::optional<Length> 
     if (!position)
         return std::nullopt;
 
-    if constexpr (resolution == StopPositionResolution::Deprecated) {
-        if (position->isPercentage())
-            return Length(position->floatValue(CSSUnitType::CSS_PERCENTAGE), LengthType::Percent);
-        return Length(position->floatValue(CSSUnitType::CSS_NUMBER), LengthType::Fixed);
-    } else
+    if constexpr (resolution == StopPositionResolution::Deprecated)
+        return Length(position->valueDividingBy100IfPercentage<float>(state.cssToLengthConversionData()), LengthType::Fixed);
+    else
         return Style::BuilderConverter::convertLength(state, *position);
 }
 
-static inline std::variant<std::monostate, AngleRaw, PercentRaw> computeAngularStopPosition(const RefPtr<CSSPrimitiveValue>& position)
+static inline std::variant<std::monostate, AngleRaw, PercentageRaw> computeAngularStopPosition(const RefPtr<CSSPrimitiveValue>& position, Style::BuilderState& state)
 {
     if (!position)
         return std::monostate { };
 
     if (position->isPercentage())
-        return { PercentRaw { position->doubleValue(CSSUnitType::CSS_PERCENTAGE) } };
+        return { PercentageRaw { position->resolveAsPercentage(state.cssToLengthConversionData()) } };
 
     if (position->isAngle())
-        return { AngleRaw { position->primitiveType(), position->doubleValue() } };
+        return { AngleRaw { CSSUnitType::CSS_DEG, position->resolveAsAngle<double, CSSPrimitiveValue::AngleUnit::Degrees>(state.cssToLengthConversionData()) } };
 
     ASSERT_NOT_REACHED();
     return std::monostate { };
@@ -128,17 +126,17 @@ template<StopPositionResolution resolution> static decltype(auto) computeLengthS
 static decltype(auto) computeAngularStops(const CSSGradientColorStopList& stops, Style::BuilderState& state)
 {
     return stops.map([&](auto& stop) -> StyleGradientImageAngularStop {
-        return { computeStopColor(stop.color, state), computeAngularStopPosition(stop.position) };
+        return { computeStopColor(stop.color, state), computeAngularStopPosition(stop.position, state) };
     });
 }
 
 // MARK: StyleGradientDeprecatedPoint resolution.
 
-static StyleGradientDeprecatedPoint::Coordinate resolvePointCoordinate(const Ref<CSSPrimitiveValue>& coordinate, Style::BuilderState&)
+static StyleGradientDeprecatedPoint::Coordinate resolvePointCoordinate(const Ref<CSSPrimitiveValue>& coordinate, Style::BuilderState& state)
 {
     if (coordinate->isPercentage())
-        return { PercentRaw { coordinate->doubleValue(CSSUnitType::CSS_PERCENTAGE) } };
-    return { NumberRaw { coordinate->doubleValue(CSSUnitType::CSS_NUMBER) } };
+        return { PercentageRaw { coordinate->resolveAsPercentage(state.cssToLengthConversionData()) } };
+    return { NumberRaw { coordinate->resolveAsNumber(state.cssToLengthConversionData()) } };
 }
 
 static StyleGradientDeprecatedPoint resolvePoint(const CSSGradientDeprecatedPoint& point, Style::BuilderState& state)
@@ -230,8 +228,8 @@ RefPtr<StyleImage> CSSLinearGradientValue::createStyleImage(Style::BuilderState&
         return m_cachedStyleImage;
 
     auto gradientLine = WTF::switchOn(m_data.gradientLine,
-        [](const auto& value) -> StyleGradientImage::LinearData::GradientLine {
-            return evaluateCalc(value, { });
+        [&](const auto& value) -> StyleGradientImage::LinearData::GradientLine {
+            return evaluateCalc(value, state.cssToLengthConversionData(), { });
         }
     );
 
@@ -255,8 +253,8 @@ RefPtr<StyleImage> CSSPrefixedLinearGradientValue::createStyleImage(Style::Build
         return m_cachedStyleImage;
 
     auto gradientLine = WTF::switchOn(m_data.gradientLine,
-        [](const auto& value) -> StyleGradientImage::PrefixedLinearData::GradientLine {
-            return evaluateCalc(value, { });
+        [&](const auto& value) -> StyleGradientImage::PrefixedLinearData::GradientLine {
+            return evaluateCalc(value, state.cssToLengthConversionData(), { });
         }
     );
 
@@ -424,7 +422,7 @@ RefPtr<StyleImage> CSSDeprecatedRadialGradientValue::createStyleImage(Style::Bui
         return m_cachedStyleImage;
 
     auto resolveRadius = [](const std::variant<NumberRaw, UnevaluatedCalc<NumberRaw>>& radius, Style::BuilderState& state) -> float {
-        return evaluateCalc(radius, { }).value * state.cssToLengthConversionData().zoom();
+        return evaluateCalc(radius, state.cssToLengthConversionData(), { }).value * state.cssToLengthConversionData().zoom();
     };
 
     auto styleImage = StyleGradientImage::create(
@@ -448,20 +446,20 @@ RefPtr<StyleImage> CSSConicGradientValue::createStyleImage(Style::BuilderState& 
     if (m_cachedStyleImage)
         return m_cachedStyleImage;
 
-    auto resolveAngle = [&](const CSSConicGradientValue::Angle& angle) -> std::optional<AngleRaw> {
+    auto resolveAngle = [](const CSSConicGradientValue::Angle& angle, Style::BuilderState& state) -> std::optional<AngleRaw> {
         return WTF::switchOn(angle,
             [](std::monostate) -> std::optional<AngleRaw> {
                 return std::nullopt;
             },
-            [](auto& value) -> std::optional<AngleRaw> {
-                return evaluateCalc(value, { });
+            [&](auto& value) -> std::optional<AngleRaw> {
+                return evaluateCalc(value, state.cssToLengthConversionData(), { });
             }
         );
     };
 
     auto styleImage = StyleGradientImage::create(
         StyleGradientImage::ConicData {
-            resolveAngle(m_data.angle),
+            resolveAngle(m_data.angle, state),
             resolvePosition(m_data.position, state),
             m_repeating,
             computeAngularStops(m_stops, state)
@@ -503,13 +501,17 @@ static bool appendColorInterpolationMethod(StringBuilder& builder, CSSGradientCo
 static void appendGradientStops(StringBuilder& builder, const Vector<CSSGradientColorStop, 2>& stops)
 {
     for (auto& stop : stops) {
-        double position = stop.position->doubleValue(CSSUnitType::CSS_NUMBER);
-        if (!position)
-            builder.append(", from("_s, stop.color->cssText(), ')');
-        else if (position == 1)
-            builder.append(", to("_s, stop.color->cssText(), ')');
-        else
-            builder.append(", color-stop("_s, position, ", "_s, stop.color->cssText(), ')');
+        if (stop.position->isCalculated())
+            builder.append(", color-stop("_s, stop.position->cssText(), ", "_s, stop.color->cssText(), ')');
+        else {
+            auto position = stop.position->valueNoConversionDataRequired<double>();
+            if (!position)
+                builder.append(", from("_s, stop.color->cssText(), ')');
+            else if (position == 1)
+                builder.append(", to("_s, stop.color->cssText(), ')');
+            else
+                builder.append(", color-stop("_s, position, ", "_s, stop.color->cssText(), ')');
+        }
     }
 }
 
@@ -733,8 +735,9 @@ static bool isCenterPosition(const CSSValue& value)
 {
     if (isValueID(value, CSSValueCenter))
         return true;
-    auto* number = dynamicDowncast<CSSPrimitiveValue>(value);
-    return number && number->doubleValue(CSSUnitType::CSS_PERCENTAGE) == 50;
+
+    auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
+    return primitiveValue && primitiveValue->isPercentage() && primitiveValue->resolveAsPercentageIfNotCalculated() == 50;
 }
 
 static bool isCenterPosition(const CSSGradientPosition& position)

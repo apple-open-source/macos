@@ -68,15 +68,15 @@
 #include "UnicodeBidi.h"
 #include "WheelEventTestMonitor.h"
 #include <math.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderListBox);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderListBox);
  
 const int itemBlockSpacing = 1;
 
@@ -95,10 +95,8 @@ RenderListBox::RenderListBox(HTMLSelectElement& element, RenderStyle&& style)
     view().frameView().addScrollableArea(this);
 }
 
-RenderListBox::~RenderListBox()
-{
-    // Do not add any code here. Add it to willBeDestroyed() instead.
-}
+// Do not add any code in below destructor. Add it to willBeDestroyed() instead.
+RenderListBox::~RenderListBox() = default;
 
 void RenderListBox::willBeDestroyed()
 {

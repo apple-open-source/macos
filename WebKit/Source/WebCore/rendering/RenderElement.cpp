@@ -4,7 +4,7 @@
  *           (C) 2005 Allan Sandfeld Jensen (kde@carewolf.com)
  *           (C) 2005, 2006 Samuel Weinig (sam.weinig@gmail.com)
  * Copyright (C) 2005-2021 Apple Inc. All rights reserved.
- * Copyright (C) 2010, 2012 Google Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,6 +27,7 @@
 
 #include "AXObjectCache.h"
 #include "BorderPainter.h"
+#include "BorderShape.h"
 #include "CachedResourceLoader.h"
 #include "ContentData.h"
 #include "ContentVisibilityDocumentState.h"
@@ -97,9 +98,9 @@
 #include "Styleable.h"
 #include "TextAutoSizing.h"
 #include "ViewTransition.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StackStats.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
 #include "ContentChangeObserver.h"
@@ -107,7 +108,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderElement);
 
 struct SameSizeAsRenderElement : public RenderObject {
     SingleThreadPackedWeakPtr<RenderObject> firstChild;
@@ -122,7 +123,6 @@ static_assert(sizeof(RenderElement) == sizeof(SameSizeAsRenderElement), "RenderE
 inline RenderElement::RenderElement(Type type, ContainerNode& elementOrDocument, RenderStyle&& style, OptionSet<TypeFlag> flags, TypeSpecificFlags typeSpecificFlags)
     : RenderObject(type, elementOrDocument, flags, typeSpecificFlags)
     , m_firstChild(nullptr)
-    , m_ancestorLineBoxDirty(false)
     , m_hasInitializedStyle(false)
     , m_hasPausedImageAnimations(false)
     , m_hasCounterNodeMap(false)
@@ -472,6 +472,12 @@ bool RenderElement::repaintBeforeStyleChange(StyleDifference diff, const RenderS
             }
         }
 
+        if (diff == StyleDifference::Layout && parent()->style().isFlippedBlocksWritingMode()) {
+            // FIXME: Repaint during (after) layout is currently broken for flipped writing modes in block direction (mostly affecting vertical-rl) (see webkit.org/b/70762)
+            // This repaint call here ensures we invalidate at least the current rect which should cover the non-moving type of cases.
+            return RequiredRepaint::RendererOnly;
+        }
+
         return RequiredRepaint::None;
     }();
 
@@ -792,7 +798,8 @@ void RenderElement::propagateStyleToAnonymousChildren(StylePropagationType propa
         if (!elementChild->isAnonymous() || elementChild->style().pseudoElementType() != PseudoId::None)
             continue;
 
-        if (propagationType == StylePropagationType::BlockChildrenOnly && !is<RenderBlock>(elementChild.get()))
+        bool isBlockOrRuby = is<RenderBlock>(elementChild.get()) || elementChild->style().display() == DisplayType::Ruby;
+        if (propagationType == StylePropagationType::BlockAndRubyChildren && !isBlockOrRuby)
             continue;
 
         // RenderFragmentedFlows are updated through the RenderView::styleDidChange function.
@@ -854,10 +861,10 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         if (diff >= StyleDifference::Repaint && layoutBox()) {
             // FIXME: It is highly unlikely that a style mutation has effect on both the formatting context the box lives in
             // and the one it establishes but calling only one would require to come up with a list of properties that only affects one or the other.
-            if (auto* inlineFormattingContextRoot = dynamicDowncast<RenderBlockFlow>(*this); inlineFormattingContextRoot && inlineFormattingContextRoot->modernLineLayout())
-                inlineFormattingContextRoot->modernLineLayout()->rootStyleWillChange(*inlineFormattingContextRoot, newStyle);
+            if (auto* inlineFormattingContextRoot = dynamicDowncast<RenderBlockFlow>(*this); inlineFormattingContextRoot && inlineFormattingContextRoot->inlineLayout())
+                inlineFormattingContextRoot->inlineLayout()->rootStyleWillChange(*inlineFormattingContextRoot, newStyle);
             if (auto* lineLayout = LayoutIntegration::LineLayout::containing(*this))
-                lineLayout->styleWillChange(*this, newStyle);
+                lineLayout->styleWillChange(*this, newStyle, diff);
         }
         // If our z-index changes value or our visibility changes,
         // we need to dirty our stacking context's z-order list.
@@ -1097,15 +1104,12 @@ void RenderElement::willBeRemovedFromTree()
     if (firstChild() || hasLayer())
         removeLayers();
 
-    if (isOutOfFlowPositioned() && parent()->childrenInline())
-        checkedParent()->dirtyLinesFromChangedChild(*this);
-
     RenderObject::willBeRemovedFromTree();
 }
 
-bool RenderElement::didVisitDuringLastLayout() const
+bool RenderElement::didVisitSinceLayout(LayoutIdentifier identifier) const
 {
-    return layoutIdentifier() == view().frameView().layoutContext().layoutIdentifier();
+    return layoutIdentifier() >= identifier;
 }
 
 inline void RenderElement::clearSubtreeLayoutRootIfNeeded() const
@@ -1312,9 +1316,9 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
             // If the border radius changed, repaints at style change time will take care of that.
             // This code is attempting to detect whether border-radius constraining based on box size
             // affects the radii, using the outlineBoundsRect as a proxy for the border box.
-            auto oldRadii = style().getRoundedBorderFor(oldOutlineBounds).radii();
-            auto newRadii = style().getRoundedBorderFor(newOutlineBounds).radii();
-            if (oldRadii != newRadii)
+            auto oldShapeApproximation = BorderShape::shapeForBorderRect(style(), oldOutlineBounds);
+            auto newShapeApproximation = BorderShape::shapeForBorderRect(style(), newOutlineBounds);
+            if (oldShapeApproximation.radii() != newShapeApproximation.radii())
                 return true;
         }
 
@@ -1831,8 +1835,18 @@ const RenderStyle* RenderElement::grammarErrorPseudoStyle() const
     return textSegmentPseudoStyle(PseudoId::GrammarError);
 }
 
+const RenderStyle* RenderElement::targetTextPseudoStyle() const
+{
+    return textSegmentPseudoStyle(PseudoId::TargetText);
+}
+
 bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
 {
+    if (isSVGRenderer()) {
+        point = localToAbsoluteQuad(strokeBoundingBox(), UseTransforms).boundingBox().minXMinYCorner();
+        return true;
+    }
+
     if (!isInline() || isReplacedOrInlineBlock()) {
         point = localToAbsolute(FloatPoint(), UseTransforms, &insideFixed);
         return true;
@@ -1889,6 +1903,11 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
 
 bool RenderElement::getTrailingCorner(FloatPoint& point, bool& insideFixed) const
 {
+    if (isSVGRenderer()) {
+        point = localToAbsoluteQuad(strokeBoundingBox(), UseTransforms).boundingBox().maxXMaxYCorner();
+        return true;
+    }
+
     if (!isInline() || isReplacedOrInlineBlock()) {
         point = localToAbsolute(LayoutPoint(downcast<RenderBox>(*this).size()), UseTransforms, &insideFixed);
         return true;
@@ -2094,7 +2113,7 @@ bool RenderElement::hasSelfPaintingLayer() const
 
 bool RenderElement::hasViewTransitionName() const
 {
-    return !!style().viewTransitionName();
+    return !style().viewTransitionName().isNone();
 }
 
 bool RenderElement::requiresRenderingConsolidationForViewTransition() const

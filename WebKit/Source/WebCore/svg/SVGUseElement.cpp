@@ -46,12 +46,12 @@
 #include "ShadowRoot.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #include "XLinkNames.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/RobinHoodHashSet.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGUseElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(SVGUseElement);
 
 inline SVGUseElement::SVGUseElement(const QualifiedName& tagName, Document& document)
     : SVGGraphicsElement(tagName, document, makeUniqueRef<PropertyRegistry>(*this))
@@ -637,6 +637,7 @@ void SVGUseElement::updateExternalDocument()
         options.contentSecurityPolicyImposition = isInUserAgentShadowTree() ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck;
         options.mode = FetchOptions::Mode::SameOrigin;
         options.destination = FetchOptions::Destination::Image;
+        options.sniffContent = ContentSniffingPolicy::DoNotSniffContent;
         CachedResourceRequest request { ResourceRequest { externalDocumentURL }, options };
         request.setInitiator(*this);
         m_externalDocument = document->protectedCachedResourceLoader()->requestSVGDocument(WTFMove(request)).value_or(nullptr);

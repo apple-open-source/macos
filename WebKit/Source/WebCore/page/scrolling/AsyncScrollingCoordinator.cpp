@@ -56,10 +56,13 @@
 #include "WheelEventTestMonitor.h"
 #include "pal/HysteresisActivity.h"
 #include <wtf/ProcessID.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(AsyncScrollingCoordinator);
 
 AsyncScrollingCoordinator::AsyncScrollingCoordinator(Page* page)
     : ScrollingCoordinator(page)
@@ -262,11 +265,19 @@ void AsyncScrollingCoordinator::frameViewWillBeDetached(LocalFrameView& frameVie
     if (!coordinatesScrollingForFrameView(frameView))
         return;
 
-    RefPtr node = dynamicDowncast<ScrollingStateScrollingNode>(stateNodeForScrollableArea(frameView));
+    scrollableAreaWillBeDetached(frameView);
+}
+
+void AsyncScrollingCoordinator::scrollableAreaWillBeDetached(ScrollableArea& area)
+{
+    ASSERT(isMainThread());
+    ASSERT(page());
+
+    RefPtr node = dynamicDowncast<ScrollingStateScrollingNode>(stateNodeForScrollableArea(area));
     if (!node)
         return;
 
-    node->setScrollPosition(frameView.scrollPosition());
+    node->setScrollPosition(area.scrollPosition());
 }
 
 void AsyncScrollingCoordinator::updateIsMonitoringWheelEventsForFrameView(const LocalFrameView& frameView)
@@ -497,6 +508,17 @@ void AsyncScrollingCoordinator::setScrollbarEnabled(Scrollbar& scrollbar)
     if (!stateNode)
         return;
     stateNode->setScrollbarEnabledState(scrollbar.orientation(), scrollbar.enabled());
+}
+
+void AsyncScrollingCoordinator::setScrollbarWidth(ScrollableArea& scrollableArea, ScrollbarWidth scrollbarWidth)
+{
+    ASSERT(isMainThread());
+    ASSERT(page());
+
+    auto stateNode = dynamicDowncast<ScrollingStateScrollingNode>(stateNodeForScrollableArea(scrollableArea));
+    if (!stateNode)
+        return;
+    stateNode->setScrollbarWidth(scrollbarWidth);
 }
 
 void AsyncScrollingCoordinator::applyScrollingTreeLayerPositions()
@@ -984,6 +1006,7 @@ void AsyncScrollingCoordinator::setFrameScrollingNodeState(ScrollingNodeID nodeI
     frameScrollingNode->setAsyncFrameOrOverflowScrollingEnabled(settings.asyncFrameScrollingEnabled() || settings.asyncOverflowScrollingEnabled());
     frameScrollingNode->setScrollingPerformanceTestingEnabled(settings.scrollingPerformanceTestingEnabled());
     frameScrollingNode->setOverlayScrollbarsEnabled(ScrollbarTheme::theme().usesOverlayScrollbars());
+    frameScrollingNode->setScrollbarWidth(frameView.scrollbarWidthStyle());
     frameScrollingNode->setWheelEventGesturesBecomeNonBlocking(settings.wheelEventGesturesBecomeNonBlocking());
 
     frameScrollingNode->setMinLayoutViewportOrigin(frameView.minStableLayoutViewportOrigin());
@@ -1019,6 +1042,7 @@ void AsyncScrollingCoordinator::setScrollingNodeScrollableAreaGeometry(Scrolling
         scrollingNode->setScrollbarEnabledState(ScrollbarOrientation::Horizontal, horizontalScrollbar->enabled());
     if (verticalScrollbar)
         scrollingNode->setScrollbarEnabledState(ScrollbarOrientation::Vertical, verticalScrollbar->enabled());
+    scrollingNode->setScrollbarWidth(scrollableArea.scrollbarWidthStyle());
 
     scrollingNode->setScrollOrigin(scrollableArea.scrollOrigin());
     scrollingNode->setScrollPosition(scrollableArea.scrollPosition());

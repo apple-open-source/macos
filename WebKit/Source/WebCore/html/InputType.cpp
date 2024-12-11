@@ -40,6 +40,7 @@
 #include "Decimal.h"
 #include "DocumentInlines.h"
 #include "ElementInlines.h"
+#include "ElementTextDirection.h"
 #include "EmailInputType.h"
 #include "EventNames.h"
 #include "FileInputType.h"
@@ -81,10 +82,13 @@
 #include <limits>
 #include <wtf/Assertions.h>
 #include <wtf/RobinHoodHashMap.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/TextBreakIterator.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(InputType);
 
 using namespace HTMLNames;
 
@@ -812,7 +816,7 @@ void InputType::setValue(const String& sanitizedValue, bool valueChanged, TextFi
     bool wasInRange = isInRange(element->value());
     bool inRange = isInRange(sanitizedValue);
 
-    auto oldDirection = element->directionalityIfDirIsAuto();
+    auto oldDirection = computeTextDirectionIfDirIsAuto(*element);
 
     std::optional<Style::PseudoClassChangeInvalidation> styleInvalidation;
     if (wasInRange != inRange)
@@ -820,7 +824,7 @@ void InputType::setValue(const String& sanitizedValue, bool valueChanged, TextFi
 
     element->setValueInternal(sanitizedValue, eventBehavior);
 
-    if (oldDirection.value_or(TextDirection::LTR) != element->directionalityIfDirIsAuto().value_or(TextDirection::LTR))
+    if (oldDirection.value_or(TextDirection::LTR) != computeTextDirectionIfDirIsAuto(*element).value_or(TextDirection::LTR))
         element->invalidateStyleInternal();
 
     switch (eventBehavior) {

@@ -220,12 +220,6 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
                                           bool texelFetchStaticUse,
                                           bool samplerExternal2DY2YEXT) const;
 
-    // A special view for cube maps as a 2D array, used with shaders that do texelFetch() and for
-    // seamful cube map emulation.
-    const vk::ImageView &getFetchImageView(vk::Context *context,
-                                           GLenum srgbDecode,
-                                           bool texelFetchStaticUse) const;
-
     angle::Result getBufferViewAndRecordUse(vk::Context *context,
                                             const vk::Format *imageUniformFormat,
                                             const gl::SamplerBinding *samplerBinding,
@@ -355,6 +349,20 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
 
     vk::ImageViewHelper &getImageViews() { return mImageView; }
     const vk::ImageViewHelper &getImageViews() const { return mImageView; }
+
+    angle::Result ensureRenderableWithFormat(ContextVk *contextVk,
+                                             const vk::Format &format,
+                                             TextureUpdateResult *updateResultOut);
+    angle::Result ensureRenderableIfCopyTextureCannotTransfer(ContextVk *contextVk,
+                                                              const gl::InternalFormat &dstFormat,
+                                                              bool unpackFlipY,
+                                                              bool unpackPremultiplyAlpha,
+                                                              bool unpackUnmultiplyAlpha,
+                                                              TextureVk *source);
+    angle::Result ensureRenderableIfCopyTexImageCannotTransfer(
+        ContextVk *contextVk,
+        const gl::InternalFormat &internalFormat,
+        gl::Framebuffer *source);
 
     // Redefine a mip level of the texture.  If the new size and format don't match the allocated
     // image, the image may be released.  When redefining a mip of a multi-level image, updates are
@@ -535,7 +543,8 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
 
     ANGLE_INLINE VkImageTiling getTilingMode()
     {
-        return (mImage->valid()) ? mImage->getTilingMode() : VK_IMAGE_TILING_OPTIMAL;
+        return mImage != nullptr && mImage->valid() ? mImage->getTilingMode()
+                                                    : VK_IMAGE_TILING_OPTIMAL;
     }
 
     angle::Result refreshImageViews(ContextVk *contextVk);

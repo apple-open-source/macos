@@ -765,7 +765,7 @@
 		5A08EC4D23A456FD0059AAEF /* CommonCryptorChaCha20.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonCryptorChaCha20.c; sourceTree = "<group>"; };
 		5A1BB7A223A7EE6A00F96B39 /* CommonCryptoSymChaCha20.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonCryptoSymChaCha20.c; sourceTree = "<group>"; };
 		5A1BB7A423A7EE7900F96B39 /* CommonCryptoSymChaCha20Poly1305.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonCryptoSymChaCha20Poly1305.c; sourceTree = "<group>"; };
-		B69057CF204FED1E003DA6EA /* module.private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.private.modulemap; sourceTree = "<group>"; };
+		B69057CF204FED1E003DA6EA /* CommonCrypto_private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = CommonCrypto_private.modulemap; sourceTree = "<group>"; };
 		F40146DB1D5BE2F00003AE85 /* ccDispatch.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccDispatch.c; sourceTree = "<group>"; };
 		F40146DC1D5BE2F00003AE85 /* ccDispatch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccDispatch.h; sourceTree = "<group>"; };
 		F40146DF1D5D4E240003AE85 /* ccGlobals.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ccGlobals.c; path = lib/ccGlobals.c; sourceTree = SOURCE_ROOT; };
@@ -1119,7 +1119,7 @@
 				48BEE6CC15800C1800A6A1E7 /* CommonRSACryptor.h */,
 				F41149EB1E00E9E200DD9218 /* CommonRSACryptorSPI.h */,
 				4872EA4B185EDED600639C0B /* CommonKeyDerivationSPI.h */,
-				B69057CF204FED1E003DA6EA /* module.private.modulemap */,
+				B69057CF204FED1E003DA6EA /* CommonCrypto_private.modulemap */,
 			);
 			path = Private;
 			sourceTree = "<group>";
@@ -1450,9 +1450,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 48BEE6B91580085A00A6A1E7 /* Build configuration list for PBXNativeTarget "CommonCrypto" */;
 			buildPhases = (
+				48BEE6B31580085A00A6A1E7 /* Headers */,
 				48BEE6B11580085A00A6A1E7 /* Sources */,
 				48BEE6B21580085A00A6A1E7 /* Frameworks */,
-				48BEE6B31580085A00A6A1E7 /* Headers */,
 				B6F7EA68205166820049734D /* Install module map */,
 			);
 			buildRules = (
@@ -2294,7 +2294,7 @@
 				);
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				MODULEMAP_FILE = "$(SRCROOT)/include/module.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/include/Private/module.private.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/include/Private/CommonCrypto_private.modulemap";
 				OTHER_CFLAGS = "-Werror=vla";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
@@ -2342,7 +2342,7 @@
 				);
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				MODULEMAP_FILE = "$(SRCROOT)/include/module.modulemap";
-				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/include/Private/module.private.modulemap";
+				MODULEMAP_PRIVATE_FILE = "$(SRCROOT)/include/Private/CommonCrypto_private.modulemap";
 				OTHER_CFLAGS = "-Werror=vla";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",

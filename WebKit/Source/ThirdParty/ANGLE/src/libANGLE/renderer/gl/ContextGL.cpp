@@ -83,7 +83,7 @@ ShaderImpl *ContextGL::createShader(const gl::ShaderState &data)
     const FunctionsGL *functions = getFunctions();
     GLuint shader                = functions->createShader(ToGLenum(data.getShaderType()));
 
-    return new ShaderGL(data, shader, mRenderer->getMultiviewImplementationType(), mRenderer);
+    return new ShaderGL(data, shader);
 }
 
 ProgramImpl *ContextGL::createProgram(const gl::ProgramState &data)
@@ -145,9 +145,17 @@ BufferImpl *ContextGL::createBuffer(const gl::BufferState &state)
 
 VertexArrayImpl *ContextGL::createVertexArray(const gl::VertexArrayState &data)
 {
+    const FunctionsGL *functions      = getFunctions();
     const angle::FeaturesGL &features = getFeaturesGL();
 
-    if (features.syncVertexArraysToDefault.enabled)
+    // Use the shared default vertex array when forced to for workarounds
+    // (syncAllVertexArraysToDefault) or for the frontend default vertex array so that client data
+    // can be used directly
+    // Disable on external contexts so that the default VAO is not modified by both ANGLE and the
+    // external user.
+    if (features.syncAllVertexArraysToDefault.enabled ||
+        (features.syncDefaultVertexArraysToDefault.enabled && data.isDefault() &&
+         mState.areClientArraysEnabled() && !mState.isExternal()))
     {
         StateManagerGL *stateManager = getStateManager();
 
@@ -156,8 +164,6 @@ VertexArrayImpl *ContextGL::createVertexArray(const gl::VertexArrayState &data)
     }
     else
     {
-        const FunctionsGL *functions = getFunctions();
-
         GLuint vao = 0;
         functions->genVertexArrays(1, &vao);
         return new VertexArrayGL(data, vao);
@@ -1040,6 +1046,16 @@ void ContextGL::flushIfNecessaryBeforeDeleteTextures()
 void ContextGL::markWorkSubmitted()
 {
     mRenderer->markWorkSubmitted();
+}
+
+MultiviewImplementationTypeGL ContextGL::getMultiviewImplementationType() const
+{
+    return mRenderer->getMultiviewImplementationType();
+}
+
+bool ContextGL::hasNativeParallelCompile()
+{
+    return mRenderer->hasNativeParallelCompile();
 }
 
 void ContextGL::resetDrawStateForPixelLocalStorageEXT(const gl::Context *context)

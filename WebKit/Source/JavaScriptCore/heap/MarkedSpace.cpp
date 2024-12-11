@@ -198,7 +198,7 @@ void MarkedSpace::freeMemory()
         allocation->destroy();
     forEachSubspace([&](Subspace& subspace) {
         if (subspace.isIsoSubspace())
-            static_cast<IsoSubspace&>(subspace).destroyLowerTierFreeList();
+            static_cast<IsoSubspace&>(subspace).destroyLowerTierPreciseFreeList();
         return IterationStatus::Continue;
     });
 }
@@ -236,8 +236,8 @@ void MarkedSpace::sweepPreciseAllocations()
         if (allocation->isEmpty()) {
             if (auto* set = preciseAllocationSet())
                 set->remove(allocation->cell());
-            if (allocation->isLowerTier())
-                static_cast<IsoSubspace*>(allocation->subspace())->sweepLowerTierCell(allocation);
+            if (allocation->isLowerTierPrecise())
+                static_cast<IsoSubspace*>(allocation->subspace())->sweepLowerTierPreciseCell(allocation);
             else {
                 m_capacity -= allocation->cellSize();
                 allocation->destroy();
@@ -356,6 +356,21 @@ bool MarkedSpace::isPagedOut()
     double maxHeapGrowthFactor = VM::isInMiniMode() ? Options::miniVMHeapGrowthFactor() : Options::largeHeapGrowthFactor();
     double bailoutPercentage = Options::customFullGCCallbackBailThreshold() == -1.0 ? maxHeapGrowthFactor - 1 : Options::customFullGCCallbackBailThreshold();
     return pagedOutPagesStats.mean() > pagedOutPagesStats.count() * bailoutPercentage;
+}
+
+// Don't forget to remove this once we're done debugging (rdar://136782494)
+MarkedBlock::Handle* MarkedSpace::findMarkedBlockHandleDebug(MarkedBlock* block)
+{
+    MarkedBlock::Handle* result = nullptr;
+    forEachDirectory(
+        [&](BlockDirectory& directory) -> IterationStatus {
+            if (MarkedBlock::Handle* handle = directory.findMarkedBlockHandleDebug(block)) {
+                result = handle;
+                return IterationStatus::Done;
+            }
+            return IterationStatus::Continue;
+        });
+    return result;
 }
 
 void MarkedSpace::freeBlock(MarkedBlock::Handle* block)

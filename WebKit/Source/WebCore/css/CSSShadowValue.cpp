@@ -26,14 +26,15 @@
 namespace WebCore {
 
 // Used for text-shadow and box-shadow
-CSSShadowValue::CSSShadowValue(RefPtr<CSSPrimitiveValue>&& x, RefPtr<CSSPrimitiveValue>&& y, RefPtr<CSSPrimitiveValue>&& blur, RefPtr<CSSPrimitiveValue>&& spread, RefPtr<CSSPrimitiveValue>&& style, RefPtr<CSSPrimitiveValue>&& color)
-    : CSSValue(ShadowClass)
+CSSShadowValue::CSSShadowValue(RefPtr<CSSPrimitiveValue>&& x, RefPtr<CSSPrimitiveValue>&& y, RefPtr<CSSPrimitiveValue>&& blur, RefPtr<CSSPrimitiveValue>&& spread, RefPtr<CSSPrimitiveValue>&& style, RefPtr<CSSPrimitiveValue>&& color, bool isWebkitBoxShadow)
+    : CSSValue(ClassType::Shadow)
     , x(WTFMove(x))
     , y(WTFMove(y))
     , blur(WTFMove(blur))
     , spread(WTFMove(spread))
     , style(WTFMove(style))
     , color(WTFMove(color))
+    , isWebkitBoxShadow(isWebkitBoxShadow)
 {
 }
 
@@ -79,7 +80,8 @@ bool CSSShadowValue::equals(const CSSShadowValue& other) const
         && compareCSSValuePtr(y, other.y)
         && compareCSSValuePtr(blur, other.blur)
         && compareCSSValuePtr(spread, other.spread)
-        && compareCSSValuePtr(style, other.style);
+        && compareCSSValuePtr(style, other.style)
+        && isWebkitBoxShadow == other.isWebkitBoxShadow;
 }
 
 }

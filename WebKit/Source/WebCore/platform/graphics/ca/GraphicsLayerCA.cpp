@@ -64,6 +64,7 @@
 #include <wtf/PointerComparison.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/UUID.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
@@ -79,6 +80,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GraphicsLayerCA);
 
 // The threshold width or height above which a tiled layer will be used. This should be
 // large enough to avoid tiled layers for most GraphicsLayers, but less than the OpenGL
@@ -208,7 +211,7 @@ static void getTransformFunctionValue(const TransformOperation* transformOp, Tra
     case TransformOperation::Type::Identity:
     case TransformOperation::Type::None:
         if (transformOp)
-            transformOp->apply(value, size);
+            transformOp->applyUnrounded(value, size);
         else
             value.makeIdentity();
         break;
@@ -481,13 +484,13 @@ String GraphicsLayerCA::debugName() const
     String caLayerDescription;
     if (m_layer->type() == PlatformCALayer::Type::Cocoa)
         caLayerDescription = makeString("CALayer(0x"_s, hex(reinterpret_cast<uintptr_t>(m_layer->platformLayer()), Lowercase), ") "_s);
-    return makeString(caLayerDescription, "GraphicsLayer(0x"_s, hex(reinterpret_cast<uintptr_t>(this), Lowercase), ", "_s, primaryLayerID().object(), ") "_s, name());
+    return makeString(caLayerDescription, "GraphicsLayer(0x"_s, hex(reinterpret_cast<uintptr_t>(this), Lowercase), ", "_s, primaryLayerID()->object(), ") "_s, name());
 #else
     return name();
 #endif
 }
 
-PlatformLayerIdentifier GraphicsLayerCA::primaryLayerID() const
+std::optional<PlatformLayerIdentifier> GraphicsLayerCA::primaryLayerID() const
 {
     return primaryLayer()->layerID();
 }
@@ -1283,9 +1286,9 @@ void GraphicsLayerCA::setContentsToModel(RefPtr<Model>&& model, ModelInteraction
     noteLayerPropertyChanged(ContentsRectsChanged | OpacityChanged);
 }
 
-PlatformLayerIdentifier GraphicsLayerCA::contentsLayerIDForModel() const
+std::optional<PlatformLayerIdentifier> GraphicsLayerCA::contentsLayerIDForModel() const
 {
-    return m_contentsLayerPurpose == ContentsLayerPurpose::Model ? m_contentsLayer->layerID() : PlatformLayerIdentifier { };
+    return m_contentsLayerPurpose == ContentsLayerPurpose::Model ? std::optional { m_contentsLayer->layerID() } : std::nullopt;
 }
 
 #endif

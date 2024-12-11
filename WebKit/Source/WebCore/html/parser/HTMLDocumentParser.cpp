@@ -139,8 +139,14 @@ void HTMLDocumentParser::prepareToStopParsing()
     DocumentParser::prepareToStopParsing();
 
     // We will not have a scriptRunner when parsing a DocumentFragment.
-    if (m_scriptRunner)
+    if (m_scriptRunner) {
         document()->setReadyState(Document::ReadyState::Interactive);
+
+        // FIXME: Bug 279167 - This should be called after every element is popped
+        // from the stack of open elements, not just the last.
+        if (!isDetached())
+            document()->processInternalResourceLinks();
+    }
 
     // Setting the ready state above can fire mutation event and detach us
     // from underneath. In that case, just bail out.
@@ -272,7 +278,7 @@ bool HTMLDocumentParser::pumpTokenizerLoop(SynchronousMode mode, bool parsingFra
         // how the parser has always handled stopping when the page assigns window.location. What should
         // happen instead is that assigning window.location causes the parser to stop parsing cleanly.
         // The problem is we're not prepared to do that at every point where we run JavaScript.
-        if (UNLIKELY(!parsingFragment && document()->frame() && document()->frame()->navigationScheduler().locationChangePending()))
+        if (UNLIKELY(!parsingFragment && document()->frame() && document()->frame()->checkedNavigationScheduler()->locationChangePending()))
             return false;
 
         if (UNLIKELY(mode == SynchronousMode::AllowYield && m_parserScheduler->shouldYieldBeforeToken(session)))

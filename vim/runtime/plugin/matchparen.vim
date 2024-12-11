@@ -1,6 +1,6 @@
 " Vim plugin for showing matching parens
 " Maintainer:	The Vim Project <https://github.com/vim/vim>
-" Last Change:	2023 Oct 20
+" Last Change:	2024 May 18
 " Former Maintainer:	Bram Moolenaar <Bram@vim.org>
 
 " Exit quickly when:
@@ -22,7 +22,8 @@ let s:has_matchaddpos = exists('*matchaddpos')
 
 augroup matchparen
   " Replace all matchparen autocommands
-  autocmd! CursorMoved,CursorMovedI,WinEnter,BufWinEnter,WinScrolled * call s:Highlight_Matching_Pair()
+  autocmd! CursorMoved,CursorMovedI,WinEnter,WinScrolled * call s:Highlight_Matching_Pair()
+  autocmd! BufWinEnter * autocmd SafeState * ++once call s:Highlight_Matching_Pair()
   autocmd! WinLeave,BufLeave * call s:Remove_Matches()
   if exists('##TextChanged')
     autocmd! TextChanged,TextChangedI * call s:Highlight_Matching_Pair()
@@ -59,12 +60,8 @@ func s:Highlight_Matching_Pair()
   let before = 0
 
   let text = getline(c_lnum)
-  let matches = matchlist(text, '\(.\)\=\%'.c_col.'c\(.\=\)')
-  if empty(matches)
-    let [c_before, c] = ['', '']
-  else
-    let [c_before, c] = matches[1:2]
-  endif
+  let c_before = text->strpart(0, c_col - 1)->slice(-1)
+  let c = text->strpart(c_col - 1)->slice(0, 1)
   let plist = split(&matchpairs, '.\zs[:,]')
   let i = index(plist, c)
   if i < 0
@@ -217,7 +214,7 @@ command NoMatchParen call s:NoMatchParen()
 
 func s:NoMatchParen()
   let w = winnr()
-  noau windo silent! call matchdelete(3)
+  noau windo call s:Remove_Matches()
   unlet! g:loaded_matchparen
   exe "noau ". w . "wincmd w"
   au! matchparen

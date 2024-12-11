@@ -55,7 +55,7 @@
 #include "StyleResolver.h"
 #include "TextRun.h"
 #include <math.h>
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(IOS_FAMILY)
 #include "LocalizedStrings.h"
@@ -66,7 +66,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMenuList);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderMenuList);
 
 #if PLATFORM(IOS_FAMILY)
 static size_t selectedOptionCount(const RenderMenuList& renderMenuList)
@@ -95,10 +95,8 @@ RenderMenuList::RenderMenuList(HTMLSelectElement& element, RenderStyle&& style)
     ASSERT(isRenderMenuList());
 }
 
-RenderMenuList::~RenderMenuList()
-{
-    // Do not add any code here. Add it to willBeDestroyed() instead.
-}
+// Do not add any code in below destructor. Add it to willBeDestroyed() instead.
+RenderMenuList::~RenderMenuList() = default;
 
 void RenderMenuList::willBeDestroyed()
 {
@@ -177,10 +175,10 @@ void RenderMenuList::adjustInnerStyle()
 #endif // !PLATFORM(IOS_FAMILY)
 
     if (m_innerBlock && m_innerBlock->layoutBox()) {
-        if (auto* inlineFormattingContextRoot = dynamicDowncast<RenderBlockFlow>(*m_innerBlock); inlineFormattingContextRoot && inlineFormattingContextRoot->modernLineLayout())
-            inlineFormattingContextRoot->modernLineLayout()->rootStyleWillChange(*inlineFormattingContextRoot, innerStyle);
+        if (auto* inlineFormattingContextRoot = dynamicDowncast<RenderBlockFlow>(*m_innerBlock); inlineFormattingContextRoot && inlineFormattingContextRoot->inlineLayout())
+            inlineFormattingContextRoot->inlineLayout()->rootStyleWillChange(*inlineFormattingContextRoot, innerStyle);
         if (auto* lineLayout = LayoutIntegration::LineLayout::containing(*m_innerBlock))
-            lineLayout->styleWillChange(*m_innerBlock, innerStyle);
+            lineLayout->styleWillChange(*m_innerBlock, innerStyle, StyleDifference::Layout);
         LayoutIntegration::LineLayout::updateStyle(*m_innerBlock);
         for (auto& child : childrenOfType<RenderText>(*m_innerBlock))
             LayoutIntegration::LineLayout::updateStyle(child);
@@ -300,7 +298,7 @@ void RenderMenuList::setText(const String& s)
 
     if (m_buttonText) {
         m_buttonText->setText(textToUse.impl(), true);
-        m_buttonText->dirtyLineBoxes(false);
+        m_buttonText->dirtyLegacyLineBoxes(false);
     } else {
         auto newButtonText = createRenderer<RenderText>(Type::Text, document(), textToUse);
         m_buttonText = *newButtonText;

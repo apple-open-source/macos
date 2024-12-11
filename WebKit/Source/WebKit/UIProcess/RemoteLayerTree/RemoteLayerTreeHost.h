@@ -32,6 +32,7 @@
 #include <WebCore/ProcessIdentifier.h>
 #include <wtf/HashMap.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMalloc.h>
 
 OBJC_CLASS CAAnimation;
 OBJC_CLASS WKAnimationDelegate;
@@ -46,15 +47,15 @@ class RemoteLayerTreeDrawingAreaProxy;
 class WebPageProxy;
 
 class RemoteLayerTreeHost {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteLayerTreeHost);
 public:
     explicit RemoteLayerTreeHost(RemoteLayerTreeDrawingAreaProxy&);
     ~RemoteLayerTreeHost();
 
-    RemoteLayerTreeNode* nodeForID(WebCore::PlatformLayerIdentifier) const;
+    RemoteLayerTreeNode* nodeForID(std::optional<WebCore::PlatformLayerIdentifier>) const;
     RemoteLayerTreeNode* rootNode() const { return m_rootNode.get(); }
 
-    CALayer *layerForID(WebCore::PlatformLayerIdentifier) const;
+    CALayer *layerForID(std::optional<WebCore::PlatformLayerIdentifier>) const;
     CALayer *rootLayer() const;
 
     RemoteLayerTreeDrawingAreaProxy& drawingArea() const;
@@ -69,8 +70,8 @@ public:
     typedef HashMap<WebCore::PlatformLayerIdentifier, RetainPtr<WKAnimationDelegate>> LayerAnimationDelegateMap;
     LayerAnimationDelegateMap& animationDelegates() { return m_animationDelegates; }
 
-    void animationDidStart(WebCore::PlatformLayerIdentifier, CAAnimation *, MonotonicTime startTime);
-    void animationDidEnd(WebCore::PlatformLayerIdentifier, CAAnimation *);
+    void animationDidStart(std::optional<WebCore::PlatformLayerIdentifier>, CAAnimation *, MonotonicTime startTime);
+    void animationDidEnd(std::optional<WebCore::PlatformLayerIdentifier>, CAAnimation *);
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     void animationsWereAddedToNode(RemoteLayerTreeNode&);

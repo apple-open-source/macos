@@ -35,8 +35,11 @@
 #include "RemoteSampleBufferDisplayLayerManagerMessages.h"
 #include "RemoteSampleBufferDisplayLayerMessages.h"
 #include <WebCore/IntSize.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteSampleBufferDisplayLayerManager);
 
 RemoteSampleBufferDisplayLayerManager::RemoteSampleBufferDisplayLayerManager(GPUConnectionToWebProcess& gpuConnectionToWebProcess)
     : m_connectionToWebProcess(gpuConnectionToWebProcess)
@@ -74,7 +77,7 @@ bool RemoteSampleBufferDisplayLayerManager::dispatchMessage(IPC::Connection& con
     if (!decoder.destinationID())
         return false;
 
-    auto identifier = ObjectIdentifier<SampleBufferDisplayLayerIdentifierType>(decoder.destinationID());
+    auto identifier = LegacyNullableObjectIdentifier<SampleBufferDisplayLayerIdentifierType>(decoder.destinationID());
     Locker lock(m_layersLock);
     if (auto* layer = m_layers.get(identifier))
         layer->didReceiveMessage(connection, decoder);

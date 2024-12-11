@@ -45,13 +45,13 @@
 #include "DOMMatrix.h"
 #include "ExceptionOr.h"
 #include <wtf/Algorithms.h>
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(CSSTransformValue);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(CSSTransformValue);
 
 static ExceptionOr<Ref<CSSTransformComponent>> createTransformComponent(CSSFunctionValue& functionValue)
 {
@@ -167,6 +167,8 @@ CSSTransformValue::CSSTransformValue(Vector<Ref<CSSTransformComponent>>&& transf
     : m_components(WTFMove(transforms))
 {
 }
+
+CSSTransformValue::~CSSTransformValue() = default;
 
 void CSSTransformValue::serialize(StringBuilder& builder, OptionSet<SerializationArguments>) const
 {

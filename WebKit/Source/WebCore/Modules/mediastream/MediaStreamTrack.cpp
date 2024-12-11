@@ -59,13 +59,13 @@
 #include "Settings.h"
 #include "WebAudioSourceProvider.h"
 #include <wtf/CompletionHandler.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NativePromise.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaStreamTrack);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MediaStreamTrack);
 
 Ref<MediaStreamTrack> MediaStreamTrack::create(ScriptExecutionContext& context, Ref<MediaStreamTrackPrivate>&& privateTrack, RegisterCaptureTrackToOwner registerCaptureTrackToOwner)
 {
@@ -251,6 +251,9 @@ void MediaStreamTrack::stopTrack(StopMode mode)
 
     m_private->endTrack();
     m_ended = true;
+
+    if (isAudio() && isCaptureTrack())
+        PlatformMediaSessionManager::sharedManager().audioCaptureSourceStateChanged();
 
     configureTrackRendering();
 }
@@ -529,6 +532,10 @@ void MediaStreamTrack::trackMutedChanged(MediaStreamTrackPrivate&)
             return;
 
         m_muted = muted;
+
+        if (isAudio() && isCaptureTrack())
+            PlatformMediaSessionManager::sharedManager().audioCaptureSourceStateChanged();
+
         dispatchEvent(Event::create(muted ? eventNames().muteEvent : eventNames().unmuteEvent, Event::CanBubble::No, Event::IsCancelable::No));
     };
     if (m_shouldFireMuteEventImmediately)

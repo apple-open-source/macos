@@ -58,7 +58,6 @@
 #include "RenderElementInlines.h"
 #include "RenderFragmentedFlow.h"
 #include "RenderImageResourceStyleImage.h"
-#include "RenderLayoutState.h"
 #include "RenderStyleSetters.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
@@ -66,8 +65,8 @@
 #include "SVGImage.h"
 #include "Settings.h"
 #include "TextPainter.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(IOS_FAMILY)
 #include "LogicalSelectionOffsetCaches.h"
@@ -85,7 +84,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderImage);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderImage);
 
 #if PLATFORM(IOS_FAMILY)
 // FIXME: This doesn't behave correctly for floating or positioned images, but WebCore doesn't handle those well
@@ -176,10 +175,8 @@ RenderImage::RenderImage(Type type, Document& document, RenderStyle&& style, Sty
 {
 }
 
-RenderImage::~RenderImage()
-{
-    // Do not add any code here. Add it to willBeDestroyed() instead.
-}
+// Do not add any code in below destructor. Add it to willBeDestroyed() instead.
+RenderImage::~RenderImage() = default;
 
 void RenderImage::willBeDestroyed()
 {
@@ -746,7 +743,10 @@ ImageDrawResult RenderImage::paintIntoRect(PaintInfo& paintInfo, const FloatRect
         imageOrientation(),
         image ? chooseInterpolationQuality(paintInfo.context(), *image, image, LayoutSize(rect.size())) : InterpolationQuality::Default,
         settings().imageSubsamplingEnabled() ? AllowImageSubsampling::Yes : AllowImageSubsampling::No,
-        settings().showDebugBorders() ? ShowDebugBackground::Yes : ShowDebugBackground::No
+        settings().showDebugBorders() ? ShowDebugBackground::Yes : ShowDebugBackground::No,
+#if USE(SKIA)
+        StrictImageClamping::No,
+#endif
     };
 
     auto drawResult = ImageDrawResult::DidNothing;
@@ -783,10 +783,10 @@ bool RenderImage::foregroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect,
         return false;
     FillBox backgroundClip = style().backgroundClip();
     // Background paints under borders.
-    if (backgroundClip == FillBox::Border && style().hasBorder() && !borderObscuresBackground())
+    if (backgroundClip == FillBox::BorderBox && style().hasBorder() && !borderObscuresBackground())
         return false;
     // Background shows in padding area.
-    if ((backgroundClip == FillBox::Border || backgroundClip == FillBox::Padding) && style().hasPadding())
+    if ((backgroundClip == FillBox::BorderBox || backgroundClip == FillBox::PaddingBox) && style().hasPadding())
         return false;
     // Object-fit may leave parts of the content box empty.
     ObjectFit objectFit = style().objectFit();
@@ -880,36 +880,6 @@ void RenderImage::layout()
 
     if (hasShadowContent())
         layoutShadowContent(oldSize);
-}
-
-void RenderImage::layoutShadowContent(const LayoutSize& oldSize)
-{
-    for (auto& renderBox : childrenOfType<RenderBox>(*this)) {
-        bool childNeedsLayout = renderBox.needsLayout();
-        // If the region chain has changed we also need to relayout the children to update the region box info.
-        // FIXME: We can do better once we compute region box info for RenderReplaced, not only for RenderBlock.
-        auto* fragmentedFlow = enclosingFragmentedFlow();
-        if (fragmentedFlow && !childNeedsLayout) {
-            if (fragmentedFlow->pageLogicalSizeChanged())
-                childNeedsLayout = true;
-        }
-
-        auto newSize = contentBoxRect().size();
-        if (newSize == oldSize && !childNeedsLayout)
-            continue;
-
-        // When calling layout() on a child node, a parent must either push a LayoutStateMaintainer, or
-        // instantiate LayoutStateDisabler. Since using a LayoutStateMaintainer is slightly more efficient,
-        // and this method might be called many times per second during video playback, use a LayoutStateMaintainer:
-        LayoutStateMaintainer statePusher(*this, locationOffset(), isTransformed() || hasReflection() || style().isFlippedBlocksWritingMode());
-        renderBox.setLocation(LayoutPoint(borderLeft(), borderTop()) + LayoutSize(paddingLeft(), paddingTop()));
-        renderBox.mutableStyle().setHeight(Length(newSize.height(), LengthType::Fixed));
-        renderBox.mutableStyle().setWidth(Length(newSize.width(), LengthType::Fixed));
-        renderBox.setNeedsLayout(MarkOnlyThis);
-        renderBox.layout();
-    }
-
-    clearChildNeedsLayout();
 }
 
 void RenderImage::computeIntrinsicRatioInformation(FloatSize& intrinsicSize, FloatSize& intrinsicRatio) const

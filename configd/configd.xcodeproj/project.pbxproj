@@ -1148,6 +1148,8 @@
 		72D3E6611AE6EA3A00DB4C69 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E6601AE6EA3A00DB4C69 /* main.swift */; };
 		72D3E66C1AE6EAF600DB4C69 /* test-objC.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E66B1AE6EAF600DB4C69 /* test-objC.m */; };
 		78C951FE1F797B44000EA36B /* libnetwork.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 78C951FD1F797B43000EA36B /* libnetwork.tbd */; };
+		8AC687F72C7E81650053C3B9 /* ps_filtering_rules.txt in Install posix spawn filtering rules for MTE enablement */ = {isa = PBXBuildFile; fileRef = 8AC687F52C7E7FE00053C3B9 /* ps_filtering_rules.txt */; };
+		8AC687F92C7E81E80053C3B9 /* ps_filtering_rules.txt in Install posix spawn filtering rules for MTE enablement */ = {isa = PBXBuildFile; fileRef = 8AC687F52C7E7FE00053C3B9 /* ps_filtering_rules.txt */; };
 		94109B672A4A9BBA00EAE26A /* SCTestRankAssertion.m in Sources */ = {isa = PBXBuildFile; fileRef = 94D7F5DA29A4140D001088C5 /* SCTestRankAssertion.m */; };
 		949FE9C229277A5F00988AC3 /* SCTestNetworkConfiguration.m in Sources */ = {isa = PBXBuildFile; fileRef = 949FE9C129277A5F00988AC3 /* SCTestNetworkConfiguration.m */; };
 		94D7F5DB29A4140D001088C5 /* SCTestRankAssertion.m in Sources */ = {isa = PBXBuildFile; fileRef = 94D7F5DA29A4140D001088C5 /* SCTestRankAssertion.m */; };
@@ -2049,6 +2051,28 @@
 			name = npt_configd.plist;
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		8AC687F62C7E81280053C3B9 /* Install posix spawn filtering rules for MTE enablement */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/Tests/configd;
+			dstSubfolderSpec = 0;
+			files = (
+				8AC687F72C7E81650053C3B9 /* ps_filtering_rules.txt in Install posix spawn filtering rules for MTE enablement */,
+			);
+			name = "Install posix spawn filtering rules for MTE enablement";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8AC687F82C7E81DC0053C3B9 /* Install posix spawn filtering rules for MTE enablement */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/Tests/configd;
+			dstSubfolderSpec = 0;
+			files = (
+				8AC687F92C7E81E80053C3B9 /* ps_filtering_rules.txt in Install posix spawn filtering rules for MTE enablement */,
+			);
+			name = "Install posix spawn filtering rules for MTE enablement";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F9102E95283D70BE0001D434 /* PrivateStrings.plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -2445,6 +2469,7 @@
 		72D3E6691AE6EAF600DB4C69 /* SCTest-ObjC */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "SCTest-ObjC"; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D3E66B1AE6EAF600DB4C69 /* test-objC.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "test-objC.m"; sourceTree = "<group>"; };
 		78C951FD1F797B43000EA36B /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = usr/lib/libnetwork.tbd; sourceTree = SDKROOT; };
+		8AC687F52C7E7FE00053C3B9 /* ps_filtering_rules.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ps_filtering_rules.txt; sourceTree = "<group>"; };
 		8AE1A27428B94A1D00D54F88 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		949FE9C129277A5F00988AC3 /* SCTestNetworkConfiguration.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SCTestNetworkConfiguration.m; sourceTree = "<group>"; };
 		94D7F5DA29A4140D001088C5 /* SCTestRankAssertion.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SCTestRankAssertion.m; sourceTree = "<group>"; };
@@ -3833,6 +3858,7 @@
 				72573D281D667372004975AD /* main.m */,
 				72573D431D6B9E72004975AD /* sctest-entitlements.plist */,
 				72C12CAA1D6E9ED4000EE61C /* npt_configd.plist */,
+				8AC687F52C7E7FE00053C3B9 /* ps_filtering_rules.txt */,
 			);
 			path = sctest;
 			sourceTree = "<group>";
@@ -5625,6 +5651,7 @@
 				72573D231D667372004975AD /* Frameworks */,
 				72573D241D667372004975AD /* npt_configd.plist */,
 				72C12CB21D6FEFBE000EE61C /* Fix plist ownership */,
+				8AC687F62C7E81280053C3B9 /* Install posix spawn filtering rules for MTE enablement */,
 			);
 			buildRules = (
 			);
@@ -5643,6 +5670,7 @@
 				7271EA271D76600B0055B1AA /* Frameworks */,
 				7271EA2C1D76600B0055B1AA /* npt_configd.plist */,
 				7271EA2E1D76600B0055B1AA /* Fix plist ownership */,
+				8AC687F82C7E81DC0053C3B9 /* Install posix spawn filtering rules for MTE enablement */,
 			);
 			buildRules = (
 			);

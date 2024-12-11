@@ -206,7 +206,8 @@ SubsamplingLevel BitmapImageDescriptor::maximumSubsamplingLevel() const
     auto level = SubsamplingLevel::First;
 
     for (; level < SubsamplingLevel::Last; ++level) {
-        if (m_source.frameSizeAtIndex(0, level).area() < maximumImageAreaBeforeSubsampling)
+        auto area = m_source.frameSizeAtIndex(0, level).unclampedArea();
+        if (area < maximumImageAreaBeforeSubsampling)
             break;
     }
 
@@ -244,6 +245,15 @@ bool BitmapImageDescriptor::shouldUseQuickLookForFullscreen() const
 {
     if (auto decoder = m_source.decoderIfExists())
         return decoder->shouldUseQuickLookForFullscreen();
+    return false;
+}
+#endif
+
+#if ENABLE(SPATIAL_IMAGE_DETECTION)
+bool BitmapImageDescriptor::isSpatial() const
+{
+    if (RefPtr decoder = m_source.decoderIfExists())
+        return decoder->isSpatial();
     return false;
 }
 #endif

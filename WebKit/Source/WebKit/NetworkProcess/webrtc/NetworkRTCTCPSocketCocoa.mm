@@ -35,6 +35,15 @@
 #include <dispatch/dispatch.h>
 #include <pal/spi/cocoa/NetworkSPI.h>
 #include <wtf/BlockPtr.h>
+#include <wtf/TZoneMallocInlines.h>
+
+ALLOW_COMMA_BEGIN
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+
+#include <webrtc/api/packet_socket_factory.h>
+
+ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_COMMA_END
 
 namespace WebKit {
 
@@ -49,6 +58,8 @@ static dispatch_queue_t tcpSocketQueue()
     });
     return queue;
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(NetworkRTCTCPSocketCocoa);
 
 std::unique_ptr<NetworkRTCProvider::Socket> NetworkRTCTCPSocketCocoa::createClientTCPSocket(LibWebRTCSocketIdentifier identifier, NetworkRTCProvider& rtcProvider, const rtc::SocketAddress& remoteAddress, int tcpOptions, const String& attributedBundleIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain& domain, Ref<IPC::Connection>&& connection)
 {
@@ -134,7 +145,7 @@ NetworkRTCTCPSocketCocoa::NetworkRTCTCPSocketCocoa(LibWebRTCSocketIdentifier ide
 
     processIncomingData(m_nwConnection.get(), [identifier = m_identifier, connection = m_connection.copyRef(), ip = remoteAddress.ipaddr(), port = remoteAddress.port(), isSTUN = m_isSTUN](Vector<uint8_t>&& buffer) mutable {
         return WebRTC::extractMessages(WTFMove(buffer), isSTUN ? WebRTC::MessageType::STUN : WebRTC::MessageType::Data, [&](auto data) {
-            connection->send(Messages::LibWebRTCNetwork::SignalReadPacket { identifier, data, RTCNetwork::IPAddress(ip), port, rtc::TimeMicros() }, 0);
+            connection->send(Messages::LibWebRTCNetwork::SignalReadPacket { identifier, data, RTCNetwork::IPAddress(ip), port, rtc::TimeMicros(), RTC::Network::EcnMarking::kNotEct }, 0);
         });
     });
 
@@ -153,7 +164,7 @@ void NetworkRTCTCPSocketCocoa::close()
 #endif
     if (m_nwConnection)
         nw_connection_cancel(m_nwConnection.get());
-    m_rtcProvider.takeSocket(m_identifier);
+    Ref { m_rtcProvider.get() }->takeSocket(m_identifier);
 }
 
 void NetworkRTCTCPSocketCocoa::setOption(int option, int value)

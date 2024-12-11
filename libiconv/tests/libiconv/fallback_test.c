@@ -433,12 +433,65 @@ ATF_TC_BODY(test_fallback_from_mb, tc)
 	test_one_mbfail(&mb_uc_test_config2);
 }
 
+ATF_TC_WITHOUT_HEAD(test_fallback_clear);
+ATF_TC_BODY(test_fallback_clear, tc)
+{
+	struct iconv_fallbacks ivf = {
+		.uc_to_mb_fallback = &uc_to_mb_euro,
+		.wc_to_mb_fallback = &wc_to_mb_euro,
+	};
+	iconv_t cd;
+	char outbuf[32];
+	char *inptr, *outptr;
+	size_t insz, outsz;
+	bool fallback_disabled;
+
+	fallback_disabled = false;
+
+	cd = iconv_open("ASCII", "WCHAR_T");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	/* No harm in clearing it right off the bat. */
+	ATF_REQUIRE(iconvctl(cd, ICONV_SET_FALLBACKS, NULL) == 0);
+
+	ivf.data = &fallback_disabled;
+	ATF_REQUIRE(iconvctl(cd, ICONV_SET_FALLBACKS, &ivf) == 0);
+
+	inptr = (void *)&wc_mb_wc2[0];
+	insz = sizeof(wc_mb_wc2);
+	outptr = &outbuf[0];
+	outsz = sizeof(outbuf);
+	/* Should invoke fallback */
+	ATF_REQUIRE(iconv(cd, &inptr, &insz, &outptr, &outsz) == 1);
+	ATF_REQUIRE(strncmp(outbuf, "50@!K", sizeof("50@!K") - 1) == 0);
+
+	/* Clear the fallback and try again.  Should fail. */
+	ATF_REQUIRE(iconvctl(cd, ICONV_SET_FALLBACKS, NULL) == 0);
+	inptr = (void *)&wc_mb_wc2[0];
+	insz = sizeof(wc_mb_wc2);
+	outptr = &outbuf[0];
+	outsz = sizeof(outbuf);
+	memset(outptr, 0, outsz);
+
+	/*
+	 * We set fallback_disabled to detect if it didn't clear; the fallback
+	 * would get invoked and fail when it tests ivf.data.
+	 */
+	fallback_disabled = true;
+	ATF_REQUIRE(iconv(cd, &inptr, &insz, &outptr, &outsz) == -1);
+	ATF_REQUIRE_EQ(EILSEQ, errno);
+	/* It should have halted output right before we would've written @!. */
+	ATF_REQUIRE(strncmp(outbuf, "50", 3) == 0);
+	iconv_close(cd);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 
 	ATF_TP_ADD_TC(tp, test_fallback_none);
 	ATF_TP_ADD_TC(tp, test_fallback_to_mb);
 	ATF_TP_ADD_TC(tp, test_fallback_from_mb);
+	ATF_TP_ADD_TC(tp, test_fallback_clear);
 	return (atf_no_error());
 }
 

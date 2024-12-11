@@ -26,7 +26,9 @@
 #include "config.h"
 #include "RenderSVGResourceFilterPrimitive.h"
 
+#include "RenderSVGModelObjectInlines.h"
 #include "RenderSVGResourceFilter.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGFEDiffuseLightingElement.h"
 #include "SVGFEDropShadowElement.h"
 #include "SVGFEFloodElement.h"
@@ -34,11 +36,11 @@
 #include "SVGFilterPrimitiveStandardAttributes.h"
 #include "SVGNames.h"
 #include "SVGRenderStyle.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGResourceFilterPrimitive);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderSVGResourceFilterPrimitive);
 
 RenderSVGResourceFilterPrimitive::RenderSVGResourceFilterPrimitive(SVGFilterPrimitiveStandardAttributes& element, RenderStyle&& style)
     : RenderSVGHiddenContainer(Type::SVGResourceFilterPrimitive, element, WTFMove(style))

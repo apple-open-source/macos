@@ -31,17 +31,17 @@
 #include "Logging.h"
 #include "NowPlayingInfo.h"
 #include "PlatformMediaSession.h"
+#include <wtf/TZoneMallocInlines.h>
+
 #if PLATFORM(COCOA)
 #include "VP9UtilitiesCocoa.h"
 #endif
 
 namespace WebCore {
 
-#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PlatformMediaSessionManager);
 
-#if ENABLE(WEBM_FORMAT_READER)
-bool PlatformMediaSessionManager::m_webMFormatReaderEnabled;
-#endif
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
 
 #if ENABLE(VORBIS)
 bool PlatformMediaSessionManager::m_vorbisDecoderEnabled;
@@ -708,24 +708,6 @@ bool PlatformMediaSessionManager::shouldDeactivateAudioSession()
 void PlatformMediaSessionManager::setShouldDeactivateAudioSession(bool deactivate)
 {
     deactivateAudioSession() = deactivate;
-}
-
-bool PlatformMediaSessionManager::webMFormatReaderEnabled()
-{
-#if ENABLE(WEBM_FORMAT_READER)
-    return m_webMFormatReaderEnabled;
-#else
-    return false;
-#endif
-}
-
-void PlatformMediaSessionManager::setWebMFormatReaderEnabled(bool enabled)
-{
-#if ENABLE(WEBM_FORMAT_READER)
-    m_webMFormatReaderEnabled = enabled;
-#else
-    UNUSED_PARAM(enabled);
-#endif
 }
 
 bool PlatformMediaSessionManager::vorbisDecoderEnabled()

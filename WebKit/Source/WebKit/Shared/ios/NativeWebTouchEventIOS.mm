@@ -96,7 +96,7 @@ static CGFloat radiusForTouchPoint(const WKTouchPoint& touchPoint)
 #endif
 }
 
-Vector<WebPlatformTouchPoint> NativeWebTouchEvent::extractWebTouchPoint(const WKTouchEvent& event)
+Vector<WebPlatformTouchPoint> NativeWebTouchEvent::extractWebTouchPoints(const WKTouchEvent& event)
 {
     return event.touchPoints.map([](auto& touchPoint) {
         unsigned identifier = touchPoint.identifier;
@@ -118,10 +118,26 @@ Vector<WebPlatformTouchPoint> NativeWebTouchEvent::extractWebTouchPoint(const WK
     });
 }
 
+Vector<WebTouchEvent> NativeWebTouchEvent::extractCoalescedWebTouchEvents(const WKTouchEvent& event, UIKeyModifierFlags flags)
+{
+    return event.coalescedEvents.map([&](auto& event) -> WebTouchEvent {
+        return NativeWebTouchEvent { event, flags };
+    });
+}
+
+Vector<WebTouchEvent> NativeWebTouchEvent::extractPredictedWebTouchEvents(const WKTouchEvent& event, UIKeyModifierFlags flags)
+{
+    return event.predictedEvents.map([&](auto& event) -> WebTouchEvent {
+        return NativeWebTouchEvent { event, flags };
+    });
+}
+
 NativeWebTouchEvent::NativeWebTouchEvent(const WKTouchEvent& event, UIKeyModifierFlags flags)
     : WebTouchEvent(
         { webEventTypeForWKTouchEventType(event.type), webEventModifierFlags(flags), WallTime::fromRawSeconds(event.timestamp) },
-        extractWebTouchPoint(event),
+        extractWebTouchPoints(event),
+        extractCoalescedWebTouchEvents(event, flags),
+        extractPredictedWebTouchEvents(event, flags),
         positionForCGPoint(event.locationInDocumentCoordinates),
         event.isPotentialTap,
         event.inJavaScriptGesture,

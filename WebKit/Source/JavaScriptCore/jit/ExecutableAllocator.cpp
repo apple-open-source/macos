@@ -423,10 +423,10 @@ static ALWAYS_INLINE JITReservation initializeJITPageReservation()
     if (reservation.pageReservation) {
         ASSERT(reservation.pageReservation.size() == reservation.size);
         reservation.base = reservation.pageReservation.base();
-        g_jscConfig.useFastJITPermissions = threadSelfRestrictSupported();
+        g_jscConfig.useFastJITPermissions = threadSelfRestrictSupported<MemoryRestriction::kRwxToRw>();
 
         if (g_jscConfig.useFastJITPermissions)
-            threadSelfRestrictRWXToRX();
+            threadSelfRestrict<MemoryRestriction::kRwxToRx>();
 
 #if ENABLE(SEPARATED_WX_HEAP)
         if (!g_jscConfig.useFastJITPermissions) {
@@ -442,7 +442,7 @@ static ALWAYS_INLINE JITReservation initializeJITPageReservation()
         g_jscConfig.startExecutableMemory = reservation.base;
         g_jscConfig.endExecutableMemory = reservationEnd;
 
-#if !USE(SYSTEM_MALLOC) && ENABLE(UNIFIED_AND_FREEZABLE_CONFIG_RECORD)
+#if !USE(SYSTEM_MALLOC)
         static_assert(WebConfig::reservedSlotsForExecutableAllocator >= 2);
         WebConfig::g_config[0] = bitwise_cast<uintptr_t>(reservation.base);
         WebConfig::g_config[1] = bitwise_cast<uintptr_t>(reservationEnd);

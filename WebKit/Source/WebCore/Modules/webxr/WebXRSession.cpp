@@ -34,6 +34,7 @@
 #include "JSDOMPromiseDeferred.h"
 #include "JSWebXRReferenceSpace.h"
 #include "Page.h"
+#include "PlatformXR.h"
 #include "SecurityOrigin.h"
 #include "WebCoreOpaqueRoot.h"
 #include "WebXRBoundedReferenceSpace.h"
@@ -43,13 +44,13 @@
 #include "XRFrameRequestCallback.h"
 #include "XRRenderStateInit.h"
 #include "XRSessionEvent.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/RefPtr.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(WebXRSession);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(WebXRSession);
 
 Ref<WebXRSession> WebXRSession::create(Document& document, WebXRSystem& system, XRSessionMode mode, PlatformXR::Device& device, FeatureList&& requestedFeatures)
 {
@@ -110,6 +111,19 @@ const WebXRInputSourceArray& WebXRSession::inputSources() const
     return m_inputSources;
 }
 
+// https://www.w3.org/TR/webxr/#dom-xrsession-enabledfeatures
+const Vector<String> WebXRSession::enabledFeatures() const
+{
+    Vector<String> enabledFeatureArray;
+    for (const auto& feature : m_requestedFeatures) {
+        String sessionFeature = PlatformXR::sessionFeatureDescriptor(feature);
+        if (sessionFeature != ""_s)
+            enabledFeatureArray.append(WTFMove(sessionFeature));
+    }
+
+    return enabledFeatureArray;
+}
+
 // https://immersive-web.github.io/webxr/#dom-xrsession-updaterenderstate
 ExceptionOr<void> WebXRSession::updateRenderState(const XRRenderStateInit& newState)
 {
@@ -134,9 +148,19 @@ ExceptionOr<void> WebXRSession::updateRenderState(const XRRenderStateInit& newSt
         return { };
 
     // 6. Run update the pending layers state with session and newState.
-    // https://immersive-web.github.io/webxr/#update-the-pending-layers-state
-    if (newState.layers)
-        return Exception { ExceptionCode::NotSupportedError };
+    // https://www.w3.org/TR/webxrlayers-1/#updaterenderstatechanges
+    if (newState.layers) {
+        /* If session was not created with "layers" enabled and newState’s layers contains more than 1 instance, throw a NotSupportedError and abort these steps.
+         If session’s pending render state is null, set it to a copy of activeState.
+         If newState’s layers contains duplicate instances, throw a TypeError and abort these steps.
+         For each layer in newState’s layers:
+
+         If layer is an XRCompositionLayer and layer’s session is different from session, throw a TypeError and abort these steps.
+         If layer is an XRWebGLLayer and layer’s session is different from session, throw a TypeError and abort these steps.
+         Set session’s pending render state's baseLayer to null.
+         Set session’s pending render state's layers to newState’s layers.
+         */
+    }
 
     // 7. Let activeState be session's active render state.
     // 8. If session's pending render state is null, set it to a copy of activeState.
@@ -473,8 +497,11 @@ void WebXRSession::applyPendingRenderState()
     // 1. Let activeState be session’s active render state.
     // 2. Let newState be session’s pending render state.
     // 3. Set session’s pending render state to null.
-    auto newState = m_pendingRenderState;
+    auto newState = WTFMove(m_pendingRenderState);
     ASSERT(newState);
+    ASSERT(!m_pendingRenderState);
+
+    m_requestData = {{ .depthRange = PlatformXR::DepthRange { static_cast<float>(newState->depthNear()), static_cast<float>(newState->depthFar()) } }}; // NOLINT
 
     // 4. Let oldBaseLayer be activeState’s baseLayer.
     // 5. Let oldLayers be activeState’s layers.
@@ -526,7 +553,7 @@ void WebXRSession::minimalUpdateRendering()
     if (!sessionDocument)
         return;
 
-    if (auto* page = sessionDocument->page()) {
+    if (RefPtr page = sessionDocument->page()) {
         page->forEachDocument([&] (Document& document) {
             document.serviceRequestVideoFrameCallbacks();
         });
@@ -560,10 +587,11 @@ void WebXRSession::requestFrameIfNeeded()
     if (!device)
         return;
     m_isDeviceFrameRequestPending = true;
-    device->requestFrame([this, protectedThis = Ref { *this }](auto&& frameData) {
+    device->requestFrame(WTFMove(m_requestData), [this, protectedThis = Ref { *this }](auto&& frameData) {
         m_isDeviceFrameRequestPending = false;
         onFrame(WTFMove(frameData));
     });
+    m_requestData.reset();
 }
 
 void WebXRSession::onFrame(PlatformXR::FrameData&& frameData)

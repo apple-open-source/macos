@@ -65,6 +65,8 @@
 
 #include <net/route.h>
 #include <net/if_arp.h>
+#include <net/if_mib.h>
+#include <net/if_var_private.h>
 #include <net/net_perf.h>
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
@@ -383,16 +385,9 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 				}
 				printf("%-11.11s",
 				       "(state)");
-				if (bflag > 0 || vflag > 0)
-					printf(" %10.10s %10.10s", "rxbytes", "txbytes");
-				if (prioflag >= 0)
-					printf(" %7.7s[%1d] %7.7s[%1d]", "rxbytes", prioflag, "txbytes", prioflag);
-				if (vflag > 0) {
-					printf(" %7.7s %7.7s %6.6s %6.6s %5.5s %8.8s",
-					       "rhiwat", "shiwat", "pid", "epid", "state", "options");
-					printf(" %16.16s %8.8s %8.8s %6s %6s %5s",
-					       "gencnt", "flags", "flags1", "usecnt", "rtncnt", "fltrs");
-				}
+
+				print_socket_stats_format();
+
 				printf("\n");
 			}
 			first = 0;
@@ -492,39 +487,9 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		}
 		if (!istcp)
 			printf("%-11s", "           ");
-		if (bflag > 0 || vflag > 0) {
-			int i;
-			u_int64_t rxbytes = 0;
-			u_int64_t txbytes = 0;
-			
-			for (i = 0; i < SO_TC_STATS_MAX; i++) {
-				rxbytes += so_stat->xst_tc_stats[i].rxbytes;
-				txbytes += so_stat->xst_tc_stats[i].txbytes;
-			}
-			
-			printf(" %10llu %10llu", rxbytes, txbytes);
-		}
-		if (prioflag >= 0) {
-			printf(" %10llu %10llu",
-			       prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].rxbytes : 0,
-			       prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].txbytes : 0);
-		}
-		if (vflag > 0) {
-			printf(" %7u %7u %6u %6u %05x %08x",
-			       so_rcv->sb_hiwat,
-			       so_snd->sb_hiwat,
-			       so->so_last_pid,
-			       so->so_e_pid,
-			       so->so_state,
-			       so->so_options);
-			printf(" %016llx %08x %08x %6d %6d %06x",
-			       so->so_gencnt,
-			       so->so_flags,
-			       so->so_flags1,
-			       so->so_usecount,
-			       so->so_retaincnt,
-			       so->xso_filter_flags);
-		}
+
+		print_socket_stats_data(so, so_rcv, so_snd, so_stat);
+
 		putchar('\n');
 	}
 	if (xig != oxig && xig->xig_gen != oxig->xig_gen) {
@@ -973,6 +938,89 @@ printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 	if (pcbcount != 0 || sflag <= 1 ) {
 		printf("\t%u open UDP socket%s\n", pcbcount, plural(pcbcount));
 	}
+}
+
+void
+tcp_ifstats(char *ifname)
+{
+	size_t miblen = sizeof(struct ifmibdata_supplemental);
+	struct ifmibdata_supplemental ifmsupp = { 0 };
+	int mibname[6];
+	int ifindex;
+
+#define	p(f, m) if (ifmsupp.ifmd_packet_stats.f || sflag <= 1) \
+    printf(m, ifmsupp.ifmd_packet_stats.f, plural(ifmsupp.ifmd_packet_stats.f))
+
+	printf("tcp on %s\n", ifname);
+
+	if ((ifindex = if_nametoindex(ifname)) == 0) {
+		return;
+	}
+
+	/* Common OID prefix */
+	mibname[0] = CTL_NET;
+	mibname[1] = PF_LINK;
+	mibname[2] = NETLINK_GENERIC;
+	mibname[3] = IFMIB_IFDATA;
+	mibname[4] = ifindex;
+	mibname[5] = IFDATA_SUPPLEMENTAL;
+	if (sysctl(mibname, 6, &ifmsupp, &miblen, NULL, 0) == -1) {
+		err(1, "sysctl IFDATA_SUPPLEMENTAL");
+	}
+
+	p(ifi_tcp_badformat, "\t%llu incoming packet%s with bad TCP header format\n");
+	p(ifi_tcp_unspecv6, "\t%llu incoming packet%s with unspecified IPv6 address\n");
+	p(ifi_tcp_synfin, "\t%llu incoming packet%s with SYN and FIN flags\n");
+	p(ifi_tcp_noconnnolist, "\t%llu incoming packet%s to closed port\n");
+	p(ifi_tcp_noconnlist, "\t%llu incoming packet%s for a closed socket\n");
+	p(ifi_tcp_listbadsyn, "\t%llu incoming packet%s with SYN with ACK or RST flags\n");
+	p(ifi_tcp_icmp6unreach, "\t%llu incoming packet%s to an IPv6 anycast address\n");
+	p(ifi_tcp_deprecate6, "\t%llu incoming packet%s to an IPv6 deprecated address\n");
+	p(ifi_tcp_rstinsynrcv, "\t%llu incoming RST packet%s in SYN_RECEIVED state\n");
+	p(ifi_tcp_ooopacket, "\t%llu incoming packet%s with bad ACK in connecting states\n");
+	p(ifi_tcp_dospacket, "\t%llu incoming packet%s with bad sequence number in SYN_RECEIVED state\n");
+	p(ifi_tcp_cleanup, "\t%llu incoming packet%s received after close\n");
+
+#undef p
+}
+
+void
+udp_ifstats(char *ifname)
+{
+	size_t miblen = sizeof(struct ifmibdata_supplemental);
+	struct ifmibdata_supplemental ifmsupp = { 0 };
+	int mibname[6];
+	int ifindex;
+
+#define	p(f, m) if (ifmsupp.ifmd_packet_stats.f || sflag <= 1) \
+    printf(m, ifmsupp.ifmd_packet_stats.f, plural(ifmsupp.ifmd_packet_stats.f))
+
+	printf("udp on %s\n", ifname);
+
+	if ((ifindex = if_nametoindex(ifname)) == 0) {
+		return;
+	}
+
+	/* Common OID prefix */
+	mibname[0] = CTL_NET;
+	mibname[1] = PF_LINK;
+	mibname[2] = NETLINK_GENERIC;
+	mibname[3] = IFMIB_IFDATA;
+	mibname[4] = ifindex;
+	mibname[5] = IFDATA_SUPPLEMENTAL;
+	if (sysctl(mibname, 6, &ifmsupp, &miblen, NULL, 0) == -1) {
+		err(1, "sysctl IFDATA_SUPPLEMENTAL");
+	}
+
+	p(ifi_udp_port_unreach, "\t%llu incoming packet%s for a closed port\n");
+	p(ifi_udp_port0, "\t%llu incoming packet%s destination port 0\n");
+	p(ifi_udp_badlength, "\t%llu incoming packet%s with a bad length\n");
+	p(ifi_udp_badchksum, "\t%llu incoming packet%s with a bad checksum\n");
+	p(ifi_udp_badmcast, "\t%llu incoming multicast packet%s for a closed port\n");
+	p(ifi_udp_cleanup, "\t%llu incoming packet%s for closed socket\n");
+	p(ifi_udp_badipsec, "\t%llu incoming packet%s not allowed by NECP\n");
+
+#undef p
 }
 
 /*

@@ -39,12 +39,14 @@
 #include <JavaScriptCore/HandleTypes.h>
 #include <pal/SessionID.h>
 #include <wtf/CheckedRef.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/CrossThreadTask.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/NativePromise.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/OptionSet.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
@@ -87,6 +89,7 @@ class SocketProvider;
 class WebCoreOpaqueRoot;
 enum class AdvancedPrivacyProtections : uint16_t;
 enum class LoadedFromOpaqueSource : bool;
+enum class NoiseInjectionPolicy : uint8_t;
 enum class TaskSource : uint8_t;
 
 #if ENABLE(NOTIFICATIONS)
@@ -146,6 +149,7 @@ public:
 
     virtual OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections() const = 0;
     virtual std::optional<uint64_t> noiseInjectionHashSalt() const = 0;
+    virtual OptionSet<NoiseInjectionPolicy> noiseInjectionPolicies() const = 0;
 
     virtual RefPtr<RTCDataChannelRemoteHandlerConnection> createRTCDataChannelRemoteHandlerConnection();
 
@@ -210,7 +214,7 @@ public:
     WEBCORE_EXPORT void derefAllowingPartiallyDestroyed();
 
     class Task {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED_INLINE(Task);
     public:
         enum CleanupTaskTag { CleanupTask };
 
@@ -305,7 +309,7 @@ public:
     void setDomainForCachePartition(String&& domain) { m_domainForCachePartition = WTFMove(domain); }
 
     bool allowsMediaDevices() const;
-    ServiceWorker* activeServiceWorker() const;
+    ServiceWorker* activeServiceWorker() const { return m_activeServiceWorker.get(); }
     void setActiveServiceWorker(RefPtr<ServiceWorker>&&);
 
     void registerServiceWorker(ServiceWorker&);
@@ -340,7 +344,7 @@ public:
     WEBCORE_EXPORT HasResourceAccess canAccessResource(ResourceType) const;
 
     enum NotificationCallbackIdentifierType { };
-    using NotificationCallbackIdentifier = AtomicObjectIdentifier<NotificationCallbackIdentifierType>;
+    using NotificationCallbackIdentifier = LegacyNullableAtomicObjectIdentifier<NotificationCallbackIdentifierType>;
 
     WEBCORE_EXPORT NotificationCallbackIdentifier addNotificationCallback(CompletionHandler<void()>&&);
     WEBCORE_EXPORT CompletionHandler<void()> takeNotificationCallback(NotificationCallbackIdentifier);
@@ -373,6 +377,8 @@ public:
     {
         enqueueTaskWhenSettled(WTFMove(promise), taskSource, CompletionHandlerWithFinalizer<void(typename Promise::Result&&)>(WTFMove(task), WTFMove(finalizer)));
     }
+
+    bool isAlwaysOnLoggingAllowed() const;
 
 protected:
     class AddConsoleMessageTask : public Task {

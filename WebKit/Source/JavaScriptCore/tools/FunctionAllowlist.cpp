@@ -61,7 +61,7 @@ FunctionAllowlist::FunctionAllowlist(const char* filename)
 
         // Get rid of newlines at the ends of the strings.
         size_t length = strlen(line);
-        if (line[length - 1] == '\n') {
+        if (length && line[length - 1] == '\n') {
             line[length - 1] = '\0';
             length--;
         }

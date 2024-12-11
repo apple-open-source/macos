@@ -42,6 +42,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/MonotonicTime.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/TypeCasts.h>
 
@@ -64,7 +65,7 @@ using PlatformDisplayID = uint32_t;
 enum class EventTargeting : uint8_t { NodeOnly, Propagate };
 
 class ScrollingTree : public ThreadSafeRefCounted<ScrollingTree> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(ScrollingTree, WEBCORE_EXPORT);
     friend class ScrollingTreeLatchingController;
 public:
     WEBCORE_EXPORT ScrollingTree();
@@ -233,6 +234,8 @@ public:
     WEBCORE_EXPORT float mainFrameTopContentInset() const;
 
     WEBCORE_EXPORT FloatPoint mainFrameScrollPosition() const;
+
+    WEBCORE_EXPORT ScrollbarWidth mainFrameScrollbarWidth() const;
 
     WEBCORE_EXPORT OverscrollBehavior mainFrameHorizontalOverscrollBehavior() const;
     WEBCORE_EXPORT OverscrollBehavior mainFrameVerticalOverscrollBehavior() const;

@@ -32,6 +32,7 @@
 #include "LegacyRenderSVGResourceClipper.h"
 #include "LegacyRenderSVGResourceFilter.h"
 #include "LegacyRenderSVGResourceMasker.h"
+#include "LegacyRenderSVGRoot.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "RenderLayer.h"
@@ -124,8 +125,8 @@ void SVGRenderingContext::prepareToRenderSVGContent(RenderElement& renderer, Pai
         }
     }
 
-    bool hasCSSClipping = is<ShapePathOperation>(style.clipPath()) || is<BoxPathOperation>(style.clipPath());
-    if (hasCSSClipping)
+    bool hasSimpleClip = is<ShapePathOperation>(style.clipPath()) || is<BoxPathOperation>(style.clipPath());
+    if (hasSimpleClip && !is<LegacyRenderSVGRoot>(renderer))
         SVGRenderSupport::clipContextToCSSClippingArea(m_paintInfo->context(), renderer);
 
     // FIXME: Text painting under LBSE reaches this code path, since all text painting code is shared between legacy / LBSE.
@@ -152,7 +153,7 @@ void SVGRenderingContext::prepareToRenderSVGContent(RenderElement& renderer, Pai
     }
 
     auto* clipper = resources->clipper();
-    if (!hasCSSClipping && clipper) {
+    if (!hasSimpleClip && clipper && !is<LegacyRenderSVGRoot>(renderer)) {
         GraphicsContext* contextPtr = &m_paintInfo->context();
         auto result = clipper->applyResource(*m_renderer, style, contextPtr, { });
         m_paintInfo->setContext(*contextPtr);

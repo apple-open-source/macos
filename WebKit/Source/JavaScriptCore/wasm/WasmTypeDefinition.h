@@ -66,6 +66,17 @@ enum class ExtSIMDOpType : uint32_t {
 };
 #undef CREATE_ENUM_VALUE
 
+#define CREATE_CASE(name, ...) case ExtSIMDOpType::name: return #name ## _s;
+inline ASCIILiteral makeString(ExtSIMDOpType op)
+{
+    switch (op) {
+        FOR_EACH_WASM_EXT_SIMD_OP(CREATE_CASE)
+    }
+    RELEASE_ASSERT_NOT_REACHED();
+    return { };
+}
+#undef CREATE_CASE
+
 constexpr std::pair<size_t, size_t> countNumberOfWasmExtendedSIMDOpcodes()
 {
     uint8_t numberOfOpcodes = 0;
@@ -579,7 +590,7 @@ public:
     {
     }
 
-    void cleanup();
+    bool cleanup();
 
     RecursionGroupCount typeCount() const { return m_typeCount; }
     TypeIndex type(RecursionGroupCount i) const { return const_cast<RecursionGroup*>(this)->getType(i); }
@@ -615,7 +626,7 @@ public:
     {
     }
 
-    void cleanup();
+    bool cleanup();
 
     TypeIndex recursionGroup() const { return const_cast<Projection*>(this)->getRecursionGroup(); }
     ProjectionIndex index() const { return const_cast<Projection*>(this)->getIndex(); }
@@ -651,7 +662,7 @@ public:
     {
     }
 
-    void cleanup();
+    bool cleanup();
 
     SupertypeCount supertypeCount() const { return m_supertypeCount; }
     bool isFinal() const { return m_final; }
@@ -788,14 +799,14 @@ public:
     template <typename T>
     const T* as() const { return const_cast<TypeDefinition*>(this)->as<T>(); }
 
-    TypeIndex index() const { return bitwise_cast<TypeIndex>(this); }
+    TypeIndex index() const;
 
     WTF::String toString() const;
     void dump(WTF::PrintStream& out) const;
     bool operator==(const TypeDefinition& rhs) const { return this == &rhs; }
     unsigned hash() const;
 
-    const TypeDefinition& replacePlaceholders(TypeIndex) const;
+    Ref<const TypeDefinition> replacePlaceholders(TypeIndex) const;
     const TypeDefinition& unroll() const;
     const TypeDefinition& expand() const;
     bool hasRecursiveReference() const;
@@ -804,13 +815,17 @@ public:
     // Type definitions that are compound and contain references to other definitions
     // via a type index should ref() the other definition when new unique instances are
     // constructed, and need to be cleaned up and have deref() called through this cleanup()
-    // method when the containing module is destroyed.
-    void cleanup();
+    // method when the containing module is destroyed. Returns true if any ref counts may
+    // have changed.
+    bool cleanup();
 
     // Type definitions are uniqued and, for call_indirect, validated at runtime. Tables can create invalid TypeIndex values which cause call_indirect to fail. We use 0 as the invalidIndex so that the codegen can easily test for it and trap, and we add a token invalid entry in TypeInformation.
     static const constexpr TypeIndex invalidIndex = 0;
 
 private:
+    // Returns the TypeIndex of a potentially unowned (other than TypeInformation::m_typeSet) TypeDefinition.
+    TypeIndex unownedIndex() const { return bitwise_cast<TypeIndex>(this); }
+
     friend class TypeInformation;
     friend struct FunctionParameterTypes;
     friend struct StructParameterTypes;
@@ -911,7 +926,7 @@ public:
     static RefPtr<TypeDefinition> getPlaceholderProjection(ProjectionIndex);
     ALWAYS_INLINE const FunctionSignature* thunkFor(Type type) const { return thunkTypes[linearizeType(type.kind)]; }
 
-    static void addCachedUnrolling(TypeIndex, const TypeDefinition*);
+    static void addCachedUnrolling(TypeIndex, const TypeDefinition&);
     static std::optional<TypeIndex> tryGetCachedUnrolling(TypeIndex);
 
     // Every type definition that is in a module's signature list should have a canonical RTT registered for subtyping checks.
@@ -926,7 +941,8 @@ public:
     static const TypeDefinition& get(TypeIndex);
     static TypeIndex get(const TypeDefinition&);
 
-    static const FunctionSignature& getFunctionSignature(TypeIndex);
+    inline static const FunctionSignature& getFunctionSignature(TypeIndex);
+    inline static std::optional<const FunctionSignature*> tryGetFunctionSignature(TypeIndex);
 
     static void tryCleanup();
 private:

@@ -103,6 +103,7 @@
 #include <WebCore/TextRecognitionOptions.h>
 #include <WebCore/ViewportConfiguration.h>
 #include <WebCore/WindowFeatures.h>
+#include <wtf/TZoneMallocInlines.h>
 
 #if HAVE(WEBGPU_IMPLEMENTATION)
 #import <WebCore/WebGPUCreateImpl.h>
@@ -180,6 +181,8 @@ AXRelayProcessSuspendedNotification::~AXRelayProcessSuspendedNotification()
 #if !PLATFORM(COCOA)
 void AXRelayProcessSuspendedNotification::sendProcessSuspendMessage(bool) { }
 #endif
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebChromeClient);
 
 WebChromeClient::WebChromeClient(WebPage& page)
     : m_page(page)
@@ -334,6 +337,7 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
         false, /* hasOpenedFrames */
         false, /* openedByDOMWithOpener */
         navigationAction.newFrameOpenerPolicy() == NewFrameOpenerPolicy::Allow, /* hasOpener */
+        frame.loader().isHTTPFallbackInProgress(),
         { }, /* requesterOrigin */
         { }, /* requesterTopOrigin */
         std::nullopt, /* targetBackForwardItemIdentifier */
@@ -341,7 +345,7 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
         WebCore::LockHistory::No,
         WebCore::LockBackForwardList::No,
         { }, /* clientRedirectSourceForHistory */
-        0, /* effectiveSandboxFlags */
+        { }, /* effectiveSandboxFlags */
         std::nullopt, /* ownerPermissionsPolicy */
         navigationAction.privateClickMeasurement(),
         { }, /* advancedPrivacyProtections */
@@ -607,15 +611,6 @@ bool WebChromeClient::runJavaScriptPrompt(LocalFrame& frame, const String& messa
 
     std::tie(result) = sendResult.takeReply();
     return !result.isNull();
-}
-
-void WebChromeClient::setStatusbarText(const String& statusbarText)
-{
-    // Notify the bundle client.
-    auto page = protectedPage();
-    page->injectedBundleUIClient().willSetStatusbarText(page.ptr(), statusbarText);
-
-    page->send(Messages::WebPageProxy::SetStatusText(statusbarText));
 }
 
 KeyboardUIMode WebChromeClient::keyboardUIMode()
@@ -994,7 +989,7 @@ RefPtr<ImageBuffer> WebChromeClient::sinkIntoImageBuffer(std::unique_ptr<Seriali
 }
 #endif
 
-std::unique_ptr<WebCore::WorkerClient> WebChromeClient::createWorkerClient(SerialFunctionDispatcher& dispatcher)
+std::unique_ptr<WebCore::WorkerClient> WebChromeClient::createWorkerClient(WorkerOrWorkletThread& dispatcher)
 {
     return WebWorkerClient::create(*protectedPage()->corePage(), dispatcher).moveToUniquePtr();
 }
@@ -1002,6 +997,9 @@ std::unique_ptr<WebCore::WorkerClient> WebChromeClient::createWorkerClient(Seria
 #if ENABLE(WEBGL)
 RefPtr<GraphicsContextGL> WebChromeClient::createGraphicsContextGL(const GraphicsContextGLAttributes& attributes) const
 {
+#if PLATFORM(GTK)
+    WebProcess::singleton().initializePlatformDisplayIfNeeded();
+#endif
 #if ENABLE(GPU_PROCESS)
     if (WebProcess::singleton().shouldUseRemoteRenderingForWebGL())
         return RemoteGraphicsContextGLProxy::create(attributes, protectedPage());
@@ -1151,6 +1149,12 @@ unsigned WebChromeClient::remoteImagesCountForTesting() const
     return protectedPage()->remoteImagesCountForTesting();
 }
 
+void WebChromeClient::registerBlobPathForTesting(const String& path, CompletionHandler<void()>&& completionHandler)
+{
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::RegisterBlobPathForTesting(path), WTFMove(completionHandler));
+}
+
+
 void WebChromeClient::contentRuleListNotification(const URL& url, const ContentRuleListResults& results)
 {
 #if ENABLE(CONTENT_EXTENSIONS)
@@ -1189,12 +1193,13 @@ RefPtr<WebCore::ScrollingCoordinator> WebChromeClient::createScrollingCoordinato
 #endif
 
 #if PLATFORM(MAC)
-void WebChromeClient::ensureScrollbarsController(Page& corePage, ScrollableArea& area) const
+void WebChromeClient::ensureScrollbarsController(Page& corePage, ScrollableArea& area, bool update) const
 {
     auto page = protectedPage();
     ASSERT(page->corePage() == &corePage);
     auto* currentScrollbarsController = area.existingScrollbarsController();
-    if (area.mockScrollbarsControllerEnabled()) {
+
+    if (area.mockScrollbarsControllerEnabled() || (update && !currentScrollbarsController)) {
         ASSERT(!currentScrollbarsController || is<ScrollbarsControllerMock>(currentScrollbarsController));
         return;
     }
@@ -1314,9 +1319,9 @@ void WebChromeClient::clearVideoFullscreenMode(HTMLVideoElement& videoElement, H
 
 #if ENABLE(FULLSCREEN_API)
 
-bool WebChromeClient::supportsFullScreenForElement(const Element&, bool withKeyboard)
+bool WebChromeClient::supportsFullScreenForElement(const Element& element, bool withKeyboard)
 {
-    return protectedPage()->fullScreenManager()->supportsFullScreen(withKeyboard);
+    return protectedPage()->fullScreenManager()->supportsFullScreenForElement(element, withKeyboard);
 }
 
 void WebChromeClient::enterFullScreenForElement(Element& element, HTMLMediaElementEnums::VideoFullscreenMode mode)
@@ -1655,6 +1660,16 @@ void WebChromeClient::requestStorageAccess(RegistrableDomain&& subFrameDomain, R
     auto webFrame = WebFrame::fromCoreFrame(frame);
     ASSERT(webFrame);
     protectedPage()->requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), *webFrame, scope, WTFMove(completionHandler));
+}
+
+void WebChromeClient::setLoginStatus(RegistrableDomain&& domain, IsLoggedIn loggedInStatus, CompletionHandler<void()>&& completionHandler)
+{
+    protectedPage()->setLoginStatus(WTFMove(domain), loggedInStatus, WTFMove(completionHandler));
+}
+
+void WebChromeClient::isLoggedIn(RegistrableDomain&& domain, CompletionHandler<void(bool)>&& completionHandler)
+{
+    protectedPage()->isLoggedIn(WTFMove(domain), WTFMove(completionHandler));
 }
 
 bool WebChromeClient::hasPageLevelStorageAccess(const WebCore::RegistrableDomain& topLevelDomain, const WebCore::RegistrableDomain& resourceDomain) const

@@ -1810,13 +1810,53 @@
 
     XCTAssertNotEqual(0, [keychainFetchState wait:10*NSEC_PER_MSEC], "Should not have gone through 'fetching' in the view in response to an API fetch");
 
-    NSOperation* results = [self.defaultCKKS resultsOfNextProcessIncomingQueueOperation];
+    CKKSResultOperation* results = [self.defaultCKKS resultsOfNextProcessIncomingQueueOperation];
     self.aksLockState = false;
     [self.lockStateTracker recheck];
     [results waitUntilFinished];
+    XCTAssertNil(results.error, @"Should not have errored processing incoming queue");
 
     [self findGenericPassword:@"classCItem" expecting:errSecSuccess];
     [self findGenericPassword:@"classAItem" expecting:errSecSuccess];
+}
+
+- (void)testReceiveClassAItemsWhileDeviceLocked {
+    // Test starts with a key hierarchy already existing.
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
+    XCTAssertEqual(0, [self.defaultCKKS.stateConditions[CKKSStateReady] wait:20*NSEC_PER_SEC], @"CKKS state machine should enter 'ready'");
+
+    [self.keychainZone addToZone:[self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:@"classAItem-1" key:self.keychainZoneKeys.classA]];
+    [self.keychainZone addToZone:[self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-FFFF-FFFF-FFFF-5A507ACB2D85" withAccount:@"classAItem-2" key:self.keychainZoneKeys.classA]];
+
+    // 'Lock' the keybag
+    self.aksLockState = true;
+    [self.lockStateTracker recheck];
+
+    // Kick off a fetch due to APNS. CKKS normally goes into a state of process incoming queue; ensure that this doesn't happen since we're only processing classA items.
+    [self.defaultCKKS.zoneChangeFetcher notifyZoneChange:nil];
+    XCTAssertNotEqual(0, [self.defaultCKKS.stateConditions[CKKSStateProcessIncomingQueue] wait:20*NSEC_PER_MSEC], @"CKKS state machine shouldn't have become 'process-incoming-queue'");
+
+    // Let's try again, via the API. This will cause us to error.
+    CKKSResultOperation* erroringOp = [self.defaultCKKS rpcFetchAndProcessIncomingQueue:nil
+                                                                                because:CKKSFetchBecauseTesting
+                                                                   errorOnClassAFailure:true];
+    [erroringOp waitUntilFinished];
+    XCTAssertNotNil(erroringOp.error, "Should have errored on processing classA items");
+
+    // Now unlock the device.
+    CKKSResultOperation* results = [self.defaultCKKS resultsOfNextProcessIncomingQueueOperation];
+    self.aksLockState = false;
+    [self.lockStateTracker recheck];
+    [results waitUntilFinished];
+    XCTAssertNil(results.error, @"Should not have errored processing incoming queue");
+
+    [self findGenericPassword:@"classAItem-1" expecting:errSecSuccess];
+    [self findGenericPassword:@"classAItem-2" expecting:errSecSuccess];
+
 }
 
 @end

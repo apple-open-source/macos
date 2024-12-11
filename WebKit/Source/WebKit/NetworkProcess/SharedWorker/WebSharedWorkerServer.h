@@ -33,6 +33,7 @@
 #include <WebCore/SharedWorkerObjectIdentifier.h>
 #include <WebCore/TransferredMessagePort.h>
 #include <wtf/CheckedPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebKit {
@@ -63,8 +64,9 @@ class WebSharedWorker;
 class WebSharedWorkerServerConnection;
 class WebSharedWorkerServerToContextConnection;
 
-class WebSharedWorkerServer : public CanMakeWeakPtr<WebSharedWorkerServer> {
-    WTF_MAKE_FAST_ALLOCATED;
+class WebSharedWorkerServer : public CanMakeWeakPtr<WebSharedWorkerServer>, public CanMakeCheckedPtr<WebSharedWorkerServer> {
+    WTF_MAKE_TZONE_ALLOCATED(WebSharedWorkerServer);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebSharedWorkerServer);
 public:
     explicit WebSharedWorkerServer(NetworkSession&);
     ~WebSharedWorkerServer();
@@ -92,7 +94,7 @@ private:
     void didFinishFetchingSharedWorkerScript(WebSharedWorker&, WebCore::WorkerFetchResult&&, WebCore::WorkerInitializationData&&);
     void shutDownSharedWorker(const WebCore::SharedWorkerKey&);
 
-    NetworkSession& m_session;
+    CheckedRef<NetworkSession> m_session;
     HashMap<WebCore::ProcessIdentifier, std::unique_ptr<WebSharedWorkerServerConnection>> m_connections;
     HashMap<WebCore::RegistrableDomain, WeakRef<WebSharedWorkerServerToContextConnection>> m_contextConnections;
     HashSet<WebCore::RegistrableDomain> m_pendingContextConnectionDomains;

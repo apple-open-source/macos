@@ -37,9 +37,12 @@
 #include "RenderBoxInlines.h"
 #include "RenderFlexibleBox.h"
 #include "RenderView.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 namespace LayoutIntegration {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(FlexLayout);
 
 FlexLayout::FlexLayout(RenderFlexibleBox& flexBoxRenderer)
     : m_boxTree(flexBoxRenderer)
@@ -52,7 +55,7 @@ FlexLayout::~FlexLayout()
 }
 
 // FIXME: Merge these with the other integration layout functions.
-static inline Layout::BoxGeometry::Edges flexBoxLogicalBorder(const RenderBoxModelObject& renderer, bool isLeftToRightInlineDirection, BlockFlowDirection blockFlowDirection)
+static inline Layout::BoxGeometry::Edges flexBoxLogicalBorder(const RenderBoxModelObject& renderer, bool isLeftToRightInlineDirection, FlowDirection blockFlowDirection)
 {
     UNUSED_PARAM(isLeftToRightInlineDirection);
     UNUSED_PARAM(blockFlowDirection);
@@ -65,7 +68,7 @@ static inline Layout::BoxGeometry::Edges flexBoxLogicalBorder(const RenderBoxMod
     return { { borderLeft, borderRight }, { borderTop, borderBottom } };
 }
 
-static inline Layout::BoxGeometry::Edges flexBoxLogicalPadding(const RenderBoxModelObject& renderer, bool isLeftToRightInlineDirection, BlockFlowDirection blockFlowDirection)
+static inline Layout::BoxGeometry::Edges flexBoxLogicalPadding(const RenderBoxModelObject& renderer, bool isLeftToRightInlineDirection, FlowDirection blockFlowDirection)
 {
     UNUSED_PARAM(isLeftToRightInlineDirection);
     UNUSED_PARAM(blockFlowDirection);
@@ -82,7 +85,7 @@ void FlexLayout::updateFormattingRootGeometryAndInvalidate()
         auto isLeftToRightInlineDirection = flexBoxRenderer.style().isLeftToRightDirection();
         auto blockFlowDirection = writingModeToBlockFlowDirection(flexBoxRenderer.style().writingMode());
 
-        root.setContentBoxWidth(blockFlowDirection == BlockFlowDirection::TopToBottom ? flexBoxRenderer.contentWidth() : flexBoxRenderer.contentHeight());
+        root.setContentBoxWidth(blockFlowDirection == FlowDirection::TopToBottom ? flexBoxRenderer.contentWidth() : flexBoxRenderer.contentHeight());
         root.setPadding(flexBoxLogicalPadding(flexBoxRenderer, isLeftToRightInlineDirection, blockFlowDirection));
         root.setBorder(flexBoxLogicalBorder(flexBoxRenderer, isLeftToRightInlineDirection, blockFlowDirection));
         root.setHorizontalMargin({ });

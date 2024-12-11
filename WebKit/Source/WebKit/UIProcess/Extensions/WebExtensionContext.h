@@ -32,6 +32,7 @@
 #include "APIUserScript.h"
 #include "APIUserStyleSheet.h"
 #include "MessageReceiver.h"
+#include "ProcessThrottler.h"
 #include "WebExtension.h"
 #include "WebExtensionAction.h"
 #include "WebExtensionAlarm.h"
@@ -66,6 +67,7 @@
 #include <wtf/ListHashSet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/RunLoop.h>
 #include <wtf/URLHash.h>
 #include <wtf/UUID.h>
 #include <wtf/WeakHashCountedSet.h>
@@ -77,6 +79,11 @@
 #include "APIInspectorExtensionClient.h"
 #include "InspectorExtensionTypes.h"
 #include "WebInspectorUIProxy.h"
+#endif
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+#include "WebExtensionSidebar.h"
+#include "WebExtensionSidebarParameters.h"
 #endif
 
 OBJC_CLASS NSArray;
@@ -91,16 +98,16 @@ OBJC_CLASS NSUUID;
 OBJC_CLASS WKContentRuleListStore;
 OBJC_CLASS WKNavigation;
 OBJC_CLASS WKNavigationAction;
+OBJC_CLASS WKWebExtensionContext;
 OBJC_CLASS WKWebView;
 OBJC_CLASS WKWebViewConfiguration;
-OBJC_CLASS _WKWebExtensionContext;
 OBJC_CLASS _WKWebExtensionContextDelegate;
 OBJC_CLASS _WKWebExtensionDeclarativeNetRequestSQLiteStore;
 OBJC_CLASS _WKWebExtensionLocalization;
 OBJC_CLASS _WKWebExtensionRegisteredScriptsSQLiteStore;
 OBJC_CLASS _WKWebExtensionStorageSQLiteStore;
-OBJC_PROTOCOL(_WKWebExtensionTab);
-OBJC_PROTOCOL(_WKWebExtensionWindow);
+OBJC_PROTOCOL(WKWebExtensionTab);
+OBJC_PROTOCOL(WKWebExtensionWindow);
 
 #if PLATFORM(MAC)
 OBJC_CLASS NSEvent;
@@ -213,12 +220,12 @@ public:
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
     using InspectorTabVector = Vector<std::pair<Ref<WebInspectorUIProxy>, RefPtr<WebExtensionTab>>>;
-    using TabIdentifierWebViewPair = std::pair<WebExtensionTabIdentifier, RetainPtr<WKWebView>>;
 #endif
+
+    using ReloadFromOrigin = WebExtensionTab::ReloadFromOrigin;
 
     enum class EqualityOnly : bool { No, Yes };
     enum class WindowIsClosing : bool { No, Yes };
-    enum class ReloadFromOrigin : bool { No, Yes };
     enum class UserTriggered : bool { No, Yes };
     enum class SuppressEvents : bool { No, Yes };
     enum class UpdateWindowOrder : bool { No, Yes };
@@ -258,14 +265,28 @@ public:
         Background,
         Inspector,
         Popup,
+        Sidebar,
         Tab,
     };
+
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    struct InspectorContext {
+        std::optional<WebExtensionTabIdentifier> tabIdentifier;
+        RefPtr<API::InspectorExtension> extension;
+        RetainPtr<WKWebView> backgroundWebView;
+    };
+#endif
 
     WebExtensionContextParameters parameters() const;
 
     bool operator==(const WebExtensionContext& other) const { return (this == &other); }
 
     NSError *createError(Error, NSString *customLocalizedDescription = nil, NSError *underlyingError = nil);
+    void recordErrorIfNeeded(NSError *error) { if (error) recordError(error); }
+    void recordError(NSError *);
+    void clearError(Error);
+
+    NSArray *errors();
 
     bool storageIsPersistent() const { return !m_storageDirectory.isEmpty(); }
     const String& storageDirectory() const { return m_storageDirectory; }
@@ -317,16 +338,16 @@ public:
     void setDeniedPermissions(PermissionsMap&&);
 
     const PermissionMatchPatternsMap& grantedPermissionMatchPatterns();
-    void setGrantedPermissionMatchPatterns(PermissionMatchPatternsMap&&);
+    void setGrantedPermissionMatchPatterns(PermissionMatchPatternsMap&&, EqualityOnly = EqualityOnly::Yes);
 
     const PermissionMatchPatternsMap& deniedPermissionMatchPatterns();
-    void setDeniedPermissionMatchPatterns(PermissionMatchPatternsMap&&);
+    void setDeniedPermissionMatchPatterns(PermissionMatchPatternsMap&&, EqualityOnly = EqualityOnly::Yes);
 
     bool requestedOptionalAccessToAllHosts() const { return m_requestedOptionalAccessToAllHosts; }
     void setRequestedOptionalAccessToAllHosts(bool requested) { m_requestedOptionalAccessToAllHosts = requested; }
 
-    bool hasAccessInPrivateBrowsing() const { return m_hasAccessInPrivateBrowsing; }
-    void setHasAccessInPrivateBrowsing(bool);
+    bool hasAccessToPrivateData() const { return m_hasAccessToPrivateData; }
+    void setHasAccessToPrivateData(bool);
 
     void grantPermissions(PermissionsSet&&, WallTime expirationDate = WallTime::infinity());
     void denyPermissions(PermissionsSet&&, WallTime expirationDate = WallTime::infinity());
@@ -373,11 +394,11 @@ public:
 
     void removePage(WebPageProxy&);
 
-    Ref<WebExtensionWindow> getOrCreateWindow(_WKWebExtensionWindow *) const;
+    Ref<WebExtensionWindow> getOrCreateWindow(WKWebExtensionWindow *) const;
     RefPtr<WebExtensionWindow> getWindow(WebExtensionWindowIdentifier, std::optional<WebPageProxyIdentifier> = std::nullopt, IgnoreExtensionAccess = IgnoreExtensionAccess::No) const;
     void forgetWindow(WebExtensionWindowIdentifier) const;
 
-    Ref<WebExtensionTab> getOrCreateTab(_WKWebExtensionTab *) const;
+    Ref<WebExtensionTab> getOrCreateTab(WKWebExtensionTab *) const;
     RefPtr<WebExtensionTab> getTab(WebExtensionTabIdentifier, IgnoreExtensionAccess = IgnoreExtensionAccess::No) const;
     RefPtr<WebExtensionTab> getTab(WebPageProxyIdentifier, std::optional<WebExtensionTabIdentifier> = std::nullopt, IncludeExtensionViews = IncludeExtensionViews::No, IgnoreExtensionAccess = IgnoreExtensionAccess::No) const;
     RefPtr<WebExtensionTab> getCurrentTab(WebPageProxyIdentifier, IncludeExtensionViews = IncludeExtensionViews::Yes, IgnoreExtensionAccess = IgnoreExtensionAccess::No) const;
@@ -436,6 +457,17 @@ public:
     Ref<WebExtensionAction> getOrCreateAction(WebExtensionWindow*);
     Ref<WebExtensionAction> getOrCreateAction(WebExtensionTab*);
     void performAction(WebExtensionTab*, UserTriggered = UserTriggered::No);
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    WebExtensionSidebar& defaultSidebar();
+    std::optional<Ref<WebExtensionSidebar>> getSidebar(WebExtensionWindow const&);
+    std::optional<Ref<WebExtensionSidebar>> getSidebar(WebExtensionTab const&);
+    std::optional<Ref<WebExtensionSidebar>> getOrCreateSidebar(WebExtensionWindow&);
+    std::optional<Ref<WebExtensionSidebar>> getOrCreateSidebar(WebExtensionTab&);
+    RefPtr<WebExtensionSidebar> getOrCreateSidebar(RefPtr<WebExtensionTab>);
+    void openSidebarForTab(WebExtensionTab&, UserTriggered = UserTriggered::No);
+    void closeSidebarForTab(WebExtensionTab&, UserTriggered = UserTriggered::No);
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
 
     const CommandsVector& commands();
     WebExtensionCommand* command(const String& identifier);
@@ -553,7 +585,7 @@ public:
     void sendToContentScriptProcessesForEvent(WebExtensionEventListenerType, const T& message) const;
 
 #ifdef __OBJC__
-    _WKWebExtensionContext *wrapper() const { return (_WKWebExtensionContext *)API::ObjectImpl<API::Object::Type::WebExtensionContext>::wrapper(); }
+    WKWebExtensionContext *wrapper() const { return (WKWebExtensionContext *)API::ObjectImpl<API::Object::Type::WebExtensionContext>::wrapper(); }
 #endif
 
 private:
@@ -570,10 +602,8 @@ private:
     void determineInstallReasonDuringLoad();
     void moveLocalStorageIfNeeded(const URL& previousBaseURL, CompletionHandler<void()>&&);
 
-    void permissionsDidChange(const PermissionsSet&);
-
-    void postAsyncNotification(NSString *notificationName, const PermissionsSet&);
-    void postAsyncNotification(NSString *notificationName, const MatchPatternSet&);
+    void permissionsDidChange(NSString *notificationName, const PermissionsSet&);
+    void permissionsDidChange(NSString *notificationName, const MatchPatternSet&);
 
     bool removePermissions(PermissionsMap&, PermissionsSet&, WallTime& nextExpirationDate, NSString *notificationName);
     bool removePermissionMatchPatterns(PermissionMatchPatternsMap&, MatchPatternSet&, EqualityOnly, WallTime& nextExpirationDate, NSString *notificationName);
@@ -632,13 +662,13 @@ private:
 
     void addInjectedContent() { addInjectedContent(injectedContents()); }
     void addInjectedContent(const InjectedContentVector&);
-    void addInjectedContent(const InjectedContentVector&, MatchPatternSet&);
+    void addInjectedContent(const InjectedContentVector&, const MatchPatternSet&);
     void addInjectedContent(const InjectedContentVector&, WebExtensionMatchPattern&);
 
     void updateInjectedContent() { removeInjectedContent(); addInjectedContent(); }
 
     void removeInjectedContent();
-    void removeInjectedContent(MatchPatternSet&);
+    void removeInjectedContent(const MatchPatternSet&);
     void removeInjectedContent(WebExtensionMatchPattern&);
 
     // DeclarativeNetRequest methods.
@@ -688,7 +718,7 @@ private:
     bool isActionMessageAllowed();
     void actionGetTitle(std::optional<WebExtensionWindowIdentifier>, std::optional<WebExtensionTabIdentifier>, CompletionHandler<void(Expected<String, WebExtensionError>&&)>&&);
     void actionSetTitle(std::optional<WebExtensionWindowIdentifier>, std::optional<WebExtensionTabIdentifier>, const String& title, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
-    void actionSetIcon(std::optional<WebExtensionWindowIdentifier>, std::optional<WebExtensionTabIdentifier>, const String& iconDictionaryJSON, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void actionSetIcon(std::optional<WebExtensionWindowIdentifier>, std::optional<WebExtensionTabIdentifier>, const String& iconsJSON, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
     void actionGetPopup(std::optional<WebExtensionWindowIdentifier>, std::optional<WebExtensionTabIdentifier>, CompletionHandler<void(Expected<String, WebExtensionError>&&)>&&);
     void actionSetPopup(std::optional<WebExtensionWindowIdentifier>, std::optional<WebExtensionTabIdentifier>, const String& popupPath, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
     void actionOpenPopup(WebPageProxyIdentifier, std::optional<WebExtensionWindowIdentifier>, std::optional<WebExtensionTabIdentifier>, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
@@ -809,6 +839,20 @@ private:
     void scriptingUnregisterContentScripts(const Vector<String>&, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
     bool createInjectedContentForScripts(const Vector<WebExtensionRegisteredScriptParameters>&, WebExtensionDynamicScripts::WebExtensionRegisteredScript::FirstTimeRegistration, DynamicInjectedContentsMap&, NSString *callingAPIName, NSString **errorMessage);
 
+    // Sidebar APIs
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    bool isSidebarMessageAllowed();
+    void sidebarOpen(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void sidebarIsOpen(const std::optional<WebExtensionWindowIdentifier>, CompletionHandler<void(Expected<bool, WebExtensionError>&&)>&&);
+    void sidebarClose(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void sidebarToggle(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void sidebarGetOptions(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, CompletionHandler<void(Expected<WebExtensionSidebarParameters, WebExtensionError>&&)>&&);
+    void sidebarSetOptions(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, const std::optional<String>& panelSourcePath, const std::optional<bool> enabled, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void sidebarGetTitle(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, CompletionHandler<void(Expected<String, WebExtensionError>&&)>&&);
+    void sidebarSetTitle(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, const std::optional<String>& title, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void sidebarSetIcon(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, const String& iconJSON, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+#endif
+
     // Storage APIs
     bool isStorageMessageAllowed();
     void storageGet(WebPageProxyIdentifier, WebExtensionDataType, const Vector<String>& keys, CompletionHandler<void(Expected<String, WebExtensionError>&&)>&&);
@@ -875,6 +919,7 @@ private:
     String m_storageDirectory;
 
     RetainPtr<NSMutableDictionary> m_state;
+    RetainPtr<NSMutableArray> m_errors;
 
     RefPtr<WebExtension> m_extension;
     WeakPtr<WebExtensionController> m_extensionController;
@@ -909,7 +954,7 @@ private:
     size_t m_pendingPermissionRequests { 0 };
 
     bool m_requestedOptionalAccessToAllHosts { false };
-    bool m_hasAccessInPrivateBrowsing { false };
+    bool m_hasAccessToPrivateData { false };
 
     VoidCompletionHandlerVector m_actionsToPerformAfterBackgroundContentLoads;
     EventListenerTypeCountedSet m_backgroundContentEventListeners;
@@ -920,19 +965,19 @@ private:
     String m_previousVersion;
 
     RetainPtr<WKWebView> m_backgroundWebView;
+    std::unique_ptr<ProcessThrottlerActivity> m_backgroundWebViewActivity;
     RetainPtr<NSError> m_backgroundContentLoadError;
     RetainPtr<_WKWebExtensionContextDelegate> m_delegate;
 
     String m_backgroundWebViewInspectionName;
 
-    std::unique_ptr<WebCore::Timer> m_unloadBackgroundWebViewTimer;
+    std::unique_ptr<RunLoop::Timer> m_unloadBackgroundWebViewTimer;
     MonotonicTime m_lastBackgroundPortActivityTime;
     bool m_backgroundContentIsLoaded { false };
     bool m_safeToLoadBackgroundContent { false };
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
-    WeakHashMap<WebInspectorUIProxy, TabIdentifierWebViewPair> m_inspectorBackgroundPageMap;
-    WeakHashMap<WebInspectorUIProxy, Ref<API::InspectorExtension>> m_inspectorExtensionMap;
+    WeakHashMap<WebInspectorUIProxy, InspectorContext> m_inspectorContextMap;
 #endif
 
     HashMap<Ref<WebExtensionMatchPattern>, UserScriptVector> m_injectedScriptsPerPatternMap;
@@ -947,6 +992,12 @@ private:
     WeakHashMap<WebExtensionWindow, Ref<WebExtensionAction>> m_actionWindowMap;
     WeakHashMap<WebExtensionTab, Ref<WebExtensionAction>> m_actionTabMap;
     RefPtr<WebExtensionAction> m_defaultAction;
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    WeakHashMap<WebExtensionWindow, Ref<WebExtensionSidebar>> m_sidebarWindowMap;
+    WeakHashMap<WebExtensionTab, Ref<WebExtensionSidebar>> m_sidebarTabMap;
+    RefPtr<WebExtensionSidebar> m_defaultSidebar;
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
 
     PortCountedSet m_ports;
     PageProxyIdentifierPortMap m_pagePortMap;

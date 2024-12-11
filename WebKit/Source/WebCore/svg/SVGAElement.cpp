@@ -44,11 +44,11 @@
 #include "SVGNames.h"
 #include "SVGSMILElement.h"
 #include "XLinkNames.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGAElement);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(SVGAElement);
 
 inline SVGAElement::SVGAElement(const QualifiedName& tagName, Document& document)
     : SVGGraphicsElement(tagName, document, makeUniqueRef<PropertyRegistry>(*this))
@@ -61,6 +61,8 @@ inline SVGAElement::SVGAElement(const QualifiedName& tagName, Document& document
         PropertyRegistry::registerProperty<SVGNames::targetAttr, &SVGAElement::m_target>();
     });
 }
+
+SVGAElement::~SVGAElement() = default;
 
 Ref<SVGAElement> SVGAElement::create(const QualifiedName& tagName, Document& document)
 {

@@ -33,6 +33,7 @@
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
 #include "HTMLVideoElement.h"
+#include "LayoutIntegrationLineLayout.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "MediaPlayer.h"
@@ -42,14 +43,14 @@
 #include "RenderBoxInlines.h"
 #include "RenderElementInlines.h"
 #include "RenderView.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderVideo);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderVideo);
 
 RenderVideo::RenderVideo(HTMLVideoElement& element, RenderStyle&& style)
     : RenderMedia(Type::Video, element, WTFMove(style))
@@ -58,10 +59,8 @@ RenderVideo::RenderVideo(HTMLVideoElement& element, RenderStyle&& style)
     ASSERT(isRenderVideo());
 }
 
-RenderVideo::~RenderVideo()
-{
-    // Do not add any code here. Add it to willBeDestroyed() instead.
-}
+// Do not add any code in below destructor. Add it to willBeDestroyed() instead.
+RenderVideo::~RenderVideo() = default;
 
 void RenderVideo::willBeDestroyed()
 {
@@ -113,6 +112,8 @@ bool RenderVideo::updateIntrinsicSize()
     setIntrinsicSize(size);
     setPreferredLogicalWidthsDirty(true);
     setNeedsLayout();
+    if (auto* inlineLayout = LayoutIntegration::LineLayout::containing(*this))
+        inlineLayout->boxContentWillChange(*this);
     return true;
 }
 

@@ -29,8 +29,6 @@
 #include "config.h"
 #include "NicosiaBuffer.h"
 
-#include <wtf/FastMalloc.h>
-
 #if USE(SKIA)
 #include "FontRenderOptions.h"
 #include "GLContext.h"
@@ -148,7 +146,7 @@ AcceleratedBuffer::AcceleratedBuffer(sk_sp<SkSurface>&& surface, Flags flags)
 AcceleratedBuffer::~AcceleratedBuffer()
 {
     ensureOnMainThread([surface = WTFMove(m_surface), fence = WTFMove(m_fence)]() mutable {
-        PlatformDisplay::sharedDisplayForCompositing().skiaGLContext()->makeContextCurrent();
+        PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent();
         fence = nullptr;
         surface = nullptr;
     });
@@ -169,7 +167,7 @@ void AcceleratedBuffer::completePainting()
 {
     m_surface->getCanvas()->restore();
 
-    auto* grContext = WebCore::PlatformDisplay::sharedDisplayForCompositing().skiaGrContext();
+    auto* grContext = WebCore::PlatformDisplay::sharedDisplay().skiaGrContext();
     if (WebCore::GLFence::isSupported()) {
         grContext->flushAndSubmit(m_surface.get(), GrSyncCpu::kNo);
         m_fence = WebCore::GLFence::create();
@@ -192,7 +190,7 @@ void AcceleratedBuffer::waitUntilPaintingComplete()
     if (!m_fence)
         return;
 
-    m_fence->wait(WebCore::GLFence::FlushCommands::No);
+    m_fence->serverWait();
     m_fence = nullptr;
 }
 #endif

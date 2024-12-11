@@ -72,6 +72,9 @@ extern CFDictionaryRef DAFileSystemGetProbeList( DAFileSystemRef filesystem );
 
 extern CFBooleanRef DAFileSystemIsFSModule( DAFileSystemRef filesystem );
 
+extern Boolean DAFilesystemShouldMountWithUserFS( DAFileSystemRef filesystem ,
+                                                  CFStringRef preferredMountMethod );
+
 extern CFTypeID DAFileSystemGetTypeID( void );
 
 extern void DAFileSystemInitialize( void );

@@ -43,6 +43,7 @@
 #include "VisibleSelection.h"
 #include "WritingDirection.h"
 #include <memory>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/WeakRef.h>
 
 #if PLATFORM(COCOA)
@@ -137,7 +138,8 @@ enum class TemporarySelectionOption : uint16_t {
 };
 
 class TemporarySelectionChange {
-    WTF_MAKE_NONCOPYABLE(TemporarySelectionChange); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(TemporarySelectionChange, WEBCORE_EXPORT);
+    WTF_MAKE_NONCOPYABLE(TemporarySelectionChange);
 public:
     WEBCORE_EXPORT TemporarySelectionChange(Document&, std::optional<VisibleSelection> = std::nullopt, OptionSet<TemporarySelectionOption> = { });
     WEBCORE_EXPORT ~TemporarySelectionChange();
@@ -159,7 +161,8 @@ private:
 };
 
 class IgnoreSelectionChangeForScope {
-    WTF_MAKE_NONCOPYABLE(IgnoreSelectionChangeForScope); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(IgnoreSelectionChangeForScope, WEBCORE_EXPORT);
+    WTF_MAKE_NONCOPYABLE(IgnoreSelectionChangeForScope);
 public:
     IgnoreSelectionChangeForScope(LocalFrame& frame)
         : m_selectionChange(*frame.document(), std::nullopt, TemporarySelectionOption::IgnoreSelectionChanges)
@@ -175,7 +178,7 @@ private:
 };
 
 class Editor final : public CanMakeCheckedPtr<Editor> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(Editor, WEBCORE_EXPORT);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Editor);
 public:
     explicit Editor(Document&);
@@ -515,6 +518,7 @@ public:
     WEBCORE_EXPORT void replaceSelectionWithFragment(DocumentFragment&, SelectReplacement, SmartReplace, MatchStyle, EditAction = EditAction::Insert, MailBlockquoteHandling = MailBlockquoteHandling::RespectBlockquote);
     WEBCORE_EXPORT void replaceSelectionWithText(const String&, SelectReplacement, SmartReplace, EditAction = EditAction::Insert);
     WEBCORE_EXPORT bool selectionStartHasMarkerFor(DocumentMarker::Type, int from, int length) const;
+    WEBCORE_EXPORT void selectionStartSetMarkerForTesting(DocumentMarker::Type, int from, int length, const String&);
     void updateMarkersForWordsAffectedByEditing(bool doNotRemoveIfSelectionAtWordBoundary);
     void deletedAutocorrectionAtPosition(const Position&, const String& originalString);
     

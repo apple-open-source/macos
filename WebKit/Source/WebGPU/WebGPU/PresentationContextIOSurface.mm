@@ -30,10 +30,13 @@
 #import "Texture.h"
 #import "TextureView.h"
 #import <wtf/FastMalloc.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/spi/cocoa/IOTypesSPI.h>
 
 namespace WebGPU {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PresentationContextIOSurface);
 
 Ref<PresentationContextIOSurface> PresentationContextIOSurface::create(const WGPUSurfaceDescriptor& surfaceDescriptor, const Instance& instance)
 {
@@ -86,21 +89,26 @@ void PresentationContextIOSurface::onSubmittedWorkScheduled(Function<void()>&& c
         completionHandler();
 }
 
-RetainPtr<CGImageRef> PresentationContextIOSurface::getTextureAsNativeImage(uint32_t bufferIndex)
+RetainPtr<CGImageRef> PresentationContextIOSurface::getTextureAsNativeImage(uint32_t bufferIndex, bool& isIOSurfaceSupportedFormat)
 {
+    isIOSurfaceSupportedFormat = false;
     auto* device = m_device.get();
     if (!device || bufferIndex >= m_renderBuffers.size())
         return nullptr;
 
     auto& renderBuffer = m_renderBuffers[bufferIndex];
-    auto* texture = renderBuffer.luminanceClampTexture.get() ? renderBuffer.luminanceClampTexture.get() : renderBuffer.texture.ptr();
-    if (!texture)
+    WeakPtr texture = renderBuffer.luminanceClampTexture.get() ? renderBuffer.luminanceClampTexture.get() : renderBuffer.texture.ptr();
+    if (!texture || !texture->waitForCommandBufferCompletion())
         return nullptr;
 
-    texture->waitForCommandBufferCompletion();
-    id<MTLTexture> mtlTexture = texture->texture();
-    if (!mtlTexture || mtlTexture.pixelFormat == MTLPixelFormatBGRA8Unorm)
+    if (!texture.get())
         return nullptr;
+
+    id<MTLTexture> mtlTexture = texture->texture();
+    if (!mtlTexture || mtlTexture.pixelFormat == MTLPixelFormatBGRA8Unorm || mtlTexture.pixelFormat == MTLPixelFormatBGRA8Unorm_sRGB) {
+        isIOSurfaceSupportedFormat = true;
+        return nullptr;
+    }
 
     bool fp16 = mtlTexture.pixelFormat == MTLPixelFormatRGBA16Float;
     CFStringRef colorSpaceName = kCGColorSpaceSRGB;
@@ -306,19 +314,20 @@ void PresentationContextIOSurface::unconfigure()
 
 void PresentationContextIOSurface::present()
 {
-    if (m_ioSurfaces.count != m_renderBuffers.size())
+    auto devicePtr = m_device.get();
+    if (m_ioSurfaces.count != m_renderBuffers.size() || m_currentIndex >= m_renderBuffers.size() || !devicePtr)
         return;
 
     auto& textureRefPtr = m_renderBuffers[m_currentIndex].luminanceClampTexture;
     if (Texture* texturePtr = textureRefPtr.get(); texturePtr && m_computePipelineState) {
         MTLCommandBufferDescriptor *descriptor = [MTLCommandBufferDescriptor new];
         descriptor.errorOptions = MTLCommandBufferErrorOptionEncoderExecutionStatus;
-        id<MTLCommandBuffer> commandBuffer = m_device->getQueue().commandBufferWithDescriptor(descriptor).first;
+        id<MTLCommandBuffer> commandBuffer = devicePtr->getQueue().commandBufferWithDescriptor(descriptor);
         MTLComputePassDescriptor* computeDescriptor = [MTLComputePassDescriptor new];
         computeDescriptor.dispatchType = MTLDispatchTypeSerial;
 
         id<MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoderWithDescriptor:computeDescriptor];
-        m_device->getQueue().setEncoderForBuffer(commandBuffer, computeEncoder);
+        devicePtr->getQueue().setEncoderForBuffer(commandBuffer, computeEncoder);
         [computeEncoder setComputePipelineState:m_computePipelineState];
         id<MTLTexture> inputTexture = texturePtr->texture();
         [computeEncoder setTexture:inputTexture atIndex:0];
@@ -330,8 +339,8 @@ void PresentationContextIOSurface::present()
         threadgroupCount.height = (inputTexture.height + threadgroupSize.height - 1) / threadgroupSize.height;
         threadgroupCount.depth = 1;
         [computeEncoder dispatchThreadgroups:threadgroupCount threadsPerThreadgroup:threadgroupSize];
-        m_device->getQueue().endEncoding(computeEncoder, commandBuffer);
-        m_device->getQueue().commitMTLCommandBuffer(commandBuffer);
+        devicePtr->getQueue().endEncoding(computeEncoder, commandBuffer);
+        devicePtr->getQueue().commitMTLCommandBuffer(commandBuffer);
     }
 
     m_currentIndex = (m_currentIndex + 1) % m_renderBuffers.size();

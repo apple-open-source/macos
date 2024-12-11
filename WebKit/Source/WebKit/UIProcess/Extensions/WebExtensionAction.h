@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,8 +34,8 @@
 #include <wtf/text/WTFString.h>
 
 OBJC_CLASS NSError;
+OBJC_CLASS WKWebExtensionAction;
 OBJC_CLASS WKWebView;
-OBJC_CLASS _WKWebExtensionAction;
 OBJC_CLASS _WKWebExtensionActionWebView;
 OBJC_CLASS _WKWebExtensionActionWebViewDelegate;
 
@@ -78,8 +78,8 @@ public:
     bool operator==(const WebExtensionAction&) const;
 
     WebExtensionContext* extensionContext() const;
-    WebExtensionTab* tab() { return m_tab.get(); }
-    WebExtensionWindow* window() { return m_window.get(); }
+    RefPtr<WebExtensionTab> tab() const;
+    RefPtr<WebExtensionWindow> window() const;
 
     void clearCustomizations();
     void clearBlockedResourceCount();
@@ -87,7 +87,10 @@ public:
     void propertiesDidChange();
 
     CocoaImage *icon(CGSize);
-    void setIconsDictionary(NSDictionary *);
+    void setIcons(NSDictionary *);
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    void setIconVariants(NSArray *);
+#endif
 
     String label(FallbackWhenEmpty = FallbackWhenEmpty::Yes) const;
     void setLabel(String);
@@ -138,19 +141,21 @@ public:
     NSArray *platformMenuItems() const;
 
 #ifdef __OBJC__
-    _WKWebExtensionAction *wrapper() const { return (_WKWebExtensionAction *)API::ObjectImpl<API::Object::Type::WebExtensionAction>::wrapper(); }
+    WKWebExtensionAction *wrapper() const { return (WKWebExtensionAction *)API::ObjectImpl<API::Object::Type::WebExtensionAction>::wrapper(); }
 #endif
 
 private:
     WebExtensionAction* fallbackAction() const;
+
+    void clearIconCache();
 
 #if PLATFORM(MAC)
     void detectPopoverColorScheme();
 #endif
 
     WeakPtr<WebExtensionContext> m_extensionContext;
-    RefPtr<WebExtensionTab> m_tab;
-    RefPtr<WebExtensionWindow> m_window;
+    std::optional<WeakPtr<WebExtensionTab>> m_tab;
+    std::optional<WeakPtr<WebExtensionWindow>> m_window;
 
 #if PLATFORM(IOS_FAMILY)
     RetainPtr<_WKWebExtensionActionViewController> m_popupViewController;
@@ -166,7 +171,14 @@ private:
     String m_customPopupPath;
     String m_popupWebViewInspectionName;
 
+    RetainPtr<CocoaImage> m_cachedIcon;
+    RetainPtr<NSSet> m_cachedIconScales;
+    CGSize m_cachedIconIdealSize { CGSizeZero };
+
     RetainPtr<NSDictionary> m_customIcons;
+#if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
+    RetainPtr<NSArray> m_customIconVariants;
+#endif
     String m_customLabel;
     String m_customBadgeText;
     ssize_t m_blockedResourceCount { 0 };

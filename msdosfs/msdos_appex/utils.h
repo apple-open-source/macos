@@ -114,11 +114,6 @@ typedef NS_ENUM(uint8_t, volumeLabelSrc) {
 +(bool)isDotOrDotDot:(char *)name
               length:(size_t)length;
 
-+(NSError * _Nullable)syncReadFromDevice:(FSBlockDeviceResource *)device
-                                   into:(void *)buffer
-                             startingAt:(off_t)offset
-                                 length:(size_t)nbyte;
-
 +(NSError * _Nullable)syncMetaReadFromDevice:(FSBlockDeviceResource *)device
                                         into:(void *)buffer
                                   startingAt:(off_t)offset
@@ -142,6 +137,11 @@ typedef NS_ENUM(uint8_t, volumeLabelSrc) {
 +(bool)containsReadOnlyAttributes:(nonnull FSItemSetAttributesRequest *)attributes;
 
 +(void)enableMetaRW;
+
+#if DEBUG
+/* For testing use only. */
++(void)disableMetaRW;
+#endif
 
 +(void)setGMTDiffOffset;
 

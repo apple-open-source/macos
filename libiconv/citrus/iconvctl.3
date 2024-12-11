@@ -135,20 +135,22 @@ is set to 1 it will be enabled,
 and if
 .Fa argument
 is set to 0 it will be disabled.
+.It ICONV_SET_FALLBACKS
+Sets callback functions, which will be called back after failed
+conversions.
+The callback functions are stored in a
+.Ft struct iconv_fallbacks
+variable, which is passed to
+.Nm
+via
+.Fa argument
+by its address.
+Setting
+.Fa argument
+to
+.Dv NULL
+will clear the fallback functions.
 .El
-.\" XXX: fallbacks are unimplemented and trying to set them will always
-.\"      return EOPNOTSUPP but definitions are provided for source-level
-.\"      compatibility.
-.\".It ICONV_SET_FALLBACKS
-.\"Sets callback functions, which will be called back after failed
-.\"conversions.
-.\"The callback functions are stored in a
-.\".Ft struct iconv_fallbacks
-.\"variable, which is passed to
-.\".Nm
-.\"via
-.\".Fa argument
-.\"by its address.
 .Sh RETURN VALUES
 Upon successful completion
 .Fn iconvctl ,

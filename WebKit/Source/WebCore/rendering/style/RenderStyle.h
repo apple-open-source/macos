@@ -102,7 +102,7 @@ class WillChangeData;
 
 enum CSSPropertyID : uint16_t;
 enum GridAutoFlow : uint8_t;
-enum PageSizeType : uint8_t;
+enum class PageSizeType : uint8_t;
 enum class PaginationMode : uint8_t;
 
 enum class ApplePayButtonStyle : uint8_t;
@@ -111,7 +111,7 @@ enum class AspectRatioType : uint8_t;
 enum class AutoRepeatType : uint8_t;
 enum class BackfaceVisibility : uint8_t;
 enum class BlendMode : uint8_t;
-enum class BlockFlowDirection : uint8_t;
+enum class FlowDirection : uint8_t;
 enum class BlockStepInsert : bool;
 enum class BorderCollapse : bool;
 enum class BorderStyle : uint8_t;
@@ -150,6 +150,7 @@ enum class FlexDirection : uint8_t;
 enum class FlexWrap : uint8_t;
 enum class Float : uint8_t;
 enum class FontOrientation : bool;
+enum class FontOpticalSizing : bool;
 enum class GridTrackSizingDirection : uint8_t;
 enum class HangingPunctuation : uint8_t;
 enum class Hyphens : uint8_t;
@@ -180,6 +181,7 @@ enum class Order : bool;
 enum class OutlineIsAuto : bool;
 enum class Overflow : uint8_t;
 enum class OverflowAnchor : bool;
+enum class OverflowContinue : bool;
 enum class OverflowWrap : uint8_t;
 enum class OverscrollBehavior : uint8_t;
 enum class PaintBehavior : uint32_t;
@@ -192,6 +194,8 @@ enum class PseudoId : uint32_t;
 enum class QuoteType : uint8_t;
 enum class Resize : uint8_t;
 enum class RubyPosition : uint8_t;
+enum class RubyAlign : uint8_t;
+enum class RubyOverhang : bool;
 enum class SVGPaintType : uint8_t;
 enum class ScrollAxis : uint8_t;
 enum class ScrollSnapStop : bool;
@@ -242,6 +246,7 @@ enum class WhiteSpaceCollapse : uint8_t;
 enum class WordBreak : uint8_t;
 enum class WritingMode : uint8_t;
 
+struct BlockEllipsis;
 struct BorderDataRadii;
 struct CounterDirectiveMap;
 struct FillRepeatXY;
@@ -265,8 +270,8 @@ struct ScrollbarColor;
 struct ViewTimelineInsets;
 
 struct TabSize;
-struct TextAutospace;
-struct TextBoxEdge;
+class TextAutospace;
+struct TextEdge;
 struct TextSpacingTrim;
 struct TransformOperationData;
 
@@ -280,11 +285,12 @@ using LayoutBoxExtent = RectEdges<LayoutUnit>;
 
 namespace Style {
 class CustomPropertyRegistry;
+class ViewTransitionName;
 struct PseudoElementIdentifier;
 struct ScopedName;
 }
 
-constexpr auto PublicPseudoIDBits = 16;
+constexpr auto PublicPseudoIDBits = 17;
 constexpr auto TextDecorationLineBits = 4;
 constexpr auto TextTransformBits = 5;
 constexpr auto PseudoElementTypeBits = 5;
@@ -541,7 +547,6 @@ public:
 
     Clear clear() const { return static_cast<Clear>(m_nonInheritedFlags.clear); }
     static UsedClear usedClear(const RenderObject&);
-    TableLayoutType tableLayout() const { return static_cast<TableLayoutType>(m_nonInheritedFlags.tableLayout); }
 
     FieldSizing fieldSizing() const;
 
@@ -552,6 +557,7 @@ public:
     float computedFontSize() const;
     std::pair<FontOrientation, NonCJKGlyphOrientation> fontAndGlyphOrientation();
 
+    inline FontOpticalSizing fontOpticalSizing() const;
     inline FontVariationSettings fontVariationSettings() const;
     inline FontSelectionValue fontWeight() const;
     inline FontSelectionValue fontStretch() const;
@@ -568,7 +574,7 @@ public:
     inline OptionSet<TextDecorationLine> textDecorationLine() const;
     inline TextDecorationStyle textDecorationStyle() const;
     inline TextDecorationSkipInk textDecorationSkipInk() const;
-    inline TextUnderlinePosition textUnderlinePosition() const;
+    inline OptionSet<TextUnderlinePosition> textUnderlinePosition() const;
     inline TextUnderlineOffset textUnderlineOffset() const;
     inline TextDecorationThickness textDecorationThickness() const;
 
@@ -577,7 +583,8 @@ public:
     inline TextJustify textJustify() const;
 
     inline TextBoxTrim textBoxTrim() const;
-    TextBoxEdge textBoxEdge() const;
+    TextEdge textBoxEdge() const;
+    TextEdge lineFitEdge() const;
 
     inline OptionSet<MarginTrimType> marginTrim() const;
 
@@ -643,6 +650,11 @@ public:
     inline Ref<const FillLayer> protectedMaskLayers() const; // Defined in RenderStyleInlines.h.
     inline const NinePieceImage& maskBorder() const;
     inline StyleImage* maskBorderSource() const;
+    inline const LengthBox& maskBorderSlices() const;
+    inline const LengthBox& maskBorderWidth() const;
+    inline const LengthBox& maskBorderOutset() const;
+    inline NinePieceImageRule maskBorderHorizontalRule() const;
+    inline NinePieceImageRule maskBorderVerticalRule() const;
 
     BorderCollapse borderCollapse() const { return static_cast<BorderCollapse>(m_inheritedFlags.borderCollapse); }
     float horizontalBorderSpacing() const;
@@ -895,12 +907,17 @@ public:
     const AtomString& textEmphasisMarkString() const;
 
     inline RubyPosition rubyPosition() const;
+    inline bool isInterCharacterRubyPosition() const;
+    inline RubyAlign rubyAlign() const;
+    inline RubyOverhang rubyOverhang() const;
 
 #if ENABLE(DARK_MODE_CSS)
     inline StyleColorScheme colorScheme() const;
     inline void setHasExplicitlySetColorScheme();
     inline bool hasExplicitlySetColorScheme() const;
 #endif
+
+    inline TableLayoutType tableLayout() const;
 
     inline TextOrientation textOrientation() const;
 
@@ -1001,6 +1018,9 @@ public:
 
     inline OptionSet<LineBoxContain> lineBoxContain() const;
     inline const LineClampValue& lineClamp() const;
+    inline const BlockEllipsis& blockEllipsis() const;
+    inline size_t maxLines() const;
+    inline OverflowContinue overflowContinue() const;
     inline const IntSize& initialLetter() const;
     inline int initialLetterDrop() const;
     inline int initialLetterHeight() const;
@@ -1025,7 +1045,7 @@ public:
     const Length& scrollPaddingRight() const;
 
     bool hasSnapPosition() const;
-    const ScrollSnapType scrollSnapType() const;
+    ScrollSnapType scrollSnapType() const;
     const ScrollSnapAlign& scrollSnapAlign() const;
     ScrollSnapStop scrollSnapStop() const;
 
@@ -1034,7 +1054,7 @@ public:
     inline std::optional<ScrollbarColor> scrollbarColor() const;
     inline const StyleColor& scrollbarThumbColor() const;
     inline const StyleColor& scrollbarTrackColor() const;
-    WEBCORE_EXPORT const ScrollbarGutter scrollbarGutter() const;
+    WEBCORE_EXPORT ScrollbarGutter scrollbarGutter() const;
     WEBCORE_EXPORT ScrollbarWidth scrollbarWidth() const;
 
 #if ENABLE(TOUCH_EVENTS)
@@ -1066,7 +1086,7 @@ public:
     inline bool isVerticalWritingMode() const;
     inline bool isFlippedLinesWritingMode() const;
     inline bool isFlippedBlocksWritingMode() const;
-    BlockFlowDirection blockFlowDirection() const;
+    FlowDirection blockFlowDirection() const;
     TypographicMode typographicMode() const;
 
     inline ImageOrientation imageOrientation() const;
@@ -1110,7 +1130,8 @@ public:
 
     inline MathStyle mathStyle() const;
 
-    inline std::optional<Style::ScopedName> viewTransitionName() const;
+    inline const Vector<Style::ScopedName>& viewTransitionClasses() const;
+    inline Style::ViewTransitionName viewTransitionName() const;
 
     void setDisplay(DisplayType value)
     {
@@ -1189,7 +1210,6 @@ public:
     inline void setHasExplicitlySetBorderTopLeftRadius(bool);
     inline void setHasExplicitlySetBorderTopRightRadius(bool);
 
-    RoundedRect getRoundedBorderFor(const LayoutRect& borderRect, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
     RoundedRect getRoundedInnerBorderFor(const LayoutRect& borderRect, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
 
     RoundedRect getRoundedInnerBorderFor(const LayoutRect& borderRect, LayoutUnit topWidth, LayoutUnit bottomWidth, LayoutUnit leftWidth, LayoutUnit rightWidth, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
@@ -1232,7 +1252,6 @@ public:
     void setUnicodeBidi(UnicodeBidi v) { m_nonInheritedFlags.unicodeBidi = static_cast<unsigned>(v); }
 
     void setClear(Clear v) { m_nonInheritedFlags.clear = static_cast<unsigned>(v); }
-    void setTableLayout(TableLayoutType v) { m_nonInheritedFlags.tableLayout = static_cast<unsigned>(v); }
 
     void setFieldSizing(FieldSizing);
 
@@ -1242,6 +1261,7 @@ public:
     void setFontSize(float);
     void setFontSizeAdjust(FontSizeAdjust);
 
+    void setFontOpticalSizing(FontOpticalSizing);
     void setFontVariationSettings(FontVariationSettings);
     void setFontWeight(FontSelectionValue);
     void setFontStretch(FontSelectionValue);
@@ -1259,7 +1279,7 @@ public:
     inline void setTextDecorationLine(OptionSet<TextDecorationLine>);
     inline void setTextDecorationStyle(TextDecorationStyle);
     inline void setTextDecorationSkipInk(TextDecorationSkipInk);
-    inline void setTextUnderlinePosition(TextUnderlinePosition);
+    inline void setTextUnderlinePosition(OptionSet<TextUnderlinePosition>);
     inline void setTextUnderlineOffset(TextUnderlineOffset);
     inline void setTextDecorationThickness(TextDecorationThickness);
     void setDirection(TextDirection v) { m_inheritedFlags.direction = static_cast<unsigned>(v); }
@@ -1274,7 +1294,8 @@ public:
     inline void setTextJustify(TextJustify);
 
     inline void setTextBoxTrim(TextBoxTrim);
-    void setTextBoxEdge(TextBoxEdge);
+    void setTextBoxEdge(TextEdge);
+    void setLineFitEdge(TextEdge);
 
     inline void setMarginTrim(OptionSet<MarginTrimType>);
 
@@ -1307,7 +1328,14 @@ public:
     inline void setMaskImage(RefPtr<StyleImage>&&);
 
     inline void setMaskBorder(const NinePieceImage&);
-    inline void setMaskBorderSource(RefPtr<StyleImage>&&);
+    void setMaskBorderSource(RefPtr<StyleImage>&&);
+    void setMaskBorderSliceFill(bool);
+    void setMaskBorderSlices(LengthBox&&);
+    void setMaskBorderWidth(LengthBox&&);
+    void setMaskBorderOutset(LengthBox&&);
+    void setMaskBorderHorizontalRule(NinePieceImageRule);
+    void setMaskBorderVerticalRule(NinePieceImageRule);
+
     inline void setMaskXPosition(Length&&);
     inline void setMaskYPosition(Length&&);
     inline void setMaskRepeat(FillRepeatXY);
@@ -1507,10 +1535,14 @@ public:
     inline void setObjectPosition(LengthPoint);
 
     inline void setRubyPosition(RubyPosition);
+    inline void setRubyAlign(RubyAlign);
+    inline void setRubyOverhang(RubyOverhang);
 
 #if ENABLE(DARK_MODE_CSS)
     inline void setColorScheme(StyleColorScheme);
 #endif
+
+    inline void setTableLayout(TableLayoutType);
 
     inline void setFilter(FilterOperations&&);
     inline void setAppleColorFilter(FilterOperations&&);
@@ -1553,6 +1585,10 @@ public:
     inline void setLineBoxContain(OptionSet<LineBoxContain>);
     inline void setLineClamp(LineClampValue);
     
+    inline void setMaxLines(size_t);
+    inline void setOverflowContinue(OverflowContinue);
+    inline void setBlockEllipsis(const BlockEllipsis&);
+
     inline void setInitialLetter(const IntSize&);
     
     inline void setTouchActions(OptionSet<TouchAction>);
@@ -1634,7 +1670,7 @@ public:
     inline bool hasExplicitlySetStrokeWidth() const;
     bool hasPositiveStrokeWidth() const;
     
-    inline StyleColor strokeColor() const;
+    inline const StyleColor& strokeColor() const;
     inline void setStrokeColor(const StyleColor&);
     inline void setVisitedLinkStrokeColor(const StyleColor&);
     inline const StyleColor& visitedLinkStrokeColor() const;
@@ -1748,7 +1784,8 @@ public:
     inline QuotesData* quotes() const;
     void setQuotes(RefPtr<QuotesData>&&);
 
-    inline void setViewTransitionName(std::optional<Style::ScopedName>);
+    inline void setViewTransitionClasses(const Vector<Style::ScopedName>&);
+    inline void setViewTransitionName(Style::ViewTransitionName);
 
     inline WillChangeData* willChange() const;
     void setWillChange(RefPtr<WillChangeData>&&);
@@ -1854,7 +1891,8 @@ public:
     static constexpr ListStylePosition initialListStylePosition();
     static inline ListStyleType initialListStyleType();
     static constexpr OptionSet<TextTransform> initialTextTransform();
-    static inline std::optional<Style::ScopedName> initialViewTransitionName();
+    static inline Vector<Style::ScopedName> initialViewTransitionClasses();
+    static inline Style::ViewTransitionName initialViewTransitionName();
     static constexpr Visibility initialVisibility();
     static constexpr WhiteSpaceCollapse initialWhiteSpaceCollapse();
     static float initialHorizontalBorderSpacing() { return 0; }
@@ -1879,7 +1917,8 @@ public:
     static inline Length initialPadding();
     static inline Length initialTextIndent();
     static constexpr TextBoxTrim initialTextBoxTrim();
-    static TextBoxEdge initialTextBoxEdge();
+    static TextEdge initialTextBoxEdge();
+    static TextEdge initialLineFitEdge();
     static constexpr LengthType zeroLength();
     static inline Length oneLength();
     static unsigned short initialWidows() { return 2; }
@@ -1892,8 +1931,8 @@ public:
     static constexpr OptionSet<TextDecorationLine> initialTextDecorationLine();
     static constexpr TextDecorationStyle initialTextDecorationStyle();
     static constexpr TextDecorationSkipInk initialTextDecorationSkipInk();
-    static constexpr TextUnderlinePosition initialTextUnderlinePosition();
-    static constexpr TextUnderlineOffset initialTextUnderlineOffset();
+    static constexpr OptionSet<TextUnderlinePosition> initialTextUnderlinePosition();
+    static inline TextUnderlineOffset initialTextUnderlineOffset();
     static inline TextDecorationThickness initialTextDecorationThickness();
     static float initialZoom() { return 1.0f; }
     static constexpr TextZoom initialTextZoom();
@@ -1986,6 +2025,8 @@ public:
     static inline const AtomString& initialTextEmphasisCustomMark();
     static constexpr OptionSet<TextEmphasisPosition> initialTextEmphasisPosition();
     static constexpr RubyPosition initialRubyPosition();
+    static constexpr RubyAlign initialRubyAlign();
+    static constexpr RubyOverhang initialRubyOverhang();
     static constexpr OptionSet<LineBoxContain> initialLineBoxContain();
     static constexpr ImageOrientation initialImageOrientation();
     static constexpr ImageRendering initialImageRendering();
@@ -2070,6 +2111,9 @@ public:
     static inline GridPosition initialGridItemRowStart();
     static inline GridPosition initialGridItemRowEnd();
 
+    static GridTrackList initialGridColumnList();
+    static GridTrackList initialGridRowList();
+
     static constexpr TabSize initialTabSize();
 
     static inline const AtomString& initialLineGrid();
@@ -2078,6 +2122,9 @@ public:
 
     static constexpr IntSize initialInitialLetter();
     static constexpr LineClampValue initialLineClamp();
+    static inline BlockEllipsis initialBlockEllipsis();
+    static OverflowContinue initialOverflowContinue();
+    static constexpr size_t initialMaxLines() { return 0; }
     static constexpr TextSecurity initialTextSecurity();
     static constexpr InputSecurity initialInputSecurity();
 
@@ -2225,15 +2272,14 @@ private:
         unsigned position : 3; // PositionType
         unsigned unicodeBidi : 3; // UnicodeBidi
         unsigned floating : 3; // Float
-        unsigned tableLayout : 1; // TableLayoutType
 
         unsigned usesViewportUnits : 1;
         unsigned usesContainerUnits : 1;
         unsigned isUnique : 1; // Style cannot be shared.
+        unsigned hasContentNone : 1;
         unsigned textDecorationLine : TextDecorationLineBits; // Text decorations defined *only* by this element.
         unsigned hasExplicitlyInheritedProperties : 1; // Explicitly inherits a non-inherited property.
         unsigned disallowsFastPathInheritance : 1;
-        unsigned hasContentNone : 1;
 
         // Non-property related state bits.
         unsigned emptyState : 1;
@@ -2249,43 +2295,46 @@ private:
     struct InheritedFlags {
         friend bool operator==(const InheritedFlags&, const InheritedFlags&) = default;
 
-        unsigned emptyCells : 1; // EmptyCell
-        unsigned captionSide : 2; // CaptionSide
-        unsigned listStylePosition : 1; // ListStylePosition
-        unsigned visibility : 2; // Visibility
+        // Writing Mode = 4 bits
+        unsigned writingMode : 3; // WritingMode
+        unsigned direction : 1; // TextDirection
+
+        // Text Formatting = 19 bits
+        unsigned whiteSpaceCollapse : 3; // WhiteSpaceCollapse
+        unsigned textWrapMode : 1; // TextWrapMode
         unsigned textAlign : 4; // TextAlignMode
+        unsigned textWrapStyle : 2; // TextWrapStyle
         unsigned textTransform : TextTransformBits; // OptionSet<TextTransform>
         unsigned textDecorationLines : TextDecorationLineBits;
+
+        // Cursors and Visibility = 13 bits
+        unsigned pointerEvents : 4; // PointerEvents
+        unsigned visibility : 2; // Visibility
         unsigned cursor : 6; // CursorType
 #if ENABLE(CURSOR_VISIBILITY)
         unsigned cursorVisibility : 1; // CursorVisibility
 #endif
-        unsigned direction : 1; // TextDirection
-        unsigned whiteSpaceCollapse : 3; // WhiteSpaceCollapse
-        unsigned textWrapMode : 1; // TextWrapMode
-        unsigned textWrapStyle : 2; // TextWrapStyle
-        // 33 bits
-        unsigned borderCollapse : 1; // BorderCollapse
-        unsigned boxDirection : 1; // BoxDirection
 
-        // non CSS2 inherited
+        // Display Type-Specific = 5 bits
+        unsigned listStylePosition : 1; // ListStylePosition
+        unsigned emptyCells : 1; // EmptyCell
+        unsigned borderCollapse : 1; // BorderCollapse
+        unsigned captionSide : 2; // CaptionSide
+
+        // -webkit- Stuff = 2 bits
+        unsigned boxDirection : 1; // BoxDirection
         unsigned rtlOrdering : 1; // Order
+
+        // Color Stuff = 5 bits
+        unsigned hasExplicitlySetColor : 1;
         unsigned printColorAdjust : 1; // PrintColorAdjust
-        unsigned pointerEvents : 4; // PointerEvents
         unsigned insideLink : 2; // InsideLink
         unsigned insideDefaultButton : 1;
-        // 44 bits
-
-        // CSS Text Layout Module Level 3: Vertical writing support
-        unsigned writingMode : 3; // WritingMode
-        // 47 bits
 
 #if ENABLE(TEXT_AUTOSIZING)
         unsigned autosizeStatus : 5;
 #endif
-        // 52 bits
-        unsigned hasExplicitlySetColor : 1;
-        // 53 bits
+        // Total = 53 bits (fits in 8 bytes)
     };
 
     // This constructor is used to implement the replace operation.

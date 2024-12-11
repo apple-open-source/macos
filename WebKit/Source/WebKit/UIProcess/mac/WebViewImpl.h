@@ -47,6 +47,7 @@
 #include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakObjCPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/WorkQueue.h>
@@ -71,7 +72,7 @@ OBJC_CLASS WKImageAnalysisOverlayViewDelegate;
 OBJC_CLASS WKImmediateActionController;
 OBJC_CLASS WKMouseTrackingObserver;
 OBJC_CLASS WKRevealItemPresenter;
-OBJC_CLASS WKSafeBrowsingWarning;
+OBJC_CLASS _WKWarningView;
 OBJC_CLASS WKShareSheet;
 OBJC_CLASS WKTextAnimationManager;
 OBJC_CLASS WKViewLayoutStrategy;
@@ -165,6 +166,10 @@ enum class ReplacementBehavior : uint8_t;
 - (void)_didHandleAcceptedCandidate;
 - (void)_didUpdateCandidateListVisibility:(BOOL)visible;
 
+- (BOOL)_web_hasActiveIntelligenceTextEffects;
+- (void)_web_suppressContentRelativeChildViews;
+- (void)_web_restoreContentRelativeChildViews;
+
 @end
 
 namespace WebCore {
@@ -178,7 +183,7 @@ class PageClient;
 class PageClientImpl;
 class DrawingAreaProxy;
 class MediaSessionCoordinatorProxyPrivate;
-class SafeBrowsingWarning;
+class BrowsingWarning;
 class ViewGestureController;
 class ViewSnapshot;
 class WebBackForwardListItem;
@@ -190,6 +195,7 @@ class WebProcessProxy;
 struct WebHitTestResultData;
 
 enum class ContinueUnsafeLoad : bool;
+enum class ForceSoftwareCapturingViewportSnapshot : bool;
 enum class UndoOrRedo : bool;
 
 typedef id <NSValidatedUserInterfaceItem> ValidationItem;
@@ -198,7 +204,7 @@ typedef HashMap<String, ValidationVector> ValidationMap;
 
 class WebViewImpl final : public CanMakeWeakPtr<WebViewImpl>, public CanMakeCheckedPtr<WebViewImpl> {
     WTF_MAKE_NONCOPYABLE(WebViewImpl);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WebViewImpl);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebViewImpl);
 public:
     WebViewImpl(NSView <WebViewImplDelegate> *, WKWebView *outerWebView, WebProcessPool&, Ref<API::PageConfiguration>&&);
@@ -281,9 +287,9 @@ public:
     void setViewScale(CGFloat);
     CGFloat viewScale() const;
 
-    void showSafeBrowsingWarning(const SafeBrowsingWarning&, CompletionHandler<void(std::variant<ContinueUnsafeLoad, URL>&&)>&&);
-    void clearSafeBrowsingWarning();
-    void clearSafeBrowsingWarningIfForMainFrameNavigation();
+    void showWarningView(const BrowsingWarning&, CompletionHandler<void(std::variant<ContinueUnsafeLoad, URL>&&)>&&);
+    void clearWarningView();
+    void clearWarningViewIfForMainFrameNavigation();
 
     WKLayoutMode layoutMode() const;
     void setLayoutMode(WKLayoutMode);
@@ -535,13 +541,14 @@ public:
     NSArray *namesOfPromisedFilesDroppedAtDestination(NSURL *dropDestination);
 
     RefPtr<ViewSnapshot> takeViewSnapshot();
+    RefPtr<ViewSnapshot> takeViewSnapshot(ForceSoftwareCapturingViewportSnapshot);
     void saveBackForwardSnapshotForCurrentItem();
     void saveBackForwardSnapshotForItem(WebBackForwardListItem&);
 
     void insertTextPlaceholderWithSize(CGSize, void(^completionHandler)(NSTextPlaceholder *));
     void removeTextPlaceholder(NSTextPlaceholder *, bool willInsertText, void(^completionHandler)());
 
-    WKSafeBrowsingWarning *safeBrowsingWarning() { return m_safeBrowsingWarning.get(); }
+    _WKWarningView *warningView() { return m_warningView.get(); }
 
     ViewGestureController* gestureController() { return m_gestureController.get(); }
     ViewGestureController& ensureGestureController();
@@ -615,6 +622,7 @@ public:
 
     void createFlagsChangedEventMonitor();
     void removeFlagsChangedEventMonitor();
+    bool hasFlagsChangedEventMonitor();
 
     void mouseMoved(NSEvent *);
     void mouseDown(NSEvent *);
@@ -978,7 +986,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     bool m_isHandlingAcceptedCandidate { false };
     bool m_editableElementIsFocused { false };
     bool m_isTextInsertionReplacingSoftSpace { false };
-    RetainPtr<WKSafeBrowsingWarning> m_safeBrowsingWarning;
+    RetainPtr<_WKWarningView> m_warningView;
     
 #if ENABLE(DRAG_SUPPORT)
     NSInteger m_initialNumberOfValidItemsForDrop { 0 };

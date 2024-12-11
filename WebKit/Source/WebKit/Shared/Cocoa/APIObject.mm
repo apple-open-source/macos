@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -96,6 +96,9 @@
 #import "_WKVisitedLinkStoreInternal.h"
 #import "_WKWebAuthenticationAssertionResponseInternal.h"
 #import "_WKWebAuthenticationPanelInternal.h"
+#import "_WKWebPushDaemonConnectionInternal.h"
+#import "_WKWebPushMessageInternal.h"
+#import "_WKWebPushSubscriptionDataInternal.h"
 #import "_WKWebsiteDataStoreConfigurationInternal.h"
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
@@ -103,15 +106,16 @@
 #endif
 
 #if ENABLE(WK_WEB_EXTENSIONS)
-#import "_WKWebExtensionActionInternal.h"
-#import "_WKWebExtensionCommandInternal.h"
-#import "_WKWebExtensionContextInternal.h"
-#import "_WKWebExtensionControllerConfigurationInternal.h"
-#import "_WKWebExtensionControllerInternal.h"
-#import "_WKWebExtensionDataRecordInternal.h"
-#import "_WKWebExtensionInternal.h"
-#import "_WKWebExtensionMatchPatternInternal.h"
-#import "_WKWebExtensionMessagePortInternal.h"
+#import "WKWebExtensionActionInternal.h"
+#import "WKWebExtensionCommandInternal.h"
+#import "WKWebExtensionContextInternal.h"
+#import "WKWebExtensionControllerConfigurationInternal.h"
+#import "WKWebExtensionControllerInternal.h"
+#import "WKWebExtensionDataRecordInternal.h"
+#import "WKWebExtensionInternal.h"
+#import "WKWebExtensionMatchPatternInternal.h"
+#import "WKWebExtensionMessagePortInternal.h"
+#import "_WKWebExtensionSidebarInternal.h"
 #endif
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -403,41 +407,59 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if ENABLE(WK_WEB_EXTENSIONS)
     case Type::WebExtension:
-        wrapper = [_WKWebExtension alloc];
+        wrapper = [WKWebExtension alloc];
         break;
 
     case Type::WebExtensionContext:
-        wrapper = [_WKWebExtensionContext alloc];
+        wrapper = [WKWebExtensionContext alloc];
         break;
 
     case Type::WebExtensionAction:
-        wrapper = [_WKWebExtensionAction alloc];
+        wrapper = [WKWebExtensionAction alloc];
         break;
 
     case Type::WebExtensionCommand:
-        wrapper = [_WKWebExtensionCommand alloc];
+        wrapper = [WKWebExtensionCommand alloc];
         break;
 
     case Type::WebExtensionController:
-        wrapper = [_WKWebExtensionController alloc];
+        wrapper = [WKWebExtensionController alloc];
         break;
 
     case Type::WebExtensionControllerConfiguration:
-        wrapper = [_WKWebExtensionControllerConfiguration alloc];
+        wrapper = [WKWebExtensionControllerConfiguration alloc];
         break;
 
     case Type::WebExtensionDataRecord:
-        wrapper = [_WKWebExtensionDataRecord alloc];
+        wrapper = [WKWebExtensionDataRecord alloc];
         break;
 
     case Type::WebExtensionMatchPattern:
-        wrapper = [_WKWebExtensionMatchPattern alloc];
+        wrapper = [WKWebExtensionMatchPattern alloc];
         break;
 
     case Type::WebExtensionMessagePort:
-        wrapper = [_WKWebExtensionMessagePort alloc];
+        wrapper = [WKWebExtensionMessagePort alloc];
+        break;
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    case Type::WebExtensionSidebar:
+        wrapper = [_WKWebExtensionSidebar alloc];
         break;
 #endif
+#endif // ENABLE(WK_WEB_EXTENSIONS)
+
+    case Type::WebPushDaemonConnection:
+        wrapper = [_WKWebPushDaemonConnection alloc];
+        break;
+
+    case Type::WebPushMessage:
+        wrapper = [_WKWebPushMessage alloc];
+        break;
+
+    case Type::WebPushSubscriptionData:
+        wrapper = [_WKWebPushSubscriptionData alloc];
+        break;
 
     case Type::WebsiteDataRecord:
         wrapper = [WKWebsiteDataRecord alloc];

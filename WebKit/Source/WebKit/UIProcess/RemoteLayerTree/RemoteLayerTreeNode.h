@@ -33,6 +33,7 @@
 #include <WebCore/RenderingResourceIdentifier.h>
 #include <WebCore/ScrollTypes.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 
 OBJC_CLASS CALayer;
@@ -56,7 +57,7 @@ class RemoteLayerTreeHost;
 class RemoteLayerTreeScrollbars;
 
 class RemoteLayerTreeNode : public CanMakeWeakPtr<RemoteLayerTreeNode> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteLayerTreeNode);
 public:
     RemoteLayerTreeNode(WebCore::PlatformLayerIdentifier, Markable<WebCore::LayerHostingContextIdentifier>, RetainPtr<CALayer>);
 #if PLATFORM(IOS_FAMILY)
@@ -97,16 +98,16 @@ public:
     void setEventRegion(const WebCore::EventRegion&);
 
     // Non-ancestor scroller that controls positioning of the layer.
-    WebCore::PlatformLayerIdentifier actingScrollContainerID() const { return m_actingScrollContainerID; }
+    std::optional<WebCore::PlatformLayerIdentifier >actingScrollContainerID() const { return m_actingScrollContainerID.asOptional(); }
     // Ancestor scrollers that don't affect positioning of the layer.
     const Vector<WebCore::PlatformLayerIdentifier>& stationaryScrollContainerIDs() const { return m_stationaryScrollContainerIDs; }
 
-    void setActingScrollContainerID(WebCore::PlatformLayerIdentifier value) { m_actingScrollContainerID = value; }
+    void setActingScrollContainerID(std::optional<WebCore::PlatformLayerIdentifier> value) { m_actingScrollContainerID = value; }
     void setStationaryScrollContainerIDs(Vector<WebCore::PlatformLayerIdentifier>&& value) { m_stationaryScrollContainerIDs = WTFMove(value); }
 
     void detachFromParent();
 
-    static WebCore::PlatformLayerIdentifier layerID(CALayer *);
+    static std::optional<WebCore::PlatformLayerIdentifier> layerID(CALayer *);
     static RemoteLayerTreeNode* forCALayer(CALayer *);
 
     static NSString *appendLayerDescription(NSString *description, CALayer *);
@@ -185,7 +186,7 @@ private:
     WebCore::ScrollingNodeID m_scrollingNodeID;
 #endif
 
-    WebCore::PlatformLayerIdentifier m_actingScrollContainerID;
+    Markable<WebCore::PlatformLayerIdentifier> m_actingScrollContainerID;
     Vector<WebCore::PlatformLayerIdentifier> m_stationaryScrollContainerIDs;
 
     Vector<CachedContentsBuffer> m_cachedContentsBuffers;

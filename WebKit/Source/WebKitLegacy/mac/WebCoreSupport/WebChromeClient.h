@@ -30,6 +30,7 @@
 #import <WebCore/ChromeClient.h>
 #import <WebCore/FocusDirection.h>
 #import <wtf/Forward.h>
+#import <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 class HTMLImageElement;
@@ -41,7 +42,7 @@ class HTMLImageElement;
 // base class of the concrete class, WebChromeClientIOS. Because of that, this class and
 // many of its functions are not marked final. That is messy way to organize things.
 class WebChromeClient : public WebCore::ChromeClient {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WebChromeClient);
 public:
     WebChromeClient(WebView*);
 
@@ -116,7 +117,6 @@ private:
     void intrinsicContentsSizeChanged(const WebCore::IntSize&) const final { }
 
     void scrollContainingScrollViewsToRevealRect(const WebCore::IntRect&) const final;
-    void setStatusbarText(const String&) override;
 
     bool shouldUnavailablePluginMessageBeButton(WebCore::RenderEmbeddedObject::PluginUnavailabilityReason) const final;
     void unavailablePluginButtonClicked(WebCore::Element&, WebCore::RenderEmbeddedObject::PluginUnavailabilityReason) const final;
@@ -251,6 +251,8 @@ private:
     void getBarcodeDetectorSupportedFormats(CompletionHandler<void(Vector<WebCore::ShapeDetection::BarcodeFormat>&&)>&&) const final;
     RefPtr<WebCore::ShapeDetection::FaceDetector> createFaceDetector(const WebCore::ShapeDetection::FaceDetectorOptions&) const final;
     RefPtr<WebCore::ShapeDetection::TextDetector> createTextDetector() const final;
+
+    void registerBlobPathForTesting(const String&, CompletionHandler<void()>&&) final;
 
     void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&&) final;
 

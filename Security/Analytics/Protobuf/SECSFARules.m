@@ -7,7 +7,9 @@
 #import <ProtocolBuffer/PBHashUtil.h>
 #import <ProtocolBuffer/PBDataReader.h>
 
-#import "SECSFARule.h"
+#import "SECSFAEventFilter.h"
+#import "SECSFAEventRule.h"
+#import "SECSFAVersionMatch.h"
 
 #if !__has_feature(objc_arc)
 # error This generated file depends on ARC but it is not enabled; turn on ARC, or use 'objc_use_arc' option to generate non-ARC code.
@@ -15,30 +17,60 @@
 
 @implementation SECSFARules
 
-@synthesize rules = _rules;
-- (void)clearRules
+@synthesize eventRules = _eventRules;
+- (void)clearEventRules
 {
-    [_rules removeAllObjects];
+    [_eventRules removeAllObjects];
 }
-- (void)addRules:(SECSFARule *)i
+- (void)addEventRules:(SECSFAEventRule *)i
 {
-    if (!_rules)
+    if (!_eventRules)
     {
-        _rules = [[NSMutableArray alloc] init];
+        _eventRules = [[NSMutableArray alloc] init];
     }
-    [_rules addObject:i];
+    [_eventRules addObject:i];
 }
-- (NSUInteger)rulesCount
+- (NSUInteger)eventRulesCount
 {
-    return [_rules count];
+    return [_eventRules count];
 }
-- (SECSFARule *)rulesAtIndex:(NSUInteger)idx
+- (SECSFAEventRule *)eventRulesAtIndex:(NSUInteger)idx
 {
-    return [_rules objectAtIndex:idx];
+    return [_eventRules objectAtIndex:idx];
 }
-+ (Class)rulesType
++ (Class)eventRulesType
 {
-    return [SECSFARule class];
+    return [SECSFAEventRule class];
+}
+- (BOOL)hasAllowedBuilds
+{
+    return _allowedBuilds != nil;
+}
+@synthesize allowedBuilds = _allowedBuilds;
+@synthesize eventFilters = _eventFilters;
+- (void)clearEventFilters
+{
+    [_eventFilters removeAllObjects];
+}
+- (void)addEventFilter:(SECSFAEventFilter *)i
+{
+    if (!_eventFilters)
+    {
+        _eventFilters = [[NSMutableArray alloc] init];
+    }
+    [_eventFilters addObject:i];
+}
+- (NSUInteger)eventFiltersCount
+{
+    return [_eventFilters count];
+}
+- (SECSFAEventFilter *)eventFilterAtIndex:(NSUInteger)idx
+{
+    return [_eventFilters objectAtIndex:idx];
+}
++ (Class)eventFilterType
+{
+    return [SECSFAEventFilter class];
 }
 
 - (NSString *)description
@@ -49,14 +81,27 @@
 - (NSDictionary *)dictionaryRepresentation
 {
     NSMutableDictionary *dict = [NSMutableDictionary dictionary];
-    if ([self->_rules count])
+    if ([self->_eventRules count])
     {
-        NSMutableArray *rulesDictReprs = [[NSMutableArray alloc] initWithCapacity:[self->_rules count]];
-        for (SECSFARule *i_rules in self->_rules)
+        NSMutableArray *eventRulesDictReprs = [[NSMutableArray alloc] initWithCapacity:[self->_eventRules count]];
+        for (SECSFAEventRule *i_eventRules in self->_eventRules)
         {
-            [rulesDictReprs addObject:[i_rules dictionaryRepresentation]];
+            [eventRulesDictReprs addObject:[i_eventRules dictionaryRepresentation]];
         }
-        [dict setObject:rulesDictReprs forKey:@"rules"];
+        [dict setObject:eventRulesDictReprs forKey:@"eventRules"];
+    }
+    if (self->_allowedBuilds)
+    {
+        [dict setObject:[_allowedBuilds dictionaryRepresentation] forKey:@"allowedBuilds"];
+    }
+    if ([self->_eventFilters count])
+    {
+        NSMutableArray *eventFiltersDictReprs = [[NSMutableArray alloc] initWithCapacity:[self->_eventFilters count]];
+        for (SECSFAEventFilter *i_eventFilter in self->_eventFilters)
+        {
+            [eventFiltersDictReprs addObject:[i_eventFilter dictionaryRepresentation]];
+        }
+        [dict setObject:eventFiltersDictReprs forKey:@"eventFilter"];
     }
     return dict;
 }
@@ -77,22 +122,58 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
 
         switch (tag) {
 
-            case 1 /* rules */:
+            case 2 /* eventRules */:
             {
-                SECSFARule *new_rules = [[SECSFARule alloc] init];
-                [self addRules:new_rules];
-                PBDataReaderMark mark_rules;
-                BOOL markError = !PBReaderPlaceMark(reader, &mark_rules);
+                SECSFAEventRule *new_eventRules = [[SECSFAEventRule alloc] init];
+                [self addEventRules:new_eventRules];
+                PBDataReaderMark mark_eventRules;
+                BOOL markError = !PBReaderPlaceMark(reader, &mark_eventRules);
                 if (markError)
                 {
                     return NO;
                 }
-                BOOL inError = !SECSFARuleReadFrom(new_rules, reader);
+                BOOL inError = !SECSFAEventRuleReadFrom(new_eventRules, reader);
                 if (inError)
                 {
                     return NO;
                 }
-                PBReaderRecallMark(reader, &mark_rules);
+                PBReaderRecallMark(reader, &mark_eventRules);
+            }
+            break;
+            case 3 /* allowedBuilds */:
+            {
+                SECSFAVersionMatch *new_allowedBuilds = [[SECSFAVersionMatch alloc] init];
+                self->_allowedBuilds = new_allowedBuilds;
+                PBDataReaderMark mark_allowedBuilds;
+                BOOL markError = !PBReaderPlaceMark(reader, &mark_allowedBuilds);
+                if (markError)
+                {
+                    return NO;
+                }
+                BOOL inError = !SECSFAVersionMatchReadFrom(new_allowedBuilds, reader);
+                if (inError)
+                {
+                    return NO;
+                }
+                PBReaderRecallMark(reader, &mark_allowedBuilds);
+            }
+            break;
+            case 4 /* eventFilters */:
+            {
+                SECSFAEventFilter *new_eventFilter = [[SECSFAEventFilter alloc] init];
+                [self addEventFilter:new_eventFilter];
+                PBDataReaderMark mark_eventFilter;
+                BOOL markError = !PBReaderPlaceMark(reader, &mark_eventFilter);
+                if (markError)
+                {
+                    return NO;
+                }
+                BOOL inError = !SECSFAEventFilterReadFrom(new_eventFilter, reader);
+                if (inError)
+                {
+                    return NO;
+                }
+                PBReaderRecallMark(reader, &mark_eventFilter);
             }
             break;
             default:
@@ -110,24 +191,51 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
 }
 - (void)writeTo:(PBDataWriter *)writer
 {
-    /* rules */
+    /* eventRules */
     {
-        for (SECSFARule *i_rules in self->_rules)
+        for (SECSFAEventRule *i_eventRules in self->_eventRules)
         {
-            PBDataWriterWriteSubmessage(writer, i_rules, 1);
+            PBDataWriterWriteSubmessage(writer, i_eventRules, 2);
+        }
+    }
+    /* allowedBuilds */
+    {
+        if (self->_allowedBuilds != nil)
+        {
+            PBDataWriterWriteSubmessage(writer, self->_allowedBuilds, 3);
+        }
+    }
+    /* eventFilters */
+    {
+        for (SECSFAEventFilter *i_eventFilter in self->_eventFilters)
+        {
+            PBDataWriterWriteSubmessage(writer, i_eventFilter, 4);
         }
     }
 }
 
 - (void)copyTo:(SECSFARules *)other
 {
-    if ([self rulesCount])
+    if ([self eventRulesCount])
     {
-        [other clearRules];
-        NSUInteger rulesCnt = [self rulesCount];
-        for (NSUInteger i = 0; i < rulesCnt; i++)
+        [other clearEventRules];
+        NSUInteger eventRulesCnt = [self eventRulesCount];
+        for (NSUInteger i = 0; i < eventRulesCnt; i++)
         {
-            [other addRules:[self rulesAtIndex:i]];
+            [other addEventRules:[self eventRulesAtIndex:i]];
+        }
+    }
+    if (_allowedBuilds)
+    {
+        other.allowedBuilds = _allowedBuilds;
+    }
+    if ([self eventFiltersCount])
+    {
+        [other clearEventFilters];
+        NSUInteger eventFiltersCnt = [self eventFiltersCount];
+        for (NSUInteger i = 0; i < eventFiltersCnt; i++)
+        {
+            [other addEventFilter:[self eventFilterAtIndex:i]];
         }
     }
 }
@@ -135,10 +243,16 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
 - (id)copyWithZone:(NSZone *)zone
 {
     SECSFARules *copy = [[[self class] allocWithZone:zone] init];
-    for (SECSFARule *v in _rules)
+    for (SECSFAEventRule *v in _eventRules)
     {
-        SECSFARule *vCopy = [v copyWithZone:zone];
-        [copy addRules:vCopy];
+        SECSFAEventRule *vCopy = [v copyWithZone:zone];
+        [copy addEventRules:vCopy];
+    }
+    copy->_allowedBuilds = [_allowedBuilds copyWithZone:zone];
+    for (SECSFAEventFilter *v in _eventFilters)
+    {
+        SECSFAEventFilter *vCopy = [v copyWithZone:zone];
+        [copy addEventFilter:vCopy];
     }
     return copy;
 }
@@ -148,7 +262,11 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
     SECSFARules *other = (SECSFARules *)object;
     return [other isMemberOfClass:[self class]]
     &&
-    ((!self->_rules && !other->_rules) || [self->_rules isEqual:other->_rules])
+    ((!self->_eventRules && !other->_eventRules) || [self->_eventRules isEqual:other->_eventRules])
+    &&
+    ((!self->_allowedBuilds && !other->_allowedBuilds) || [self->_allowedBuilds isEqual:other->_allowedBuilds])
+    &&
+    ((!self->_eventFilters && !other->_eventFilters) || [self->_eventFilters isEqual:other->_eventFilters])
     ;
 }
 
@@ -156,15 +274,31 @@ BOOL SECSFARulesReadFrom(__unsafe_unretained SECSFARules *self, __unsafe_unretai
 {
     return 0
     ^
-    [self->_rules hash]
+    [self->_eventRules hash]
+    ^
+    [self->_allowedBuilds hash]
+    ^
+    [self->_eventFilters hash]
     ;
 }
 
 - (void)mergeFrom:(SECSFARules *)other
 {
-    for (SECSFARule *iter_rules in other->_rules)
+    for (SECSFAEventRule *iter_eventRules in other->_eventRules)
     {
-        [self addRules:iter_rules];
+        [self addEventRules:iter_eventRules];
+    }
+    if (self->_allowedBuilds && other->_allowedBuilds)
+    {
+        [self->_allowedBuilds mergeFrom:other->_allowedBuilds];
+    }
+    else if (!self->_allowedBuilds && other->_allowedBuilds)
+    {
+        [self setAllowedBuilds:other->_allowedBuilds];
+    }
+    for (SECSFAEventFilter *iter_eventFilters in other->_eventFilters)
+    {
+        [self addEventFilter:iter_eventFilters];
     }
 }
 

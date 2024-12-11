@@ -53,6 +53,7 @@ class PaintingEngine;
 
 namespace WebCore {
 class CoordinatedGraphicsLayer;
+class TextureMapperPlatformLayerProxy;
 
 class CoordinatedGraphicsLayerClient {
 public:
@@ -77,7 +78,7 @@ public:
 
     // FIXME: Merge these two methods.
     Nicosia::PlatformLayer::LayerID id() const;
-    PlatformLayerIdentifier primaryLayerID() const override;
+    std::optional<PlatformLayerIdentifier> primaryLayerID() const override;
 
     // Reimplementations from GraphicsLayer.h.
     bool setChildren(Vector<Ref<GraphicsLayer>>&&) override;
@@ -139,12 +140,7 @@ public:
     bool usesContentsLayer() const override;
     void dumpAdditionalProperties(WTF::TextStream&, OptionSet<LayerTreeAsTextOptions>) const override;
 
-#if USE(NICOSIA)
-    PlatformLayer* platformLayer() const override;
-#endif
-
-    bool checkPendingStateChangesIncludingSubLayers();
-    void updateContentBuffersIncludingSubLayers();
+    std::pair<bool, bool> finalizeCompositingStateFlush();
 
     FloatPoint computePositionRelativeToBase();
     void computePixelAlignment(FloatPoint& position, FloatSize&, FloatPoint3D& anchorPoint, FloatSize& alignmentOffset);
@@ -195,8 +191,6 @@ private:
 
     bool isCoordinatedGraphicsLayer() const override;
 
-    void updatePlatformLayer();
-
     void setDebugBorder(const Color&, float width) override;
 
     void didChangeAnimations();
@@ -209,6 +203,9 @@ private:
 
     void computeTransformedVisibleRect();
     void updateContentBuffers();
+
+    bool checkPendingStateChanges();
+    bool checkContentLayerUpdated();
 
     Ref<Nicosia::Buffer> paintTile(const IntRect&, const IntRect& mappedTileRect, float contentsScale);
     Ref<Nicosia::Buffer> paintImage(Image&);
@@ -226,10 +223,6 @@ private:
     void requestPendingTileCreationTimerFired();
 
     bool filtersCanBeComposited(const FilterOperations&) const;
-
-#if USE(SKIA)
-    RefPtr<BitmapTexture> acquireTextureForAcceleratedBuffer(const IntSize&);
-#endif
 
     Nicosia::PlatformLayer::LayerID m_id;
     GraphicsLayerTransform m_layerTransform;
@@ -249,7 +242,6 @@ private:
     bool m_movingVisibleRect : 1;
     bool m_pendingContentsScaleAdjustment : 1;
     bool m_pendingVisibleRectAdjustment : 1;
-    bool m_shouldUpdatePlatformLayer : 1;
 
     CoordinatedGraphicsLayerClient* m_coordinator;
 
@@ -275,10 +267,13 @@ private:
         bool performLayerSync { false };
 
         RefPtr<Nicosia::BackingStore> backingStore;
-        RefPtr<Nicosia::ContentLayer> contentLayer;
         RefPtr<Nicosia::ImageBacking> imageBacking;
         RefPtr<Nicosia::AnimatedBackingStoreClient> animatedBackingStoreClient;
     } m_nicosia;
+
+    RefPtr<TextureMapperPlatformLayerProxy> m_contentsLayer;
+    bool m_contentsLayerNeedsUpdate { false };
+    bool m_contentsLayerUpdated { false };
 
     RefPtr<AnimatedBackingStoreHost> m_animatedBackingStoreHost;
     RefPtr<CoordinatedGraphicsLayer> m_backdropLayer;

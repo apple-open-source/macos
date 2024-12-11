@@ -1,4 +1,4 @@
-*quickfix.txt*  For Vim version 9.0.  Last change: 2023 Jan 18
+*quickfix.txt*  For Vim version 9.1.  Last change: 2024 Sep 10
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -287,7 +287,8 @@ processing a quickfix or location list command, it will be aborted.
 			current window is used instead of the quickfix list.
 
 						*:cb* *:cbuffer* *E681*
-:cb[uffer][!] [bufnr]	Read the error list from the current buffer.
+:[range]cb[uffer][!] [bufnr]
+			Read the error list from the current buffer.
 			When [bufnr] is given it must be the number of a
 			loaded buffer.  That buffer will then be used instead
 			of the current buffer.
@@ -296,26 +297,31 @@ processing a quickfix or location list command, it will be aborted.
 			See |:cc| for [!].
 
 						*:lb* *:lbuffer*
-:lb[uffer][!] [bufnr]	Same as ":cbuffer", except the location list for the
+:[range]lb[uffer][!] [bufnr]
+			Same as ":cbuffer", except the location list for the
 			current window is used instead of the quickfix list.
 
 						*:cgetb* *:cgetbuffer*
-:cgetb[uffer] [bufnr]	Read the error list from the current buffer.  Just
+:[range]cgetb[uffer] [bufnr]
+			Read the error list from the current buffer.  Just
 			like ":cbuffer" but don't jump to the first error.
 
 						*:lgetb* *:lgetbuffer*
-:lgetb[uffer] [bufnr]	Same as ":cgetbuffer", except the location list for
+:[range]lgetb[uffer] [bufnr]
+			Same as ":cgetbuffer", except the location list for
 			the current window is used instead of the quickfix
 			list.
 
 						*:cad* *:cadd* *:caddbuffer*
-:cad[dbuffer] [bufnr]	Read the error list from the current buffer and add
+:[range]cad[dbuffer] [bufnr]
+			Read the error list from the current buffer and add
 			the errors to the current quickfix list.  If a
 			quickfix list is not present, then a new list is
 			created. Otherwise, same as ":cbuffer".
 
 							*:laddb* *:laddbuffer*
-:laddb[uffer] [bufnr]	Same as ":caddbuffer", except the location list for
+:[range]laddb[uffer] [bufnr]
+			Same as ":caddbuffer", except the location list for
 			the current window is used instead of the quickfix
 			list.
 
@@ -378,14 +384,14 @@ processing a quickfix or location list command, it will be aborted.
 			List all errors.
 
 :cl[ist]! +{count}	List the current and next {count} error lines.  This
-                        is useful to see unrecognized lines after the current
+			is useful to see unrecognized lines after the current
 			one.  For example, if ":clist" shows:
-        8384 testje.java:252: error: cannot find symbol ~
-                        Then using ":cl! +3" shows the reason:
-        8384 testje.java:252: error: cannot find symbol ~
-        8385:   ZexitCode = Fmainx(); ~
-        8386:               ^ ~
-        8387:   symbol:   method Fmainx() ~
+	8384 testje.java:252: error: cannot find symbol ~
+			Then using ":cl! +3" shows the reason:
+	8384 testje.java:252: error: cannot find symbol ~
+	8385:   ZexitCode = Fmainx(); ~
+	8386:               ^ ~
+	8387:   symbol:   method Fmainx() ~
 
 :lli[st] [from] [, [to]]				*:lli* *:llist*
 			Same as ":clist", except the location list for the
@@ -1000,7 +1006,7 @@ Another option is using 'makeencoding'.
 ==============================================================================
 5. Using :vimgrep and :grep				*grep* *lid*
 
-Vim has two ways to find matches for a pattern: Internal and external.  The
+Vim has two ways to find matches for a pattern: internal and external.  The
 advantage of the internal grep is that it works on all systems and uses the
 powerful Vim search patterns.  An external grep program can be used when the
 Vim grep does not do what you want.
@@ -1029,7 +1035,7 @@ commands can be combined to create a NewGrep command: >
         command! -nargs=+ NewGrep execute 'silent grep! <args>' | copen 42
 
 
-5.1 using Vim's internal grep
+5.1 Using Vim's internal grep
 
 					*:vim* *:vimgrep* *E682* *E683*
 :vim[grep][!] /{pattern}/[g][j][f] {file} ...
@@ -1086,8 +1092,8 @@ commands can be combined to create a NewGrep command: >
 
 :vim[grep][!] {pattern} {file} ...
 			Like above, but instead of enclosing the pattern in a
-			non-ID character use a white-separated pattern.  The
-			pattern must start with an ID character.
+			non-ID character use a white space separated pattern.
+			The pattern must start with an ID character.
 			Example: >
 				:vimgrep Error *.c
 <
@@ -1270,6 +1276,7 @@ not "b:current_compiler".  What the command actually does is the following:
 
 For writing a compiler plugin, see |write-compiler-plugin|.
 
+Use the |compiler-make| plugin to undo the effect of a compiler plugin.
 
 DOTNET							*compiler-dotnet*
 
@@ -1285,7 +1292,6 @@ Example: limit output to only display errors, and suppress the project name: >
 	let dotnet_show_project_file = v:false
 	compiler dotnet
 <
-
 GCC					*quickfix-gcc*	*compiler-gcc*
 
 There's one variable you can set for the GCC compiler:
@@ -1296,6 +1302,19 @@ g:compiler_gcc_ignore_unmatched_lines
 				commands run from make are generating false
 				positives.
 
+JAVAC							*compiler-javac*
+
+Commonly used compiler options can be added to 'makeprg' by setting the
+g:javac_makeprg_params variable.  For example: >
+
+	let g:javac_makeprg_params = "-Xlint:all -encoding utf-8"
+<
+GNU MAKE						*compiler-make*
+
+Since the default make program is "make", the compiler plugin for make,
+:compiler make, will reset the 'makeprg' and 'errorformat' option to
+the default values and unlet any variables that may have been set by a
+previous compiler plugin.
 
 MANX AZTEC C				*quickfix-manx* *compiler-manx*
 
@@ -1321,6 +1340,33 @@ If Vim was started from the compiler, the :sh and some :!  commands will not
 work, because Vim is then running in the same process as the compiler and
 stdin (standard input) will not be interactive.
 
+GROFF					*quickfix-groff* *compiler-groff*
+
+The GROFF compiler plugin uses the mom macro set (documented in the groff_mom
+manpage) as input and expects that the output file type extension is passed to
+make, say :make html or :make pdf.
+
+Additional arguments can be passed to groff by setting them in
+`b:groff_compiler_args` or `g:groff_compiler_args`. The `language` argument
+passed to groff is set using 'spelllang'; it can be overridden by setting
+`b:groff_compiler_lang`. The default encoding is `UTF-8` and can be changed
+by setting `b:groff_compiler_encoding` or `g:groff_compiler_encoding`.
+
+PANDOC					*quickfix-pandoc* *compiler-pandoc*
+
+The Pandoc compiler plugin expects that an output file type extension is
+passed to make, say :make html or :make pdf.
+
+Additional arguments can be passed to pandoc:
+
+- either by appending them to make, say `:make html --self-contained` .
+- or setting them in `b:pandoc_compiler_args` or `g:pandoc_compiler_args`.
+
+The `--from` argument is an educated guess using the buffer file type;
+it can be overridden by setting `b:pandoc_compiler_from`.
+The `--metadata lang` argument is set using 'spelllang';
+If `--from=markdown` is assumed and no title set in a title header or
+YAML block, then the filename (without extension) is used as the title.
 
 PERL					*quickfix-perl* *compiler-perl*
 
@@ -1390,6 +1436,17 @@ from |errorformat-LaTeX| is too complex to keep it working for different
 shells and OSes and also does not allow to use other available TeX options,
 if any.  If your TeX doesn't support "-interaction=nonstopmode", please
 report it with different means to express \nonstopmode from the command line.
+
+TYPST COMPILER						*compiler-typst*
+
+Vim includes a compiler plugin for Typst files. This compiler is enabled
+automatically in Typst buffers by the Typst filetype plugin |ft-typst-plugin|.
+Run |:make| to compile the current Typst file.
+
+							*g:typst_cmd*
+By default Vim will use "typst" as the command to run the Typst compiler. This
+can be changed by setting the |g:typst_cmd| variable: >
+	let g:typst_cmd = "/path/to/other/command"
 
 =============================================================================
 7. The error format					*error-file-format*

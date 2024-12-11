@@ -41,6 +41,7 @@
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/ScreenOrientationType.h>
 #include <wtf/LoggerHelper.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebKit {
@@ -53,6 +54,8 @@ static WorkQueue& sharedQuickLookFileQueue()
     return queue.get();
 }
 #endif
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebFullScreenManagerProxy);
 
 WebFullScreenManagerProxy::WebFullScreenManagerProxy(WebPageProxy& page, WebFullScreenManagerProxyClient& client)
     : m_page(page)
@@ -70,6 +73,11 @@ WebFullScreenManagerProxy::~WebFullScreenManagerProxy()
     m_page.legacyMainFrameProcess().removeMessageReceiver(Messages::WebFullScreenManagerProxy::messageReceiverName(), m_page.webPageIDInMainFrameProcess());
     m_client.closeFullScreenManager();
     callCloseCompletionHandlers();
+}
+
+const SharedPreferencesForWebProcess& WebFullScreenManagerProxy::sharedPreferencesForWebProcess() const
+{
+    return m_page.legacyMainFrameProcess().sharedPreferencesForWebProcess();
 }
 
 void WebFullScreenManagerProxy::willEnterFullScreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode)

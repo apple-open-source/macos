@@ -509,7 +509,7 @@ bool _SecTrustResetSettings(SecTrustResetFlags flags, CFErrorRef _Nonnull * _Nul
     }
     if (flags & kSecTrustResetValidDB) {
         secnotice("trustsettings", "_SecTrustResetSettings: kSecTrustResetValidDB");
-        if (!SecRevocationDbRemoveAllEntries(error)) {
+        if (!SecRevocationDbFullReset(error)) {
             return false;
         }
     }

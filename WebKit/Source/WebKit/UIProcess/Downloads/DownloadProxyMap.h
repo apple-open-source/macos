@@ -29,6 +29,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -61,10 +62,10 @@ class WebPageProxy;
 class WebsiteDataStore;
 struct FrameInfoData;
 
-class DownloadProxyMap : public CanMakeWeakPtr<DownloadProxyMap> {
-    WTF_MAKE_FAST_ALLOCATED;
+class DownloadProxyMap : public CanMakeWeakPtr<DownloadProxyMap>, public CanMakeCheckedPtr<DownloadProxyMap> {
+    WTF_MAKE_TZONE_ALLOCATED(DownloadProxyMap);
     WTF_MAKE_NONCOPYABLE(DownloadProxyMap);
-
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DownloadProxyMap);
 public:
     explicit DownloadProxyMap(NetworkProcessProxy&);
     ~DownloadProxyMap();

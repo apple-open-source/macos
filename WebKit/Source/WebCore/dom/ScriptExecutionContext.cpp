@@ -85,6 +85,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/Ref.h>
 #include <wtf/SetForScope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
@@ -101,7 +102,7 @@ static HashMap<ScriptExecutionContextIdentifier, ScriptExecutionContext*>& allSc
 }
 
 struct ScriptExecutionContext::PendingException {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(PendingException);
 public:
     PendingException(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, RefPtr<ScriptCallStack>&& callStack)
         : m_errorMessage(errorMessage)
@@ -459,7 +460,7 @@ bool ScriptExecutionContext::canIncludeErrorDetails(CachedScript* script, const 
         ASSERT(securityOrigin()->toString() == script->origin()->toString());
         return script->isCORSSameOrigin();
     }
-    return securityOrigin()->canRequest(completeSourceURL, OriginAccessPatternsForWebProcess::singleton());
+    return protectedSecurityOrigin()->canRequest(completeSourceURL, OriginAccessPatternsForWebProcess::singleton());
 }
 
 void ScriptExecutionContext::reportException(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, JSC::Exception* exception, RefPtr<ScriptCallStack>&& callStack, CachedScript* cachedScript, bool fromModule)
@@ -673,11 +674,6 @@ bool ScriptExecutionContext::allowsMediaDevices() const
 #else
     return false;
 #endif
-}
-
-ServiceWorker* ScriptExecutionContext::activeServiceWorker() const
-{
-    return m_activeServiceWorker.get();
 }
 
 void ScriptExecutionContext::setActiveServiceWorker(RefPtr<ServiceWorker>&& serviceWorker)
@@ -959,6 +955,15 @@ RefCountedSerialFunctionDispatcher& ScriptExecutionContext::nativePromiseDispatc
     if (!m_nativePromiseDispatcher)
         m_nativePromiseDispatcher = ScriptExecutionContextDispatcher::create(*this);
     return *m_nativePromiseDispatcher;
+}
+
+bool ScriptExecutionContext::isAlwaysOnLoggingAllowed() const
+{
+    auto sessionID = this->sessionID();
+    if (!sessionID)
+        return false;
+
+    return sessionID->isAlwaysOnLoggingAllowed() || settingsValues().allowPrivacySensitiveOperationsInNonPersistentDataStores;
 }
 
 WebCoreOpaqueRoot root(ScriptExecutionContext* context)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -102,7 +102,7 @@ bool XPCServiceInitializerDelegate::getProcessIdentifier(WebCore::ProcessIdentif
     if (!parsedIdentifier)
         return false;
 
-    identifier = ObjectIdentifier<WebCore::ProcessIdentifierType>(*parsedIdentifier);
+    identifier = LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(*parsedIdentifier);
     return true;
 }
 
@@ -183,7 +183,7 @@ void setOSTransaction(OSObjectPtr<os_transaction_t>&& transaction)
 }
 #endif
 
-void setJSCOptions(xpc_object_t initializerMessage, EnableLockdownMode enableLockdownMode)
+void setJSCOptions(xpc_object_t initializerMessage, EnableLockdownMode enableLockdownMode, bool isWebContentProcess)
 {
     RELEASE_ASSERT(!g_jscConfig.initializeHasBeenCalled);
 
@@ -191,12 +191,14 @@ void setJSCOptions(xpc_object_t initializerMessage, EnableLockdownMode enableLoc
     if (xpc_dictionary_get_bool(initializerMessage, "configure-jsc-for-testing"))
         JSC::Config::configureForTesting();
     if (enableLockdownMode == EnableLockdownMode::Yes) {
+        JSC::Options::machExceptionHandlerSandboxPolicy = JSC::Options::SandboxPolicy::Block;
         JSC::Options::initialize();
         JSC::Options::AllowUnfinalizedAccessScope scope;
         JSC::ExecutableAllocator::disableJIT();
         JSC::Options::useGenerationalGC() = false;
         JSC::Options::useConcurrentGC() = false;
         JSC::Options::useLLIntICs() = false;
+        JSC::Options::useWasm() = false;
         JSC::Options::useZombieMode() = true;
         JSC::Options::allowDoubleShape() = false;
         JSC::Options::alwaysHaveABadTime() = true;

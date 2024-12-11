@@ -32,6 +32,7 @@
 #import "Pipeline.h"
 #import "RenderBundleEncoder.h"
 #import "WGSLShaderModule.h"
+#import <wtf/TZoneMallocInlines.h>
 
 // FIXME: remove after radar://104903411 or after we place the mask into the last buffer
 @interface NSObject ()
@@ -583,13 +584,18 @@ static MTLVertexDescriptor *createVertexDescriptor(WGPUVertexState vertexState, 
         for (size_t i = 0; i < buffer.attributeCount; ++i) {
             auto& attribute = buffer.attributes[i];
             auto formatSize = vertexFormatSize(attribute.format);
-            lastStride = std::max<uint64_t>(lastStride, attribute.offset + formatSize);
+            auto offsetPlusFormatSize = checkedSum<uint64_t>(attribute.offset, formatSize);
+            if (offsetPlusFormatSize.hasOverflowed()) {
+                *error = @"attribute.offset + formatSize > uint64::max()";
+                return nil;
+            }
+            lastStride = std::max<uint64_t>(lastStride, offsetPlusFormatSize.value());
             if (!buffer.arrayStride) {
-                if (attribute.offset + formatSize > limits.maxVertexBufferArrayStride) {
+                if (offsetPlusFormatSize.value() > limits.maxVertexBufferArrayStride) {
                     *error = @"attribute.offset + formatSize > limits.maxVertexBufferArrayStride";
                     return nil;
                 }
-            } else if (attribute.offset + formatSize > buffer.arrayStride) {
+            } else if (offsetPlusFormatSize.value() > buffer.arrayStride) {
                 *error = @"attribute.offset + formatSize > buffer.arrayStride";
                 return nil;
             }
@@ -1307,6 +1313,10 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
         return returnInvalidRenderPipeline(*this, isAsync, "device or descriptor is not valid"_s);
 
     MTLRenderPipelineDescriptor* mtlRenderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
+#if ENABLE(WEBGPU_BY_DEFAULT)
+    mtlRenderPipelineDescriptor.shaderValidation = MTLShaderValidationEnabled;
+#endif
+
     auto label = fromAPI(descriptor.label);
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=249345 don't unconditionally set this to YES
     mtlRenderPipelineDescriptor.supportIndirectCommandBuffers = YES;
@@ -1577,10 +1587,15 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
 void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descriptor, CompletionHandler<void(WGPUCreatePipelineAsyncStatus, Ref<RenderPipeline>&&, String&& message)>&& callback)
 {
     auto pipelineAndError = createRenderPipeline(descriptor, true);
-    instance().scheduleWork([protectedThis = Ref { *this }, pipeline = WTFMove(pipelineAndError.first), callback = WTFMove(callback), error = WTFMove(pipelineAndError.second)]() mutable {
-        callback((protectedThis->isDestroyed() || pipeline->isValid()) ? WGPUCreatePipelineAsyncStatus_Success : WGPUCreatePipelineAsyncStatus_ValidationError, WTFMove(pipeline), WTFMove(error));
-    });
+    if (auto inst = instance(); inst.get()) {
+        inst->scheduleWork([protectedThis = Ref { *this }, pipeline = WTFMove(pipelineAndError.first), callback = WTFMove(callback), error = WTFMove(pipelineAndError.second)]() mutable {
+            callback((protectedThis->isDestroyed() || pipeline->isValid()) ? WGPUCreatePipelineAsyncStatus_Success : WGPUCreatePipelineAsyncStatus_ValidationError, WTFMove(pipeline), WTFMove(error));
+        });
+    } else
+        callback(WGPUCreatePipelineAsyncStatus_ValidationError, WTFMove(pipelineAndError.first), WTFMove(pipelineAndError.second));
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderPipeline);
 
 RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState, MTLPrimitiveType primitiveType, std::optional<MTLIndexType> indexType, MTLWinding frontFace, MTLCullMode cullMode, MTLDepthClipMode clipMode, MTLDepthStencilDescriptor *depthStencilDescriptor, Ref<PipelineLayout>&& pipelineLayout, float depthBias, float depthBiasSlopeScale, float depthBiasClamp, uint32_t sampleMask, MTLRenderPipelineDescriptor* renderPipelineDescriptor, uint32_t colorAttachmentCount, const WGPURenderPipelineDescriptor& descriptor, RequiredBufferIndicesContainer&& requiredBufferIndices, BufferBindingSizesForPipeline&& minimumBufferSizes, Device& device)
     : m_renderPipelineState(renderPipelineState)
@@ -1774,7 +1789,6 @@ WGPUPrimitiveTopology RenderPipeline::primitiveTopology() const
 
 MTLIndexType RenderPipeline::stripIndexFormat() const
 {
-    ASSERT(m_descriptor.primitive.stripIndexFormat == WGPUIndexFormat_Uint16 || m_descriptor.primitive.stripIndexFormat == WGPUIndexFormat_Uint32);
     return m_descriptor.primitive.stripIndexFormat == WGPUIndexFormat_Uint16 ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32;
 }
 

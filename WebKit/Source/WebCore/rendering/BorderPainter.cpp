@@ -28,6 +28,7 @@
 
 #include "BorderData.h"
 #include "BorderEdge.h"
+#include "BorderShape.h"
 #include "CachedImage.h"
 #include "FloatRoundedRect.h"
 #include "GeometryUtilities.h"
@@ -40,6 +41,86 @@
 #include "RenderTheme.h"
 
 namespace WebCore {
+
+static bool borderStyleFillsBorderArea(BorderStyle style)
+{
+    switch (style) {
+    case BorderStyle::None:
+    case BorderStyle::Hidden:
+    case BorderStyle::Inset:
+    case BorderStyle::Groove:
+    case BorderStyle::Outset:
+    case BorderStyle::Ridge:
+    case BorderStyle::Solid:
+        return true;
+    case BorderStyle::Dotted:
+    case BorderStyle::Dashed:
+    case BorderStyle::Double:
+        return false;
+    }
+    return true;
+}
+
+static bool styleRequiresClipPolygon(BorderStyle style)
+{
+    switch (style) {
+    case BorderStyle::None:
+    case BorderStyle::Hidden:
+    case BorderStyle::Inset:
+    case BorderStyle::Groove:
+    case BorderStyle::Outset:
+    case BorderStyle::Ridge:
+    case BorderStyle::Solid:
+    case BorderStyle::Double:
+        return false;
+    case BorderStyle::Dotted:
+    case BorderStyle::Dashed:
+        // These are drawn with a stroke, so we have to clip to get corner miters.
+        return true;
+    }
+
+    return false;
+}
+
+static bool borderStyleHasInnerDetail(BorderStyle style)
+{
+    switch (style) {
+    case BorderStyle::None:
+    case BorderStyle::Hidden:
+    case BorderStyle::Inset:
+    case BorderStyle::Outset:
+    case BorderStyle::Solid:
+    case BorderStyle::Dotted:
+    case BorderStyle::Dashed:
+        return false;
+
+    case BorderStyle::Groove:
+    case BorderStyle::Ridge:
+    case BorderStyle::Double:
+        return true;
+    }
+
+    return false;
+}
+
+static bool borderStyleIsDottedOrDashed(BorderStyle style)
+{
+    return style == BorderStyle::Dotted || style == BorderStyle::Dashed;
+}
+
+static bool decorationHasAllSimpleEdges(const RectEdges<BorderEdge>& edges)
+{
+    for (auto side : allBoxSides) {
+        auto& currEdge = edges.at(side);
+
+        if (!currEdge.widthForPainting())
+            continue;
+
+        if (!borderStyleFillsBorderArea(currEdge.style()))
+            return false;
+    }
+    return true;
+}
 
 struct BorderPainter::Sides {
     RoundedRect outerBorder;
@@ -92,6 +173,16 @@ bool BorderPainter::allCornersClippedOut(const RoundedRect& border, const Layout
     return true;
 }
 
+std::optional<Path> BorderPainter::pathForBorderArea(const LayoutRect& rect, const RenderStyle& style, float deviceScaleFactor, bool includeLogicalLeftEdge, bool includeLogicalRightEdge)
+{
+    auto edges = borderEdges(style, deviceScaleFactor, includeLogicalLeftEdge, includeLogicalRightEdge);
+    if (!decorationHasAllSimpleEdges(edges))
+        return std::nullopt;
+
+    auto borderShape = BorderShape::shapeForBorderRect(style, rect, includeLogicalLeftEdge, includeLogicalRightEdge);
+    return borderShape.pathForBorderArea(deviceScaleFactor);
+}
+
 static LayoutRect calculateSideRect(const RoundedRect& outerBorder, const BorderEdges& edges, BoxSide side)
 {
     LayoutRect sideRect = outerBorder.rect();
@@ -138,7 +229,7 @@ static bool decorationHasAllSolidEdges(const RectEdges<BorderEdge>& edges)
     return true;
 }
 
-void BorderPainter::paintBorder(const LayoutRect& rect, const RenderStyle& style, BackgroundBleedAvoidance bleedAvoidance, bool includeLogicalLeftEdge, bool includeLogicalRightEdge)
+void BorderPainter::paintBorder(const LayoutRect& rect, const RenderStyle& style, BackgroundBleedAvoidance bleedAvoidance, bool includeLogicalLeftEdge, bool includeLogicalRightEdge) const
 {
     GraphicsContext& graphicsContext = m_paintInfo.context();
 
@@ -150,10 +241,10 @@ void BorderPainter::paintBorder(const LayoutRect& rect, const RenderStyle& style
         if (!styleImage)
             return false;
 
-        if (!styleImage->isLoaded(&m_renderer))
+        if (!styleImage->isLoaded(m_renderer.ptr()))
             return false;
 
-        if (!styleImage->canRender(&m_renderer, style.usedZoom()))
+        if (!styleImage->canRender(m_renderer.ptr(), style.usedZoom()))
             return false;
 
         auto rectWithOutsets = rect;
@@ -164,7 +255,7 @@ void BorderPainter::paintBorder(const LayoutRect& rect, const RenderStyle& style
     if (rect.isEmpty() && !paintsBorderImage(rect, style.borderImage()))
         return;
 
-    auto rectToClipOut = const_cast<RenderElement&>(m_renderer).paintRectToClipOutFromBorder(rect);
+    auto rectToClipOut = const_cast<RenderElement&>(m_renderer.get()).paintRectToClipOutFromBorder(rect);
     bool appliedClipAlready = !rectToClipOut.isEmpty();
     GraphicsContextStateSaver stateSave(graphicsContext, appliedClipAlready);
     if (!rectToClipOut.isEmpty())
@@ -174,11 +265,28 @@ void BorderPainter::paintBorder(const LayoutRect& rect, const RenderStyle& style
     if (paintNinePieceImage(rect, style, style.borderImage()))
         return;
 
-    RoundedRect outerBorder = style.getRoundedBorderFor(rect, includeLogicalLeftEdge, includeLogicalRightEdge);
-    RoundedRect innerBorder = style.getRoundedInnerBorderFor(borderInnerRectAdjustedForBleedAvoidance(rect, bleedAvoidance), includeLogicalLeftEdge, includeLogicalRightEdge);
-    RoundedRect unadjustedInnerBorder = (bleedAvoidance == BackgroundBleedBackgroundOverBorder) ? style.getRoundedInnerBorderFor(rect, includeLogicalLeftEdge, includeLogicalRightEdge) : innerBorder;
-    auto edges = borderEdges(style, document().deviceScaleFactor(), includeLogicalLeftEdge, includeLogicalRightEdge);
-    auto haveAllSolidEdges = decorationHasAllSolidEdges(edges);
+    auto borderShape = BorderShape::shapeForBorderRect(style, rect, includeLogicalLeftEdge, includeLogicalRightEdge);
+
+    // To handle corner styles other than `round`, we'll have to plumb the borderShape through all the border painting functions.
+    auto outerBorder = borderShape.deprecatedRoundedRect();
+    auto innerBorder = borderShape.deprecatedInnerRoundedRect();
+    auto unadjustedInnerBorder = innerBorder;
+
+    switch (bleedAvoidance) {
+    case BackgroundBleedNone:
+    case BackgroundBleedShrinkBackground:
+    case BackgroundBleedUseTransparencyLayer:
+        break;
+    case BackgroundBleedBackgroundOverBorder: {
+        auto shrunkBorderRect = borderRectAdjustedForBleedAvoidance(rect, bleedAvoidance);
+        auto shrunkBorderShape = BorderShape::shapeForBorderRect(style, shrunkBorderRect, includeLogicalLeftEdge, includeLogicalRightEdge);
+        innerBorder = shrunkBorderShape.deprecatedInnerRoundedRect();
+        break;
+    }
+    }
+
+    auto edges = borderEdges(style, document().deviceScaleFactor(), m_paintInfo.paintBehavior.contains(PaintBehavior::ForceBlackBorder), includeLogicalLeftEdge, includeLogicalRightEdge);
+    bool haveAllSolidEdges = decorationHasAllSolidEdges(edges);
 
     if (haveAllSolidEdges && outerBorder.isRounded() && allCornersClippedOut(outerBorder, m_paintInfo.rect))
         outerBorder.setRadii(RoundedRect::Radii());
@@ -198,24 +306,24 @@ void BorderPainter::paintBorder(const LayoutRect& rect, const RenderStyle& style
     });
 }
 
-void BorderPainter::paintOutline(const LayoutRect& paintRect)
+void BorderPainter::paintOutline(const LayoutRect& paintRect) const
 {
-    auto& styleToUse = m_renderer.style();
+    auto& styleToUse = m_renderer->style();
     auto outlineWidth = floorToDevicePixel(styleToUse.outlineWidth(), document().deviceScaleFactor());
     auto outlineOffset = floorToDevicePixel(styleToUse.outlineOffset(), document().deviceScaleFactor());
 
     // Only paint the focus ring by hand if the theme isn't able to draw it.
-    if (styleToUse.outlineStyleIsAuto() == OutlineIsAuto::On && !m_renderer.theme().supportsFocusRing(styleToUse)) {
+    if (styleToUse.outlineStyleIsAuto() == OutlineIsAuto::On && !m_renderer->theme().supportsFocusRing(styleToUse)) {
         Vector<LayoutRect> focusRingRects;
         LayoutRect paintRectToUse { paintRect };
-        if (CheckedPtr box = dynamicDowncast<RenderBox>(m_renderer))
-            paintRectToUse = m_renderer.theme().adjustedPaintRect(*box, paintRectToUse);
-        m_renderer.addFocusRingRects(focusRingRects, paintRectToUse.location(), m_paintInfo.paintContainer);
-        m_renderer.paintFocusRing(m_paintInfo, styleToUse, focusRingRects);
+        if (CheckedPtr box = dynamicDowncast<RenderBox>(m_renderer.get()))
+            paintRectToUse = m_renderer->theme().adjustedPaintRect(*box, paintRectToUse);
+        m_renderer->addFocusRingRects(focusRingRects, paintRectToUse.location(), m_paintInfo.paintContainer);
+        m_renderer->paintFocusRing(m_paintInfo, styleToUse, focusRingRects);
     }
 
-    if (m_renderer.hasOutlineAnnotation() && styleToUse.outlineStyleIsAuto() == OutlineIsAuto::Off && !m_renderer.theme().supportsFocusRing(styleToUse))
-        m_renderer.addPDFURLRect(m_paintInfo, paintRect.location());
+    if (m_renderer->hasOutlineAnnotation() && styleToUse.outlineStyleIsAuto() == OutlineIsAuto::Off && !m_renderer->theme().supportsFocusRing(styleToUse))
+        m_renderer->addPDFURLRect(m_paintInfo, paintRect.location());
 
     if (styleToUse.outlineStyleIsAuto() == OutlineIsAuto::On || styleToUse.outlineStyle() == BorderStyle::None)
         return;
@@ -276,7 +384,7 @@ void BorderPainter::paintOutline(const LayoutRect& paintRect)
     });
 }
 
-void BorderPainter::paintOutline(const LayoutPoint& paintOffset, const Vector<LayoutRect>& lineRects)
+void BorderPainter::paintOutline(const LayoutPoint& paintOffset, const Vector<LayoutRect>& lineRects) const
 {
     if (lineRects.size() == 1) {
         auto adjustedPaintRect = lineRects[0];
@@ -285,7 +393,7 @@ void BorderPainter::paintOutline(const LayoutPoint& paintOffset, const Vector<La
         return;
     }
 
-    auto& styleToUse = m_renderer.style();
+    auto& styleToUse = m_renderer->style();
     auto outlineOffset = styleToUse.outlineOffset();
     auto outlineWidth = styleToUse.outlineWidth();
     auto deviceScaleFactor = document().deviceScaleFactor();
@@ -325,7 +433,7 @@ void BorderPainter::paintOutline(const LayoutPoint& paintOffset, const Vector<La
         graphicsContext.endTransparencyLayer();
 }
 
-void BorderPainter::paintSides(const Sides& sides)
+void BorderPainter::paintSides(const Sides& sides) const
 {
     GraphicsContext& graphicsContext = m_paintInfo.context();
 
@@ -372,8 +480,7 @@ void BorderPainter::paintSides(const Sides& sides)
     }
 
     auto deviceScaleFactor = document().deviceScaleFactor();
-    // isRenderable() check avoids issue described in https://bugs.webkit.org/show_bug.cgi?id=38787
-    if ((sides.haveAllSolidEdges || haveAllDoubleEdges) && allEdgesShareColor && sides.innerBorder.isRenderable()) {
+    if ((sides.haveAllSolidEdges || haveAllDoubleEdges) && allEdgesShareColor) {
         // Fast path for drawing all solid edges and all unrounded double edges
         if (numEdgesVisible == 4 && (sides.outerBorder.isRounded() || haveAlphaColor)
             && (sides.haveAllSolidEdges || (!sides.outerBorder.isRounded() && !sides.innerBorder.isRounded()))) {
@@ -463,10 +570,7 @@ void BorderPainter::paintSides(const Sides& sides)
         // Clip to the inner and outer radii rects.
         if (sides.bleedAvoidance != BackgroundBleedUseTransparencyLayer)
             graphicsContext.clipRoundedRect(sides.outerBorder.pixelSnappedRoundedRectForPainting(deviceScaleFactor));
-        // isRenderable() check avoids issue described in https://bugs.webkit.org/show_bug.cgi?id=38787
-        // The inside will be clipped out later (in clipBorderSideForComplexInnerPath)
-        if (sides.innerBorder.isRenderable())
-            graphicsContext.clipOutRoundedRect(sides.innerBorder.pixelSnappedRoundedRectForPainting(deviceScaleFactor));
+        graphicsContext.clipOutRoundedRect(sides.innerBorder.pixelSnappedRoundedRectForPainting(deviceScaleFactor));
     }
 
     // If only one edge visible antialiasing doesn't create seams
@@ -478,19 +582,19 @@ void BorderPainter::paintSides(const Sides& sides)
         paintBorderSides(sides.outerBorder, sides.unadjustedInnerBorder, innerBorderAdjustment, sides.edges, edgesToDraw, sides.radii, sides.bleedAvoidance, sides.includeLogicalLeftEdge, sides.includeLogicalRightEdge, antialias, sides.isHorizontal);
 }
 
-bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const RenderStyle& style, const NinePieceImage& ninePieceImage, CompositeOperator op)
+bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const RenderStyle& style, const NinePieceImage& ninePieceImage, CompositeOperator op) const
 {
     StyleImage* styleImage = ninePieceImage.image();
     if (!styleImage)
         return false;
 
-    if (!styleImage->isLoaded(&m_renderer))
+    if (!styleImage->isLoaded(m_renderer.ptr()))
         return true; // Never paint a nine-piece image incrementally, but don't paint the fallback borders either.
 
-    if (!styleImage->canRender(&m_renderer, style.usedZoom()))
+    if (!styleImage->canRender(m_renderer.ptr(), style.usedZoom()))
         return false;
 
-    CheckedPtr modelObject = dynamicDowncast<RenderBoxModelObject>(m_renderer);
+    CheckedPtr modelObject = dynamicDowncast<RenderBoxModelObject>(m_renderer.get());
     if (!modelObject)
         return false;
 
@@ -507,12 +611,12 @@ bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const RenderStyl
     // If both values are ‘auto’ then the intrinsic width and/or height of the image should be used, if any.
     styleImage->setContainerContextForRenderer(m_renderer, source, style.usedZoom());
 
-    ninePieceImage.paint(m_paintInfo.context(), &m_renderer, style, destination, source, deviceScaleFactor, op);
+    ninePieceImage.paint(m_paintInfo.context(), m_renderer.ptr(), style, destination, source, deviceScaleFactor, op);
     return true;
 }
 
 void BorderPainter::paintTranslucentBorderSides(const RoundedRect& outerBorder, const RoundedRect& innerBorder, const IntPoint& innerBorderAdjustment,
-    const BorderEdges& edges, BoxSideSet edgesToDraw, std::optional<BorderData::Radii> radii, BackgroundBleedAvoidance bleedAvoidance, bool includeLogicalLeftEdge, bool includeLogicalRightEdge, bool antialias, bool isHorizontal)
+    const BorderEdges& edges, BoxSideSet edgesToDraw, std::optional<BorderData::Radii> radii, BackgroundBleedAvoidance bleedAvoidance, bool includeLogicalLeftEdge, bool includeLogicalRightEdge, bool antialias, bool isHorizontal) const
 {
     // willBeOverdrawn assumes that we draw in order: top, bottom, left, right.
     // This is different from BoxSide enum order.
@@ -557,26 +661,6 @@ void BorderPainter::paintTranslucentBorderSides(const RoundedRect& outerBorder, 
 static bool borderWillArcInnerEdge(const LayoutSize& firstRadius, const LayoutSize& secondRadius)
 {
     return !firstRadius.isEmpty() || !secondRadius.isEmpty();
-}
-
-inline bool styleRequiresClipPolygon(BorderStyle style)
-{
-    return style == BorderStyle::Dotted || style == BorderStyle::Dashed; // These are drawn with a stroke, so we have to clip to get corner miters.
-}
-
-static bool borderStyleFillsBorderArea(BorderStyle style)
-{
-    return !(style == BorderStyle::Dotted || style == BorderStyle::Dashed || style == BorderStyle::Double);
-}
-
-static bool borderStyleHasInnerDetail(BorderStyle style)
-{
-    return style == BorderStyle::Groove || style == BorderStyle::Ridge || style == BorderStyle::Double;
-}
-
-static bool borderStyleIsDottedOrDashed(BorderStyle style)
-{
-    return style == BorderStyle::Dotted || style == BorderStyle::Dashed;
 }
 
 // BorderStyle::Outset darkens the bottom and right (and maybe lightens the top and left)
@@ -688,89 +772,9 @@ static bool joinRequiresMitre(BoxSide side, BoxSide adjacentSide, const BorderEd
     return false;
 }
 
-static RoundedRect calculateAdjustedInnerBorder(const RoundedRect&innerBorder, BoxSide side)
-{
-    // Expand the inner border as necessary to make it a rounded rect (i.e. radii contained within each edge).
-    // This function relies on the fact we only get radii not contained within each edge if one of the radii
-    // for an edge is zero, so we can shift the arc towards the zero radius corner.
-    RoundedRect::Radii newRadii = innerBorder.radii();
-    LayoutRect newRect = innerBorder.rect();
-
-    float overshoot;
-    float maxRadii;
-
-    switch (side) {
-    case BoxSide::Top:
-        overshoot = newRadii.topLeft().width() + newRadii.topRight().width() - newRect.width();
-        if (overshoot > 0) {
-            ASSERT(!(newRadii.topLeft().width() && newRadii.topRight().width()));
-            newRect.setWidth(newRect.width() + overshoot);
-            if (!newRadii.topLeft().width())
-                newRect.move(-overshoot, 0);
-        }
-        newRadii.setBottomLeft({ });
-        newRadii.setBottomRight({ });
-        maxRadii = std::max(newRadii.topLeft().height(), newRadii.topRight().height());
-        if (maxRadii > newRect.height())
-            newRect.setHeight(maxRadii);
-        break;
-
-    case BoxSide::Bottom:
-        overshoot = newRadii.bottomLeft().width() + newRadii.bottomRight().width() - newRect.width();
-        if (overshoot > 0) {
-            ASSERT(!(newRadii.bottomLeft().width() && newRadii.bottomRight().width()));
-            newRect.setWidth(newRect.width() + overshoot);
-            if (!newRadii.bottomLeft().width())
-                newRect.move(-overshoot, 0);
-        }
-        newRadii.setTopLeft({ });
-        newRadii.setTopRight({ });
-        maxRadii = std::max(newRadii.bottomLeft().height(), newRadii.bottomRight().height());
-        if (maxRadii > newRect.height()) {
-            newRect.move(0, newRect.height() - maxRadii);
-            newRect.setHeight(maxRadii);
-        }
-        break;
-
-    case BoxSide::Left:
-        overshoot = newRadii.topLeft().height() + newRadii.bottomLeft().height() - newRect.height();
-        if (overshoot > 0) {
-            ASSERT(!(newRadii.topLeft().height() && newRadii.bottomLeft().height()));
-            newRect.setHeight(newRect.height() + overshoot);
-            if (!newRadii.topLeft().height())
-                newRect.move(0, -overshoot);
-        }
-        newRadii.setTopRight({ });
-        newRadii.setBottomRight({ });
-        maxRadii = std::max(newRadii.topLeft().width(), newRadii.bottomLeft().width());
-        if (maxRadii > newRect.width())
-            newRect.setWidth(maxRadii);
-        break;
-
-    case BoxSide::Right:
-        overshoot = newRadii.topRight().height() + newRadii.bottomRight().height() - newRect.height();
-        if (overshoot > 0) {
-            ASSERT(!(newRadii.topRight().height() && newRadii.bottomRight().height()));
-            newRect.setHeight(newRect.height() + overshoot);
-            if (!newRadii.topRight().height())
-                newRect.move(0, -overshoot);
-        }
-        newRadii.setTopLeft({ });
-        newRadii.setBottomLeft({ });
-        maxRadii = std::max(newRadii.topRight().width(), newRadii.bottomRight().width());
-        if (maxRadii > newRect.width()) {
-            newRect.move(newRect.width() - maxRadii, 0);
-            newRect.setWidth(maxRadii);
-        }
-        break;
-    }
-
-    return RoundedRect(newRect, newRadii);
-}
-
 void BorderPainter::paintBorderSides(const RoundedRect& outerBorder, const RoundedRect& innerBorder,
     const IntPoint& innerBorderAdjustment, const BorderEdges& edges, BoxSideSet edgeSet, std::optional<BorderData::Radii> radii, BackgroundBleedAvoidance bleedAvoidance,
-    bool includeLogicalLeftEdge, bool includeLogicalRightEdge, bool antialias, bool isHorizontal, const Color* overrideColor)
+    bool includeLogicalLeftEdge, bool includeLogicalRightEdge, bool antialias, bool isHorizontal, const Color* overrideColor) const
 {
     bool renderRadii = outerBorder.isRounded();
 
@@ -827,7 +831,7 @@ void BorderPainter::paintBorderSides(const RoundedRect& outerBorder, const Round
 
 void BorderPainter::paintOneBorderSide(const RoundedRect& outerBorder, const RoundedRect& innerBorder,
     const LayoutRect& sideRect, BoxSide side, BoxSide adjacentSide1, BoxSide adjacentSide2, const BorderEdges& edges, std::optional<BorderData::Radii> radii, const Path* path,
-    BackgroundBleedAvoidance bleedAvoidance, bool includeLogicalLeftEdge, bool includeLogicalRightEdge, bool antialias, bool isHorizontal, const Color* overrideColor)
+    BackgroundBleedAvoidance bleedAvoidance, bool includeLogicalLeftEdge, bool includeLogicalRightEdge, bool antialias, bool isHorizontal, const Color* overrideColor) const
 {
     auto& edgeToRender = edges.at(side);
     ASSERT(edgeToRender.widthForPainting());
@@ -848,11 +852,6 @@ void BorderPainter::paintOneBorderSide(const RoundedRect& outerBorder, const Rou
         GraphicsContextStateSaver stateSaver(graphicsContext);
 
         clipBorderSidePolygon(outerBorder, innerBorder, side, adjacentSide1StylesMatch, adjacentSide2StylesMatch);
-
-        if (!innerBorder.isRenderable())  {
-            auto adjustedInnerBorder = FloatRoundedRect(calculateAdjustedInnerBorder(innerBorder, side));
-            graphicsContext.clipOutRoundedRect(adjustedInnerBorder);
-        }
 
         float thickness = std::max(std::max(edgeToRender.widthForPainting(), adjacentEdge1.widthForPainting()), adjacentEdge2.widthForPainting());
         drawBoxSideFromPath(outerBorder.rect(), *path, edges, radii, edgeToRender.widthForPainting(), thickness, side,
@@ -878,7 +877,7 @@ void BorderPainter::paintOneBorderSide(const RoundedRect& outerBorder, const Rou
 
 void BorderPainter::drawBoxSideFromPath(const LayoutRect& borderRect, const Path& borderPath, const BorderEdges& edges,
     std::optional<BorderData::Radii> radii, float thickness, float drawThickness, BoxSide side, Color color, BorderStyle borderStyle, BackgroundBleedAvoidance bleedAvoidance,
-    bool includeLogicalLeftEdge, bool includeLogicalRightEdge, bool isHorizontal)
+    bool includeLogicalLeftEdge, bool includeLogicalRightEdge, bool isHorizontal) const
 {
     if (thickness <= 0)
         return;
@@ -1027,7 +1026,7 @@ void BorderPainter::drawBoxSideFromPath(const LayoutRect& borderRect, const Path
     graphicsContext.drawRect(snapRectToDevicePixels(borderRect, document().deviceScaleFactor()));
 }
 
-void BorderPainter::clipBorderSidePolygon(const RoundedRect& outerBorder, const RoundedRect& innerBorder, BoxSide side, bool firstEdgeMatches, bool secondEdgeMatches)
+void BorderPainter::clipBorderSidePolygon(const RoundedRect& outerBorder, const RoundedRect& innerBorder, BoxSide side, bool firstEdgeMatches, bool secondEdgeMatches) const
 {
     auto& graphicsContext = m_paintInfo.context();
 
@@ -1395,7 +1394,7 @@ void BorderPainter::drawLineForBoxSide(GraphicsContext& graphicsContext, const D
     }
 }
 
-LayoutRect BorderPainter::borderInnerRectAdjustedForBleedAvoidance(const LayoutRect& rect, BackgroundBleedAvoidance bleedAvoidance) const
+LayoutRect BorderPainter::borderRectAdjustedForBleedAvoidance(const LayoutRect& rect, BackgroundBleedAvoidance bleedAvoidance) const
 {
     if (bleedAvoidance != BackgroundBleedBackgroundOverBorder)
         return rect;
@@ -1411,6 +1410,7 @@ bool BorderPainter::shouldAntialiasLines(GraphicsContext& context)
     return !context.getCTM().isIdentityOrTranslationOrFlipped();
 }
 
+// This never changes the alpha of the color, so it's OK that callers don't check for PaintBehavior::ForceBlackBorder.
 Color BorderPainter::calculateBorderStyleColor(const BorderStyle& style, const BoxSide& side, const Color& color)
 {
     ASSERT(style == BorderStyle::Inset || style == BorderStyle::Outset);
@@ -1441,7 +1441,7 @@ Color BorderPainter::calculateBorderStyleColor(const BorderStyle& style, const B
 
 const Document& BorderPainter::document() const
 {
-    return m_renderer.document();
+    return m_renderer->document();
 }
 
 }

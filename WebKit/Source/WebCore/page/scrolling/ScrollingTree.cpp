@@ -43,9 +43,12 @@
 #include "ScrollingTreePositionedNode.h"
 #include "ScrollingTreeScrollingNode.h"
 #include <wtf/SetForScope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ScrollingTree);
 
 using OrphanScrollingNodeMap = HashMap<ScrollingNodeID, RefPtr<ScrollingTreeNode>>;
 
@@ -668,6 +671,13 @@ OverscrollBehavior ScrollingTree::mainFrameHorizontalOverscrollBehavior() const
 {
     Locker locker { m_treeLock };
     return m_rootNode ? m_rootNode->horizontalOverscrollBehavior() : OverscrollBehavior::Auto;
+}
+
+
+ScrollbarWidth ScrollingTree::mainFrameScrollbarWidth() const
+{
+    Locker locker { m_treeLock };
+    return m_rootNode ? m_rootNode->scrollbarWidthStyle() : ScrollbarWidth::Auto;
 }
 
 OverscrollBehavior ScrollingTree::mainFrameVerticalOverscrollBehavior() const

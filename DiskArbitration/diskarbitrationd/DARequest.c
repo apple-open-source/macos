@@ -36,6 +36,7 @@
 #include "DAStage.h"
 #include "DASupport.h"
 #include "DAThread.h"
+#include "DATelemetry.h"
 
 #include <fcntl.h>
 #include <libproc.h>
@@ -67,6 +68,12 @@ static int  __DARequestEjectGetProcessID( void * context );
 static void __DARequestMountAuthorizationCallback( DAReturn status, void * context );
 static int  __DARequestUnmountTickle( void * context );
 static void __DARequestUnmountTickleCallback( int status, void * context );
+
+typedef struct __DAUnmountRequestCallbackContext {
+    DARequestRef request;
+    uint64_t     duration;
+    Boolean      forced;
+} __DAUnmountRequestCallbackContext;
 
 #if TARGET_OS_OSX
 static void __DARequestAuthorize( DARequestRef        request,
@@ -381,10 +388,16 @@ static void __DARequestEjectCallback( int status, void * context )
 {
     DADiskRef    disk;
     DARequestRef request = context;
-
+    DAFileSystemRef filesystem;
+    CFStringRef fsType = NULL;
 
     disk = DARequestGetDisk( request );
-
+    filesystem = DADiskGetFileSystem( disk );
+    if ( filesystem )
+    {
+        fsType = DAFileSystemGetKind( filesystem );
+    }
+    
     if ( status )
     {
         /*
@@ -413,7 +426,11 @@ static void __DARequestEjectCallback( int status, void * context )
             return;
 #endif
         }
-
+        else
+        {
+            DATelemetrySendEjectEvent( err_get_code( DADissenterGetStatus( dissenter ) ) ,
+                                       fsType , DADissenterGetProcessID( dissenter ) );
+        }
     }
     else
     {
@@ -422,6 +439,7 @@ static void __DARequestEjectCallback( int status, void * context )
          */
 
         DALogInfo( "ejected disk, id = %@, success.", disk );
+        DATelemetrySendEjectEvent( status , fsType , -1 );
     }
 
     DARequestDispatchCallback( request, status ? unix_err( status ) : status );
@@ -1256,6 +1274,52 @@ static void __DARequestSetFSKitAdditionsCallback( int status, void * context )
 
 #endif
 
+static void __DARequestUnmountSendEvent( DARequestRef request , int status , Boolean dissentedViaAPI ,
+                                         __DAUnmountRequestCallbackContext *callbackContext )
+{
+    DADiskRef disk = DARequestGetDisk( request );
+    DAFileSystemRef filesystem;
+    CFStringRef fsType = NULL;
+    CFStringRef fsImplementation = NULL;
+    DADissenterRef dissenter = DARequestGetDissenter( request );
+    CFStringRef preferredMountMethod = NULL;
+    
+    if ( disk == NULL )
+    {
+        return;
+    }
+    else
+    {
+        filesystem = DADiskGetFileSystem( disk );
+    }
+    
+#if TARGET_OS_OSX
+    /* Get the preferred mount method to figure out who is handling the unmount */
+    preferredMountMethod = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountMethodkey );
+#else
+    if ( true == DAMountGetPreference( disk , kDAMountPreferenceEnableUserFSMount ) )
+    {
+        preferredMountMethod = CFSTR("UserFS");
+    }
+#endif
+    
+    if ( filesystem )
+    {
+        fsType = DAFileSystemGetKind( filesystem );
+        fsImplementation = ( DAFilesystemShouldMountWithUserFS( filesystem , preferredMountMethod ) )
+            ? CFSTR("UserFS") : CFSTR("kext");
+    }
+    
+    DATelemetrySendUnmountEvent( ( dissenter == NULL ) ? status
+                                    : err_get_code( DADissenterGetStatus( dissenter ) ) ,
+                                 fsType ,
+                                 fsImplementation ,
+                                 ( callbackContext != NULL ) ? callbackContext->forced : FALSE ,
+                                 ( dissenter == NULL ) ? -1 : DADissenterGetProcessID( dissenter ) ,
+                                 dissentedViaAPI ,
+                                 ( callbackContext != NULL ) ? callbackContext->duration : 0 );
+}
+
 static Boolean __DARequestUnmount( DARequestRef request )
 {
     DADiskRef disk;
@@ -1358,9 +1422,10 @@ static Boolean __DARequestUnmount( DARequestRef request )
     if ( DARequestGetDissenter( request ) )
     {
         DADissenterRef dissenter;
-
+        
         dissenter = DARequestGetDissenter( request );
 
+        __DARequestUnmountSendEvent( request , EBUSY , TRUE , NULL );
         __DARequestDispatchCallback( request, dissenter );
 
         DAStageSignal( );
@@ -1375,7 +1440,8 @@ static Boolean __DARequestUnmount( DARequestRef request )
     if ( DAUnitGetStateRecursively( disk, kDAUnitStateCommandActive ) == FALSE )
     {
         DADiskUnmountOptions options;
-
+        __DAUnmountRequestCallbackContext *callbackContext;
+        
         options = DARequestGetArgument1( request );
 
         CFRetain( request );
@@ -1386,7 +1452,12 @@ static Boolean __DARequestUnmount( DARequestRef request )
 
         DALogInfo( "unmounted disk, id = %@, ongoing.", disk );
 
-        DAThreadExecute( __DARequestUnmountUnmount, request, __DARequestUnmountCallback, request );
+        callbackContext = malloc( sizeof( __DAUnmountRequestCallbackContext ) );
+        callbackContext->request   = request;
+        callbackContext->forced = FALSE;
+        callbackContext->duration = 0;
+        
+        DAThreadExecute( __DARequestUnmountUnmount, callbackContext, __DARequestUnmountCallback, callbackContext );
         
         return TRUE;
     }
@@ -1399,8 +1470,9 @@ static Boolean __DARequestUnmount( DARequestRef request )
 static void __DARequestUnmountCallback( int status, void * context )
 {
     DADiskRef    disk;
-    DARequestRef request = context;
-
+    __DAUnmountRequestCallbackContext *callbackContext = context;
+    DARequestRef request = callbackContext->request;
+    
     disk = DARequestGetDisk( request );
 
     if ( status )
@@ -1458,7 +1530,8 @@ static void __DARequestUnmountCallback( int status, void * context )
             CFRelease( dissenter );
 
 #if TARGET_OS_OSX || TARGET_OS_IOS
-            DAThreadExecute( __DARequestUnmountGetProcessID, request, __DARequestUnmountCallback, request );
+            DAThreadExecute( __DARequestUnmountGetProcessID , callbackContext ,
+                             __DARequestUnmountCallback , callbackContext );
 
             return;
 #endif
@@ -1467,6 +1540,8 @@ static void __DARequestUnmountCallback( int status, void * context )
         __DARequestDispatchCallback( request, dissenter );
     }
 
+    __DARequestUnmountSendEvent( request , status , FALSE , callbackContext );
+    
 handleumount:
 
     if (0 == status)
@@ -1517,6 +1592,7 @@ handleumount:
     DAStageSignal( );
 
     CFRelease( request );
+    free( callbackContext );
 }
 
 static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * context )
@@ -1550,12 +1626,14 @@ static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * conte
 
 static int __DARequestUnmountUnmount( void * context )
 {
-    DADiskRef    disk;
-    CFURLRef     mountpoint;
-    char *       path;
-    DARequestRef request = context;
-    int          flags = 0;
-    int          status = EINVAL;
+    DADiskRef                          disk;
+    CFURLRef                           mountpoint;
+    char *                             path;
+    __DAUnmountRequestCallbackContext *callbackContext = context;
+    DARequestRef                       request = callbackContext->request;
+    int                                flags = 0;
+    int                                status = EINVAL;
+    uint64_t                           startTime;
     
     disk = DARequestGetDisk( request );
     
@@ -1572,6 +1650,7 @@ static int __DARequestUnmountUnmount( void * context )
         if ( options & kDADiskUnmountOptionForce )
         {
             flags = flags | MNT_FORCE;
+            callbackContext->forced = TRUE;
             
 #if 0
             /*
@@ -1588,11 +1667,13 @@ static int __DARequestUnmountUnmount( void * context )
 #endif
 
         }
+        startTime = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
         status = unmount( path, flags );
         if ( -1 == status )
         {
             status = errno;
         }
+        callbackContext->duration = clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - startTime;
         free( path );
     }
     
@@ -1604,7 +1685,8 @@ static int  __DARequestUnmountGetProcessID( void * context )
     DADiskRef    disk;
     CFURLRef     mountpoint;
     char *       path;
-    DARequestRef request = context;
+    __DAUnmountRequestCallbackContext *callbackContext = context;
+    DARequestRef request = callbackContext->request;
 
     disk = DARequestGetDisk( request );
 

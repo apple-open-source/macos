@@ -32,7 +32,7 @@
 #include "CSSPropertyParserConsumer+LengthDefinitions.h"
 #include "CSSPropertyParserConsumer+NoneDefinitions.h"
 #include "CSSPropertyParserConsumer+NumberDefinitions.h"
-#include "CSSPropertyParserConsumer+PercentDefinitions.h"
+#include "CSSPropertyParserConsumer+PercentageDefinitions.h"
 #include "CSSPropertyParserConsumer+ResolutionDefinitions.h"
 #include "CSSPropertyParserConsumer+SymbolDefinitions.h"
 #include "CSSPropertyParserConsumer+TimeDefinitions.h"
@@ -55,7 +55,7 @@ RefPtr<CSSPrimitiveValue> CSSPrimitiveValueResolverBase::resolve(NumberRaw value
     return CSSPrimitiveValue::create(value.value, CSSUnitType::CSS_NUMBER);
 }
 
-RefPtr<CSSPrimitiveValue> CSSPrimitiveValueResolverBase::resolve(PercentRaw value, const CSSCalcSymbolTable&, CSSPropertyParserOptions)
+RefPtr<CSSPrimitiveValue> CSSPrimitiveValueResolverBase::resolve(PercentageRaw value, const CSSCalcSymbolTable&, CSSPropertyParserOptions)
 {
     return CSSPrimitiveValue::create(value.value, CSSUnitType::CSS_PERCENTAGE);
 }
@@ -70,6 +70,11 @@ RefPtr<CSSPrimitiveValue> CSSPrimitiveValueResolverBase::resolve(TimeRaw value, 
     return CSSPrimitiveValue::create(value.value, value.type);
 }
 
+RefPtr<CSSPrimitiveValue> CSSPrimitiveValueResolverBase::resolve(LengthPercentageRaw value, const CSSCalcSymbolTable&, CSSPropertyParserOptions)
+{
+    return CSSPrimitiveValue::create(value.value, value.type);
+}
+
 RefPtr<CSSPrimitiveValue> CSSPrimitiveValueResolverBase::resolve(NoneRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions)
 {
     return CSSPrimitiveValue::create(std::numeric_limits<double>::quiet_NaN(), CSSUnitType::CSS_NUMBER);
@@ -78,7 +83,7 @@ RefPtr<CSSPrimitiveValue> CSSPrimitiveValueResolverBase::resolve(NoneRaw, const 
 RefPtr<CSSPrimitiveValue> CSSPrimitiveValueResolverBase::resolve(SymbolRaw value, const CSSCalcSymbolTable& symbolTable, CSSPropertyParserOptions)
 {
     if (auto variable = symbolTable.get(value.value))
-        return CSSPrimitiveValue::create(variable->value, variable->type);
+        return CSSPrimitiveValue::create(variable->value, variable->unit);
 
     // We should only get here if the symbol was previously looked up in the symbol table.
     ASSERT_NOT_REACHED();

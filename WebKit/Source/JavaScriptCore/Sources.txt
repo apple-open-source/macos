@@ -57,7 +57,7 @@ assembler/MacroAssemblerARMv7.cpp @no-unify
 assembler/MacroAssemblerCodeRef.cpp
 assembler/MacroAssemblerPrinter.cpp
 assembler/MacroAssemblerRISCV64.cpp @no-unify
-assembler/MacroAssemblerX86Common.cpp @no-unify
+assembler/MacroAssemblerX86_64.cpp @no-unify
 assembler/PerfLog.cpp
 assembler/Printer.cpp
 assembler/ProbeContext.cpp
@@ -889,7 +889,6 @@ runtime/IntlSegmentsPrototype.cpp
 runtime/IntlWorkaround.cpp @no-unify // Confine U_HIDE_DRAFT_API's effect to this file.
 runtime/ISO8601.cpp
 runtime/IteratorOperations.cpp
-runtime/IteratorPrototype.cpp
 runtime/JSArray.cpp
 runtime/JSArrayBuffer.cpp
 runtime/JSArrayBufferConstructor.cpp
@@ -917,6 +916,7 @@ runtime/JSFinalizationRegistry.cpp
 runtime/JSFunction.cpp
 runtime/JSGenerator.cpp
 runtime/JSGeneratorFunction.cpp
+runtime/JSGenericTypedArrayViewConstructor.cpp
 runtime/JSGenericTypedArrayViewPrototype.cpp
 runtime/JSGlobalLexicalEnvironment.cpp
 runtime/JSGlobalObject.cpp
@@ -927,6 +927,9 @@ runtime/JSImmutableButterfly.cpp
 runtime/JSInternalPromise.cpp
 runtime/JSInternalPromiseConstructor.cpp
 runtime/JSInternalPromisePrototype.cpp
+runtime/JSIterator.cpp
+runtime/JSIteratorConstructor.cpp
+runtime/JSIteratorPrototype.cpp
 runtime/JSLexicalEnvironment.cpp
 runtime/JSLock.cpp
 runtime/JSMap.cpp
@@ -967,6 +970,7 @@ runtime/JSWeakMap.cpp
 runtime/JSWeakObjectRef.cpp
 runtime/JSWeakSet.cpp
 runtime/JSWithScope.cpp
+runtime/JSWrapForValidIterator.cpp
 runtime/JSWrapperObject.cpp
 runtime/LazyClassStructure.cpp
 runtime/LeafExecutable.cpp
@@ -1025,7 +1029,6 @@ runtime/RegExpMatchesArray.cpp
 runtime/RegExpObject.cpp
 runtime/RegExpPrototype.cpp
 runtime/RegExpStringIteratorPrototype.cpp
-runtime/RegisterTZoneTypes.cpp
 runtime/ResourceExhaustion.cpp
 runtime/RuntimeTZoneImpls.cpp
 runtime/RuntimeType.cpp
@@ -1059,7 +1062,6 @@ runtime/SymbolObject.cpp
 runtime/SymbolPrototype.cpp
 runtime/SymbolTable.cpp
 runtime/SyntheticModuleRecord.cpp
-runtime/TZoneInit.cpp
 runtime/TemplateObjectDescriptor.cpp
 runtime/TemporalCalendar.cpp
 runtime/TemporalCalendarConstructor.cpp
@@ -1107,6 +1109,7 @@ runtime/WeakObjectRefPrototype.cpp
 runtime/WeakSetConstructor.cpp
 runtime/WeakSetPrototype.cpp
 runtime/WideningNumberPredictionFuzzerAgent.cpp
+runtime/WrapForValidIteratorPrototype.cpp
 
 tools/CellList.cpp
 tools/CharacterPropertyDataGenerator.cpp
@@ -1142,8 +1145,6 @@ wasm/WasmFunctionIPIntMetadataGenerator.cpp
 wasm/WasmGlobal.cpp
 wasm/WasmHandlerInfo.cpp
 wasm/WasmIndexOrName.cpp
-wasm/WasmInstance.cpp
-wasm/WasmInstance.h
 wasm/WasmIPIntGenerator.cpp
 wasm/WasmIPIntPlan.cpp
 wasm/WasmIPIntSlowPaths.cpp @no-unify
@@ -1166,6 +1167,7 @@ wasm/WasmSectionParser.cpp
 wasm/WasmTypeDefinition.cpp
 wasm/WasmOpcodeCounter.cpp
 wasm/WasmSlowPaths.cpp @no-unify
+wasm/WasmSourceMappingURLSectionParser.cpp
 wasm/WasmStreamingCompiler.cpp
 wasm/WasmStreamingParser.cpp
 wasm/WasmStreamingPlan.cpp

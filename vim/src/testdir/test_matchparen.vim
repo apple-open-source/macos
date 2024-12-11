@@ -61,6 +61,31 @@ func Test_matchparen_clear_highlight()
   call StopVimInTerminal(buf)
 endfunc
 
+" Test for matchparen highlight when switching buffer in win_execute()
+func Test_matchparen_win_execute()
+  CheckScreendump
+
+  let lines =<< trim END
+    source $VIMRUNTIME/plugin/matchparen.vim
+    let s:win = win_getid()
+    call setline(1, '{}')
+    split
+
+    func SwitchBuf()
+      call win_execute(s:win, 'enew | buffer #')
+    endfunc
+  END
+  call writefile(lines, 'XMatchparenWinExecute', 'D')
+  let buf = RunVimInTerminal('-S XMatchparenWinExecute', #{rows: 5})
+  call VerifyScreenDump(buf, 'Test_matchparen_win_execute_1', {})
+
+  " Switching buffer away and back shouldn't change matchparen highlight.
+  call term_sendkeys(buf, ":call SwitchBuf()\<CR>:\<Esc>")
+  call VerifyScreenDump(buf, 'Test_matchparen_win_execute_1', {})
+
+  call StopVimInTerminal(buf)
+endfunc
+
 " Test for scrolling that modifies buffer during visual block
 func Test_matchparen_pum_clear()
   CheckScreendump
@@ -83,5 +108,35 @@ func Test_matchparen_pum_clear()
   call StopVimInTerminal(buf)
 endfunc
 
+" Test that matchparen works with multibyte chars in 'matchpairs'
+func Test_matchparen_mbyte()
+  CheckScreendump
+
+  let lines =<< trim END
+    source $VIMRUNTIME/plugin/matchparen.vim
+    call setline(1, ['aaaaaaaa（', 'bbbb）cc'])
+    set matchpairs+=（:）
+  END
+
+  call writefile(lines, 'XmatchparenMbyte', 'D')
+  let buf = RunVimInTerminal('-S XmatchparenMbyte', #{rows: 10})
+  call VerifyScreenDump(buf, 'Test_matchparen_mbyte_1', {})
+  call term_sendkeys(buf, "$")
+  call VerifyScreenDump(buf, 'Test_matchparen_mbyte_2', {})
+  call term_sendkeys(buf, "j")
+  call VerifyScreenDump(buf, 'Test_matchparen_mbyte_3', {})
+  call term_sendkeys(buf, "2h")
+  call VerifyScreenDump(buf, 'Test_matchparen_mbyte_4', {})
+  call term_sendkeys(buf, "0")
+  call VerifyScreenDump(buf, 'Test_matchparen_mbyte_5', {})
+  call term_sendkeys(buf, "kA")
+  call VerifyScreenDump(buf, 'Test_matchparen_mbyte_6', {})
+  call term_sendkeys(buf, "\<Down>")
+  call VerifyScreenDump(buf, 'Test_matchparen_mbyte_7', {})
+  call term_sendkeys(buf, "\<C-W>")
+  call VerifyScreenDump(buf, 'Test_matchparen_mbyte_8', {})
+
+  call StopVimInTerminal(buf)
+endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

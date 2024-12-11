@@ -35,6 +35,7 @@ namespace Wasm {
 
 #define FOR_EACH_EXCEPTION(macro) \
     macro(OutOfBoundsMemoryAccess,  "Out of bounds memory access"_s) \
+    macro(UnalignedMemoryAccess, "Unaligned memory access"_s) \
     macro(OutOfBoundsTableAccess, "Out of bounds table access"_s) \
     macro(OutOfBoundsCallIndirect, "Out of bounds call_indirect"_s) \
     macro(NullTableEntry,  "call_indirect to a null table entry"_s) \
@@ -46,7 +47,6 @@ namespace Wasm {
     macro(DivisionByZero, "Division by zero"_s) \
     macro(IntegerOverflow, "Integer overflow"_s) \
     macro(StackOverflow, "Stack overflow"_s) \
-    macro(FuncrefNotWasm, "Funcref must be an exported wasm function"_s) \
     macro(InvalidGCTypeUse, "Unsupported use of struct or array type"_s) \
     macro(OutOfBoundsArrayGet, "Out of bounds array.get"_s) \
     macro(OutOfBoundsArraySet, "Out of bounds array.set"_s) \
@@ -102,6 +102,7 @@ ALWAYS_INLINE bool isTypeErrorExceptionType(ExceptionType type)
 {
     switch (type) {
     case ExceptionType::OutOfBoundsMemoryAccess:
+    case ExceptionType::UnalignedMemoryAccess:
     case ExceptionType::OutOfBoundsTableAccess:
     case ExceptionType::OutOfBoundsDataSegmentAccess:
     case ExceptionType::OutOfBoundsElementSegmentAccess:
@@ -138,7 +139,6 @@ ALWAYS_INLINE bool isTypeErrorExceptionType(ExceptionType type)
     case ExceptionType::CastFailure:
     case ExceptionType::OutOfMemory:
         return false;
-    case ExceptionType::FuncrefNotWasm:
     case ExceptionType::InvalidGCTypeUse:
     case ExceptionType::TypeErrorInvalidV128Use:
     case ExceptionType::TypeErrorV128TagAccessInJS:

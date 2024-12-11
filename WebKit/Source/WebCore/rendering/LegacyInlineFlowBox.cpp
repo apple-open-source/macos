@@ -42,11 +42,11 @@
 #include "TextDecorationThickness.h"
 #include "TextUnderlineOffset.h"
 #include <math.h>
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(LegacyInlineFlowBox);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(LegacyInlineFlowBox);
 
 struct SameSizeAsLegacyInlineFlowBox : public LegacyInlineBox {
     uint32_t bitfields : 23;
@@ -115,7 +115,7 @@ void LegacyInlineFlowBox::addToLine(LegacyInlineBox* child)
         bool hasMarkers = false;
         if (auto* textBox = dynamicDowncast<LegacyInlineTextBox>(*child))
             hasMarkers = textBox->hasMarkers();
-        if (childStyle->letterSpacing() < 0 || childStyle->textShadow() || childStyle->textEmphasisMark() != TextEmphasisMark::None || childStyle->hasPositiveStrokeWidth() || hasMarkers || !childStyle->textUnderlineOffset().isAuto() || !childStyle->textDecorationThickness().isAuto() || childStyle->textUnderlinePosition() != TextUnderlinePosition::Auto)
+        if (childStyle->letterSpacing() < 0 || childStyle->textShadow() || childStyle->textEmphasisMark() != TextEmphasisMark::None || childStyle->hasPositiveStrokeWidth() || hasMarkers || !childStyle->textUnderlineOffset().isAuto() || !childStyle->textDecorationThickness().isAuto() || !childStyle->textUnderlinePosition().isEmpty())
             child->clearKnownToHaveNoOverflow();
     } else if (child->boxModelObject()->hasSelfPaintingLayer())
         child->clearKnownToHaveNoOverflow();
@@ -182,7 +182,7 @@ void LegacyInlineFlowBox::deleteLine()
 
 void LegacyInlineFlowBox::removeLineBoxFromRenderObject()
 {
-    downcast<RenderInline>(renderer()).lineBoxes().removeLineBox(this);
+    downcast<RenderInline>(renderer()).legacyLineBoxes().removeLineBox(this);
 }
 
 void LegacyInlineFlowBox::extractLine()
@@ -195,7 +195,7 @@ void LegacyInlineFlowBox::extractLine()
 
 void LegacyInlineFlowBox::extractLineBoxFromRenderObject()
 {
-    downcast<RenderInline>(renderer()).lineBoxes().extractLineBox(this);
+    downcast<RenderInline>(renderer()).legacyLineBoxes().extractLineBox(this);
 }
 
 void LegacyInlineFlowBox::attachLine()
@@ -208,7 +208,7 @@ void LegacyInlineFlowBox::attachLine()
 
 void LegacyInlineFlowBox::attachLineBoxToRenderObject()
 {
-    downcast<RenderInline>(renderer()).lineBoxes().attachLineBox(this);
+    downcast<RenderInline>(renderer()).legacyLineBoxes().attachLineBox(this);
 }
 
 void LegacyInlineFlowBox::adjustPosition(float dx, float dy)

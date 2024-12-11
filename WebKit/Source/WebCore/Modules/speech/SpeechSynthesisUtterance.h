@@ -33,11 +33,12 @@
 #include "SpeechSynthesisErrorCode.h"
 #include "SpeechSynthesisVoice.h"
 #include <wtf/RefCounted.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
 class WEBCORE_EXPORT SpeechSynthesisUtterance final : public PlatformSpeechSynthesisUtteranceClient, public RefCounted<SpeechSynthesisUtterance>, public ActiveDOMObject, public EventTarget {
-    WTF_MAKE_ISO_ALLOCATED(SpeechSynthesisUtterance);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SpeechSynthesisUtterance);
 public:
     using UtteranceCompletionHandler = Function<void(const SpeechSynthesisUtterance&)>;
     static Ref<SpeechSynthesisUtterance> create(ScriptExecutionContext&, const String&, UtteranceCompletionHandler&&);
@@ -102,7 +103,7 @@ private:
 };
 
 class SpeechSynthesisUtteranceActivity {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(SpeechSynthesisUtteranceActivity);
 public:
     SpeechSynthesisUtteranceActivity(Ref<SpeechSynthesisUtterance>&& utterance)
         : m_utterance(utterance)

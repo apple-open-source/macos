@@ -46,6 +46,7 @@
 #include <wtf/PrintStream.h>
 #include <wtf/RecursiveLockAdapter.h>
 #include <wtf/Scope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/GThreadSafeWeakPtr.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
@@ -99,6 +100,9 @@ GST_DEBUG_CATEGORY(webkit_gst_common_debug);
 #define GST_CAT_DEFAULT webkit_gst_common_debug
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GstMappedFrame);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WebCoreLogObserver);
 
 static GstClockTime s_webkitGstInitTime;
 
@@ -227,7 +231,7 @@ bool getSampleVideoInfo(GstSample* sample, GstVideoInfo& videoInfo)
 #endif
 
 
-const char* capsMediaType(const GstCaps* caps)
+StringView capsMediaType(const GstCaps* caps)
 {
     ASSERT(caps);
     GstStructure* structure = gst_caps_get_structure(caps, 0);
@@ -237,22 +241,22 @@ const char* capsMediaType(const GstCaps* caps)
     }
 #if ENABLE(ENCRYPTED_MEDIA)
     if (gst_structure_has_name(structure, "application/x-cenc") || gst_structure_has_name(structure, "application/x-cbcs") || gst_structure_has_name(structure, "application/x-webm-enc"))
-        return gst_structure_get_string(structure, "original-media-type");
+        return gstStructureGetString(structure, "original-media-type"_s);
 #endif
     if (gst_structure_has_name(structure, "application/x-rtp"))
-        return gst_structure_get_string(structure, "media");
+        return gstStructureGetString(structure, "media"_s);
 
-    return gst_structure_get_name(structure);
+    return gstStructureGetName(structure);
 }
 
 bool doCapsHaveType(const GstCaps* caps, const char* type)
 {
-    const char* mediaType = capsMediaType(caps);
+    auto mediaType = capsMediaType(caps);
     if (!mediaType) {
         GST_WARNING("Failed to get MediaType");
         return false;
     }
-    return g_str_has_prefix(mediaType, type);
+    return mediaType.startsWith(span(type));
 }
 
 bool areEncryptedCaps(const GstCaps* caps)
@@ -391,9 +395,7 @@ void registerWebKitGStreamerElements()
 #if ENABLE(VIDEO)
         gst_element_register(0, "webkitwebsrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_WEB_SRC);
         gst_element_register(0, "webkitdmabufvideosink", GST_RANK_NONE, WEBKIT_TYPE_DMABUF_VIDEO_SINK);
-#if USE(GSTREAMER_GL)
         gst_element_register(0, "webkitglvideosink", GST_RANK_NONE, WEBKIT_TYPE_GL_VIDEO_SINK);
-#endif
 #endif
         // We don't want autoaudiosink to autoplug our sink.
         gst_element_register(0, "webkitaudiosink", GST_RANK_NONE, WEBKIT_TYPE_AUDIO_SINK);
@@ -551,10 +553,9 @@ void WebCoreLogObserver::removeWatch(const Logger& logger)
 
 void deinitializeGStreamer()
 {
-#if USE(GSTREAMER_GL)
-    auto& sharedDisplay = PlatformDisplay::sharedDisplayForCompositing();
-    sharedDisplay.clearGStreamerGLState();
-#endif
+    if (auto* sharedDisplay = PlatformDisplay::sharedDisplayIfExists())
+        sharedDisplay->clearGStreamerGLState();
+
 #if ENABLE(MEDIA_STREAM)
     teardownGStreamerCaptureDeviceManagers();
 #endif
@@ -1013,22 +1014,35 @@ static ASCIILiteral webrtcStatsTypeName(int value)
 template<typename T>
 std::optional<T> gstStructureGet(const GstStructure* structure, ASCIILiteral key)
 {
+    return gstStructureGet<T>(structure, StringView { key });
+}
+
+template<typename T>
+std::optional<T> gstStructureGet(const GstStructure* structure, StringView key)
+{
     T value;
+    auto strKey = key.toStringWithoutCopying();
     if constexpr(std::is_same_v<T, int>) {
-        if (gst_structure_get_int(structure, key.characters(), &value))
+        if (gst_structure_get_int(structure, strKey.ascii().data(), &value))
             return value;
     } else if constexpr(std::is_same_v<T, int64_t>) {
-        if (gst_structure_get_int64(structure, key.characters(), &value))
+        if (gst_structure_get_int64(structure, strKey.ascii().data(), &value))
             return value;
     } else if constexpr(std::is_same_v<T, unsigned>) {
-        if (gst_structure_get_uint(structure, key.characters(), &value))
+        if (gst_structure_get_uint(structure, strKey.ascii().data(), &value))
             return value;
     } else if constexpr(std::is_same_v<T, uint64_t>) {
-        if (gst_structure_get_uint64(structure, key.characters(), &value))
+        if (gst_structure_get_uint64(structure, strKey.ascii().data(), &value))
             return value;
     } else if constexpr(std::is_same_v<T, double>) {
-        if (gst_structure_get_double(structure, key.characters(), &value))
+        if (gst_structure_get_double(structure, strKey.ascii().data(), &value))
             return value;
+    } else if constexpr(std::is_same_v<T, bool>) {
+        gboolean gstValue;
+        if (gst_structure_get_boolean(structure, strKey.ascii().data(), &gstValue)) {
+            value = gstValue;
+            return value;
+        }
     } else
         static_assert(!std::is_same_v<T, T>, "type not implemented for gstStructureGet");
     return std::nullopt;
@@ -1039,6 +1053,29 @@ template std::optional<int64_t> gstStructureGet(const GstStructure*, ASCIILitera
 template std::optional<unsigned> gstStructureGet(const GstStructure*, ASCIILiteral key);
 template std::optional<uint64_t> gstStructureGet(const GstStructure*, ASCIILiteral key);
 template std::optional<double> gstStructureGet(const GstStructure*, ASCIILiteral key);
+template std::optional<bool> gstStructureGet(const GstStructure*, ASCIILiteral key);
+
+template std::optional<int> gstStructureGet(const GstStructure*, StringView key);
+template std::optional<int64_t> gstStructureGet(const GstStructure*, StringView key);
+template std::optional<unsigned> gstStructureGet(const GstStructure*, StringView key);
+template std::optional<uint64_t> gstStructureGet(const GstStructure*, StringView key);
+template std::optional<double> gstStructureGet(const GstStructure*, StringView key);
+template std::optional<bool> gstStructureGet(const GstStructure*, StringView key);
+
+StringView gstStructureGetString(const GstStructure* structure, ASCIILiteral key)
+{
+    return gstStructureGetString(structure, StringView { key });
+}
+
+StringView gstStructureGetString(const GstStructure* structure, StringView key)
+{
+    return StringView::fromLatin1(gst_structure_get_string(structure, static_cast<const char*>(key.rawCharacters())));
+}
+
+StringView gstStructureGetName(const GstStructure* structure)
+{
+    return StringView::fromLatin1(gst_structure_get_name(structure));
+}
 
 static RefPtr<JSON::Value> gstStructureToJSON(const GstStructure*);
 
@@ -1089,6 +1126,16 @@ static std::optional<RefPtr<JSON::Value>> gstStructureValueToJSON(const GValue* 
         if (!resultValue)
             return nullptr;
         auto bigIntValue = JSON::Value::create(makeString(g_value_get_uint64(value)));
+        resultValue->setValue("$biguint"_s, bigIntValue->asValue().releaseNonNull());
+        return resultValue;
+    }
+
+    if (valueType == G_TYPE_INT64) {
+        auto jsonObject = JSON::Object::create();
+        auto resultValue = jsonObject->asObject();
+        if (!resultValue)
+            return nullptr;
+        auto bigIntValue = JSON::Value::create(makeString(g_value_get_int64(value)));
         resultValue->setValue("$bigint"_s, bigIntValue->asValue().releaseNonNull());
         return resultValue;
     }
@@ -1099,7 +1146,7 @@ static std::optional<RefPtr<JSON::Value>> gstStructureValueToJSON(const GValue* 
 #if USE(GSTREAMER_WEBRTC)
     if (valueType == GST_TYPE_WEBRTC_STATS_TYPE) {
         auto name = webrtcStatsTypeName(g_value_get_enum(value));
-        if (LIKELY(name.isEmpty()))
+        if (LIKELY(!name.isEmpty()))
             return JSON::Value::create(makeString(name))->asValue();
     }
 #endif
@@ -1491,6 +1538,16 @@ GRefPtr<GstBuffer> wrapSpanData(const std::span<const uint8_t>& span)
     return buffer;
 }
 
+std::optional<unsigned> gstGetAutoplugSelectResult(ASCIILiteral nick)
+{
+    static auto enumClass = static_cast<GEnumClass*>(g_type_class_ref(g_type_from_name("GstAutoplugSelectResult")));
+    RELEASE_ASSERT(enumClass);
+    auto enumValue = g_enum_get_value_by_nick(enumClass, nick.characters());
+    if (!enumValue)
+        return std::nullopt;
+    return enumValue->value;
+}
+
 #undef GST_CAT_DEFAULT
 
 } // namespace WebCore
@@ -1500,7 +1557,12 @@ GRefPtr<GstBuffer> wrapSpanData(const std::span<const uint8_t>& span)
 #if !GST_CHECK_VERSION(1, 20, 0)
 GstBuffer* gst_buffer_new_memdup(gconstpointer data, gsize size)
 {
-    gpointer copiedData = g_memdup2(data, size);
+    gpointer copiedData = nullptr;
+
+    if (data && size) {
+        copiedData = g_malloc(size);
+        memcpy(copiedData, data, size);
+    }
 
     return gst_buffer_new_wrapped_full(static_cast<GstMemoryFlags>(0), copiedData, size, 0, size, copiedData, g_free);
 }

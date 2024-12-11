@@ -42,6 +42,8 @@ class BitmapImageSource : public ImageSource {
 public:
     static Ref<BitmapImageSource> create(BitmapImage&, AlphaOption, GammaAndColorProfileOption);
 
+    virtual ~BitmapImageSource();
+
     // State
     ImageDecoder* decoder(FragmentedSharedBuffer* = nullptr) const;
     ImageDecoder* decoderIfExists() const { return m_decoder.get(); }
@@ -82,7 +84,7 @@ public:
     DecodingStatus frameDecodingStatusAtIndex(unsigned index) const final;
 
     // Testing support
-    const char* sourceUTF8() const;
+    CString sourceUTF8() const;
 
 private:
     BitmapImageSource(BitmapImage&, AlphaOption, GammaAndColorProfileOption);
@@ -165,6 +167,10 @@ private:
 
 #if ENABLE(QUICKLOOK_FULLSCREEN)
     bool shouldUseQuickLookForFullscreen() const final { return m_descriptor.shouldUseQuickLookForFullscreen(); }
+#endif
+
+#if ENABLE(SPATIAL_IMAGE_DETECTION)
+    bool isSpatial() const final { return m_descriptor.isSpatial(); }
 #endif
 
     // ImageFrame metadata

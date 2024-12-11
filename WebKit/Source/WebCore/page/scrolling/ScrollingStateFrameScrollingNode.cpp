@@ -29,9 +29,12 @@
 #if ENABLE(ASYNC_SCROLLING)
 
 #include "ScrollingStateTree.h"
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ScrollingStateFrameScrollingNode);
 
 ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(
     bool isMainFrame,
@@ -62,6 +65,7 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(
     ScrollbarHoverState&& scrollbarHoverState,
     ScrollbarEnabledState&& scrollbarEnabledState,
     UserInterfaceLayoutDirection scrollbarLayoutDirection,
+    ScrollbarWidth scrollbarWidth,
     RequestedKeyboardScrollData&& keyboardScrollData,
     float frameScaleFactor,
     EventTrackingRegions&& eventTrackingRegions,
@@ -112,11 +116,12 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(
     WTFMove(scrollbarHoverState),
     WTFMove(scrollbarEnabledState),
     scrollbarLayoutDirection,
+    scrollbarWidth,
     WTFMove(keyboardScrollData))
-    , m_rootContentsLayer(rootContentsLayer.value_or(PlatformLayerIdentifier()))
-    , m_counterScrollingLayer(counterScrollingLayer.value_or(PlatformLayerIdentifier()))
-    , m_insetClipLayer(insetClipLayer.value_or(PlatformLayerIdentifier()))
-    , m_contentShadowLayer(contentShadowLayer.value_or(PlatformLayerIdentifier()))
+    , m_rootContentsLayer(rootContentsLayer)
+    , m_counterScrollingLayer(counterScrollingLayer)
+    , m_insetClipLayer(insetClipLayer)
+    , m_contentShadowLayer(contentShadowLayer)
     , m_eventTrackingRegions(WTFMove(eventTrackingRegions))
     , m_layoutViewport(layoutViewport)
     , m_minLayoutViewportOrigin(minLayoutViewportOrigin)

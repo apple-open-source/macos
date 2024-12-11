@@ -1786,8 +1786,8 @@ rsync_uploader(struct upload *u, int *fileinfd,
 #endif
 		}
 
-		if (u->phase == 0 && (sess->role->append ||
-		    sess->opts->whole_file)) {
+		if (sess->opts->whole_file ||
+		    (u->phase == 0 && sess->role->append)) {
 			goto skipmap;
 		}
 

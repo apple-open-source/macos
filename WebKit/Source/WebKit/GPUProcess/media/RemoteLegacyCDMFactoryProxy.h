@@ -53,7 +53,7 @@ class RemoteLegacyCDMProxy;
 struct RemoteLegacyCDMConfiguration;
 
 class RemoteLegacyCDMFactoryProxy final : public IPC::MessageReceiver {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteLegacyCDMFactoryProxy);
 public:
     RemoteLegacyCDMFactoryProxy(GPUConnectionToWebProcess&);
     virtual ~RemoteLegacyCDMFactoryProxy();
@@ -71,7 +71,7 @@ public:
     void removeProxy(RemoteLegacyCDMIdentifier);
 
     void addSession(RemoteLegacyCDMSessionIdentifier, std::unique_ptr<RemoteLegacyCDMSessionProxy>&&);
-    void removeSession(RemoteLegacyCDMSessionIdentifier);
+    void removeSession(RemoteLegacyCDMSessionIdentifier, CompletionHandler<void()>&&);
     RemoteLegacyCDMSessionProxy* getSession(const RemoteLegacyCDMSessionIdentifier&) const;
 
     RefPtr<GPUConnectionToWebProcess> gpuConnectionToWebProcess() { return m_gpuConnectionToWebProcess.get(); }

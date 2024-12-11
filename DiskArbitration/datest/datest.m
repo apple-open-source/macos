@@ -40,6 +40,7 @@
 #include <DiskArbitration/DiskArbitrationPrivate.h>
 #include <paths.h>
 #include <time.h>
+#include <CoreAnalytics/CoreAnalytics.h>
 
 #define kDAMaxArgLength 2048
 
@@ -76,6 +77,7 @@ enum {
     kDAName,
     kDAUseBlockCallback,
     kDASetFSKitAdditions,
+    kDATestTelemetry,
     kDAHelp,
     kDALast
 } options;
@@ -115,15 +117,255 @@ static struct option opts[] = {
 { "nofollow",                                   no_argument,            0,              kDANoFollow},
 { "useBlockCallback",                           no_argument,            0,              kDAUseBlockCallback},
 { "testSetFSKitAdditions",                      no_argument,            0,              kDASetFSKitAdditions},
+{ "testTelemetry",                              no_argument,            0,              kDATestTelemetry},
 { "help",                                       no_argument,            0,              kDAHelp },
 { 0,                   0,                      0,              0 }
 };
 
+#define DA_TELEMETRY_EVENT @"com.apple.diskarbitrationd.telemetry"
+#define DA_EXPECTED_MOUNT_EVENTS 3
+
+typedef enum DATelemetryOperationType {
+    DATelemetryOpProbe = 0,
+    DATelemetryOpFSCK,
+    DATelemetryOpMount,
+    DATelemetryOpEject,
+    DATelemetryOpRemove,
+    DATelemetryOpUnmount
+} DATelemetryOperationType;
+
+typedef enum DATelemetryFSType {
+    DATelemetryFSTypeNone = 0,
+    DATelemetryFSTypeMSDOS,
+    DATelemetryFSTypeEXFAT,
+    DATelemetryFSTypeAPFS,
+    DATelemetryFSTypeHFS,
+    DATelemetryFSTypeNTFS,
+    DATelemetryFSTypeOther
+} DATelemetryFSType;
+
+typedef enum DATelemetryUnmountApprovalStatus {
+    DATelemetryUnmountApproved = 0,
+    DATelemetryUnmountDissentedViaAPI,
+    DATelemetryUnmountDissentedViaResourceBusy
+} DATelemetryUnmountApprovalStatus;
+
+const NSString * const kAnalyticsEventObserverMessageKey = @"message";
+const NSString * const kAnalyticsEventObserverNameKey = @"name";
+
+@interface DATestTelemetryObserverDelegate<AnalyticsEventObserverDelegate> : NSObject
+@property NSMutableSet<NSString *> *events;
+@property uint32_t                  eventCount;
+@property uint32_t                  expectedEventCount;
+@property bool                      unmountForced;
+@property DATelemetryFSType         fsType;
+
+-(id)initWithEvents:(NSSet<NSString *>*)events;
+-(void)verifyNumberOfEvents;
+-(void)verifyVolumeFSType:(CFStringRef)fsType;
+
+@end
 
 extern char *optarg;
 extern int optind;
 dispatch_queue_t myDispatchQueue;
+dispatch_queue_t telemetryQueue;
+AnalyticsEventObserver *telemetryObserver;
+DATestTelemetryObserverDelegate *telemetryDelegate;
 int done = 0;
+
+@implementation DATestTelemetryObserverDelegate
+
++(const char *)DATelemetryFSTypeToString:(DATelemetryFSType)fsType
+{
+    switch ( fsType )
+    {
+        case DATelemetryFSTypeNone:
+            return "none";
+        case DATelemetryFSTypeMSDOS:
+            return "msdos";
+        case DATelemetryFSTypeEXFAT:
+            return "exfat";
+        case DATelemetryFSTypeAPFS:
+            return "apfs";
+        case DATelemetryFSTypeHFS:
+            return "hfs";
+        case DATelemetryFSTypeNTFS:
+            return "ntfs";
+        default:
+            return "other";
+    }
+}
+
+-(id)initWithEvents:(NSSet<NSString *>*)events
+{
+    _events = [NSMutableSet setWithSet:events];
+    _eventCount = 0;
+    _expectedEventCount = 0;
+    _fsType = DATelemetryFSTypeNone;
+    _unmountForced = NO;
+    return self;
+}
+
+#define SINGLE_VOLUME_MOUNT_NUM_EVENTS 2
+#define SINGLE_VOLUME_REMOVE_NUM_EVENTS 3
+
+-(void)observer:(AnalyticsEventObserver *)observer didEmitMessage:(NSObject *)message
+{
+    if ( message == nil )
+    {
+        printf("Could not receive message from analytics event observer\n");
+        return;
+    }
+    if ( ![message isKindOfClass:[NSString class]])
+    {
+        printf("Analytics message is not a string\n");
+        return;
+    }
+    
+    NSData *data = [(NSString *)message dataUsingEncoding:NSUTF8StringEncoding];
+    NSDictionary *event = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+    
+    if ( event == nil )
+    {
+        printf("Could not serialize analytics event message\n");
+        return;
+    }
+    
+    NSString *eventName = event[kAnalyticsEventObserverNameKey];
+    NSDictionary *eventMessage = event[kAnalyticsEventObserverMessageKey];
+    
+    if ( ![_events containsObject:eventName] )
+    {
+        printf("Received unexpected event name %s\n", eventName.UTF8String);
+        return;
+    }
+    
+    NSLog(@"Got event message: %@", eventMessage);
+    
+    DATelemetryFSType fsType = ( (NSNumber *) eventMessage[@"fs_type"] ).intValue;
+    NSString *dissenterName;
+    NSNumber *status;
+    
+    if ( _expectedEventCount == 0 )
+    {
+        _fsType = fsType;
+    }
+    
+    switch ( ( (NSNumber *) eventMessage[@"operation_type"] ).intValue ) {
+        case DATelemetryOpProbe:
+            if ( _expectedEventCount == 0 )
+            {
+                _expectedEventCount = SINGLE_VOLUME_MOUNT_NUM_EVENTS; // at least probe + mount is expected
+                
+                if ( ( (NSNumber *) eventMessage[@"status_code"] ).intValue != 0 )
+                {
+                    _expectedEventCount--; // if probe failed, then the mount will not continue
+                }
+                
+                else if ( !( (NSNumber *) eventMessage[@"volume_clean"] ).boolValue )
+                {
+                    _expectedEventCount++; // we should see a full fsck if the volume is not clean
+                }
+            }
+            break;
+        case DATelemetryOpFSCK:
+        case DATelemetryOpMount:
+            // fsck and mount should have the same fs type as probe
+            if ( _fsType != fsType )
+            {
+                printf( "Received operation with fs type %s, expected %s\n" ,
+                        [DATestTelemetryObserverDelegate DATelemetryFSTypeToString:fsType] ,
+                        [DATestTelemetryObserverDelegate DATelemetryFSTypeToString:fsType] );
+            }
+            break;
+        case DATelemetryOpEject:
+            status = (NSNumber *) eventMessage[@"status_code"];
+            
+            if ( status && status.intValue != 0 )
+            {
+                // make sure the dissenting process name is populated.
+                dissenterName = (NSString *) eventMessage[@"dissenter_name"];
+                
+                if ( !dissenterName || [dissenterName isEqualToString:@"n/a"] )
+                {
+                    printf("dissenting process name is not populated\n");
+                }
+                
+                if ( _expectedEventCount == 0 )
+                {
+                    _expectedEventCount = 1; // Only one failed eject is expected to run
+                }
+            }
+            break;
+        case DATelemetryOpRemove:
+            if ( _expectedEventCount == 0 )
+            {
+                // current disk removal, whole disk removal, and eject
+                _expectedEventCount = SINGLE_VOLUME_REMOVE_NUM_EVENTS;
+            }
+            break;
+        case DATelemetryOpUnmount:
+            if ( _expectedEventCount == 0 )
+            {
+                _expectedEventCount = 1; // unmount is observed by itself
+            }
+            if ( _unmountForced != ( (NSNumber *) eventMessage[@"unmount_forced"] ).boolValue )
+            {
+                // make sure force unmount is reported correctly
+                if ( _unmountForced )
+                {
+                    printf("Telemetry event did not report forced unmount\n");
+                }
+                else
+                {
+                    printf("Telemetry event reported forced unmount when none was requested\n");
+                }
+            }
+            if ( ( (NSNumber *) eventMessage[@"approval_status"] ).intValue
+                 == DATelemetryUnmountDissentedViaResourceBusy )
+            {
+                // make sure the dissenting process name is populated.
+                dissenterName = (NSString *) eventMessage[@"dissenter_name"];
+                
+                if ( !dissenterName || [dissenterName isEqualToString:@"n/a"] )
+                {
+                    printf("dissenting process name is not populated\n");
+                }
+            }
+            break;
+        default:
+            break;
+    }
+    
+    _eventCount++;
+}
+
+-(void)verifyNumberOfEvents
+{
+    if ( _eventCount != _expectedEventCount )
+    {
+        printf("Received %u telemetry events, expected %u\n", _eventCount , _expectedEventCount );
+    }
+    else
+    {
+        printf("Received expected number of telemetry events!\n");
+    }
+}
+
+-(void)verifyVolumeFSType:(CFStringRef)fsTypeExpected
+{
+    const char *fsTypeString = [DATestTelemetryObserverDelegate DATelemetryFSTypeToString:_fsType];
+    NSString *bridgedString = (__bridge NSString *) fsTypeExpected;
+    
+    if (![@(fsTypeString) isEqualToString:bridgedString])
+    {
+        printf("Telemetry reported disk with type %s, expected %s\n", fsTypeString ,
+               bridgedString.UTF8String);
+    }
+}
+
+@end
 
 static void usage(void)
 {
@@ -131,11 +373,11 @@ static void usage(void)
     fputs(
 "datest --help\n"
 "\n"
-"datest --mount --device <device> [--options <options> ] [--mountpath <path>] [--useBlockCallback]\n"
+"datest --mount --device <device> [--options <options> ] [--mountpath <path>] [--useBlockCallback] [--testTelemetry]\n"
 "datest --mountApproval --device <device> [--options <options> ] [--mountpath <path>] [--useBlockCallback]\n"
-"datest --unmount --device <device> [--force ] [--whole ] [--useBlockCallback] \n"
+"datest --unmount --device <device> [--force ] [--whole ] [--useBlockCallback] [--testTelemetry]\n"
 "datest --unmountApproval --device <device> [--force ] [--whole ] [--useBlockCallback] \n"
-"datest --eject --device <device> [--useBlockCallback] \n"
+"datest --eject --device <device> [--useBlockCallback] [--testTelemetry]\n"
 "datest --ejectApproval --device <device> [--useBlockCallback] \n"
 "datest --rename --device <device>  --name <name> [--useBlockCallback] \n"
 "datest --testDiskAppeared [--useBlockCallback] \n"
@@ -302,6 +544,41 @@ pid_t pgrep(const char* proc_name)
     return ret;
 }
 
+static void startTestTelemetry(void)
+{
+    if ( telemetryQueue == NULL )
+    {
+        telemetryQueue = dispatch_queue_create("com.example.DiskArbTestTelemetry", DISPATCH_QUEUE_SERIAL);
+    }
+    telemetryObserver = [AnalyticsEventObserver new];
+    telemetryDelegate = [[DATestTelemetryObserverDelegate alloc]
+                         initWithEvents:[NSSet setWithObject:DA_TELEMETRY_EVENT]];
+    
+    [telemetryObserver setEventObserverDelegate:telemetryDelegate queue:telemetryQueue];
+    [telemetryObserver startObservingEventList:[[telemetryDelegate events] allObjects]
+                              withErrorHandler:^(NSString * _Nonnull err) {
+        NSLog(@"Failed to start observing event: %@\n", err);
+    }];
+}
+
+static void stopTestTelemetry( CFStringRef fsTypeExpected )
+{
+    if ( telemetryObserver )
+    {
+        [telemetryObserver stopObserving];
+    }
+    
+    if ( telemetryDelegate && [telemetryDelegate expectedEventCount] > 0 )
+    {
+        [telemetryDelegate verifyNumberOfEvents];
+        
+        if ( fsTypeExpected != NULL )
+        {
+            [telemetryDelegate verifyVolumeFSType:fsTypeExpected];
+        }
+    }
+}
+
 static int testMount(struct clarg actargs[kDALast], bool approval)
 {
     OSStatus                     ret = 1;
@@ -330,6 +607,11 @@ static int testMount(struct clarg actargs[kDALast], bool approval)
     }
     
     myDispatchQueue = dispatch_queue_create("com.example.DiskArbTest", DISPATCH_QUEUE_SERIAL);
+    
+    if ( actargs[kDATestTelemetry].present )
+    {
+        startTestTelemetry();
+    }
     
     if ( _session ) {
       
@@ -395,6 +677,12 @@ static int testMount(struct clarg actargs[kDALast], bool approval)
             ret = -1;
         }
     }
+    
+    if ( actargs[kDATestTelemetry].present )
+    {
+        CFDictionaryRef description = DADiskCopyDescription(_disk);
+        stopTestTelemetry( CFDictionaryGetValue( description, kDADiskDescriptionVolumeKindKey ) );
+    }
 
 exit:
     if (mountoptions) free(mountoptions);
@@ -425,6 +713,14 @@ static int testUnmount(struct clarg actargs[kDALast], int approval)
         goto exit;
     }
     myDispatchQueue = dispatch_queue_create("com.example.DiskArbTest", DISPATCH_QUEUE_SERIAL);
+    
+    if ( actargs[kDATestTelemetry].present )
+    {
+        startTestTelemetry();
+        if ( actargs[kDAForce].present ) {
+            [telemetryDelegate setUnmountForced:true];
+        }
+    }
     
     if ( _session ) {
         
@@ -483,6 +779,12 @@ static int testUnmount(struct clarg actargs[kDALast], int approval)
         }
     }
 
+    if ( actargs[kDATestTelemetry].present )
+    {
+        CFDictionaryRef description = DADiskCopyDescription(_disk);
+        stopTestTelemetry( CFDictionaryGetValue( description, kDADiskDescriptionVolumeKindKey ) );
+    }
+    
 exit:
     return ret;
 }
@@ -522,6 +824,11 @@ static int testEject(struct clarg actargs[kDALast], int approval)
     }
     
     myDispatchQueue = dispatch_queue_create("com.example.DiskArbTest", DISPATCH_QUEUE_SERIAL);
+    
+    if ( actargs[kDATestTelemetry].present )
+    {
+        startTestTelemetry();
+    }
     
     if ( _session ) {
 
@@ -589,6 +896,11 @@ static int testEject(struct clarg actargs[kDALast], int approval)
         }
     }
 
+    if ( actargs[kDATestTelemetry].present )
+    {
+        stopTestTelemetry( NULL );
+    }
+    
 exit:
     return ret;
 }

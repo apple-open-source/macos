@@ -1,0 +1,16 @@
+#! /bin/sh
+
+. ${tstdir-.}/lib.sh
+. ${tstdir-.}/conf.sh
+
+rm -rf src dst
+mkdir -p src dst
+
+env TZ=UTC touch -t 197001010000.00 src/file
+
+rsync -a -- src/file dst
+if ! env TZ=UTC ls -l dst/file | grep -q 1970; then
+	1>&2 echo "Timestamp wrong on dst file"
+	1>&2 ls -l dst
+	exit 1
+fi

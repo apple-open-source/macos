@@ -1,4 +1,4 @@
-*motion.txt*    For Vim version 9.0.  Last change: 2023 Sep 28
+*motion.txt*    For Vim version 9.1.  Last change: 2024 Aug 28
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -351,6 +351,7 @@ gg			Goto line [count], default first line, on the first
 
 							*:[range]*
 :[range]		Set the cursor on the last line number in [range].
+			In Ex mode, print the lines in [range].
 			[range] can also be just one line number, e.g., ":1"
 			or ":'m".
 			In contrast with |G| this command does not modify the
@@ -363,11 +364,11 @@ gg			Goto line [count], default first line, on the first
 			See also 'startofline' option.
 
 :[range]go[to] [count]					*:go* *:goto* *go*
-[count]go		Go to [count] byte in the buffer.  Default [count] is
-			one, start of the file.  When giving [range], the
-			last number in it used as the byte count.  End-of-line
-			characters are counted depending on the current
-			'fileformat' setting.
+[count]go		Go to [count] byte in the buffer.  |exclusive| motion.
+			Default [count] is one, start of the file.  When
+			giving [range], the last number in it used as the byte
+			count.  End-of-line characters are counted depending
+			on the current 'fileformat' setting.
 			Also see the |line2byte()| function, and the 'o'
 			option in 'statusline'.
 			{not available when compiled without the
@@ -433,7 +434,7 @@ WORD before the fold.
 
 Special case: "cw" and "cW" are treated like "ce" and "cE" if the cursor is
 on a non-blank.  This is because "cw" is interpreted as change-word, and a
-word does not include the following white space.
+word does not include the following white space (see also |cw|).
 
 Another special case: When using the "w" motion in combination with an
 operator and the last word moved over is at the end of a line, the end of
@@ -600,7 +601,8 @@ i]						*v_i]* *v_i[* *i]* *i[*
 i[			"inner [] block", select [count] '[' ']' blocks.  This
 			goes backwards to the [count] unclosed '[', and finds
 			the matching ']'.  The enclosed text is selected,
-			excluding the '[' and ']'.  The |cpo-M| option flag
+			excluding the '[' and ']'.  It's an error to select an
+			empty inner block like "[]".  The |cpo-M| option flag
 			is used to handle escaped brackets.
 			When used in Visual mode it is made characterwise.
 
@@ -618,7 +620,8 @@ i(							*vib* *v_ib* *v_i(* *ib*
 ib			"inner block", select [count] blocks, from "[count] [("
 			to the matching ')', excluding the '(' and ')' (see
 			|[(|).  If the cursor is not inside a () block, then
-			find the next "(".  The |cpo-M| option flag
+			find the next "(".  It's an error to select an empty
+			inner block like "()".  The |cpo-M| option flag
 			is used to handle escaped parenthesis.
 			When used in Visual mode it is made characterwise.
 
@@ -632,8 +635,9 @@ a<			"a <> block", select [count] <> blocks, from the
 i>						*v_i>* *v_i<* *i>* *i<*
 i<			"inner <> block", select [count] <> blocks, from
 			the [count]'th unmatched '<' backwards to the matching
-			'>', excluding the '<' and '>'.  The |cpo-M| option flag
-			is used to handle escaped '<' and '>'.
+			'>', excluding the '<' and '>'.  It's an error to
+			select an empty inner block like "<>".  The |cpo-M|
+			option flag is used to handle escaped '<' and '>'.
 			When used in Visual mode it is made characterwise.
 
 						*v_at* *at*
@@ -663,7 +667,8 @@ i}							*v_i}* *i}* *i{*
 i{							*v_iB* *v_i{* *iB*
 iB			"inner Block", select [count] Blocks, from "[count] [{"
 			to the matching '}', excluding the '{' and '}' (see
-			|[{|).  The |cpo-M| option flag is used to handle
+			|[{|).  It's an error to select an empty inner block
+			like "{}".  The |cpo-M| option flag is used to handle
 			escaped braces.
 			When used in Visual mode it is made characterwise.
 
@@ -1310,14 +1315,12 @@ bring you back to the switch statement.
 ]m			Go to [count] next start of a method (for Java or
 			similar structured language).  When not before the
 			start of a method, jump to the start or end of the
-			class.  When no '{' is found after the cursor, this is
-			an error.  |exclusive| motion.
+			class.  |exclusive| motion.
 						*]M*
 ]M			Go to [count] next end of a method (for Java or
 			similar structured language).  When not before the end
 			of a method, jump to the start or end of the class.
-			When no '}' is found after the cursor, this is an
-			error. |exclusive| motion.
+			|exclusive| motion.
 						*[m*
 [m			Go to [count] previous start of a method (for Java or
 			similar structured language).  When not after the

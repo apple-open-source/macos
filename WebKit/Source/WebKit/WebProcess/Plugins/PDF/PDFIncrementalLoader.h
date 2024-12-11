@@ -28,6 +28,7 @@
 #if ENABLE(PDF_PLUGIN) && HAVE(INCREMENTAL_PDF_APIS)
 
 #include <wtf/Ref.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/ThreadSafeWeakHashSet.h>
 #include <wtf/ThreadSafeWeakPtr.h>
@@ -47,13 +48,13 @@ class PDFPluginBase;
 class PDFPluginStreamLoaderClient;
 
 enum class ByteRangeRequestIdentifierType { };
-using ByteRangeRequestIdentifier = ObjectIdentifier<ByteRangeRequestIdentifierType>;
+using ByteRangeRequestIdentifier = LegacyNullableObjectIdentifier<ByteRangeRequestIdentifierType>;
 using DataRequestCompletionHandler = Function<void(std::span<const uint8_t>)>;
 
 enum class CheckValidRanges : bool;
 
 class PDFIncrementalLoader : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<PDFIncrementalLoader> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(PDFIncrementalLoader);
     WTF_MAKE_NONCOPYABLE(PDFIncrementalLoader);
     friend class ByteRangeRequest;
     friend class PDFPluginStreamLoaderClient;

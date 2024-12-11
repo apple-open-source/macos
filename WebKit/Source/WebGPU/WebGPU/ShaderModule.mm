@@ -39,6 +39,7 @@
 #import <WebGPU/WebGPU.h>
 #import <wtf/DataLog.h>
 #import <wtf/StringPrintStream.h>
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebGPU {
 
@@ -120,7 +121,10 @@ static RefPtr<ShaderModule> earlyCompileShaderModule(Device& device, std::varian
         return nullptr;
     auto& result = std::get<WGSL::PrepareResult>(prepareResult);
     HashMap<String, WGSL::ConstantValue> wgslConstantValues;
-    auto msl = WGSL::generate(shaderModule, result, wgslConstantValues);
+    auto generationResult = WGSL::generate(shaderModule, result, wgslConstantValues);
+    if (std::holds_alternative<WGSL::Error>(generationResult))
+        return nullptr;
+    auto& msl = std::get<String>(generationResult);
     NSError *error = nil;
     auto library = ShaderModule::createLibrary(device.device(), msl, WTFMove(label), &error);
     if (!library)
@@ -220,6 +224,8 @@ Ref<ShaderModule> Device::createShaderModule(const WGPUShaderModuleDescriptor& d
 
     return handleShaderSuccessOrFailure(*this, checkResult, descriptor, shaderModuleParameters, nil, WTFMove(functionNames));
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ShaderModule);
 
 auto ShaderModule::convertCheckResult(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult) -> CheckResult
 {
@@ -895,6 +901,7 @@ static auto wgslViewDimension(WGPUTextureViewDimension viewDimension)
 {
     switch (viewDimension) {
     case WGPUTextureViewDimension_Cube:
+        return WGSL::TextureViewDimension::Cube;
     case WGPUTextureViewDimension_1D:
         return WGSL::TextureViewDimension::OneDimensional;
     case WGPUTextureViewDimension_2D:

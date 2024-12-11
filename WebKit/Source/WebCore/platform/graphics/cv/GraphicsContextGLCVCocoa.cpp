@@ -38,6 +38,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Scope.h>
 #include <wtf/StdMap.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/cf/TypeCastsCF.h>
 #include <wtf/spi/cocoa/IOSurfaceSPI.h>
 #include <wtf/text/StringBuilder.h>
@@ -45,6 +46,8 @@
 #include "CoreVideoSoftLink.h"
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GraphicsContextGLCVCocoa);
 
 static constexpr auto s_yuvVertexShaderTexture2D {
     "attribute vec2 a_position;"
@@ -611,7 +614,6 @@ bool GraphicsContextGLCVCocoa::copyVideoSampleToTexture(const VideoFrameCV& vide
     }
     if (!m_context || !GraphicsContextGLCocoa::makeCurrent(m_display, m_context))
         return false;
-
     // Compute transform that undoes the `orientation`, e.g. moves the origin to top left.
     // Even number of operations (flipX, flipY, swapXY) means a rotation.
     // Odd number of operations means a rotation and a flip.

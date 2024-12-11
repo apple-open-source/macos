@@ -92,6 +92,13 @@
 #define USER_PROTECTED_UID_PREFIX "user.uid."
 #define USER_PROTECTED_UID_PREFIX_LEN 9
 
+#define APPLE_RESTRICT_PREFIX "com.apple.private.restrict-post."
+#define APPLE_RESTRICT_PREFIX_LEN (sizeof(APPLE_RESTRICT_PREFIX)-1)
+
+#define APPLE_RESTRICT_ENTITLEMENT_PREFIX "com.apple.private.darwin-notification.restrict-post."
+
+#define ENTITLEMENT_MAXLEN 256
+
 #define CANARY_COUNT 13
 
 #define INFLIGHT_XPC_EVENT_SOFT_LIMIT 32

@@ -31,6 +31,7 @@
 #include "Event.h"
 #include "EventLoop.h"
 #include "ScriptExecutionContext.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
@@ -140,13 +141,14 @@ bool ActiveDOMObject::isAllowedToRunScript() const
 
 void ActiveDOMObject::queueTaskInEventLoop(TaskSource source, Function<void ()>&& function)
 {
-    auto* context = scriptExecutionContext();
+    RefPtrAllowingPartiallyDestroyed<ScriptExecutionContext> context = scriptExecutionContext();
     if (!context)
         return;
     context->eventLoop().queueTask(source, WTFMove(function));
 }
 
 class ActiveDOMObjectEventDispatchTask : public EventLoopTask {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(ActiveDOMObjectEventDispatchTask);
 public:
     ActiveDOMObjectEventDispatchTask(TaskSource source, EventLoopTaskGroup& group, ActiveDOMObject& object, Function<void()>&& dispatchEvent)
         : EventLoopTask(source, group)

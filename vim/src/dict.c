@@ -1015,6 +1015,15 @@ eval_dict(char_u **arg, typval_T *rettv, evalarg_T *evalarg, int literal)
 		clear_tv(&tvkey);
 	    goto failret;
 	}
+	if (check_typval_is_value(&tv) == FAIL)
+	{
+	    if (evaluate)
+	    {
+		clear_tv(&tvkey);
+		clear_tv(&tv);
+	    }
+	    goto failret;
+	}
 	if (evaluate)
 	{
 	    item = dict_find(d, key, -1);
@@ -1080,6 +1089,33 @@ failret:
 	rettv_dict_set(rettv, d);
 
     return OK;
+}
+
+/*
+ * Evaluate a literal dictionary: #{key: val, key: val}
+ * "*arg" points to the "#".
+ * On return, "*arg" points to the character after the Dict.
+ * Return OK or FAIL.  Returns NOTDONE for {expr}.
+ */
+    int
+eval_lit_dict(char_u **arg, typval_T *rettv, evalarg_T *evalarg)
+{
+    int		vim9script = in_vim9script();
+    int		ret = OK;
+
+    if (vim9script)
+    {
+	ret = vim9_bad_comment(*arg) ? FAIL : NOTDONE;
+    }
+    else if ((*arg)[1] == '{')
+    {
+	++*arg;
+	ret = eval_dict(arg, rettv, evalarg, TRUE);
+    }
+    else
+	ret = NOTDONE;
+
+    return ret;
 }
 
 /*
@@ -1186,8 +1222,7 @@ dict_lookup(hashitem_T *hi)
 dict_equal(
     dict_T	*d1,
     dict_T	*d2,
-    int		ic,	    // ignore case for strings
-    int		recursive)  // TRUE when used recursively
+    int		ic)	    // ignore case for strings
 {
     hashitem_T	*hi;
     dictitem_T	*item2;
@@ -1211,7 +1246,7 @@ dict_equal(
 	    item2 = dict_find(d2, hi->hi_key, -1);
 	    if (item2 == NULL)
 		return FALSE;
-	    if (!tv_equal(&HI2DI(hi)->di_tv, &item2->di_tv, ic, recursive))
+	    if (!tv_equal(&HI2DI(hi)->di_tv, &item2->di_tv, ic))
 		return FALSE;
 	    --todo;
 	}
@@ -1239,7 +1274,7 @@ dict_count(dict_T *d, typval_T *needle, int ic)
 	if (!HASHITEM_EMPTY(hi))
 	{
 	    --todo;
-	    if (tv_equal(&HI2DI(hi)->di_tv, needle, ic, FALSE))
+	    if (tv_equal(&HI2DI(hi)->di_tv, needle, ic))
 		++n;
 	}
     }
@@ -1291,12 +1326,18 @@ dict_extend_func(
 
 	action = tv_get_string_chk(&argvars[2]);
 	if (action == NULL)
+	{
+	    if (is_new)
+		dict_unref(d1);
 	    return;
+	}
 	for (i = 0; i < 3; ++i)
 	    if (STRCMP(action, av[i]) == 0)
 		break;
 	if (i == 3)
 	{
+	    if (is_new)
+		dict_unref(d1);
 	    semsg(_(e_invalid_argument_str), action);
 	    return;
 	}
@@ -1320,8 +1361,8 @@ dict_extend_func(
 }
 
 /*
- * Implementation of map() and filter() for a Dict.  Apply "expr" to every
- * item in Dict "d" and return the result in "rettv".
+ * Implementation of map(), filter(), foreach() for a Dict.  Apply "expr" to
+ * every item in Dict "d" and return the result in "rettv".
  */
     void
 dict_filter_map(
@@ -1383,7 +1424,6 @@ dict_filter_map(
 			    arg_errmsg, TRUE)))
 		break;
 	    set_vim_var_string(VV_KEY, di->di_key, -1);
-	    newtv.v_type = VAR_UNKNOWN;
 	    r = filter_map_one(&di->di_tv, expr, filtermap, fc, &newtv, &rem);
 	    clear_tv(get_vim_var_tv(VV_KEY));
 	    if (r == FAIL || did_emsg)

@@ -26,11 +26,12 @@
 #include "config.h"
 #include "NavigationActivation.h"
 
-#include <wtf/IsoMallocInlines.h>
+#include "NavigationHistoryEntry.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(NavigationActivation);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(NavigationActivation);
 
 NavigationActivation::NavigationActivation(NavigationNavigationType type, Ref<NavigationHistoryEntry>&& entry, RefPtr<NavigationHistoryEntry>&& fromEntry)
     : m_navigationType(type)

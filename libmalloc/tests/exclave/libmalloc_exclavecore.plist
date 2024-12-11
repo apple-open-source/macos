@@ -43,6 +43,28 @@
 					<string>EVE_corefile.core</string>
 				</array>
 			</dict>
+			<dict>
+				<key>TestName</key>
+				<string>libmalloc.exclavecore_darwintests.asan</string>
+				<key>Description</key>
+				<string>run libmalloc asan darwintests in EVE</string>
+				<key>TestOutputType</key>
+				<string>stderrOutput</string>
+				<key>Timeout</key>
+				<integer>600</integer>
+				<key>RequiresSysctl</key>
+				<string>kern.hv.supported==1</string>
+				<key>Command</key>
+				<array>
+					<string>/usr/local/bin/ExclaveVisor</string>
+					<string>/AppleInternal/Tests/libmalloc_exclavecore/EVE.libmalloc.exclavecore-darwintest.asan.sbdl</string>
+					<string>--test</string>
+					<string>--corefile-path</string>
+					<string>EVE_corefile.core</string>
+				</array>
+				<key>Disabled</key>
+				<true/>
+			</dict>
 		</array>
 	</dict>
 </plist>

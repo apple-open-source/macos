@@ -49,10 +49,13 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Scope.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/WorkQueue.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BlobRegistryImpl);
 
 BlobRegistryImpl::~BlobRegistryImpl() = default;
 
@@ -141,7 +144,7 @@ static FileSystem::MappedFileData storeInMappedFileData(const String& path, std:
         return { };
     FileSystem::deleteFile(path);
 
-    memcpySpan(mappedFileData.mutableSpan().first(data.size()), data);
+    memcpySpan(mappedFileData.mutableSpan(), data);
 
     FileSystem::finalizeMappedFileData(mappedFileData, data.size());
     return mappedFileData;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -90,9 +90,9 @@ void setOSTransaction(OSObjectPtr<os_transaction_t>&&);
 
 enum class EnableLockdownMode: bool { No, Yes };
 
-void setJSCOptions(xpc_object_t initializerMessage, EnableLockdownMode);
+void setJSCOptions(xpc_object_t initializerMessage, EnableLockdownMode, bool isWebContentProcess);
 
-template<typename XPCServiceType, typename XPCServiceInitializerDelegateType>
+template<typename XPCServiceType, typename XPCServiceInitializerDelegateType, bool isWebContentProcess = false>
 void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
 {
     XPCServiceInitializerDelegateType delegate(WTFMove(connection), initializerMessage);
@@ -109,9 +109,11 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
     if (!delegate.getExtraInitializationData(parameters.extraInitializationData))
         exitProcess(EXIT_FAILURE);
 
+    if (isWebContentProcess)
+        JSC::Options::machExceptionHandlerSandboxPolicy = JSC::Options::SandboxPolicy::Allow;
     if (initializerMessage) {
         bool enableLockdownMode = parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("enable-lockdown-mode"_s) == "1"_s;
-        setJSCOptions(initializerMessage, enableLockdownMode ? EnableLockdownMode::Yes : EnableLockdownMode::No);
+        setJSCOptions(initializerMessage, enableLockdownMode ? EnableLockdownMode::Yes : EnableLockdownMode::No, isWebContentProcess);
     }
 
     InitializeWebKit2();

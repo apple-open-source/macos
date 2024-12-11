@@ -38,13 +38,13 @@
 #include "WorkerGlobalScope.h"
 #include "WorkerThread.h"
 #include <wtf/CompletionHandler.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Lock.h>
 #include <wtf/Scope.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(MessagePort);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(MessagePort);
 
 static Lock allMessagePortsLock;
 static HashMap<MessagePortIdentifier, ThreadSafeWeakPtr<MessagePort>>& allMessagePorts() WTF_REQUIRES_LOCK(allMessagePortsLock)
@@ -304,8 +304,7 @@ void MessagePort::dispatchEvent(Event& event)
 bool MessagePort::virtualHasPendingActivity() const
 {
     // If the ScriptExecutionContext has been shut down on this object close()'ed, we can GC.
-    auto* context = scriptExecutionContext();
-    if (!context || m_isDetached)
+    if (!scriptExecutionContext() || m_isDetached)
         return false;
 
     // If this MessagePort has no message event handler then there is no point in keeping it alive.

@@ -34,8 +34,10 @@
 #include <wtf/Deque.h>
 #include <wtf/Expected.h>
 #include <wtf/Function.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebPushD {
@@ -45,9 +47,12 @@ class PushServiceRequest;
 class SubscribeRequest;
 class UnsubscribeRequest;
 
-class PushService {
-    WTF_MAKE_FAST_ALLOCATED;
+class PushService : public CanMakeWeakPtr<PushService> {
+    WTF_MAKE_TZONE_ALLOCATED(PushService);
 public:
+    friend class SubscribeRequest;
+    friend class UnsubscribeRequest;
+
     using IncomingPushMessageHandler = Function<void(const WebCore::PushSubscriptionSetIdentifier&, WebKit::WebPushMessage&&)>;
 
     static void create(const String& incomingPushServiceName, const String& databasePath, IncomingPushMessageHandler&&, CompletionHandler<void(std::unique_ptr<PushService>&&)>&&);
@@ -70,6 +75,7 @@ public:
 
     void removeRecordsForSubscriptionSet(const WebCore::PushSubscriptionSetIdentifier&, CompletionHandler<void(unsigned)>&&);
     void removeRecordsForSubscriptionSetAndOrigin(const WebCore::PushSubscriptionSetIdentifier&, const String& securityOrigin, CompletionHandler<void(unsigned)>&&);
+    void removeRecordsForBundleIdentifierAndDataStore(const String& bundleIdentifier, const std::optional<WTF::UUID>& dataStoreIdentifier, CompletionHandler<void(unsigned)>&&);
 
     void didCompleteGetSubscriptionRequest(GetSubscriptionRequest&);
     void didCompleteSubscribeRequest(SubscribeRequest&);
@@ -78,6 +84,10 @@ public:
     void setPublicTokenForTesting(Vector<uint8_t>&&);
     void didReceivePublicToken(Vector<uint8_t>&&);
     void didReceivePushMessage(NSString *topic, NSDictionary *userInfo, CompletionHandler<void()>&& = [] { });
+
+#if PLATFORM(IOS)
+    void updateSubscriptionSetState(const String& allowedBundleIdentifier, const HashSet<String>& webClipIdentifiers, CompletionHandler<void()>&&);
+#endif
 
 private:
     PushService(UniqueRef<PushServiceConnection>&&, UniqueRef<WebCore::PushDatabase>&&, IncomingPushMessageHandler&&);
@@ -88,6 +98,8 @@ private:
 
     void removeRecordsImpl(const WebCore::PushSubscriptionSetIdentifier&, const std::optional<String>& securityOrigin, CompletionHandler<void(unsigned)>&&);
 
+    void updateTopicLists(CompletionHandler<void()>&&);
+
     UniqueRef<PushServiceConnection> m_connection;
     UniqueRef<WebCore::PushDatabase> m_database;
 
@@ -96,6 +108,8 @@ private:
     PushServiceRequestMap m_getSubscriptionRequests;
     PushServiceRequestMap m_subscribeRequests;
     PushServiceRequestMap m_unsubscribeRequests;
+
+    size_t m_topicCount { 0 };
 };
 
 } // namespace WebPushD

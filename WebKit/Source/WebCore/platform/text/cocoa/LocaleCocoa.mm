@@ -39,11 +39,14 @@
 #import <wtf/HashMap.h>
 #import <wtf/Language.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/AtomStringHash.h>
 #import "LocalizedDateCache.h"
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(LocaleCocoa);
 
 std::unique_ptr<Locale> Locale::create(const AtomString& locale)
 {
@@ -89,10 +92,16 @@ String LocaleCocoa::formatDateTime(const DateComponents& dateComponents, FormatT
     double msec = dateComponents.millisecondsSinceEpoch();
     DateComponentsType type = dateComponents.type();
 
-    // "week" type not supported.
     ASSERT(type != DateComponentsType::Invalid);
-    if (type == DateComponentsType::Week)
+
+    if (type == DateComponentsType::Week) {
+#if ENABLE(INPUT_TYPE_WEEK_PICKER)
+        // NSDateFormatter is not used here because it handles week numbering differently than ISO-8601.
+        return inputWeekLabel(dateComponents);
+#else
         return String();
+#endif
+    }
 
     // Incoming msec value is milliseconds since 1970-01-01 00:00:00 UTC. The 1970 epoch.
     NSTimeInterval secondsSince1970 = (msec / 1000);

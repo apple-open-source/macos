@@ -72,6 +72,8 @@ DocumentTimeline::DocumentTimeline(Document& document, Seconds originTime)
     document.ensureTimelinesController().addTimeline(*this);
 }
 
+DocumentTimeline::~DocumentTimeline() = default;
+
 DocumentTimelinesController* DocumentTimeline::controller() const
 {
     if (m_document)
@@ -511,7 +513,7 @@ ExceptionOr<Ref<WebAnimation>> DocumentTimeline::animate(Ref<CustomEffectCallbac
         customEffectOptions = customEffectOptionsVariant;
     }
 
-    auto customEffectResult = CustomEffect::create(WTFMove(callback), WTFMove(customEffectOptions));
+    auto customEffectResult = CustomEffect::create(*m_document, WTFMove(callback), WTFMove(customEffectOptions));
     if (customEffectResult.hasException())
         return customEffectResult.releaseException();
 

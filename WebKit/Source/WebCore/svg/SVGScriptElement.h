@@ -25,21 +25,22 @@
 #include "SVGURIReference.h"
 #include "ScriptElement.h"
 #include "XLinkNames.h"
+#include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
 
 class SVGScriptElement final : public SVGElement, public SVGURIReference, public ScriptElement {
-    WTF_MAKE_ISO_ALLOCATED(SVGScriptElement);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SVGScriptElement);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SVGScriptElement);
 public:
     static Ref<SVGScriptElement> create(const QualifiedName&, Document&, bool wasInsertedByParser);
 
+    using PropertyRegistry = SVGPropertyOwnerRegistry<SVGScriptElement, SVGElement, SVGURIReference>;
     using SVGElement::ref;
     using SVGElement::deref;
 
 private:
     SVGScriptElement(const QualifiedName&, Document&, bool wasInsertedByParser, bool alreadyStarted);
-
-    using PropertyRegistry = SVGPropertyOwnerRegistry<SVGScriptElement, SVGElement, SVGURIReference>;
 
     void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) final;
     void svgAttributeChanged(const QualifiedName&) final;

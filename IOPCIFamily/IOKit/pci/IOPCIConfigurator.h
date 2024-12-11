@@ -128,6 +128,13 @@ IOPCIScalar IOPCIRangeListSize(IOPCIRange * first);
 #define FOREACH_CHILD_SAFE(bridge, child, next) \
     for(IOPCIConfigEntry * (next), * (child) = (bridge)->child; (next) = (child) ? (child)->peer : NULL, (child); (child) = (next))
 
+#define DEFAULT_MRRS 0x2	// 512B
+#define MIN_MPS 0x0		// 128B
+enum {
+	kIOPCIConfiguratorMPSOverride = 0x00000001, // Force setting MPS=128B for Tunnel PCIe topology to workaround rdar://134837798
+	kIOPCIConfiguratorMPSOverridePause = 0x00000002, // Flag to know when we're in paused state to service MPSOverride
+};
+
 enum {
     kIOPCIConfiguratorIOLog          = 0x00000001,
     kIOPCIConfiguratorKPrintf        = 0x00000002,
@@ -338,7 +345,6 @@ struct IOPCIConfigEntry
     uint32_t			linkCaps;
     uint16_t			expressCaps;
     uint8_t   			expressMaxPayload;
-    uint8_t   			expressPayloadSetting;
     int16_t   			expressEndpointMaxReadRequestSize;
     uint16_t            expressErrorReporting; // only valid during bridgeScanBus()
 //	uint16_t            pausedCommand;
@@ -361,6 +367,8 @@ class IOPCIConfigurator : public IOService
 
     IOWorkLoop *            fWL;
     IOOptionBits            fFlags;
+    uint32_t                fStates = 0;
+
     IOPCIConfigEntry *      fRoot;
     uint64_t                fPFM64Size;
 	uint32_t				fRootVendorProduct;
@@ -445,6 +453,7 @@ protected:
 	bool    treeInState(IOPCIConfigEntry * entry, uint32_t state, uint32_t mask);
     void    markChanged(IOPCIConfigEntry * entry);
     void    bridgeConnectDeviceTree(IOPCIConfigEntry * bridge);
+    void    topologyMPSOverride(IOPCIConfigEntry * node);
     void    bridgeMPSOverride(IOPCIConfigEntry * bridge);
     void    bridgeFinishProbe(IOPCIConfigEntry * bridge);
     bool    bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge);

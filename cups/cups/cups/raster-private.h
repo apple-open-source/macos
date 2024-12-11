@@ -15,7 +15,7 @@
  * Include necessary headers...
  */
 
-#  include "raster.h"
+#  include <cups/raster.h>
 #  include <cups/cups.h>
 #  include <cups/debug-private.h>
 #  include <cups/string-private.h>

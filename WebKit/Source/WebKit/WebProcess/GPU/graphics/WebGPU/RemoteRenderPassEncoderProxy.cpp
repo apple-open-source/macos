@@ -30,8 +30,11 @@
 
 #include "RemoteRenderPassEncoderMessages.h"
 #include "WebGPUConvertToBackingContext.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit::WebGPU {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteRenderPassEncoderProxy);
 
 RemoteRenderPassEncoderProxy::RemoteRenderPassEncoderProxy(RemoteCommandEncoderProxy& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
     : m_backing(identifier)
@@ -48,7 +51,7 @@ RemoteRenderPassEncoderProxy::~RemoteRenderPassEncoderProxy()
 
 void RemoteRenderPassEncoderProxy::setPipeline(const WebCore::WebGPU::RenderPipeline& renderPipeline)
 {
-    auto convertedRenderPipeline = m_convertToBackingContext->convertToBacking(renderPipeline);
+    auto convertedRenderPipeline = protectedConvertToBackingContext()->convertToBacking(renderPipeline);
     ASSERT(convertedRenderPipeline);
     if (!convertedRenderPipeline)
         return;
@@ -59,7 +62,7 @@ void RemoteRenderPassEncoderProxy::setPipeline(const WebCore::WebGPU::RenderPipe
 
 void RemoteRenderPassEncoderProxy::setIndexBuffer(const WebCore::WebGPU::Buffer& buffer, WebCore::WebGPU::IndexFormat indexFormat, std::optional<WebCore::WebGPU::Size64> offset, std::optional<WebCore::WebGPU::Size64> size)
 {
-    auto convertedBuffer = m_convertToBackingContext->convertToBacking(buffer);
+    auto convertedBuffer = protectedConvertToBackingContext()->convertToBacking(buffer);
     ASSERT(convertedBuffer);
     if (!convertedBuffer)
         return;
@@ -76,7 +79,7 @@ void RemoteRenderPassEncoderProxy::setVertexBuffer(WebCore::WebGPU::Index32 slot
         return;
     }
 
-    auto convertedBuffer = m_convertToBackingContext->convertToBacking(*buffer);
+    auto convertedBuffer = protectedConvertToBackingContext()->convertToBacking(*buffer);
     ASSERT(convertedBuffer);
     if (!convertedBuffer)
         return;
@@ -103,7 +106,7 @@ void RemoteRenderPassEncoderProxy::drawIndexed(WebCore::WebGPU::Size32 indexCoun
 
 void RemoteRenderPassEncoderProxy::drawIndirect(const WebCore::WebGPU::Buffer& indirectBuffer, WebCore::WebGPU::Size64 indirectOffset)
 {
-    auto convertedIndirectBuffer = m_convertToBackingContext->convertToBacking(indirectBuffer);
+    auto convertedIndirectBuffer = protectedConvertToBackingContext()->convertToBacking(indirectBuffer);
     ASSERT(convertedIndirectBuffer);
     if (!convertedIndirectBuffer)
         return;
@@ -114,7 +117,7 @@ void RemoteRenderPassEncoderProxy::drawIndirect(const WebCore::WebGPU::Buffer& i
 
 void RemoteRenderPassEncoderProxy::drawIndexedIndirect(const WebCore::WebGPU::Buffer& indirectBuffer, WebCore::WebGPU::Size64 indirectOffset)
 {
-    auto convertedIndirectBuffer = m_convertToBackingContext->convertToBacking(indirectBuffer);
+    auto convertedIndirectBuffer = protectedConvertToBackingContext()->convertToBacking(indirectBuffer);
     ASSERT(convertedIndirectBuffer);
     if (!convertedIndirectBuffer)
         return;
@@ -126,7 +129,7 @@ void RemoteRenderPassEncoderProxy::drawIndexedIndirect(const WebCore::WebGPU::Bu
 void RemoteRenderPassEncoderProxy::setBindGroup(WebCore::WebGPU::Index32 index, const WebCore::WebGPU::BindGroup& bindGroup,
     std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>>&& dynamicOffsets)
 {
-    auto convertedBindGroup = m_convertToBackingContext->convertToBacking(bindGroup);
+    auto convertedBindGroup = protectedConvertToBackingContext()->convertToBacking(bindGroup);
     ASSERT(convertedBindGroup);
     if (!convertedBindGroup)
         return;
@@ -141,7 +144,7 @@ void RemoteRenderPassEncoderProxy::setBindGroup(WebCore::WebGPU::Index32 index, 
     WebCore::WebGPU::Size64 dynamicOffsetsDataStart,
     WebCore::WebGPU::Size32 dynamicOffsetsDataLength)
 {
-    auto convertedBindGroup = m_convertToBackingContext->convertToBacking(bindGroup);
+    auto convertedBindGroup = protectedConvertToBackingContext()->convertToBacking(bindGroup);
     ASSERT(convertedBindGroup);
     if (!convertedBindGroup)
         return;
@@ -185,7 +188,7 @@ void RemoteRenderPassEncoderProxy::setScissorRect(WebCore::WebGPU::IntegerCoordi
 
 void RemoteRenderPassEncoderProxy::setBlendConstant(WebCore::WebGPU::Color color)
 {
-    auto convertedColor = m_convertToBackingContext->convertToBacking(color);
+    auto convertedColor = protectedConvertToBackingContext()->convertToBacking(color);
     ASSERT(convertedColor);
     if (!convertedColor)
         return;
@@ -215,7 +218,7 @@ void RemoteRenderPassEncoderProxy::endOcclusionQuery()
 void RemoteRenderPassEncoderProxy::executeBundles(Vector<std::reference_wrapper<WebCore::WebGPU::RenderBundle>>&& renderBundles)
 {
     auto convertedRenderBundles = WTF::compactMap(renderBundles, [&](auto& renderBundle) -> std::optional<WebGPUIdentifier> {
-        auto convertedRenderBundle = m_convertToBackingContext->convertToBacking(renderBundle);
+        auto convertedRenderBundle = protectedConvertToBackingContext()->convertToBacking(renderBundle);
         ASSERT(convertedRenderBundle);
         if (!convertedRenderBundle)
             return std::nullopt;
@@ -236,6 +239,11 @@ void RemoteRenderPassEncoderProxy::setLabelInternal(const String& label)
 {
     auto sendResult = send(Messages::RemoteRenderPassEncoder::SetLabel(label));
     UNUSED_VARIABLE(sendResult);
+}
+
+Ref<ConvertToBackingContext> RemoteRenderPassEncoderProxy::protectedConvertToBackingContext() const
+{
+    return m_convertToBackingContext;
 }
 
 } // namespace WebKit::WebGPU

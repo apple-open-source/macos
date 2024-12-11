@@ -26,6 +26,7 @@
 #include "DALog.h"
 #include "DAMain.h"
 #include "DASupport.h"
+#include "DATelemetry.h"
 
 #include <fsproperties.h>
 #include <sys/loadable_fs.h>
@@ -39,6 +40,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
     __DAProbeCallbackContext * context = parameter;
     bool doFsck                       = true;
+    bool didProbe                     = false;
     char *containerBSDPath            = NULL;
     
     if ( status )
@@ -52,6 +54,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
             CFStringRef kind;
 
             kind = DAFileSystemGetKind( context->filesystem );
+            didProbe = true;
 
             DALogInfo( "probed disk, id = %@, with %@, failure.", context->disk, kind );
 
@@ -171,6 +174,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
                 contextCopy->containerDisk   = context->containerDisk;
                 contextCopy->filesystem      = NULL; /* begin our own callback cycle with FSKit */
                 contextCopy->gotFSModules    = 1;
+                contextCopy->startTime       = context->startTime;
                 
                 DAGetFSModulesForUser( gDAConsoleUserUID , contextCopy );
             }
@@ -187,7 +191,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
         CFStringRef kind;
 
         kind = DAFileSystemGetKind( context->filesystem );
-
+        didProbe = true;
         DALogInfo( "probed disk, id = %@, with %@, success.", context->disk, kind );
     }
     
@@ -198,6 +202,14 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 #endif
         )
     {
+        if ( context->filesystem && didProbe )
+        {
+            DATelemetrySendProbeEvent( status ,
+                                       DAFileSystemGetKind( context->filesystem ) ,
+                                       CFSTR("kext") ,
+                                       clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->startTime ,
+                                       cleanStatus );
+        }
         ( context->callback )( status, context->filesystem, cleanStatus, name, type, uuid, context->callbackContext );
     }
 
@@ -285,6 +297,7 @@ void DAProbe( DADiskRef disk, DADiskRef containerDisk, DAProbeCallback callback,
     context->disk            = disk;
     context->containerDisk   = containerDisk;
     context->filesystem      = NULL;
+    context->startTime       = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
 #ifdef DA_FSKIT
     context->gotFSModules = 0;
 #endif

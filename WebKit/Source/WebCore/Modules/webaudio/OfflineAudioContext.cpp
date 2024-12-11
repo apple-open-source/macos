@@ -30,19 +30,20 @@
 #include "OfflineAudioContext.h"
 
 #include "AudioBuffer.h"
+#include "AudioNodeOutput.h"
 #include "AudioUtilities.h"
 #include "Document.h"
 #include "JSAudioBuffer.h"
 #include "JSDOMPromiseDeferred.h"
 #include "OfflineAudioCompletionEvent.h"
 #include "OfflineAudioContextOptions.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Scope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(OfflineAudioContext);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(OfflineAudioContext);
 
 OfflineAudioContext::OfflineAudioContext(Document& document, const OfflineAudioContextOptions& options)
     : BaseAudioContext(document)
@@ -51,7 +52,7 @@ OfflineAudioContext::OfflineAudioContext(Document& document, const OfflineAudioC
 {
     if (!renderTarget())
         document.addConsoleMessage(MessageSource::JS, MessageLevel::Warning, makeString("Failed to construct internal AudioBuffer with "_s, options.numberOfChannels, " channel(s), a sample rate of "_s, options.sampleRate, " and a length of "_s, options.length, '.'));
-    else if (noiseInjectionPolicy() == NoiseInjectionPolicy::Minimal)
+    else if (noiseInjectionPolicies().contains(NoiseInjectionPolicy::Minimal))
         renderTarget()->increaseNoiseInjectionMultiplier();
 }
 
@@ -86,7 +87,7 @@ void OfflineAudioContext::lazyInitialize()
 
 void OfflineAudioContext::increaseNoiseMultiplierIfNeeded()
 {
-    if (noiseInjectionPolicy() == NoiseInjectionPolicy::None)
+    if (!noiseInjectionPolicies())
         return;
 
     Locker locker { graphLock() };

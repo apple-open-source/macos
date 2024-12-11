@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import <WebKit/WKDownloadDelegatePrivate.h>
 #import <WebKit/WKHistoryDelegatePrivate.h>
 #import <WebKit/WKNavigationPrivate.h>
 #import <WebKit/WKProcessPoolPrivate.h>
@@ -35,8 +36,13 @@
 #import <WebKit/_WKFocusedElementInfo.h>
 #import <WebKit/_WKFormInputSession.h>
 #import <WebKit/_WKInputDelegate.h>
+#import <WebKit/_WKPageLoadTiming.h>
 #import <WebKit/_WKProcessPoolConfiguration.h>
 #import <WebKit/_WKTargetedElementInfo.h>
 #import <WebKit/_WKTargetedElementRequest.h>
 #import <WebKit/_WKThumbnailView.h>
 #import <WebKit/_WKVisitedLinkStore.h>
+#import <WebKit/_WKWebPushAction.h>
+#import <WebKit/_WKWebPushDaemonConnection.h>
+#import <WebKit/_WKWebPushMessage.h>
+#import <WebKit/_WKWebPushSubscriptionData.h>

@@ -26,9 +26,11 @@
 
 #include "FloatPoint.h"
 #include "GlyphBuffer.h"
+#include "TextSpacing.h"
 #include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/WTFString.h>
@@ -54,7 +56,7 @@ enum class GlyphIterationStyle : bool { IncludePartialGlyphs, ByWholeGlyphs };
 
 // See https://trac.webkit.org/wiki/ComplexTextController for more information about ComplexTextController.
 class ComplexTextController {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(ComplexTextController);
 public:
     ComplexTextController(const FontCascade&, const TextRun&, bool mayUseNaturalWritingDirection = false, SingleThreadWeakHashSet<const Font>* fallbackFonts = 0, bool forTextEmphasis = false);
 
@@ -118,6 +120,7 @@ public:
         bool isLTR() const { return m_isLTR; }
         bool isMonotonic() const { return m_isMonotonic; }
         void setIsNonMonotonic();
+        float textAutospaceSize() const { return m_textAutospaceSize; }
 
     private:
         ComplexTextRun(CTRunRef, const Font&, const UChar* characters, unsigned stringLocation, unsigned stringLength, unsigned indexBegin, unsigned indexEnd);
@@ -144,6 +147,7 @@ public:
         unsigned m_stringLocation;
         bool m_isLTR;
         bool m_isMonotonic { true };
+        float m_textAutospaceSize { 0 };
     };
 private:
     void computeExpansionOpportunity();
@@ -169,6 +173,7 @@ private:
     Vector<FloatSize, 256> m_adjustedBaseAdvances;
     Vector<FloatPoint, 256> m_glyphOrigins;
     Vector<CGGlyph, 256> m_adjustedGlyphs;
+    Vector<float, 256> m_textAutoSpaceSpacings;
 
     Vector<UChar, 256> m_smallCapsBuffer;
 
@@ -217,6 +222,7 @@ private:
     bool m_isLTROnly { true };
     bool m_mayUseNaturalWritingDirection { false };
     bool m_forTextEmphasis { false };
+    TextSpacing::SpacingState m_textSpacingState;
 };
 
 } // namespace WebCore
