@@ -36,6 +36,18 @@ bool needsCatalystEntitlementFixup(CFDictionaryRef entitlements);
 /// Returns whether the entitlements were modified.
 bool updateCatalystEntitlements(CFMutableDictionaryRef entitlements);
 
+/// Hack to address security vulnerability with osinstallersetupd (rdar://137056540).
+/// If osinstallersetupd contains the kTCCServiceSystemPolicyAllFiles entitlement, it should be removed.
+///
+/// Note: Because this function is called in SecCodeCopySigningInformation, which doesn't do
+/// validation, it cannot determine with full confidence whether a given app is actually platform or
+/// not. This is why the parameter is called `isLikelyPlatform`.
+bool needsOSInstallerSetupdEntitlementsFixup(CFStringRef identifier, bool isLikelyPlatform, CFDictionaryRef entitlements);
+
+/// This function removes the kTCCServiceSystemPolicyAllFiles entitlement if it exists.
+/// This should only be called if needsOSInstallerSetupdEntitlementsFixup returns true.
+bool updateOSInstallerSetupdEntitlements(CFMutableDictionaryRef entitlement);
+
 __END_DECLS
 
 #endif /* _utilities_entitlements_h */

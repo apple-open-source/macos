@@ -1625,6 +1625,7 @@ rsync_sender(struct sess *sess, int fdin,
 
 		if (up.cur == NULL) {
 			struct flist *nextfl;
+			int oflags;
 
 			assert(pfd[2].fd == -1);
 			assert(up.stat.fd == -1);
@@ -1660,6 +1661,18 @@ rsync_sender(struct sess *sess, int fdin,
 			}
 
 			/*
+			 * Room for improvement: --copy-links should really
+			 * cause us to record the path at the time of flist
+			 * generation and specifically send *that* file here,
+			 * rather than relying on the link dereferencing to the
+			 * same file twice.  At that point, we should be able
+			 * to pick O_NOFOLLOW back up unconditionally.
+			 */
+			oflags = O_RDONLY | O_NONBLOCK;
+			if (!sess->opts->copy_links)
+				oflags |= O_NOFOLLOW;
+
+			/*
 			 * Non-blocking open of file.
 			 * This will be picked up in the state machine
 			 * block of not being primed.
@@ -1671,10 +1684,9 @@ rsync_sender(struct sess *sess, int fdin,
 			nextfl = &fl.flp[up.cur->idx];
 			if (nextfl->open != NULL) {
 				up.stat.fd = (*nextfl->open)(sess, nextfl,
-				    O_RDONLY|O_NONBLOCK);
+				    oflags);
 			} else {
-				up.stat.fd = open(nextfl->path,
-				    O_RDONLY|O_NONBLOCK, 0);
+				up.stat.fd = open(nextfl->path, oflags, 0);
 			}
 			if (up.stat.fd == -1) {
 				char buf[PATH_MAX];

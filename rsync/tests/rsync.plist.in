@@ -19,6 +19,8 @@
 			<true/>
 			<key>Timeout</key>
 			<integer>30</integer>
+			<key>AsRoot</key>
+			<true/>
 			<key>TestSpecificLogs</key>
 			<array>
 				<string>BATS_TMP_DIR/rsync.help</string>

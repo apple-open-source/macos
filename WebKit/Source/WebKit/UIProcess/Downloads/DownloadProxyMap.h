@@ -62,10 +62,9 @@ class WebPageProxy;
 class WebsiteDataStore;
 struct FrameInfoData;
 
-class DownloadProxyMap : public CanMakeWeakPtr<DownloadProxyMap>, public CanMakeCheckedPtr<DownloadProxyMap> {
+class DownloadProxyMap : public CanMakeWeakPtr<DownloadProxyMap> {
     WTF_MAKE_TZONE_ALLOCATED(DownloadProxyMap);
     WTF_MAKE_NONCOPYABLE(DownloadProxyMap);
-    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DownloadProxyMap);
 public:
     explicit DownloadProxyMap(NetworkProcessProxy&);
     ~DownloadProxyMap();
@@ -75,6 +74,9 @@ public:
 
     bool isEmpty() const { return m_downloads.isEmpty(); }
     void invalidate();
+
+    void ref() const;
+    void deref() const;
 
 private:
     Ref<NetworkProcessProxy> protectedProcess();

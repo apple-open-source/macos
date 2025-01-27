@@ -49,7 +49,9 @@
 #include <wtf/TypeTraits.h>
 #include <wtf/WeakPtr.h>
 
+OBJC_CLASS NSData;
 OBJC_CLASS NSDictionary;
+OBJC_CLASS NSString;
 OBJC_CLASS PDFAnnotation;
 OBJC_CLASS PDFDocument;
 OBJC_CLASS PDFSelection;
@@ -86,6 +88,11 @@ enum class ByteRangeRequestIdentifierType;
 using ByteRangeRequestIdentifier = LegacyNullableObjectIdentifier<ByteRangeRequestIdentifierType>;
 
 enum class CheckValidRanges : bool { No, Yes };
+
+struct PDFPluginPasteboardItem {
+    RetainPtr<NSData> data;
+    RetainPtr<NSString> type;
+};
 
 class PDFPluginBase : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<PDFPluginBase>, public CanMakeThreadSafeCheckedPtr<PDFPluginBase>, public WebCore::ScrollableArea, public Identified<PDFPluginIdentifier> {
     WTF_MAKE_NONCOPYABLE(PDFPluginBase);
@@ -265,8 +272,9 @@ public:
 
     virtual void didSameDocumentNavigationForFrame(WebFrame&) { }
 
+    using PasteboardItem = PDFPluginPasteboardItem;
 #if PLATFORM(MAC)
-    void writeItemsToPasteboard(NSString *pasteboardName, NSArray *items, NSArray *types) const;
+    void writeItemsToPasteboard(NSString *pasteboardName, Vector<PasteboardItem>&&) const;
 #endif
 
     uint64_t streamedBytes() const;
@@ -287,9 +295,14 @@ private:
     // Returns the number of bytes copied.
     size_t copyDataAtPosition(std::span<uint8_t> buffer, uint64_t sourcePosition) const;
     // FIXME: It would be nice to avoid having both the "copy into a buffer" and "return a pointer" ways of getting data.
-    std::span<const uint8_t> dataSpanForRange(uint64_t sourcePosition, size_t count, CheckValidRanges) const;
+    void dataSpanForRange(uint64_t sourcePosition, size_t count, CheckValidRanges, CompletionHandler<void(std::span<const uint8_t>)>&&) const;
     // Returns true only if we can satisfy all of the requests.
     bool getByteRanges(CFMutableArrayRef, const CFRange*, size_t count) const;
+
+#if !LOG_DISABLED
+    uint64_t streamedBytesForDebugLogging() const;
+    void incrementalLoaderLogWithBytes(const String&, uint64_t streamedBytes);
+#endif
 
 protected:
     explicit PDFPluginBase(WebCore::HTMLPlugInElement&);

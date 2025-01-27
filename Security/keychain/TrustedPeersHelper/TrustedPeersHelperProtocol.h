@@ -218,7 +218,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)pingWithReply:(void (^)(void))reply;
 
 - (void)dumpWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
-                       reply:(void (^)(NSDictionary * _Nullable, NSError * _Nullable))reply;
+              fileDescriptor:(xpc_object_t)xpcFd
+                       reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)honorIDMSListChangesForSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                       reply:(void (^)(NSString * _Nullable, NSError * _Nullable))reply;

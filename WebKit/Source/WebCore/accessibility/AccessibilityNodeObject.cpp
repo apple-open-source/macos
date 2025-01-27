@@ -684,7 +684,6 @@ bool AccessibilityNodeObject::computeIsIgnored() const
     if (decision == AccessibilityObjectInclusion::IgnoreObject)
         return true;
 
-    // FIXME: We should return true for node-only objects within display:none containers, but we don't.
     auto role = roleValue();
     return role == AccessibilityRole::Ignored || role == AccessibilityRole::Unknown;
 }
@@ -2328,7 +2327,7 @@ String AccessibilityNodeObject::textUnderElement(TextUnderElementMode mode) cons
         return !mode.isHidden() || isAriaVisible() ? text->wholeText() : emptyString();
 
     const auto* style = this->style();
-    mode.inHiddenSubtree = WebCore::isDOMHidden(style);
+    mode.inHiddenSubtree = WebCore::isRenderHidden(style);
     // The Accname specification states that if the current node is hidden, and not directly
     // referenced by aria-labelledby or aria-describedby, and is not a host language text
     // alternative, the empty string should be returned.

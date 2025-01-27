@@ -42,8 +42,9 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
         [interface setClasses:errorClasses forSelector:@selector(rpcPrepareIdentityAsApplicantWithArguments:configuration:reply:) argumentIndex:5 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(rpcVoucherWithArguments:configuration:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:maxCapability:reply:) argumentIndex:2 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(rpcJoinWithArguments:configuration:vouchData:vouchSig:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(status:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errorClasses forSelector:@selector(status:reply:) argumentIndex:0 ofReply:YES];
+        [interface setXPCType:XPC_TYPE_FD forSelector:@selector(status:xpcFd:reply:) argumentIndex:1 ofReply:NO];
+        [interface setClasses:errorClasses forSelector:@selector(status:xpcFd:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(status:xpcFd:reply:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(fetchEgoPeerID:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(fetchCliqueStatus:configuration:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errorClasses forSelector:@selector(fetchTrustStatus:configuration:reply:) argumentIndex:4 ofReply:YES];

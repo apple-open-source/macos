@@ -497,6 +497,8 @@ struct nfs_open_file {
 #define NFS_OPEN_FILE_REOPEN    0x0100  /* file needs to be reopened */
 #define NFS_OPEN_FILE_REOPENING 0x0200  /* file is being reopened */
 #define NFS_OPEN_FILE_MERGED    0x0400  /* open file was merged */
+#define NFS_OPEN_FILE_CLOSING   0x0800  /* file is being closed */
+#define NFS_OPEN_FILE_CLOSING_WAIT 0x1000  /* someone is wating for CLOSE to be finished */
 
 struct nfs_lock_owner;
 /*

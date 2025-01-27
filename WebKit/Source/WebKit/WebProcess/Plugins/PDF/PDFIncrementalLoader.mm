@@ -139,11 +139,10 @@ void ByteRangeRequest::completeUnconditionally(PDFIncrementalLoader& loader)
 
     auto availableRequestBytes = std::min<uint64_t>(m_count, availableBytes - m_position);
 
-    auto data = loader.dataSpanForRange(m_position, availableRequestBytes, CheckValidRanges::No);
-    if (!data.data())
-        return;
-
-    completeWithBytes(data, loader);
+    loader.dataSpanForRange(m_position, availableRequestBytes, CheckValidRanges::No, [this, &loader](std::span<const uint8_t> data) {
+        if (data.data())
+            completeWithBytes(data, loader);
+    });
 }
 
 #pragma mark -
@@ -355,13 +354,13 @@ uint64_t PDFIncrementalLoader::availableDataSize() const
     return plugin->streamedBytes();
 }
 
-std::span<const uint8_t> PDFIncrementalLoader::dataSpanForRange(uint64_t position, size_t count, CheckValidRanges checkValidRanges) const
+void PDFIncrementalLoader::dataSpanForRange(uint64_t position, size_t count, CheckValidRanges checkValidRanges, CompletionHandler<void(std::span<const uint8_t>)>&& completionHandler) const
 {
     RefPtr plugin = m_plugin.get();
     if (!plugin)
-        return { };
+        return completionHandler({ });
 
-    return plugin->dataSpanForRange(position, count, checkValidRanges);
+    plugin->dataSpanForRange(position, count, checkValidRanges, WTFMove(completionHandler));
 }
 
 void PDFIncrementalLoader::incrementalPDFStreamDidFinishLoading()
@@ -537,12 +536,15 @@ bool PDFIncrementalLoader::requestCompleteIfPossible(ByteRangeRequest& request)
     if (!plugin)
         return false;
 
-    auto data = plugin->dataSpanForRange(request.position(), request.count(), CheckValidRanges::Yes);
-    if (!data.data())
-        return false;
+    bool requestCompleted = false;
+    plugin->dataSpanForRange(request.position(), request.count(), CheckValidRanges::Yes, [protectedLoader = Ref { *this }, &request, &requestCompleted](std::span<const uint8_t> data) {
+        if (!data.data())
+            return;
+        request.completeWithBytes(data, protectedLoader.get());
+        requestCompleted = true;
+    });
 
-    request.completeWithBytes(data, *this);
-    return true;
+    return requestCompleted;
 }
 
 void PDFIncrementalLoader::requestDidCompleteWithBytes(ByteRangeRequest& request, size_t byteCount)
@@ -622,20 +624,25 @@ size_t PDFIncrementalLoader::dataProviderGetBytesAtPosition(std::span<uint8_t> b
         return 0;
     }
 
-    if (auto data = plugin->dataSpanForRange(position, buffer.size(), CheckValidRanges::Yes); data.data()) {
+    std::optional<size_t> bytesProvided;
+    plugin->dataSpanForRange(position, buffer.size(), CheckValidRanges::Yes, [&buffer, &bytesProvided](std::span<const uint8_t> data) {
+        if (!data.data() || !buffer.data())
+            return;
         memcpySpan(buffer, data);
+        bytesProvided = data.size();
+    });
+
+    if (bytesProvided) {
 #if !LOG_DISABLED
         decrementThreadsWaitingOnCallback();
-        incrementalLoaderLog(makeString("Satisfied range request for "_s, data.size(), " bytes at position "_s, position, " synchronously"_s));
+        incrementalLoaderLog(makeString("Satisfied range request for "_s, *bytesProvided, " bytes at position "_s, position, " synchronously"_s));
 #endif
-        return data.size();
+        return *bytesProvided;
     }
 
     RefPtr dataSemaphore = createDataSemaphore();
     if (!dataSemaphore)
         return 0;
-
-    size_t bytesProvided = 0;
 
     RunLoop::main().dispatch([protectedLoader = Ref { *this }, dataSemaphore, position, buffer, &bytesProvided] {
         if (dataSemaphore->wasSignaled())
@@ -654,10 +661,10 @@ size_t PDFIncrementalLoader::dataProviderGetBytesAtPosition(std::span<uint8_t> b
 
 #if !LOG_DISABLED
     decrementThreadsWaitingOnCallback();
-    incrementalLoaderLog(makeString("PDF data provider received "_s, bytesProvided, " bytes of requested "_s, buffer.size()));
+    incrementalLoaderLog(makeString("PDF data provider received "_s, bytesProvided.value_or(0), " bytes of requested "_s, buffer.size()));
 #endif
 
-    return bytesProvided;
+    return bytesProvided.value_or(0);
 }
 
 auto PDFIncrementalLoader::createDataSemaphore() -> RefPtr<SemaphoreWrapper>

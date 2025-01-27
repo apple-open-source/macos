@@ -2380,6 +2380,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/text/UnicodeBidi.h
     platform/text/WritingMode.h
 
+    platform/video-codecs/BitReader.h
     platform/video-codecs/VideoCodecType.h
 
     platform/xr/PlatformXR.h

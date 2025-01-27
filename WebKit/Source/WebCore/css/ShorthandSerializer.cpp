@@ -664,11 +664,15 @@ String ShorthandSerializer::serializeLayered() const
                     if (!layerValues.skip(j - 1) && !layerValues.skip(j))
                         layerValues.skip(j) = true;
                 } else if (!layerValues.skip(j - 1) || !layerValues.skip(j)) {
-                    // If the two are different, both need to be serialized, except in the special case of no-clip.
-                    if (layerValues.valueID(j) != CSSValueNoClip) {
-                        layerValues.skip(j - 1) = false;
-                        layerValues.skip(j) = false;
+                    // If the two are different, both need to be serialized, unless clip is invalid as origin
+                    if (layerValues.valueID(j) == CSSValueNoClip)
+                        continue;
+                    if (layerValues.valueID(j) == CSSValueBorderArea) {
+                        layerValues.skip(j - 1) = layerValues.valueID(j - 1) == CSSValueBorderBox;
+                        continue;
                     }
+                    layerValues.skip(j - 1) = false;
+                    layerValues.skip(j) = false;
                 }
             }
 

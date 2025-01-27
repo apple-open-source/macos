@@ -2565,7 +2565,7 @@ void WebPage::windowScreenDidChange(PlatformDisplayID displayID, std::optional<u
 #endif
 }
 
-void WebPage::scalePage(double scale, const IntPoint& origin)
+void WebPage::didScalePage(double scale, const IntPoint& origin)
 {
     double totalScale = scale * viewScaleFactor();
     bool willChangeScaleFactor = totalScale != totalScaleFactor();
@@ -2604,8 +2604,31 @@ void WebPage::scalePage(double scale, const IntPoint& origin)
     m_drawingArea->deviceOrPageScaleFactorChanged();
 #endif
 
-    send(Messages::WebPageProxy::PageScaleFactorDidChange(scale));
     platformDidScalePage();
+}
+
+void WebPage::didScalePageInViewCoordinates(double scale, const IntPoint& origin)
+{
+    RefPtr frameView = localMainFrameView();
+    if (!frameView)
+        return;
+    auto adjustedOrigin = frameView->rootViewToContents(-origin);
+    double scaleRatio = scale / pageScaleFactor();
+    adjustedOrigin.scale(scaleRatio);
+
+    didScalePage(scale, adjustedOrigin);
+}
+
+void WebPage::didScalePageRelativeToScrollPosition(double scale, const IntPoint& origin)
+{
+    RefPtr frameView = localMainFrameView();
+    if (!frameView)
+        return;
+    auto unscrolledOrigin = origin;
+    IntRect unobscuredContentRect = frameView->unobscuredContentRectIncludingScrollbars();
+    unscrolledOrigin.moveBy(-unobscuredContentRect.location());
+
+    didScalePage(scale, -unscrolledOrigin);
 }
 
 #if !PLATFORM(IOS_FAMILY)
@@ -2616,20 +2639,10 @@ void WebPage::platformDidScalePage()
 
 #endif
 
-void WebPage::scalePageInViewCoordinates(double scale, IntPoint centerInViewCoordinates)
+void WebPage::scalePage(double scale, const IntPoint& origin)
 {
-    double totalScale = scale * viewScaleFactor();
-    if (totalScale == totalScaleFactor())
-        return;
-
-    RefPtr frameView = localMainFrameView();
-    if (!frameView)
-        return;
-
-    IntPoint scrollPositionAtNewScale = frameView->rootViewToContents(-centerInViewCoordinates);
-    double scaleRatio = scale / pageScaleFactor();
-    scrollPositionAtNewScale.scale(scaleRatio);
-    scalePage(scale, scrollPositionAtNewScale);
+    didScalePage(scale, origin);
+    send(Messages::WebPageProxy::PageScaleFactorDidChange(scale));
 }
 
 double WebPage::totalScaleFactor() const
@@ -3572,6 +3585,26 @@ void WebPage::setLastKnownMousePosition(WebCore::FrameIdentifier frameID, IntPoi
         return;
 
     frame->coreLocalFrame()->eventHandler().setLastKnownMousePosition(eventPoint, globalPoint);
+}
+
+void WebPage::startDeferringResizeEvents()
+{
+    corePage()->startDeferringResizeEvents();
+}
+
+void WebPage::flushDeferredResizeEvents()
+{
+    corePage()->flushDeferredResizeEvents();
+}
+
+void WebPage::startDeferringScrollEvents()
+{
+    corePage()->startDeferringScrollEvents();
+}
+
+void WebPage::flushDeferredScrollEvents()
+{
+    corePage()->flushDeferredScrollEvents();
 }
 
 void WebPage::flushDeferredDidReceiveMouseEvent()
@@ -7161,6 +7194,8 @@ void WebPage::didChangeSelection(LocalFrame& frame)
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+    resetLastSelectedReplacementRangeIfNeeded();
+
     if (!std::exchange(m_sendAutocorrectionContextAfterFocusingElement, false))
         return;
 
@@ -7685,6 +7720,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
     m_estimatedLatency = Seconds(1.0 / 60);
     m_shouldRevealCurrentSelectionAfterInsertion = true;
     m_lastLayerTreeTransactionIdAndPageScaleBeforeScalingPage = std::nullopt;
+    m_lastSelectedReplacementRange = { };
 
 #if ENABLE(IOS_TOUCH_EVENTS)
     auto queuedEvents = makeUniqueRef<EventDispatcher::TouchEventQueue>();
@@ -7796,6 +7832,12 @@ void WebPage::didSameDocumentNavigationForFrame(WebFrame& frame)
     for (auto& pluginView : m_pluginViews)
         pluginView.didSameDocumentNavigationForFrame(frame);
 #endif
+}
+
+void WebPage::didNavigateWithinPageForFrame(WebFrame& frame)
+{
+    if (frame.isMainFrame())
+        m_pendingNavigationID = std::nullopt;
 }
 
 void WebPage::testProcessIncomingSyncMessagesWhenWaitingForSyncReply(CompletionHandler<void(bool)>&& reply)

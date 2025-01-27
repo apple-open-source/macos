@@ -126,6 +126,13 @@ static int LRUHit (LRU_t *lru, LRUNode_t *node, int age);
 static int LRUEvict (LRU_t *lru, LRUNode_t *node);
 
 /*
+ * LRURemove
+ *  Removes a reference to the buffer to-be-free-ed from cache.
+ *
+ */
+static int LRURemove (LRU_t *lru, LRUNode_t *node);
+
+/*
  * CalculateCacheSizes
  *
  * Determine the cache size values that should be used to initialize the cache.   
@@ -734,7 +741,10 @@ int CacheRemove (Cache_t *cache, Tag_t *tag)
 
 	/* Make sure it's not busy */
 	if (tag->Refs) return (EBUSY);
-	
+
+    /* Remove from LRU */
+    LRURemove((LRU_t *)cache, (LRUNode_t *)tag);
+
 	/* Detach the tag */
 	if (tag->Next != NULL)
 		tag->Next->Prev = tag->Prev;
@@ -742,7 +752,7 @@ int CacheRemove (Cache_t *cache, Tag_t *tag)
 		tag->Prev->Next = tag->Next;
 	else
 		cache->Hash[tag->Offset % cache->HashSize] = tag->Next;
-	
+
 	/* Make sure the head node doesn't have a back pointer */
 	if ((cache->Hash[tag->Offset % cache->HashSize] != NULL) &&
 	    (cache->Hash[tag->Offset % cache->HashSize]->Prev != NULL)) {
@@ -750,7 +760,7 @@ int CacheRemove (Cache_t *cache, Tag_t *tag)
 		fsck_print(ctx, LOG_TYPE_INFO, "ERROR: CacheRemove: Corrupt hash chain\n");
 #endif
 	}
-	
+
 	/* Release it's buffer (if it has one) */
 	if (tag->Buffer != NULL)
 	{
@@ -951,7 +961,7 @@ CacheFlushRange( Cache_t *cache, uint64_t start, uint64_t len, int remove)
 				currentTag->Flags &= ~kLazyWrite;
 
 				if ( remove && ((currentTag->Flags & kLockWrite) == 0))
-					CacheRemove( cache, currentTag );
+					CacheRemove ( cache, currentTag );
 			}
 			
 			currentTag = nextTag;
@@ -1407,6 +1417,9 @@ static int LRUDestroy (LRU_t *lru)
  */
 static int LRUHit (LRU_t *lru, LRUNode_t *node, int age)
 {
+    if ((node->Next == NULL) && (node->Prev == NULL))
+        return (EOK);
+
 	/* Handle existing nodes */
 	if ((node->Next != NULL) && (node->Prev != NULL)) {
 		/* Detach the node */
@@ -1421,7 +1434,7 @@ static int LRUHit (LRU_t *lru, LRUNode_t *node, int age)
 		node->Prev = &lru->Busy;
 
 	} else if (age) {
-		/* Insert at the head of the LRU */
+		/* Insert at the end of the LRU */
 		node->Next = &lru->Head;
 		node->Prev = lru->Head.Prev;
 		
@@ -1449,7 +1462,7 @@ static int LRUHit (LRU_t *lru, LRUNode_t *node, int age)
  *
  *  NOTE: Make sure we never evict the node we're trying to find a buffer for!
  */
-static int LRUEvict (LRU_t *lru, LRUNode_t *node)
+static int LRUEvict (LRU_t *lru, __unused LRUNode_t *node)
 {
 	LRUNode_t *	temp;
 
@@ -1457,7 +1470,7 @@ static int LRUEvict (LRU_t *lru, LRUNode_t *node)
 	while (1) {
 		/* Grab the tail */
 		temp = lru->Head.Prev;
-		
+
 		/* Stop if we're empty */
 		if (temp == &lru->Head) {
 #if CACHE_DEBUG
@@ -1466,17 +1479,13 @@ static int LRUEvict (LRU_t *lru, LRUNode_t *node)
 			return (ENOMEM);
 		}
 
-		/* Detach the tail */
-		temp->Next->Prev = temp->Prev;
-		temp->Prev->Next = temp->Next;
-
 		/* If it's not busy, we have a victim */
 		if (!((Tag_t *)temp)->Refs) break;
 
 		/* Insert at the head of the Busy queue */
 		temp->Next = lru->Busy.Next;
 		temp->Prev = &lru->Busy;
-				
+
 		temp->Next->Prev = temp;
 		temp->Prev->Next = temp;
 
@@ -1487,6 +1496,29 @@ static int LRUEvict (LRU_t *lru, LRUNode_t *node)
 	CacheRemove ((Cache_t *)lru, (Tag_t *)temp);
 
 	return (EOK);
+}
+
+/*
+ * LRURemove
+ *  Removes a reference to the buffer to-be-free-ed from cache.
+ *
+ */
+static int LRURemove (__unused LRU_t *lru, LRUNode_t *node)
+{
+    if (((Tag_t *)node)->Refs)
+        return (EBUSY);
+
+    /* Detach the node */
+    if (node->Next != NULL) {
+        node->Next->Prev = node->Prev;
+        node->Next = NULL;
+    }
+    if (node->Prev != NULL) {
+        node->Prev->Next = node->Next;
+        node->Prev = NULL;
+    }
+
+    return (EOK);
 }
 
 /*

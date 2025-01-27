@@ -649,7 +649,7 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
                            }
                        } else if (result == nil) {
                            if(json) {
-                               print_json(@{@"error" : @"No result returned and no data"});
+                               print_json(@{@"error" : @"No result returned and no error"});
                            } else {
                                fprintf(stderr, "Fetching status had no error and gave no result!\n");
                            }
@@ -667,9 +667,8 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
                                       ([result[@"stateFlags"] count] == 0u) ? "none" : [[result[@"stateFlags"] description] UTF8String],
                                       ([result[@"statePendingFlags"] count] == 0u) ? "none" : [[result[@"statePendingFlags"] description] UTF8String]);
 
-                               NSDictionary* contextDump = result[@"contextDump"];
-
                                // Make it easy to find peer information
+                               NSDictionary* contextDump = result[@"contextDump"];
                                NSMutableDictionary<NSString *, NSDictionary*>* peers = [NSMutableDictionary dictionary];
                                NSMutableArray<NSString *>* allPeerIDs = [NSMutableArray array];
                                for(NSDictionary* peerInformation in contextDump[@"peers"]) {
@@ -732,11 +731,8 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
                                    if(egoStableInfo[@"recovery_encryption_public_key"] && egoStableInfo[@"recovery_signing_public_key"]) {
                                        printf("Recovery Key:\n");
 
-                                       NSData* signingData = [[NSData alloc] initWithData:egoStableInfo[@"recovery_signing_public_key"]];
-                                       NSData* encryptionData = [[NSData alloc] initWithData:egoStableInfo[@"recovery_encryption_public_key"]];
-
-                                       NSString* signingString = [signingData base64EncodedStringWithOptions:0];
-                                       NSString* encryptionString = [encryptionData base64EncodedStringWithOptions:0];
+                                       NSString* signingString = egoStableInfo[@"recovery_signing_public_key"];
+                                       NSString* encryptionString = egoStableInfo[@"recovery_encryption_public_key"];
                                        printf("    Encryption public key: %s\n", [encryptionString UTF8String]);
                                        printf("    Signing public key: %s\n", [signingString UTF8String]);
                                        printf("\n");

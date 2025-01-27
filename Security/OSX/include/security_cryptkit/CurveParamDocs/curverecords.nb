@@ -1,0 +1,898 @@
+(***********************************************************************
+
+                    Mathematica-Compatible Notebook
+
+This notebook can be used on any computer system with Mathematica 3.0,
+MathReader 3.0, or any compatible application. The data for the notebook 
+starts with the line of stars above.
+
+To get the notebook into a Mathematica-compatible application, do one of 
+the following:
+
+* Save the data starting with the line of stars above into a file
+  with a name ending in .nb, then open the file inside the application;
+
+* Copy the data starting with the line of stars above to the
+  clipboard, then use the Paste menu command inside the application.
+
+Data for notebooks contains only printable 7-bit ASCII and can be
+sent directly in email or through ftp in text mode.  Newlines can be
+CR, LF or CRLF (Unix, Macintosh or MS-DOS style).
+
+NOTE: If you modify the data for this notebook not in a Mathematica-
+compatible application, you must delete the line below containing the 
+word CacheID, otherwise Mathematica-compatible applications may try to 
+use invalid cache data.
+
+For more information on notebooks and Mathematica-compatible 
+applications, contact Wolfram Research:
+  web: http://www.wolfram.com
+  email: info@wolfram.com
+  phone: +1-217-398-0700 (U.S.)
+
+Notebook reader applications are available free of charge from 
+Wolfram Research.
+***********************************************************************)
+
+(*CacheID: 232*)
+
+
+(*NotebookFileLineBreakTest
+NotebookFileLineBreakTest*)
+(*NotebookOptionsPosition[     18376,        710]*)
+(*NotebookOutlinePosition[     19227,        740]*)
+(*  CellTagsIndexPosition[     19183,        736]*)
+(*WindowFrame->Normal*)
+
+
+
+Notebook[{
+Cell["\<\
+(* curverecords
+
+   Recorded data for Apple ECC curves.
+   
+   R. Crandall
+   3 Apr 2001
+   
+
+ *)
+
+pointQ[x_] := (JacobiSymbol[x^3 + c x^2 + a x + b, p] > -1);
+
+(* Next, binary expansion for very old M'ca versions,
+   otherwise use IntegerDigits[.,2]. *)
+bitList[k_] := Block[{li = {}, j = k},
+\tWhile[j > 0,
+\t    li = Append[li, Mod[j,2]];
+\t    j = Floor[j/2];
+\t];
+\tReturn[Reverse[li]];
+\t];
+\t
+ellinv[n_] := PowerMod[n,-1,p];
+(* Next, obtain actual x,y coords via normalization:
+   {x,y,z} := {X/Z^2, Y/Z^3, 1}. *)
+normalize[pt_] := Block[{z,z2,z3},
+\t\tIf[pt[[3]] == 0, Return[pt]];
+\t\tz = ellinv[pt[[3]]];
+\t\tz2 = Mod[z^2,p];
+\t\tz3 = Mod[z z2,p];
+\t\tReturn[{Mod[pt[[1]] z2, p], Mod[pt[[2]] z3, p], 1}];
+\t\t];
+
+ellneg[pt_] := Mod[pt * {1,-1,1}, p];
+ellsub[pt1_, pt2_] := elladd[pt1, ellneg[pt2]];
+elldouble[pt_] := Block[{x,y,z,m,y2,s},
+\tx = pt[[1]]; y = pt[[2]]; z = pt[[3]];
+\tIf[(y==0) || (z==0), Return[{1,1,0}]];
+\tm = Mod[3 x^2 + a Mod[Mod[z^2,p]^2,p],p];
+\tz = Mod[2 y z, p];
+\ty2 = Mod[y^2,p];
+\ts = Mod[4 x y2,p]; 
+\tx = Mod[m^2 - 2s,p];
+\ty = Mod[m(s - x) - 8 y2^2,p];
+\tReturn[{x,y,z}];
+];
+
+elladd[pt0_, pt1_] := Block[
+\t{x0,y0,z0,x1,y1,z1,
+\tt1,t2,t3,t4,t5,t6,t7},
+\tx0 = pt0[[1]]; y0 = pt0[[2]]; z0 = pt0[[3]];
+\tx1 = pt1[[1]]; y1 = pt1[[2]]; z1 = pt1[[3]];
+\tIf[z0 == 0, Return[pt1]];
+\tIf[z1 == 0, Return[pt0]];
+
+\tt1 = x0;
+\tt2 = y0;
+\tt3 = z0;
+\tt4 = x1;
+\tt5 = y1;
+\tIf[(z1 != 1),
+\t\tt6 = z1;
+\t\tt7 = Mod[t6^2, p];
+\t\tt1 = Mod[t1 t7, p];
+\t\tt7 = Mod[t6 t7, p];
+\t\tt2 = Mod[t2 t7, p];
+\t];
+\tt7 = Mod[t3^2, p];
+\tt4 = Mod[t4 t7, p];
+\tt7 = Mod[t3 t7, p];
+\tt5 = Mod[t5 t7, p];
+\tt4 = Mod[t1-t4, p];
+\tt5 = Mod[t2 - t5, p];
+\tIf[t4 == 0, If[t5 == 0,
+\t\t\t\t    Return[elldouble[pt0]],
+\t   \t\t\t\tReturn[{1,1,0}]
+\t   \t\t\t]
+\t];
+\tt1 = Mod[2t1 - t4,p];
+\tt2 = Mod[2t2 - t5, p];
+\tIf[z1 != 1, t3 = Mod[t3 t6, p]];
+\tt3 = Mod[t3 t4, p];
+\tt7 = Mod[t4^2, p];
+\tt4 = Mod[t4 t7, p];
+\tt7 = Mod[t1 t7, p];
+\tt1 = Mod[t5^2, p];
+\tt1 = Mod[t1-t7, p];
+\tt7 = Mod[t7 - 2t1, p];
+\tt5 = Mod[t5 t7, p];
+\tt4 = Mod[t2 t4, p];
+\tt2 = Mod[t5-t4, p];
+\tIf[EvenQ[t2], t2 = t2/2, t2 = (p+t2)/2];
+\tReturn[{t1, t2, t3}];
+];
+\t\t
+(* Next, elliptic-multiply a normalized pt by k. *)
+elliptic[pt_, k_] := Block[{pt2, hh, kk, hb, kb, lenh, lenk},
+\tIf[k==0, Return[{1,1,0}]];
+\thh = Reverse[bitList[3k]];
+\tkk = Reverse[bitList[k]];
+\tpt2 = pt;
+\tlenh = Length[hh];
+\tlenk = Length[kk];
+\tDo[
+\t\tpt2 = elldouble[pt2];
+\t\thb = hh[[b]];
+\t\tIf[b <= lenk, kb = kk[[b]], kb = 0];
+\t\tIf[{hb,kb} == {1,0},
+\t\t\tpt2 = elladd[pt2, pt],
+\t\t\tIf[{hb, kb} == {0,1},
+\t\t\tpt2 = ellsub[pt2, pt]]
+\t\t]
+\t   ,{b, lenh-1, 2,-1}
+\t ];
+\tReturn[pt2];
+];
+
+(* Next, provide point-finding functions. *)
+
+(* Next, perform (a + b w)^n (mod p), where pair = {a,b}, w2 = w^2. *)
+pow[pair_, w2_, n_, p_] := Block[{bitlist, z},
+    bitlist = bitList[n];
+    z = pair;
+\tDo[\t
+\t   zi = Mod[z[[2]]^2,p];
+\t   z = {Mod[z[[1]]^2 + w2 zi, p], Mod[2 z[[1]] z[[2]], p]};   
+\t   If[bitlist[[q]] == 1,
+\t       zi = Mod[pair[[2]] z[[2]], p];
+\t   \t   z = {Mod[pair[[1]] z[[1]] + w2 zi, p],
+\t   \t         Mod[pair[[1]] z[[2]] + pair[[2]] z[[1]], p]};
+\t   ],
+\t   {q,2,Length[bitlist]}
+    ];
+    Return[z]
+];
+
+
+sqrt[x_, p_] := Module[{t, b, w2},
+    If[Mod[x,p] == 0, Return[0]];
+\tIf[Mod[p,4] == 3, Return[PowerMod[x, (p+1)/4, p]]];
+\tIf[Mod[p,8] == 5,
+\t\tb = PowerMod[x, (p-1)/4, p];
+\t\tIf[b==1, Return[PowerMod[x, (p+3)/8, p]],
+\t\t\tReturn[Mod[2x PowerMod[4x, (p-5)/8,p],p]]
+\t\t]
+\t];
+\tt = 2;
+    While[True,
+      w2 = Mod[t^2 - x, p];
+      If[JacobiSymbol[w2,p] == -1, Break[]];
+      ++t
+    ];
+    (* Next, raise (t + Sqrt[w2])^((p+1)/2). *)
+    t = pow[{t,1},w2, (p+1)/2, p];
+    Return[t[[1]]];
+    ];
+
+findpoint[start_] := Block[{x = start, y, s},
+\tWhile[True,
+\t   s = Mod[x(Mod[x^2+a,p]) + b, p];
+\t   y = sqrt[s, p];
+\t   If[Mod[y^2, p] == s, Break[]];
+\t   ++x;
+\t];
+\tReturn[{x, y, 1}]
+];
+
+report[a_] := Module[{ia = IntegerDigits[a,65536]},    
+      Prepend[Reverse[ia], Length[ia]]
+      ];
+    \
+\>", "Input",
+  AspectRatioFixed->True],
+
+Cell[CellGroupData[{
+
+Cell["\<\
+
+
+
+report[a_] := Module[{ia = IntegerDigits[a,65536]},    
+      Prepend[Reverse[ia], Length[ia]]
+      ];
+    
+    
+(* Case of Weierstrass/feemod curve. *)
+p = 2^127 + 57675
+report[p]
+r = 512000; s = 512001;
+
+a = Mod[-3 r s^3, p]
+report[a]
+b = Mod[-2 r s^5, p]
+report[b]
+pt = findpoint[3];
+pt
+plusOrd = 170141183460469231756943134065055014407
+report[plusOrd]
+PrineQ[plusOrd]
+minusOrd = 170141183460469231706431473366713312401
+report[minusOrd]
+PrimeQ[minusOrd]
+elliptic[pt, plusOrd]
+elliptic[pt, minusOrd]\
+\>", "Input",
+  AspectRatioFixed->True],
+
+Cell[BoxData[
+    \(170141183460469025572049133804586627403\)], "Output"],
+
+Cell[BoxData[
+    \({8, 29003, 44777, 29962, 4169, 54360, 65535, 65535, 32767}\)], "Output"],
+
+Cell[BoxData[
+    \(170105154311605172483148226534443139403\)], "Output"],
+
+Cell[BoxData[
+    \({8, 16715, 42481, 16221, 60523, 56573, 13644, 4000, 32761}\)], "Output"],
+
+Cell[BoxData[
+    \(Reverse::"normal" \( : \ \) 
+      "Nonatomic expression expected at position \!\(1\) in \
+\!\(Reverse[ib]\)."\)], "Message"],
+
+Cell[BoxData[
+    \(Join::"heads" \( : \ \) 
+      "Heads \!\(List\) and \!\(Reverse\) at positions \!\(1\) and \!\(2\) \
+are expected to be the same."\)], "Message"],
+
+Cell[BoxData[
+    \(Join[{0}, Reverse[ib]]\)], "Output"],
+
+Cell[BoxData[
+    \({6, 30690820274365139284340271178980469693, 1}\)], "Output"],
+
+Cell[BoxData[
+    \({1, 1, 0}\)], "Output"],
+
+Cell[BoxData[
+    \({29855379595419734109449938959593549451, 
+      71894799143021275114012027736812077762, 
+      78629090074833058028405436736324079039}\)], "Output"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+    \( (*\ Case\ of\ Weierstrass/gen . \ mod\ \(curve . \)\ *) \n
+    p\  = \ 1654338658923174831024422729553880293604080853451; \n
+    Mod[p, 4]\), 
+    \(Length[IntegerDigits[p, 2]]\), 
+    \(report[p]\), 
+    \(PrimeQ[p]\n\n\), 
+    \(a\  = \ \(-152\); \nreport[a]\), 
+    \(b\  = \ Mod[722, \ p]\), 
+    \(report[b]\), 
+    \(ptplus\  = \ 
+      findpoint[1245904487553815885170631576005220733978383542270]\), 
+    \(ptminus\  = \ 
+      findpoint[1173563507729187954550227059395955904200719019884]\), 
+    \(plusOrd\  = \ \ 1654338658923174831024425147405519522862430265804; \n
+    report[plusOrd]\), 
+    \(PrimeQ[plusOrd]\), 
+    \(minusOrd\  = \ 2  p + 2\  - \ plusOrd\), 
+    \(report[minusOrd]\), 
+    \(PrimeQ[minusOrd]\n\), 
+    \(pt2\  = \ 
+      elliptic[ptplus, \ plusOrd/\((2^2\ *\ 23\ *\ 359\ *\ 479\ *\ 102107)\)]
+        \), 
+    \(pt3\  = \ elliptic[ptminus, \ minusOrd/\((2^2\ *\ 5^2\ *\ 17^2)\)]\)}], 
+  "Input"],
+
+Cell[BoxData[
+    \(3\)], "Output"],
+
+Cell[BoxData[
+    \(161\)], "Output"],
+
+Cell[BoxData[
+    \({11, 41419, 58349, 36408, 14563, 25486, 9098, 29127, 50972, 7281, 8647, 
+      1}\)], "Output"],
+
+Cell[BoxData[
+    \(True\)], "Output"],
+
+Cell[BoxData[
+    \({1, 152}\)], "Output"],
+
+Cell[BoxData[
+    \(722\)], "Output"],
+
+Cell[BoxData[
+    \({1, 722}\)], "Output"],
+
+Cell[BoxData[
+    \({1245904487553815885170631576005220733978383542270, 
+      560361014661268580786436670038204012763093444403, 1}\)], "Output"],
+
+Cell[BoxData[
+    \({1173563507729187954550227059395955904200719019885, 
+      1175039848591896005104837959278049495835875105211, 1}\)], "Output"],
+
+Cell[BoxData[
+    \({11, 41420, 58349, 36408, 14563, 25486, 9100, 29127, 50972, 7281, 8647, 
+      1}\)], "Output"],
+
+Cell[BoxData[
+    \(False\)], "Output"],
+
+Cell[BoxData[
+    \(1654338658923174831024420311702241064345731441100\)], "Output"],
+
+Cell[BoxData[
+    \({11, 41420, 58349, 36408, 14563, 25486, 9096, 29127, 50972, 7281, 8647, 
+      1}\)], "Output"],
+
+Cell[BoxData[
+    \(False\)], "Output"],
+
+Cell[BoxData[
+    \({1, 1, 0}\)], "Output"],
+
+Cell[BoxData[
+    \({1190583420013022954017374261618382173651469909929, 
+      629194203259568943908951973353992532594049316627, 
+      1243063853191133727091858197899695654928311311960}\)], "Output"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell["\<\
+
+    
+(* Case of Weierstrass/feemod curve. *)
+p = 2^160 + 5875
+report[p]
+PrimeQ[p]
+r = 512; s = 513;
+
+a = Mod[-3 r s^3, p]
+report[a]
+b = Mod[2 r s^5, p]
+report[b]
+pt = findpoint[3];
+pt
+plusOrd =  1461501637330902918203687223801810245920805144027
+report[plusOrd]
+PrimeQ[plusOrd]
+minusOrd = 1461501637330902918203682441630755793391059953677
+report[minusOrd]
+PrimeQ[minusOrd]
+
+elliptic[pt, plusOrd]
+elliptic[pt, minusOrd]\
+\>", "Input",
+  AspectRatioFixed->True],
+
+Cell[BoxData[
+    \(1461501637330902918203684832716283019655932548851\)], "Output"],
+
+Cell[BoxData[
+    \({11, 5875, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}\)], "Output"],
+
+Cell[BoxData[
+    \(True\)], "Output"],
+
+Cell[BoxData[
+    \(1461501637330902918203684832716283019448563798259\)], "Output"],
+
+Cell[BoxData[
+    \({11, 4339, 47068, 65487, 65535, 65535, 65535, 65535, 65535, 65535, 
+      65535, 0}\)], "Output"],
+
+Cell[BoxData[
+    \(36382017816364032\)], "Output"],
+
+Cell[BoxData[
+    \({4, 1024, 41000, 16704, 129}\)], "Output"],
+
+Cell[BoxData[
+    \({7, 1141381147330837701163756056508811445797829159301, 1}\)], "Output"],
+
+Cell[BoxData[
+    \(1461501637330902918203687223801810245920805144027\)], "Output"],
+
+Cell[BoxData[
+    \({11, 50651, 30352, 49719, 403, 64085, 1, 0, 0, 0, 0, 1}\)], "Output"],
+
+Cell[BoxData[
+    \(True\)], "Output"],
+
+Cell[BoxData[
+    \(1461501637330902918203682441630755793391059953677\)], "Output"],
+
+Cell[BoxData[
+    \({11, 26637, 35183, 15816, 65132, 1450, 65534, 65535, 65535, 65535, 
+      65535, 0}\)], "Output"],
+
+Cell[BoxData[
+    \(True\)], "Output"],
+
+Cell[BoxData[
+    \({1, 1, 0}\)], "Output"],
+
+Cell[BoxData[
+    \({626678646813931825585362114548610779332932369721, 
+      425645027836716936906396416648647850487040622280, 
+      374678203163702432662589149043052098374578486466}\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+    \( (*\ Case\ of\ NIST\ P - 192. \ *) \n
+    p\  = \ 6277101735386680763835789423207666416083908700390324961279; \n
+    Mod[p, 4]\), 
+    \(Length[IntegerDigits[p, 2]]\), 
+    \(report[p]\), 
+    \(PrimeQ[p]\n\n\), 
+    \(a\  = \ \(-3\); \nreport[a]\), 
+    \(b\  = \ 
+      Mod[\(-2455155546008943817740293915197451784769108058161191238065\), \ 
+        p]\), 
+    \(report[b]\), 
+    \(pt\  = \ findpoint[3]; \npt\), 
+    \(plusOrd\  = \ \ 
+      6277101735386680763835789423176059013767194773182842284081\), 
+    \(report[plusOrd]\), 
+    \(PrimeQ[plusOrd]\), 
+    \(minusOrd\  = \ 2  p + 2\  - \ plusOrd\), 
+    \(report[minusOrd]\), 
+    \(PrimeQ[minusOrd]\), 
+    \(elliptic[pt, \ plusOrd]\), 
+    \(pt2\  = \ elliptic[pt, \ 23]\), 
+    \(pt\  = \ elliptic[pt2, \ minusOrd/23]\), 
+    \(report[minusOrd/23]\)}], "Input"],
+
+Cell[BoxData[
+    \(3\)], "Output"],
+
+Cell[BoxData[
+    \(192\)], "Output"],
+
+Cell[BoxData[
+    \({12, 65535, 65535, 65535, 65535, 65534, 65535, 65535, 65535, 65535, 
+      65535, 65535, 65535}\)], "Output"],
+
+Cell[BoxData[
+    \(True\)], "Output"],
+
+Cell[BoxData[
+    \({1, 3}\)], "Output"],
+
+Cell[BoxData[
+    \(3821946189377736946095495508010214631314800642229133723214\)], "Output"],
+
+Cell[BoxData[
+    \({12, 17998, 16057, 8467, 327, 53173, 36315, 5716, 61528, 32536, 6755, 
+      64230, 39902}\)], "Output"],
+
+Cell[BoxData[
+    \({3, 2573760116079900500718205355717584033158714840310676461950, 1}\)], 
+  "Output"],
+
+Cell[BoxData[
+    \(6277101735386680763835789423176059013767194773182842284081\)], "Output"],
+
+Cell[BoxData[
+    \({12, 10289, 46290, 51633, 5227, 63542, 39390, 65535, 65535, 65535, 
+      65535, 65535, 65535}\)], "Output"],
+
+Cell[BoxData[
+    \(True\)], "Output"],
+
+Cell[BoxData[
+    \(6277101735386680763835789423239273818400622627597807638479\)], "Output"],
+
+Cell[BoxData[
+    \({12, 55247, 19245, 13902, 60308, 1991, 26145, 0, 0, 0, 0, 0, 0}\)], 
+  "Output"],
+
+Cell[BoxData[
+    \(False\)], "Output"],
+
+Cell[BoxData[
+    \({1974979226733528697945860683178722101664119564992975891016, 
+      4098724835649872426757510355842063594543191498480025032993, 
+      6276809135556566751199297417037505266020088100630063387404}\)], "Output"],
+
+Cell[BoxData[
+    \({4331701396234773295967464070295991827703321716502384917379, 
+      6038875199291747318091498070766965234564517946489302751105, 
+      2975197300407214290225034931542769825877023149833302700493}\)], "Output"],
+
+Cell[BoxData[
+    \({1, 1, 0}\)], "Output"],
+
+Cell[BoxData[
+    \({12, 16649, 40728, 9152, 53911, 59923, 9684, 22795, 17096, 45590, 
+      34192, 25644, 2849}\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(normalize[pt2]\)], "Input"],
+
+Cell[BoxData[
+    \({572757471182948021179439097275935071491066938838024362853, 
+      1582598775998321197887787208733859332485461160705858323879, 1}\)], 
+  "Output"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(report[%[\([1]\)]]\)], "Input"],
+
+Cell[BoxData[
+    \({12, 39781, 2122, 19172, 23122, 40686, 43699, 10062, 14682, 25122, 
+      55271, 56820, 5979}\)], "Output"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+    \(minusOrd\), 
+    \(plusOrd\)}], "Input"],
+
+Cell[BoxData[
+    \(6277101735386680763835789423239273818400622627597807638479\)], "Output"],
+
+Cell[BoxData[
+    \(6277101735386680763835789423176059013767194773182842284081\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(IntegerDigits[13, 2]\)], "Input"],
+
+Cell[BoxData[
+    \({1, 1, 0, 1}\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+    \(minusOrd/23\), 
+    \(\treport[minusOrd/23]\)}], "Input"],
+
+Cell[BoxData[
+    \(272917466755942641905903887966924948626114027286861201673\)], "Output"],
+
+Cell[BoxData[
+    \({12, 16649, 40728, 9152, 53911, 59923, 9684, 22795, 17096, 45590, 
+      34192, 25644, 2849}\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(ord\  = \ 1024120625531724089187207582052247831; \n
+    Floor[4^Length[IntegerDigits[plusOrd, \ 2]]/plusOrd]\)], "Input"],
+
+Cell[BoxData[
+    \(5846006549323611672814729766523023173564239767715\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(report[%]\)], "Input"],
+
+Cell[BoxData[
+    \({11, 59555, 9660, 63266, 63920, 5803, 65528, 65535, 65535, 65535, 
+      65535, 3}\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(IntegerDigits[
+      6277101735386680763835789423207666416083908700390324961279, 2]\)], 
+  "Input"],
+
+Cell[BoxData[
+    \({1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+      1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+      1}\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+    \(a\), 
+    \(b\), 
+    \(JacobiSymbol[3^3\  + \ a\ *\ 3\  - \ b, \ p]\)}], "Input"],
+
+Cell[BoxData[
+    \(\(-3\)\)], "Output"],
+
+Cell[BoxData[
+    \(3821946189377736946095495508010214631314800642229133723214\)], "Output"],
+
+Cell[BoxData[
+    \(1\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(minusOrd\)], "Input"],
+
+Cell[BoxData[
+    \(6277101735386680763835789423239273818400622627597807638479\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(o\  = 272917466755942641905903887966924948626114027286861201673; \n
+    Floor[4^Length[IntegerDigits[o, 2]]/o]\)], "Input"],
+
+Cell[BoxData[
+    \(563958359038647099875871705988474052021461054728890671516\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(report[%]\)], "Input"],
+
+Cell[BoxData[
+    \({12, 57756, 63294, 44830, 2517, 2125, 63187, 65535, 65535, 65535, 
+      65535, 65535, 5887}\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(IntegerDigits[1654338658923174831024422729553880293604080853451, 2]\)], 
+  "Input"],
+
+Cell[BoxData[
+    \({1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 
+      0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 
+      0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 
+      1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 
+      1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 
+      1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 
+      0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1}\)], "Output"]
+}, Open  ]]
+},
+FrontEndVersion->"NeXT 3.0",
+ScreenRectangle->{{0, 957}, {0, 768}},
+WindowToolbars->{},
+CellGrouping->Manual,
+WindowSize->{520, 600},
+WindowMargins->{{Automatic, 44}, {-10, Automatic}},
+PrivateNotebookOptions->{"ColorPalette"->{RGBColor, -1}},
+ShowCellLabel->True,
+ShowCellTags->False,
+RenderingOptions->{"ObjectDithering"->True,
+"RasterDithering"->False}
+]
+
+
+(***********************************************************************
+Cached data follows.  If you edit this Notebook file directly, not using
+Mathematica, you must remove the line containing CacheID at the top of 
+the file.  The cache data will then be recreated when you save this file 
+from within Mathematica.
+***********************************************************************)
+
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+
+(*NotebookFileOutline
+Notebook[{
+Cell[1709, 49, 4062, 173, 2136, "Input"],
+
+Cell[CellGroupData[{
+Cell[5796, 226, 556, 29, 336, "Input"],
+Cell[6355, 257, 73, 1, 24, "Output"],
+Cell[6431, 260, 92, 1, 24, "Output"],
+Cell[6526, 263, 73, 1, 24, "Output"],
+Cell[6602, 266, 92, 1, 24, "Output"],
+Cell[6697, 269, 145, 3, 33, "Message"],
+Cell[6845, 274, 166, 3, 33, "Message"],
+Cell[7014, 279, 56, 1, 24, "Output"],
+Cell[7073, 282, 80, 1, 24, "Output"],
+Cell[7156, 285, 43, 1, 24, "Output"],
+Cell[7202, 288, 168, 3, 50, "Output"],
+
+Cell[CellGroupData[{
+Cell[7395, 295, 949, 24, 381, "Input"],
+Cell[8347, 321, 35, 1, 24, "Output"],
+Cell[8385, 324, 37, 1, 24, "Output"],
+Cell[8425, 327, 115, 2, 37, "Output"],
+Cell[8543, 331, 38, 1, 24, "Output"],
+Cell[8584, 334, 42, 1, 24, "Output"],
+Cell[8629, 337, 37, 1, 24, "Output"],
+Cell[8669, 340, 42, 1, 24, "Output"],
+Cell[8714, 343, 145, 2, 37, "Output"],
+Cell[8862, 347, 146, 2, 37, "Output"],
+Cell[9011, 351, 115, 2, 37, "Output"],
+Cell[9129, 355, 39, 1, 24, "Output"],
+Cell[9171, 358, 83, 1, 24, "Output"],
+Cell[9257, 361, 115, 2, 37, "Output"],
+Cell[9375, 365, 39, 1, 24, "Output"],
+Cell[9417, 368, 43, 1, 24, "Output"],
+Cell[9463, 371, 200, 3, 50, "Output"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[9712, 380, 469, 25, 312, "Input"],
+Cell[10184, 407, 83, 1, 24, "Output"],
+Cell[10270, 410, 74, 1, 24, "Output"],
+Cell[10347, 413, 38, 1, 24, "Output"],
+Cell[10388, 416, 83, 1, 24, "Output"],
+Cell[10474, 419, 117, 2, 37, "Output"],
+Cell[10594, 423, 51, 1, 24, "Output"],
+Cell[10648, 426, 62, 1, 24, "Output"],
+Cell[10713, 429, 91, 1, 24, "Output"],
+Cell[10807, 432, 83, 1, 24, "Output"],
+Cell[10893, 435, 89, 1, 24, "Output"],
+Cell[10985, 438, 38, 1, 24, "Output"],
+Cell[11026, 441, 83, 1, 24, "Output"],
+Cell[11112, 444, 117, 2, 37, "Output"],
+Cell[11232, 448, 38, 1, 24, "Output"],
+Cell[11273, 451, 43, 1, 24, "Output"],
+Cell[11319, 454, 198, 3, 50, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[11554, 462, 844, 23, 420, "Input"],
+Cell[12401, 487, 35, 1, 24, "Output"],
+Cell[12439, 490, 37, 1, 24, "Output"],
+Cell[12479, 493, 129, 2, 37, "Output"],
+Cell[12611, 497, 38, 1, 24, "Output"],
+Cell[12652, 500, 40, 1, 24, "Output"],
+Cell[12695, 503, 92, 1, 24, "Output"],
+Cell[12790, 506, 124, 2, 37, "Output"],
+Cell[12917, 510, 103, 2, 50, "Output"],
+Cell[13023, 514, 92, 1, 24, "Output"],
+Cell[13118, 517, 128, 2, 37, "Output"],
+Cell[13249, 521, 38, 1, 24, "Output"],
+Cell[13290, 524, 92, 1, 24, "Output"],
+Cell[13385, 527, 100, 2, 24, "Output"],
+Cell[13488, 531, 39, 1, 24, "Output"],
+Cell[13530, 534, 228, 3, 89, "Output"],
+Cell[13761, 539, 228, 3, 89, "Output"],
+Cell[13992, 544, 43, 1, 24, "Output"],
+Cell[14038, 547, 126, 2, 37, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[14201, 554, 47, 1, 25, "Input"],
+Cell[14251, 557, 166, 3, 63, "Output"],
+
+Cell[CellGroupData[{
+Cell[14442, 564, 51, 1, 25, "Input"],
+Cell[14496, 567, 127, 2, 37, "Output"]
+}, Open  ]]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[14672, 575, 61, 2, 38, "Input"],
+Cell[14736, 579, 92, 1, 24, "Output"],
+Cell[14831, 582, 92, 1, 24, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[14960, 588, 53, 1, 25, "Input"],
+Cell[15016, 591, 46, 1, 24, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[15099, 597, 78, 2, 38, "Input"],
+Cell[15180, 601, 91, 1, 24, "Output"],
+Cell[15274, 604, 126, 2, 37, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[15437, 611, 141, 2, 38, "Input"],
+Cell[15581, 615, 83, 1, 24, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[15701, 621, 42, 1, 25, "Input"],
+Cell[15746, 624, 116, 2, 37, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[15899, 631, 119, 3, 51, "Input"],
+Cell[16021, 636, 666, 9, 128, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[16724, 650, 103, 3, 51, "Input"],
+Cell[16830, 655, 40, 1, 24, "Output"],
+Cell[16873, 658, 92, 1, 24, "Output"],
+Cell[16968, 661, 35, 1, 24, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[17040, 667, 41, 1, 24, "Input"],
+Cell[17084, 670, 92, 1, 24, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[17213, 676, 143, 2, 64, "Input"],
+Cell[17359, 680, 91, 1, 24, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[17487, 686, 42, 1, 25, "Input"],
+Cell[17532, 689, 126, 2, 37, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[17695, 696, 103, 2, 38, "Input"],
+Cell[17801, 700, 559, 7, 115, "Output"]
+}, Open  ]]
+}
+]
+*)
+
+
+
+
+(***********************************************************************
+End of Mathematica Notebook file.
+***********************************************************************)
+

@@ -40,6 +40,7 @@ public:
     bool setNeedsLayoutIfNeededAfterIntrinsicSizeChange();
 
     LayoutSize intrinsicSize() const final;
+    FloatSize intrinsicRatio() const;
     
     bool isContentLikelyVisibleInViewport();
     bool needsPreferredWidthsRecalculation() const override;
@@ -47,6 +48,8 @@ public:
     double computeIntrinsicAspectRatio() const;
 
     void computeIntrinsicRatioInformation(FloatSize& intrinsicSize, FloatSize& intrinsicRatio) const override;
+
+    virtual bool paintsContent() const { return true; }
 
 protected:
     RenderReplaced(Type, Element&, RenderStyle&&, OptionSet<ReplacedFlag> = { });

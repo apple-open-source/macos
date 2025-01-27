@@ -511,6 +511,12 @@ void WebPageProxy::handleAutocorrectionContext(const WebAutocorrectionContext& c
     protectedPageClient()->handleAutocorrectionContext(context);
 }
 
+void WebPageProxy::clearSelectionAfterTappingSelectionHighlightIfNeeded(WebCore::FloatPoint location)
+{
+    if (hasRunningProcess())
+        legacyMainFrameProcess().send(Messages::WebPage::ClearSelectionAfterTappingSelectionHighlightIfNeeded(location), webPageIDInMainFrameProcess());
+}
+
 void WebPageProxy::getSelectionContext(CompletionHandler<void(const String&, const String&, const String&)>&& callbackFunction)
 {
     if (!hasRunningProcess())
@@ -1464,6 +1470,11 @@ WebContentMode WebPageProxy::effectiveContentModeAfterAdjustingPolicies(API::Web
         policies.setLegacyOverflowScrollingTouchPolicy(WebsiteLegacyOverflowScrollingTouchPolicy::Disable);
         m_preferFasterClickOverDoubleTap = true;
     }
+
+#if ENABLE(TOUCH_EVENTS)
+    if (m_preferences->needsSiteSpecificQuirks() && Quirks::shouldOmitTouchEventDOMAttributesForDesktopWebsite(request.url()))
+        policies.setOverrideTouchEventDOMAttributesEnabled(false);
+#endif
 
     return WebContentMode::Desktop;
 }

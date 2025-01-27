@@ -502,11 +502,6 @@ void WKBundlePageListenForLayoutMilestones(WKBundlePageRef pageRef, WKLayoutMile
     WebKit::toImpl(pageRef)->listenForLayoutMilestones(WebKit::toLayoutMilestones(milestones));
 }
 
-void WKBundlePageShowInspectorForTest(WKBundlePageRef page)
-{
-    WebKit::toImpl(page)->inspector()->show();
-}
-
 void WKBundlePageCloseInspectorForTest(WKBundlePageRef page)
 {
     WebKit::toImpl(page)->inspector()->close();

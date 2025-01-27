@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1381,7 +1381,8 @@ Ptr	GetFCBSPtr( void );
  * UTF-8 conversion routines
  */
 extern int utf_decodestr(const unsigned char *, size_t, u_int16_t *, size_t *, size_t);
-extern int utf_encodestr(const u_int16_t *, size_t, unsigned char *, size_t *, size_t);
+extern int utf_encodestr(const uint16_t *ucsp, size_t ucslen, unsigned char *utf8p,
+                        size_t *utf8len, size_t utf8plen);
 
 /* 
  * HardLink checking routines

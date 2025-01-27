@@ -101,7 +101,6 @@ private:
             IOHIDElement *      reportRate;
             IOHIDElement *      noiseMetric;
             OSArray *           buttons;
-            IOHIDElement *height;
         } digitizer;
         
         struct {

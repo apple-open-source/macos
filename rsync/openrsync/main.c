@@ -1849,8 +1849,23 @@ main(int argc, char *argv[])
 
 		args = fargs_cmdline(&sess, fargs, NULL);
 
-		for (i = 0; args[i] != NULL; i++)
-			LOG2("exec[%d] = %s", i, args[i]);
+		if (verbose > 1) {
+			char *msg = strdup("opening connection using:");
+			char *ptr = NULL;
+
+			for (i = 0; args[i] != NULL && msg != NULL; i++) {
+				if (asprintf(&ptr, "%s %s", msg, args[i]) < 0)
+					break;
+				free(msg);
+				msg = ptr;
+			}
+
+			LOG0("%s%s (%d args)",
+			     msg ? msg : args[0], ptr ? "" : " ...", i);
+			free(msg);
+		}
+
+		fflush(stdout);
 
 		/* Make sure the child's stdin is from the sender. */
 		if (dup2(fds[1], STDIN_FILENO) == -1)

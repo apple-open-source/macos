@@ -17,6 +17,7 @@
 #include <Security/SecCode.h>
 #include <Security/SecStaticCode.h>
 #include <kern/cs_blobs.h>
+#include <security_utilities/entitlements.h>
 
 #include "secstaticcode.h"
 
@@ -317,6 +318,106 @@ CheckAppleProcessHasDer(void)
         PASS("signed process has a DER slot");
         ret = 0;
     }
+
+done:
+    return ret;
+}
+
+static int
+CheckOSInstallerSetupdEntitlementHelpers(void)
+{
+    int ret = -1;
+
+    CFRef<CFMutableArrayRef> tccEntitlements = makeCFMutableArray(
+        3,
+        CFSTR("kTCCServiceSystemPolicyNetworkVolumes"),
+        CFSTR("kTCCServiceSystemPolicyRemovableVolumes"),
+        CFSTR("kTCCServiceSystemPolicyAllFiles")
+    );
+    CFRef<CFMutableDictionaryRef> entitlements = makeCFMutableDictionary(
+        1,
+        CFSTR("com.apple.private.tcc.allow"),
+        tccEntitlements.get()
+    );
+    CFRef<CFMutableDictionaryRef> origEntitlements;
+    CFArrayRef newTCCEntitlements;
+
+    // Case where osinstallersetupd needs its entitlements fixed up
+
+    if (!needsOSInstallerSetupdEntitlementsFixup(CFSTR("com.apple.installer.osinstallersetupd"), true, entitlements)) {
+        FAIL("Failed to return true for osinstallersetupd fixup");
+        goto done;
+    }
+
+    // Test updateOSInstallerSetupdEntitlements
+    {
+        // Save the original entitlements so we can restore them later
+        origEntitlements = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, entitlements);
+
+        // Update the entitlements and ensure that it returns true
+        if (!updateOSInstallerSetupdEntitlements(entitlements)) {
+            FAIL("Failed to update osinstallersetupd entitlements");
+            goto done;
+        }
+
+        // Get the new TCC entitlements
+        newTCCEntitlements = (CFArrayRef)CFDictionaryGetValue(entitlements, CFSTR("com.apple.private.tcc.allow"));
+
+        // Check count
+        if (CFArrayGetCount(newTCCEntitlements) != 2) {
+            FAIL("Updated TCC entitlements has the wrong number of entitlements");
+            goto done;
+        }
+
+        // Check that kTCCServiceSystemPolicyAllFiles was removed
+        if (
+            CFArrayContainsValue(
+                newTCCEntitlements,
+                CFRangeMake(0, CFArrayGetCount(newTCCEntitlements)),
+                CFSTR("kTCCServiceSystemPolicyAllFiles")
+            )
+        ) {
+            FAIL("Updated TCC entitlements should not contain kTCCServiceSystemPolicyAllFiles");
+            goto done;
+        }
+
+        // Restore original entitlements for next tests
+        entitlements = origEntitlements;
+    }
+
+    // Case where identifier is wrong
+
+    if (needsOSInstallerSetupdEntitlementsFixup(CFSTR("something_else"), true, entitlements)) {
+        FAIL("Failed to return false for osinstallersetupd fixup with different identifier");
+        goto done;
+    }
+
+    // Case where it's not platform
+
+    if (needsOSInstallerSetupdEntitlementsFixup(CFSTR("com.apple.installer.osinstallersetupd"), false, entitlements)) {
+        FAIL("Failed to return false for osinstallersetupd fixup for non-platform app");
+        goto done;
+    }
+
+    // Case where TCC entitlements are missing
+
+    CFDictionaryRemoveValue(entitlements, CFSTR("com.apple.private.tcc.allow"));
+
+    if (needsOSInstallerSetupdEntitlementsFixup(CFSTR("com.apple.installer.osinstallersetupd"), true, entitlements)) {
+        FAIL("Failed to return false for osinstallersetupd fixup with no TCC entitlements");
+        goto done;
+    }
+
+    // Case where TCC entitlements have wrong type
+
+    CFDictionarySetValue(entitlements, CFSTR("com.apple.private.tcc.allow"), CFSTR("something"));
+    if (needsOSInstallerSetupdEntitlementsFixup(CFSTR("com.apple.installer.osinstallersetupd"), true, entitlements)) {
+        FAIL("Failed to return false for osinstallersetupd fixup with wrong type of TCC entitlements");
+        goto done;
+    }
+
+    PASS("Passed osinstallersetupd entitlement checks");
+    ret = 0;
 
 done:
     return ret;
@@ -1077,6 +1178,7 @@ int main(int argc, const char *argv[])
         CheckPathHelpers,
         CheckValidityWithRevocationTraversal,
         CheckAppleProcessHasDer,
+        CheckOSInstallerSetupdEntitlementHelpers,
     };
 
     static int (*unsignedTestList[])(void) = {

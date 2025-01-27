@@ -2439,9 +2439,8 @@ static RenderObject* rendererForView(WAKView* view)
     // Start the deletion range from the current selection.
     NSRange rangeToDelete = [self browserAccessibilitySelectedTextRange];
 
-    // If this is a secure field, we will get a {0, 0} selected text range. But we're
-    // operating under the assumption that we always want to delete all the characters
-    // from a secure field, so the next lines assume we are at the end and deleting everything.
+    // If this is a secure field, we're operating under the assumption that we always want to
+    // delete all the characters, so the next lines assume we are at the end and deleting everything.
     BOOL isSecureField = [self accessibilityTraits] & self._axSecureTextFieldTrait;
     if (isSecureField)
         rangeToDelete = NSMakeRange([self accessibilityValue].length, 0);

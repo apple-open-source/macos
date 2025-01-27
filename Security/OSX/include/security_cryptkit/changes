@@ -1,0 +1,222 @@
+                         CryptKit change log
+
+CryptKit-8
+   -- Added prototypes for NSFEEPublicKey convenience methods to NSCryptors.h
+
+CryptKit-9
+   * Alpha version to dreece and crandall 13 Aug 1996
+   * FEE_KEY_VERSION 3, FEE_KEYSTRING_VERSION 1
+
+CryptKit-10
+   -- Added KeyStringFormat.doc
+   -- Deleted -publicKeyData, keyWithPublicKeyData (public keys now always
+      represented as strings)
+   -- Beefed up range and validity checking in:
+         -- hexstr_to_giant()
+	 -- new_hexstr_from_key()
+	 -- +keyWithPublicKeyString
+   -- Added check for valid_hexstr() and NULL hexstr_to_key() in
+      +digitalSignatureWithDataRepresentation
+   -- Added and enforced MAX_UNAME_LENGTH
+   -- added key_equal(_plus, other->_plus) to -[NSFEEPublicKey isEqual:]
+   -- last version with NSGiantIntegers.m, utilities.m, NSFastEllipticCurve.m
+      as ObjC files
+
+CryptKit-11
+   * FEE_KEYSTRING_VERSION = 2
+     FEE_KEYSTRING_VERSION_MIN = 1
+   -- Major rewrite of all top-level classes; ported bulk of logic to
+      portable C code. ObjC API (in NSCryptors.h, NSDESCryptor.h) unchanged.
+
+CryptKit-12
+   * Alpha version sent to REC 6 Sep 1996 and to dreece 12 Sep 96
+   -- Added platform.[ch]
+   -- Fixed (b<n), (sign<0) case in gmersennemod() to allow for arbitrary n.
+   -- Added feeHashReinit() to feeHash.[hc].
+   -- Rewrote feeGenPrivate(). Hashes password and pads to (size of curve
+      order)++, then takes result mod curve order.
+   -- Added set_priv_key_data(), and removed its function from
+      new_public_with_key(); deleted new_public_with_key().
+   -- Initial changes for compiling on NT.
+
+CryptKit-13
+   * Sent to REC for testing 1 Oct 96
+   -- first version to be (more or less) fully functional on NT
+   -- tolerate non-hex leading and trailing characters in public key string
+   -- Fixed --size underflow bug in normal_subg()
+   -- Added enc64 routines
+
+CryptKit-14
+   * First version to compile & run OK on OpenStep/NT
+   * Alpha version sent to dreece (17 Oct 96) and Avie (18 Oct 96)
+   -- Added class names to CryptKit.def (was CryptKit.def.src - no longer
+      builds C-only DLL from win.mak!)
+   -- Updated to 4.1 pb_makefiles
+   -- misc. Makefile tweaks to compile on NT
+   -- Misc. tweaks for warning-free compile on NT
+   -- ifdef'd out DllMain()
+
+CryptKit-15
+    * First integration into cryptdev master tree, 12 Nov 1996
+    * CFILE_VERSION = CFILE_MIN_VERSION = 1
+    -- Added feeCipherFile and NSCipherFile
+    -- Added sigSigner out param to feePubKeyVerifySignature()
+    -- Made enc64, dec64 more robust and more Microsoft-tolerant
+    -- feeGenPrivate() returns error if private key data too short
+
+CryptKit-16
+    * Integrated into cryptdev master tree, 20 Dec 1996
+    * Sent to J. Landwehr with first NT version of ICE 20 Dec 1996
+    * COMMON_PUBLIC_KEY_STRING_VERSION = 2
+    * COMMON_FEE_SIG_VERSION
+    * Major changes to keystring and signature format, compatible with
+      JavaFEE-4 and backwards compatible with older CryptKit keys and
+      signatures.
+    * Verfified to work with ICE (JavaDemo-4) running on an NT server
+    -- Added debugging code to DES.c, MD5.c
+    -- Added mersennePrimes[24..26]
+    -- Newlines optional in dec64() and isValidEnc64().
+    -- Added byteRep support to utilities.c
+
+CryptKit-17
+    -- New curveParams mechanism, with IEEE-approved curve parameters
+    -- Old curve param 'a' is 'c'; new params b, c, x1OrderPlus x1OrderMinus
+    -- This version doesn't *use* the new curve params in elliptic algebra;
+       it's an interim version for testing. DVT suite (ckutils/cktest) still
+       works at depths 0 thru 4.
+    -- NO API CHANGES since CryptKit-16.
+    -- key strings and signatures still compatible with CryptKit-16 and
+       JavaFEE-4
+    -- Deleted mersennePrimes[], set_crypt_params(), new_public_com(),
+       key_copy()
+    -- Most fields in keystruct now superceded by curveParams *cp
+    -- Added setGiantSize() kludge, replaces weird call to borrowGiant(*exp)
+       in set_crypt_params()
+    -- Added copyGiant(), giant_to_int()
+    -- Removed a bunch of dead files from project
+    -- Removed *_to_hexstr() from utilities.c
+    -- Fixed "pad too short bug" in small depth cases in feePubKeyCreatePad()
+
+CryptKit-18
+   * Integrated into cryptdev master tree, 31 Jan 1997
+   * Completely broke backward compatibility with old key strings and
+     signatures.
+   * FEE_SIG_VERSION = 3
+   * PUBLIC_KEY_STRING_VERSION = 3
+   * Old 2:1 FEED renamed feeFEEDExp (feeFEEDExp.c, names start with
+     feeFEEDExp). New 1:1 FEE is feeFEED.c. A #define in feeFEED.h redirects
+     client's feeFEED calls to feeFEEDexp
+   -- New elliptic math using all curveParams fields
+   -- Cleaned up all which_curve/twist code to use CURVE_MINUS/CURVE_PLUS
+   -- plus curves now used exclusively except for in FEED decrypt, which
+      uses both curves
+   -- Moved all byteRep code from utilities.c to byteRep.c.
+   -- Added curveOrderJustify(), use it to trim private key data and
+      signature random data to [2, curveOrder]
+   -- curveParams[4] now has full parameters
+   -- ENGINE_127_BITS version, with hard-coded 127 bit elliptic() in
+      engineNSA127.c, no longer builds - obsolete (hopefully)
+   -- Fixed negation bug in gmersennemod() (a long-standing FEE bug)
+   -- Fixed n[words-1] == 0 bug in extractbits() (ditto)
+   -- Added keyWithPrivateString:depth:usageName: to NSFEEPublicKey
+   -- Deleted obsolete #defines from NSFastEllipticCurve.c, including those
+      for signature_compare()
+   -- Added FEE_PROFILE logic
+   -- Now have unified giant-to-byteRep mechanism via serializeGiant and
+      deserializeGiant. Deleted canonicalize_ints(), canonicalize_shorts(),
+      giant_cleanse(), data_to_giant()
+   -- Removed all *_to_hexstr and hexstr_to* code
+
+CryptKit-19
+   * First version known to be bit-for-bit compatible with JavaFEE.
+     keys, signatures, ciphertext, and cipherfiles. Tested against
+     JavaFEE-5.
+   * Integrated in cryptdev master 13 Feb 1997.
+   -- Broke backward compatibility with CipherFiles. CFILE_VERSION = 1.
+   -- First working 1:1 FEED, in feeFEED.c. Old 2:1 FEED, now in feeFEEDExp.c,
+      unchanged.
+   -- Fixed zero bug in gcompg().
+   -- CipherFile uses portable byte rep; added CFE_FEED and CFE_FEEDExp types
+   -- New optimized numer_plus(), denom_double(), and numer_times()
+   -- Added maxShorts and minBytes to curveParams
+   -- Added explicit SIGN_PLUS, SIGN_MINUS as 's' arg to elliptic_add()
+   -- newGiant() no longer modifies CurrentMaxShorts or giant stack
+   -- Added FEE_DEPTH_192_M529891
+   -- Added feeFEEDCipherTextSize(), feeFEEDExpCipherTextSize()
+   -- Fixed platform dependencies in MD5.c
+   -- All borrowGiant() calls in NSFastEllipticCurve,c specify explicit
+      giant size (usually curveParams.maxShorts)
+   -- #ifdef'd out matric math routines in NSGiantIntegers.c
+   -- Added FEE_DEPTH_192_M529891
+   -- CurveParams.c now assumes all fields have valid giants
+   -- feeCipherfile now has four encrTypes - CFE_PublicDES, CFE_RandDES,
+      CFE_FEED, CFE_FEEDExp
+
+CryptKit-20
+   * Integrated in cryptdev master 20 Feb 1997.
+   -- CipherFile - was {key1,key2}, is {sendPubKey,otherKey}
+   -- Broke out common defines into CipherFileTypes.h
+   -- NSCipher returns nil properly on otherKeyData, sigSata, sendPubKeyData
+   -- Added enc64WithLines; dec64 ignores all whitespace
+   -- Broke out encrType-specific functions in CipherFile{FEED,DES}
+
+CryptKit-21
+   * Integrated in cryptdev master 7 Mar 1997.
+   * Sent to REC 7 Mar 1997.
+   -- Added curve depth = 3; q=40, k=213
+   -- cleaned up CryptKit.h, NSCryptors.h
+   -- updated Makefile for backup purposes
+   -- Moved NSFEEPublicKey interface into its own file
+   -- Added mulgTime profiling stat
+   -- Deleted len = par->minBytes kludge from make_pad()
+   -- was iszero(); is isZero()
+   -- made bitlen() assertion conditional on FEE_DEBUG
+   -- Trimmed plainBlockSize by one byte if q mod 8 = 0 in feeFEED,
+      feeFEEEDExp. This is an incompatible change! But I don't think anyone
+      was using the last version....
+
+CryptKit-22
+   * Integrated into cryptdev master 31 Mar 1997
+   -- New NSMD5Hash class
+   -- Rewrote NSDESCryptor using feeDES
+   -- NSDataDigester was interface, is protocol
+   -- Deleted digestObjectsWithKeys method from NSDataDigester
+   -- Deleted NSRequestConcreteImplementation from NSDESCryptor and
+      NSRandomNumberGenerator
+   -- Rewrote NSRandomNumberGenerator using feeRandom
+   -- Cleaned up misc. #ifdefs and stale code
+   -- Put DES per-instance variables in struct _desInst
+   -- Fixed memory leaks in feePubKeyCreateKeyString(), feeFEED.c
+   -- Removed ANSI C headers from Public Header; framework is now strictly
+      ObjC
+
+CryptKit-23
+   * Integrated into cryptdev master 1 May 1997
+   * Associated with ComDemo announcement 1 May 1997
+   -- No functional changes, only debugging printfs
+
+CryptKit-24
+   * Integrated into cryptdev master 11 June 1997
+   -- Mods to build on Mac CodeWarrior
+      -- was #import, is #include
+      -- mods to platform.[ch]
+      -- lots of compiler warning fixes, mainly due to MW's inability to
+         implicitly cast unsigned char * to char *
+
+CryptKit-25
+   * Integrated into cryptdev master 18 June 1997
+   -- New divg_via_recip(), modg_via_recip(), make_recip()
+   -- new per-curveParams fields x1OrderPlusRecip and lesserX1OrderRecip
+   -- Added lesserX1OrderJustify(), x1OrderPlusJustify(), binvg_cp()
+   -- Added new multiple stack borrowGiant() mechanism
+   -- All calls to borrowGiant() and newGiant() explicitly pass needed size;
+      no more borrowGiant(0)
+   -- Deleted old (i.e., obsolete and/or debugging) code from
+      NSGiantIntegers.c and NSFastEllipticCurve.c
+   -- Added description of FEED and FEEDExp ciphertext to ByteRep.doc
+   -- Marked KeyStringFormat.doc as obsolete
+
+CryptKit-26
+   -- Implemented ECDSA in feeECDSA.[ch]
+   -- Added binvg_orderPlus(), x1OrderPlusMod()
+   -- Added generic signature encode/decode to byteRep.[ch]

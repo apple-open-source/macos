@@ -597,14 +597,20 @@ out:
         }
 out:
         if (!nsError) {
-            [self findNextFreeCluster:nextCluster
-                         replyHandler:^(NSError * _Nullable error, uint32_t cluster, uint32_t contigLength) {
-                if (contigLength) {
-                    self.fsInfo.firstFreeCluster = cluster;
-                } else {
-                    self.fsInfo.firstFreeCluster = 0;
-                }
-            }];
+            /*
+             * In case we extend an existing chain by using holes found before firstFreeCluster,
+             * we don't update the firstFreeCluster to avoid future file fragmentation.
+             */
+            if (!searchFromCluster || (nextCluster > self.fsInfo.firstFreeCluster)) {
+                [self findNextFreeCluster:nextCluster
+                             replyHandler:^(NSError * _Nullable error, uint32_t cluster, uint32_t contigLength) {
+                    if (contigLength) {
+                        self.fsInfo.firstFreeCluster = cluster;
+                    } else {
+                        self.fsInfo.firstFreeCluster = 0;
+                    }
+                }];
+            }
         }
 
         /* Update the changes we made */
@@ -830,10 +836,6 @@ out:
                 self.fsInfo.freeClusters++;
                 freedClusters++;
 
-                if ((self.fsInfo.firstFreeCluster > currCluster) || (self.fsInfo.firstFreeCluster == 0)) {
-                    self.fsInfo.firstFreeCluster = currCluster;
-                }
-
                 /* Sanity: make sure we've reached the desired number of free clusters */
                 if (isEof && (freedClusters != numClusters)) {
                     os_log_error(fskit_std_log(), "%s: %u freed clusters %u, should have freed %u, got EOF", __FUNCTION__,currCluster, freedClusters, numClusters);
@@ -909,9 +911,6 @@ out:
                                         withValue:FREE_CLUSTER & self.fsInfo.FATMask];
                 freedClusters++;
                 self.fsInfo.freeClusters++;
-                if ((self.fsInfo.firstFreeCluster > currCluster) || (self.fsInfo.firstFreeCluster == 0)) {
-                    self.fsInfo.firstFreeCluster = currCluster;
-                }
                 currCluster = entryValue;
                 entryOffset = [self getOffsetForClusterEntry:currCluster];
             }

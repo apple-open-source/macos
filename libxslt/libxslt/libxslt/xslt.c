@@ -154,35 +154,38 @@ xsltParseContentError(xsltStylesheetPtr style,
  * in case of error
  */
 static int
-exclPrefixPush(xsltStylesheetPtr style, xmlChar * value)
+exclPrefixPush(xsltStylesheetPtr style, xmlChar * orig)
 {
+    xmlChar *value;
     int i;
 
-    if (style->exclPrefixMax == 0) {
-        style->exclPrefixMax = 4;
-        style->exclPrefixTab =
-            (xmlChar * *)xmlMalloc(style->exclPrefixMax *
-                                   sizeof(style->exclPrefixTab[0]));
-        if (style->exclPrefixTab == NULL) {
-            xmlGenericError(xmlGenericErrorContext, "malloc failed !\n");
-            return (-1);
-        }
-    }
+    /*
+     * orig can come from a namespace definition on a node which
+     * could be deleted later, for example in xsltParseTemplateContent.
+     * Store the string in stylesheet's dict to avoid use after free.
+     */
+    value = (xmlChar *) xmlDictLookup(style->dict, orig, -1);
+    if (value == NULL)
+        return(-1);
+
     /* do not push duplicates */
     for (i = 0;i < style->exclPrefixNr;i++) {
         if (xmlStrEqual(style->exclPrefixTab[i], value))
 	    return(-1);
     }
     if (style->exclPrefixNr >= style->exclPrefixMax) {
-        style->exclPrefixMax *= 2;
-        style->exclPrefixTab =
-            (xmlChar * *)xmlRealloc(style->exclPrefixTab,
-                                    style->exclPrefixMax *
-                                    sizeof(style->exclPrefixTab[0]));
-        if (style->exclPrefixTab == NULL) {
+        xmlChar **tmp;
+        size_t max = (style->exclPrefixMax > 0) ? style->exclPrefixMax * 2 : 4;
+        max = max > INT_MAX ? INT_MAX : max;
+
+        tmp = xmlRealloc(style->exclPrefixTab,
+                         max * sizeof(style->exclPrefixTab[0]));
+        if (tmp == NULL) {
             xmlGenericError(xmlGenericErrorContext, "realloc failed !\n");
             return (-1);
         }
+        style->exclPrefixTab = tmp;
+        style->exclPrefixMax = (int)max;
     }
     style->exclPrefixTab[style->exclPrefixNr] = value;
     style->exclPrefix = value;

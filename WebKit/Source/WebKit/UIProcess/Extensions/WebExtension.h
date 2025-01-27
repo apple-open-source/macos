@@ -49,7 +49,6 @@ OBJC_CLASS NSMutableArray;
 OBJC_CLASS NSMutableDictionary;
 OBJC_CLASS NSString;
 OBJC_CLASS NSURL;
-OBJC_CLASS UTType;
 OBJC_CLASS WKWebExtension;
 OBJC_CLASS WKWebExtensionMatchPattern;
 OBJC_CLASS _WKWebExtensionLocalization;
@@ -98,6 +97,7 @@ public:
         InvalidContentScripts,
         InvalidContentSecurityPolicy,
         InvalidDeclarativeNetRequest,
+        InvalidDefaultLocale,
         InvalidDescription,
         InvalidExternallyConnectable,
         InvalidIcon,
@@ -213,13 +213,16 @@ public:
 
     bool isWebAccessibleResource(const URL& resourceURL, const URL& pageURL);
 
-    UTType *resourceTypeForPath(NSString *);
+    String resourceMIMETypeForPath(const String&);
 
     NSString *resourceStringForPath(NSString *, NSError **, CacheResult = CacheResult::No, SuppressNotFoundErrors = SuppressNotFoundErrors::No);
     NSData *resourceDataForPath(NSString *, NSError **, CacheResult = CacheResult::No, SuppressNotFoundErrors = SuppressNotFoundErrors::No);
 
     _WKWebExtensionLocalization *localization();
-    NSLocale *defaultLocale();
+
+    const Vector<String>& supportedLocales();
+    const String& defaultLocale();
+    String bestMatchLocale();
 
     NSString *displayName();
     NSString *displayShortName();
@@ -361,7 +364,8 @@ private:
     RetainPtr<NSDictionary> m_manifest;
     RetainPtr<NSMutableDictionary> m_resources;
 
-    RetainPtr<NSLocale> m_defaultLocale;
+    String m_defaultLocale;
+    Vector<String> m_supportedLocales;
     RetainPtr<_WKWebExtensionLocalization> m_localization;
 
     RetainPtr<NSMutableArray> m_errors;

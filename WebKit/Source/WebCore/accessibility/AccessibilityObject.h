@@ -255,7 +255,13 @@ public:
     Element* element() const override;
     Node* node() const override { return nullptr; }
     RenderObject* renderer() const override { return nullptr; }
+    // Resolves the computed style if necessary.
     const RenderStyle* style() const;
+    // Returns nullptr if the style is unresolved.
+    // This matters because it is not always safe to compute style — doing so at the wrong time
+    // can cause a crash. When the style is resolved naturally, we should get the appropriate updates
+    // from the render tree / DOM to make the right updates (at which point we will have existingStyle()).
+    const RenderStyle* existingStyle() const;
 
     // Note: computeIsIgnored does not consider whether an object is ignored due to presence of modals.
     // Use isIgnored as the word of law when determining if an object is ignored.
@@ -701,9 +707,9 @@ public:
 
     // Visibility.
     bool isAXHidden() const;
-    bool isDOMHidden() const;
-    bool isHidden() const { return isAXHidden() || isDOMHidden(); }
-    bool isOnScreen() const override;
+    bool isRenderHidden() const;
+    bool isHidden() const { return isAXHidden() || isRenderHidden(); }
+    bool isOnScreen() const final;
 
 #if PLATFORM(COCOA)
     void overrideAttachmentParent(AccessibilityObject* parent);

@@ -4225,6 +4225,7 @@
 		A7D6B3490F61104500FF9FD1 /* WorkerFontLoadRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = A7D6B3470F61104500FF9FD1 /* WorkerFontLoadRequest.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A7D8E64A28C80F2A0019F92F /* GraphicsClient.h in Headers */ = {isa = PBXBuildFile; fileRef = A7D8E64928C80F2A0019F92F /* GraphicsClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A7DBF8DE1276919C006B6008 /* TextCheckingHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = A7DBF8DC1276919C006B6008 /* TextCheckingHelper.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A7F0C18B2CD40FFC00585138 /* RenderViewTransitionRoot.h in Headers */ = {isa = PBXBuildFile; fileRef = A7F0C18A2CD40FF400585138 /* RenderViewTransitionRoot.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A7F49C132B7D49B800C71519 /* RenderViewTransitionCapture.h in Headers */ = {isa = PBXBuildFile; fileRef = A7F49C122B7D49A000C71519 /* RenderViewTransitionCapture.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A80E6CE60A1989CA007FB8C5 /* CSSPrimitiveValue.h in Headers */ = {isa = PBXBuildFile; fileRef = A80E6CBC0A1989CA007FB8C5 /* CSSPrimitiveValue.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A80E6CE80A1989CA007FB8C5 /* CSSShadowValue.h in Headers */ = {isa = PBXBuildFile; fileRef = A80E6CBE0A1989CA007FB8C5 /* CSSShadowValue.h */; };
@@ -16185,6 +16186,7 @@
 		A6D5A99B1629D70000297330 /* ScrollingTreeScrollingNodeDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScrollingTreeScrollingNodeDelegate.h; sourceTree = "<group>"; };
 		A70B77D52A9EE40B003D8566 /* Quaternion.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Quaternion.h; sourceTree = "<group>"; };
 		A70B77D72A9EE50C003D8566 /* Quaternion.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Quaternion.cpp; sourceTree = "<group>"; };
+		A710EF332CD41073002E3895 /* RenderViewTransitionRoot.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RenderViewTransitionRoot.cpp; sourceTree = "<group>"; };
 		A7151BD712F1558F005A0F64 /* TextCheckerClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextCheckerClient.h; sourceTree = "<group>"; };
 		A715E650134BBBEC00D8E713 /* ProgressShadowElement.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ProgressShadowElement.cpp; sourceTree = "<group>"; };
 		A715E651134BBBEC00D8E713 /* ProgressShadowElement.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProgressShadowElement.h; sourceTree = "<group>"; };
@@ -16265,6 +16267,7 @@
 		A7D8E64928C80F2A0019F92F /* GraphicsClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GraphicsClient.h; sourceTree = "<group>"; };
 		A7DBF8DB1276919C006B6008 /* TextCheckingHelper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TextCheckingHelper.cpp; sourceTree = "<group>"; };
 		A7DBF8DC1276919C006B6008 /* TextCheckingHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextCheckingHelper.h; sourceTree = "<group>"; };
+		A7F0C18A2CD40FF400585138 /* RenderViewTransitionRoot.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RenderViewTransitionRoot.h; sourceTree = "<group>"; };
 		A7F49C122B7D49A000C71519 /* RenderViewTransitionCapture.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RenderViewTransitionCapture.h; sourceTree = "<group>"; };
 		A7F49C142B7D500F00C71519 /* RenderViewTransitionCapture.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RenderViewTransitionCapture.cpp; sourceTree = "<group>"; };
 		A7FF1A86291C4AD100A7DE24 /* GraphicsLayerAsyncContentsDisplayDelegateCocoa.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GraphicsLayerAsyncContentsDisplayDelegateCocoa.h; sourceTree = "<group>"; };
@@ -36965,6 +36968,8 @@
 				BCEA4829097D93020094C9E4 /* RenderView.h */,
 				A7F49C142B7D500F00C71519 /* RenderViewTransitionCapture.cpp */,
 				A7F49C122B7D49A000C71519 /* RenderViewTransitionCapture.h */,
+				A710EF332CD41073002E3895 /* RenderViewTransitionRoot.cpp */,
+				A7F0C18A2CD40FF400585138 /* RenderViewTransitionRoot.h */,
 				BE20507B18A458B10080647E /* RenderVTTCue.cpp */,
 				BE20507C18A458B10080647E /* RenderVTTCue.h */,
 				A871DFE10A15376B00B12A68 /* RenderWidget.cpp */,
@@ -42303,6 +42308,7 @@
 				E44614520CD68A3500FADA75 /* RenderVideo.h in Headers */,
 				BCEA4868097D93020094C9E4 /* RenderView.h in Headers */,
 				A7F49C132B7D49B800C71519 /* RenderViewTransitionCapture.h in Headers */,
+				A7F0C18B2CD40FFC00585138 /* RenderViewTransitionRoot.h in Headers */,
 				BE20507E18A458C20080647E /* RenderVTTCue.h in Headers */,
 				A871DFE40A15376B00B12A68 /* RenderWidget.h in Headers */,
 				A89CCC530F44E98100B5DA10 /* ReplaceNodeWithSpanCommand.h in Headers */,

@@ -180,6 +180,11 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 				chflags(path, current_file->fts_statp->st_flags &= ~(UF_APPEND|UF_IMMUTABLE)) < 0) {
 				errno = EACCES;
 				res = -1;
+
+#if __APPLE__
+			} else if (state->unlink_flags & REMOVEFILE_SYSTEM_DISCARDED) {
+				res = unlinkat(AT_FDCWD, path, AT_SYSTEM_DISCARDED);
+#endif
 			} else {
 				res = unlink(path);
 			}

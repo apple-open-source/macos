@@ -41,6 +41,7 @@ class HTMLElement;
 class HTMLVideoElement;
 class LayoutUnit;
 class LocalFrame;
+class Node;
 class PlatformMouseEvent;
 class RegistrableDomain;
 class SecurityOriginData;
@@ -116,8 +117,10 @@ public:
     bool needsFullscreenDisplayNoneQuirk() const;
     bool needsFullscreenObjectFitQuirk() const;
     bool needsWeChatScrollingQuirk() const;
+    bool needsGoogleMapsScrollingQuirk() const;
 
     bool needsScrollbarWidthThinDisabledQuirk() const;
+    bool needsPrimeVideoUserSelectNoneQuirk() const;
     bool needsBodyScrollbarWidthNoneDisabledQuirk() const;
 
     bool shouldOpenAsAboutBlank(const String&) const;
@@ -159,6 +162,10 @@ public:
     static bool isMicrosoftTeamsRedirectURL(const URL&);
     static bool hasStorageAccessForAllLoginDomains(const HashSet<RegistrableDomain>&, const RegistrableDomain&);
     StorageAccessResult requestStorageAccessAndHandleClick(CompletionHandler<void(ShouldDispatchClick)>&&) const;
+
+#if ENABLE(TOUCH_EVENTS)
+    WEBCORE_EXPORT static bool shouldOmitTouchEventDOMAttributesForDesktopWebsite(const URL&);
+#endif
 
     static bool shouldOmitHTMLDocumentSupportedPropertyNames();
 
@@ -210,8 +217,15 @@ public:
     String scriptToEvaluateBeforeRunningScriptFromURL(const URL&);
 
     bool shouldHideCoarsePointerCharacteristics() const;
-
     bool needsZeroMaxTouchPointsQuirk() const;
+    bool implicitMuteWhenVolumeSetToZero() const;
+
+#if PLATFORM(IOS_FAMILY)
+    WEBCORE_EXPORT bool shouldIgnoreContentObservationForClick(const Node&) const;
+    WEBCORE_EXPORT bool shouldSynthesizeTouchEventsAfterNonSyntheticClick(const Node&) const;
+#endif
+
+    bool needsBingGestureEventQuirk(EventTarget*) const;
 
 private:
     bool needsQuirks() const;
@@ -219,10 +233,8 @@ private:
     bool isEmbedDomain(const String&) const;
     bool isYoutubeEmbedDomain() const;
 
-#if ENABLE(TOUCH_EVENTS)
     bool isAmazon() const;
     bool isGoogleMaps() const;
-#endif
 
     RefPtr<Document> protectedDocument() const;
 
@@ -238,6 +250,8 @@ private:
     mutable std::optional<bool> m_needsFullscreenDisplayNoneQuirk;
     mutable std::optional<bool> m_needsFullscreenObjectFitQuirk;
     mutable std::optional<bool> m_shouldAvoidPastingImagesAsWebContent;
+    mutable std::optional<bool> m_needsGoogleMapsScrollingQuirk;
+    mutable std::optional<bool> m_mayNeedToIgnoreContentObservation;
 #endif
 #if ENABLE(TOUCH_EVENTS)
     enum class ShouldDispatchSimulatedMouseEvents : uint8_t {
@@ -291,6 +305,12 @@ private:
 #if ENABLE(DESKTOP_CONTENT_MODE_QUIRKS)
     mutable std::optional<bool> m_needsZeroMaxTouchPointsQuirk;
 #endif
+    mutable std::optional<bool> m_needsPrimeVideoUserSelectNoneQuirk;
+
+#if HAVE(MEDIA_VOLUME_PER_ELEMENT)
+    mutable std::optional<bool> m_implicitMuteWhenVolumeSetToZero;
+#endif
+
     Vector<RegistrableDomain> m_subFrameDomainsForStorageAccessQuirk;
 };
 

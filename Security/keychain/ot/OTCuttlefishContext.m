@@ -386,7 +386,6 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
 
     if (newState.trustState == OTAccountMetadataClassC_TrustState_TRUSTED && oldState.trustState != OTAccountMetadataClassC_TrustState_TRUSTED) {
         [self.launchSequence addEvent:@"Trusted"];
-        [self notifyTrustChanged:newState.trustState];
     }
     if (newState.trustState != OTAccountMetadataClassC_TrustState_TRUSTED && oldState.trustState == OTAccountMetadataClassC_TrustState_TRUSTED) {
         [self.launchSequence addEvent:@"Untrusted"];
@@ -2693,6 +2692,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
                             suggestTLKUpload:self.suggestTLKUploadNotifier
                           requestPolicyCheck:self.requestPolicyCheckNotifier];
         }
+        [self notifyTrustChanged:OTAccountMetadataClassC_TrustState_TRUSTED];
 
         op.nextState = op.intendedState;
 
@@ -3612,7 +3612,7 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     return selvesSOSPeers;
 }
 
-- (void)rpcStatus:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
+- (void)rpcStatus:(xpc_object_t)xpcFd reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
 {
     __block NSMutableDictionary* result = [NSMutableDictionary dictionary];
 
@@ -3670,15 +3670,11 @@ static dispatch_time_t OctagonNFSTwoSeconds = 2*NSEC_PER_SEC;
     result[@"pushEnvironments"] = [self.apsReceiver registeredPushEnvironments];
 
     [self.cuttlefishXPCWrapper dumpWithSpecificUser:self.activeAccount
-                                              reply:^(NSDictionary * _Nullable dump, NSError * _Nullable dumpError) {
-            secnotice("octagon", "Finished dump for status RPC");
-            if(dumpError) {
-                result[@"contextDumpError"] = [SecXPCHelper cleanseErrorForXPC:dumpError];
-            } else {
-                result[@"contextDump"] = dump;
-            }
-            reply(result, nil);
-        }];
+                                     fileDescriptor:xpcFd
+                                              reply:^(NSError * _Nullable dumpError) {
+        secnotice("octagon", "Finished dump for status RPC");
+        reply(dumpError ? nil : result, dumpError);
+    }];
 }
 
 - (void)rpcFetchEgoPeerID:(void (^)(NSString* peerID, NSError* error))reply

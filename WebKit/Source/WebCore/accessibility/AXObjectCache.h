@@ -919,7 +919,8 @@ bool hasAccNameAttribute(Element&);
 bool isNodeAriaVisible(Node&);
 bool isNodeAriaVisible(Node*);
 
-bool isDOMHidden(const RenderStyle*);
+bool isRenderHidden(const RenderStyle*);
+bool isRenderHidden(const RenderStyle&);
 
 WTF::TextStream& operator<<(WTF::TextStream&, AXObjectCache::AXNotification);
 

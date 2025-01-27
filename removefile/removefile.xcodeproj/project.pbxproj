@@ -13,6 +13,8 @@
 		09B71A772613FB350086781E /* removefile_rename_unlink.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE179313592780002CEE6D /* removefile_rename_unlink.c */; };
 		09B71A782613FB370086781E /* removefile_sunlink.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE179413592780002CEE6D /* removefile_sunlink.c */; };
 		09B71A792613FB390086781E /* removefile_tree_walker.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE179513592780002CEE6D /* removefile_tree_walker.c */; };
+		520554542CC51B4A00AE99A6 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 520554532CC51B4A00AE99A6 /* CoreServices.framework */; };
+		520554562CC52B8800AE99A6 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 520554552CC52B8800AE99A6 /* CoreFoundation.framework */; };
 		FCCE179913592780002CEE6D /* checkint.h in Headers */ = {isa = PBXBuildFile; fileRef = FCCE179013592780002CEE6D /* checkint.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FCCE179A13592780002CEE6D /* removefile_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = FCCE179113592780002CEE6D /* removefile_priv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FCCE179B13592780002CEE6D /* removefile_random.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE179213592780002CEE6D /* removefile_random.c */; };
@@ -40,6 +42,8 @@
 /* Begin PBXFileReference section */
 		092D891E2AA28DB100623C9C /* removefile.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = removefile.plist; path = test/removefile.plist; sourceTree = "<group>"; };
 		3FE582A1185C51BD007B3FA6 /* removefile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = removefile.xcconfig; path = xcodescripts/removefile.xcconfig; sourceTree = "<group>"; };
+		520554532CC51B4A00AE99A6 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
+		520554552CC52B8800AE99A6 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		FCCE1789135924FC002CEE6D /* libremovefile.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libremovefile.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCCE178F13592780002CEE6D /* checkint.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = checkint.3; sourceTree = "<group>"; };
 		FCCE179013592780002CEE6D /* checkint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = checkint.h; sourceTree = "<group>"; };
@@ -68,6 +72,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				520554562CC52B8800AE99A6 /* CoreFoundation.framework in Frameworks */,
+				520554542CC51B4A00AE99A6 /* CoreServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -99,6 +105,7 @@
 				FCCE17A5135A3E9C002CEE6D /* install_files.sh */,
 				FCCE179013592780002CEE6D /* checkint.h */,
 				FCCE178F13592780002CEE6D /* checkint.3 */,
+				52F012842CC5046A003DFB65 /* Frameworks */,
 				FCCE178A135924FC002CEE6D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -275,6 +282,7 @@
 		FCCE17DA135A6961002CEE6D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = test/test-removefile.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /AppleInternal/CoreOS/tests/removefile/;
 				PRODUCT_NAME = "$(TARGET_NAME)";

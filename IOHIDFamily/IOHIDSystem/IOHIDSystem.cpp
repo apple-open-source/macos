@@ -286,11 +286,43 @@ hidActivityThread_cb(thread_call_param_t us, thread_call_param_t )
     ((IOHIDSystem *)us)->hidActivityChecker();
 }
 
-typedef struct {
-    IOCommandGate::Action   handler;
-    IOService               *newService;
-}
-IOHIDSystem_notificationData;
+class IOHIDSystem_notificationData : public OSObject
+{
+    using super = OSObject;
+
+    OSDeclareDefaultStructors(IOHIDSystem_notificationData)
+
+public:
+    IOCommandGate::Action   _handler;
+    IOService               *_newService;
+
+    static IOHIDSystem_notificationData * create(IOCommandGate::Action handler, IOService* newService)
+    {
+        IOHIDSystem_notificationData * data = OSTypeAlloc(IOHIDSystem_notificationData);
+        require(data, bail);
+        data->init();
+        data->_handler = handler;
+        data->_newService = newService;
+        data->_newService->retain();
+    bail:
+        return data;
+    }
+
+    virtual void runAction(IOHIDSystem *system)
+    {
+        _handler(system, _newService, NULL, NULL, NULL);
+    }
+
+    void free() override
+    {
+        if(_newService)
+            _newService->release();
+
+        super::free();
+    }
+};
+
+OSDefineMetaClassAndStructors(IOHIDSystem_notificationData, OSObject);
 
 #define super IOService
 OSDefineMetaClassAndStructors(IOHIDSystem, IOService);
@@ -637,11 +669,9 @@ bool IOHIDSystem::genericNotificationHandler(void * handler,
     bool result = false;
 
     if (handler && newService) {
-        IOHIDSystem_notificationData    rawData = {(IOCommandGate::Action)handler, newService};
-        OSData                          *data = OSData::withBytes(&rawData, sizeof(rawData));
+        IOHIDSystem_notificationData *data = IOHIDSystem_notificationData::create((IOCommandGate::Action)handler, newService);
 
         if (data) {
-            newService->retain();
             IOLockLock(_delayedNotificationLock);
             _delayedNotificationArray->setObject(data);
             IOLockUnlock(_delayedNotificationLock);
@@ -660,7 +690,7 @@ void IOHIDSystem::doProcessNotifications() {
     while (_delayedNotificationArray->getCount() > 0) {
         // retrieve the first item from the queue
         IOLockLock(_delayedNotificationLock);
-        OSData *notificationData = OSDynamicCast(OSData, _delayedNotificationArray->getObject(0));
+        IOHIDSystem_notificationData *notificationData = OSDynamicCast(IOHIDSystem_notificationData, _delayedNotificationArray->getObject(0));
         if (notificationData) {
             notificationData->retain();
         }
@@ -669,9 +699,8 @@ void IOHIDSystem::doProcessNotifications() {
         
         // process the notification
         if (notificationData) {
-            const IOHIDSystem_notificationData *data = (const IOHIDSystem_notificationData *)notificationData->getBytesNoCopy();
-            data->handler(this, data->newService, NULL, NULL, NULL);
-            data->newService->release();
+            IOHIDSystem_notificationData *data = notificationData;
+            data->runAction(this);
             notificationData->release();
         }
     }

@@ -2814,7 +2814,6 @@ header: <WebCore/ScrollingCoordinatorTypes.h>
     bool allowsVerticalScrolling;
     WebCore::NativeScrollbarVisibility horizontalNativeScrollbarVisibility;
     WebCore::NativeScrollbarVisibility verticalNativeScrollbarVisibility;
-    bool useDarkAppearanceForScrollbars;
     WebCore::ScrollbarWidth scrollbarWidthStyle;
 };
 
@@ -4151,6 +4150,7 @@ header: <WebCore/ScrollingStateNode.h>
     ScrollbarEnabledState
     ScrollbarLayoutDirection
     ScrollbarWidth
+    UseDarkAppearanceForScrollbars
     FrameScaleFactor
     EventTrackingRegion
     RootContentsLayer

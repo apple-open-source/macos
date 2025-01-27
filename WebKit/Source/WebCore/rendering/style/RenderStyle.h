@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "PseudoElementIdentifier.h"
 #include <unicode/utypes.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/DataRef.h>
@@ -286,7 +287,6 @@ using LayoutBoxExtent = RectEdges<LayoutUnit>;
 namespace Style {
 class CustomPropertyRegistry;
 class ViewTransitionName;
-struct PseudoElementIdentifier;
 struct ScopedName;
 }
 
@@ -298,7 +298,7 @@ constexpr auto PseudoElementTypeBits = 5;
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(PseudoStyleCache);
 struct PseudoStyleCache {
     WTF_MAKE_STRUCT_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(PseudoStyleCache);
-    Vector<std::unique_ptr<RenderStyle>, 4> styles;
+    HashMap<Style::PseudoElementIdentifier, std::unique_ptr<RenderStyle>> styles;
 };
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(RenderStyle);

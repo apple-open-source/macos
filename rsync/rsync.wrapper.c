@@ -2,6 +2,8 @@
 
 /* General settings */
 #define WRAPPER_APPLICATION_COUNT 2
+#define WRAPPER_MAXNAMELEN 16
+#define WRAPPER_NAME "rsync"
 #define WRAPPER_ENV_VAR "CHOSEN_RSYNC"
 #define WRAPPER_ANALYTICS_IDENT "com.apple.rsync"
 #define WRAPPER_ANALYTICS_NOARGS true
@@ -42,10 +44,12 @@
 #include <assert.h>
 #include <err.h>
 #include <getopt.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <xpc/xpc.h>
 
@@ -59,6 +63,9 @@
 #ifndef nitems
 #define	nitems(x)	(sizeof((x)) / sizeof((x)[0]))
 #endif
+
+/* The trailing slash is important, will be glued to WRAPPER_NAME later. */
+#define	_PATH_VARSEL	"/var/select/"
 
 #if !defined(WRAPPER_ANALYTICS_IDENT) && defined(WRAPPER_ANALYTICS_TESTING)
 #error shim was improperly modified to remove the analytics identifier
@@ -418,6 +425,27 @@ wrapper_logged_args(const struct application *app, int argc, char *argv[])
 #endif
 
 #if WRAPPER_APPLICATION_COUNT > 1
+static struct application *
+wrapper_by_name(const char *appname)
+{
+	struct application *app;
+
+	for (size_t i = 0; i < nitems(wrapper_apps); i++) {
+		app = &wrapper_apps[i];
+
+		if (strcmp(appname, app->app_name) == 0)
+			return (app);
+	}
+
+	/*
+	 * We've historically ignored errors in env selection; should we
+	 * consider warning here instead, rather than just falling through to
+	 * the "default" application?  The behavior will be documented either
+	 * way.
+	 */
+	return (NULL);
+}
+
 static const struct application *
 wrapper_check_env(void)
 {
@@ -437,6 +465,42 @@ wrapper_check_env(void)
 #endif
 
 	return (NULL);
+}
+
+static const struct application *
+wrapper_check_var(void)
+{
+	/*
+	 * The wrapper name may not be defined if the wrapper was fed via
+	 * stdin, in which case we won't have defined WRAPPER_NAME.  We'll just
+	 * not check /var/select in those wrappers.
+	 */
+#ifdef WRAPPER_NAME
+	static const char varpath[] = _PATH_VARSEL WRAPPER_NAME;
+	static bool var_app_read;
+	static const struct application *var_app;
+	char target[WRAPPER_MAXNAMELEN];
+	ssize_t ret;
+
+	if (var_app_read)
+		return (var_app);
+
+	ret = readlink(varpath, target, sizeof(target));
+	var_app_read = true;
+	if (ret <= 0 || ret == sizeof(target))
+		return (NULL);
+
+	target[ret] = '\0';
+
+	/*
+	 * We might get called twice under arg-based selection, so cache the
+	 * result just in case.
+	 */
+	var_app = wrapper_by_name(target);
+	return (var_app);
+#else
+	return (NULL);
+#endif
 }
 
 static bool
@@ -500,17 +564,30 @@ wrapper_check_args_app(const struct application *app, int argc, char *argv[])
 static const struct application *
 wrapper_check_args(int argc, char *argv[])
 {
-	const struct application *app;
+	const struct application *app, *dflt_app;
 
 	/*
 	 * If we only have the name, there are no arguments to check and we can
 	 * simple execute the default application.
 	 */
 	if (argc == 1)
-		return (&wrapper_apps[0]);
+		return (NULL);
+
+	/*
+	 * If a default has been provided via /var/select, that overrides what
+	 * was specified as the default in the wrapper config -- thus, we check
+	 * that one first, then check every other application specified.  If
+	 * none of them are compatible with the arguments chosen, we'll use the
+	 * var-specified app anyways.
+	 */
+	dflt_app = wrapper_check_var();
+	if (dflt_app != NULL)
+		return (dflt_app);
 
 	for (size_t i = 0; i < nitems(wrapper_apps); i++) {
 		app = &wrapper_apps[i];
+		if (app == dflt_app)
+			continue;
 
 		if (wrapper_check_args_app(app, argc, argv))
 			return (app);
@@ -705,6 +782,10 @@ main(int argc, char *argv[])
 		return (wrapper_execute(chosen_app, argc, argv));
 
 	chosen_app = wrapper_check_args(argc, argv);
+	if (chosen_app != NULL)
+		return (wrapper_execute(chosen_app, argc, argv));
+
+	chosen_app = wrapper_check_var();
 	if (chosen_app != NULL)
 		return (wrapper_execute(chosen_app, argc, argv));
 #endif

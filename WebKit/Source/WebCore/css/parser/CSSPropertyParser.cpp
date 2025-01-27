@@ -1986,6 +1986,7 @@ bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand&
     do {
         bool parsedLonghand[10] = { false };
         bool lastParsedWasPosition = false;
+        bool clipIsBorderArea = false;
         RefPtr<CSSValue> originValue;
         do {
             bool foundProperty = false;
@@ -2028,6 +2029,8 @@ bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand&
                 if (value) {
                     if (property == CSSPropertyBackgroundOrigin || property == CSSPropertyMaskOrigin)
                         originValue = value;
+                    else if (property == CSSPropertyBackgroundClip)
+                        clipIsBorderArea = value->valueID() == CSSValueBorderArea;
                     parsedLonghand[i] = true;
                     foundProperty = true;
                     longhands[i].append(value.releaseNonNull());
@@ -2051,6 +2054,10 @@ bool CSSPropertyParser::consumeBackgroundShorthand(const StylePropertyShorthand&
             }
             if ((property == CSSPropertyBackgroundClip || property == CSSPropertyMaskClip || property == CSSPropertyWebkitMaskClip) && !parsedLonghand[i] && originValue) {
                 longhands[i].append(originValue.releaseNonNull());
+                continue;
+            }
+            if (clipIsBorderArea && (property == CSSPropertyBackgroundOrigin) && !parsedLonghand[i]) {
+                longhands[i].append(CSSPrimitiveValue::create(CSSValueBorderBox));
                 continue;
             }
             if (!parsedLonghand[i])

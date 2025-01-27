@@ -1107,6 +1107,12 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
                    vfs_statfs(mp)->f_mntfromname, smp->sm_args.compression_max_fail_cnt);
     }
 
+    if (args->compression_exclude_cnt >= kClientCompressMaxEntries) {
+        SMBERROR("compression_exclude_cnt <%d> greater than max allowed <%d>", args->compression_exclude_cnt, kClientCompressMaxEntries);
+        error = EINVAL;
+        goto bad;
+    }
+
     /* Copy user exclusion list if any */
     for (i = 0; i < args->compression_exclude_cnt; i++) {
         smp->sm_args.compression_exclude[i] = smb_strndup(args->compression_exclude[i],
@@ -1114,6 +1120,13 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
                                                           &smp->sm_args.compression_exclude_allocsize[i]);
     }
     smp->sm_args.compression_exclude_cnt = args->compression_exclude_cnt;
+
+    if (args->compression_include_cnt >= kClientCompressMaxEntries) {
+        SMBERROR("compression_include_cnt <%d> greater than max allowed <%d>",
+                 args->compression_include_cnt, kClientCompressMaxEntries - 1);
+        error = EINVAL;
+        goto bad;
+    }
 
     /* Copy user inclusion list if any */
     for (i = 0; i < args->compression_include_cnt; i++) {

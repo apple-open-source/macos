@@ -1,5 +1,6 @@
 import Foundation
 import os
+import System
 
 let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "tpctl")
 
@@ -609,25 +610,59 @@ connection.resume()
 
 let tpHelper = connection.synchronousRemoteObjectProxyWithErrorHandler { error in print("Unable to connect to TPHelper:", error) } as! TrustedPeersHelperProtocol
 
+class NullRemoverPiperToStdOut {
+    var readEnd: FileHandle
+    var writeFd: xpc_object_t
+    let group: DispatchGroup
+
+    init() {
+        do {
+            let (readEnd, writeEnd) = try FileDescriptor.pipe()
+            self.readEnd = FileHandle(fileDescriptor: readEnd.rawValue, closeOnDealloc: true)
+            guard let xpcFd = xpc_fd_create(writeEnd.rawValue) else {
+                fatalError("Piper couldn't wrap write end of pipe")
+            }
+            writeFd = xpcFd
+            try writeEnd.close()
+            group = DispatchGroup()
+        } catch {
+            fatalError("Could not create Piper: \(String(describing: error))")
+        }
+    }
+
+    func writeXpcFd() -> xpc_object_t {
+        DispatchQueue.global(qos: .userInteractive).async(group: group) {
+            var done = false
+            while !done {
+                var readData = self.readEnd.availableData
+                if readData[readData.count - 1] == 0 {
+                    readData.removeLast()
+                    done = true
+                }
+                FileHandle.standardOutput.write(readData)
+            }
+        }
+        return writeFd
+    }
+
+    func wait() {
+        if group.wait(timeout: .now().advanced(by: DispatchTimeInterval.seconds(5)) ) == .timedOut {
+            fatalError("Waited too long for piper to finish")
+        }
+    }
+}
+
 for command in commands {
     switch command {
     case .dump:
         logger.log("dumping (\(container), \(context))")
-        tpHelper.dump(with: specificUser) { reply, error in
+        let piper = NullRemoverPiperToStdOut()
+        tpHelper.dump(with: specificUser, fileDescriptor: piper.writeXpcFd()) { error in
             guard error == nil else {
                 print("Error dumping:", error!)
                 return
             }
-
-            if let reply = reply {
-                do {
-                    print(try TPCTLObjectiveC.jsonSerialize(cleanDictionaryForJSON(reply)))
-                } catch {
-                    print("Error encoding JSON: \(error)")
-                }
-            } else {
-                print("Error: no results, but no error either?")
-            }
+            piper.wait()
         }
 
     case .depart:

@@ -202,10 +202,12 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 #endif
         )
     {
-        if ( context->filesystem && didProbe )
+        if ( didProbe )
         {
+            CFStringRef kind = ( context->filesystem != NULL && !( status ) ) ? DAFileSystemGetKind( context->filesystem ) : NULL;
+            
             DATelemetrySendProbeEvent( status ,
-                                       DAFileSystemGetKind( context->filesystem ) ,
+                                       kind ,
                                        CFSTR("kext") ,
                                        clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->startTime ,
                                        cleanStatus );

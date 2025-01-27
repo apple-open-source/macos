@@ -1,0 +1,293 @@
+       FEE Portable Byte Representation of Public Key Strings and Signatures
+						Last Modified 15 March 2001
+
+This defines portable data formats shared by the C and Java implementation of FEE. This definition supercedes formats used prior to 20 Feb 2001.
+
+
+Primitive Data Types
+--------------------
+
+    int, unsigned int:
+     	4 bytes, M.S. byte first
+
+    short, feeUnichar, Java char:
+     	2 bytes, M.S. byte first
+
+    giant, GiantInteger:
+
+	type     contents	comment
+    ------	 --------	---------------------------------------
+	int	 	 numBytes	abs(numBytes) indicates size of n[] to
+							follow, in BYTES
+							sign of numBytes is sign bit of result
+	byte	 data 		n[0], MSB first for each element
+
+
+Curve Parameters (curveParams, Java CurveParams)
+------------------------------------------------
+
+    CURVE_PARAM_VERSION = 1:
+
+	type     contents
+	------	 --------
+	int	 	 CURVE_PARAM_VERSION = 1
+	int 	 minVersion of code to parse this struct = 1
+	unsigned q
+	int		 k
+	int		 spare
+	giant	 a
+	giant	 b
+	giant	 c
+	giant	 x1Plus
+	giant	 x1Minus
+	giant	 cOrderPlus
+	giant	 cOrderMinus
+	giant	 x1OrderPlus
+	giant	 x1OrderMinus
+
+	The last four fields are not always known; a value of (giant)0
+	indicates a "not known" condition. In this case, 4 bytes of
+	zero are written, indicating a giant with a length of zero.
+
+    CURVE_PARAM_VERSION = 2 (20 Jan 1998)
+
+	type     contents
+	------	 --------
+	int	 	 CURVE_PARAM_VERSION = 2
+	int 	 minVersion of code to parse this struct = 2
+	byte     primeType	/* new for version 2 */
+	unsigned q
+	int	 	 k
+	unsigned m		/* new for version 2 */
+	int		 spare
+	giant	 a
+	giant	 b
+	giant	 c
+	giant	 x1Plus
+	giant	 x1Minus
+	giant	 cOrderPlus
+	giant	 cOrderMinus
+	giant	 x1OrderPlus
+	giant	 x1OrderMinus
+	giant	 basePrime, if primeType == PT_GENERAL  /* new */
+
+	Note that as of version 2, the cOrder* and x1Order* fields are always
+	known.
+
+    CURVE_PARAM_VERSION = 3 (1 Sep 1998)
+
+	type     contents
+	------	 --------
+	int	 	 CURVE_PARAM_VERSION = 3
+	int 	 minVersion of code to parse this struct = 3
+	byte     primeType
+	byte     curveType	/* new for version 3 */
+	unsigned q
+	int	 	 k
+	unsigned m
+	int	 	 spare
+	giant	 a
+	giant	 b
+	giant	 c
+	giant	 x1Plus
+	giant	 x1Minus
+	giant	 cOrderPlus
+	giant	 cOrderMinus
+	giant	 x1OrderPlus
+	giant	 x1OrderMinus
+	giant	 basePrime, if primeType == PT_GENERAL
+
+
+Public Key String
+-----------------
+
+	PUBLIC_KEY_STRING_VERSION = 3:
+
+	A public key string is always encoded via enc64(); the raw data before 
+	enc64() is as follows.
+
+	type    	contents
+    ------		--------
+	int			PUBLIC_KEY_STRING_MAGIC (0xfeeddeef)
+	int 		PUBLIC_KEY_STRING_VERSION = 3
+	int     	minVersion of code to parse this key = 3
+	int			spare
+	curveParams	curve parameters
+	giant		plusX (public key, plus curve)
+	giant		minusX (public key, minus curve)
+	int			usageName length in unichars
+	feeUnichar[] usageName as array of unichars
+
+	PUBLIC_KEY_BLOB_VERSION = 4 (23 Mar 1998)
+
+	New for version 4 - exported blobs for both public and private keys. 
+	Public key strings are merely enc64() encoded versions of public 
+	key blobs and are identical to PUBLIC_KEY_STRING_VERSION 3 public 
+	key strings.
+
+    PUBLIC_KEY_BLOB_MAGIC : 0xfeeddeef - public
+                            0xfeeddeed - private
+    minVersion : 3 for public, 4 for private
+
+	type    	contents
+    ------		--------
+	int			PUBLIC_KEY_BLOB_MAGIC
+	int 		PUBLIC_KEY_BLOB_VERSION = 4
+	int     	minVersion of code to parse this key = 3 or 4
+	int			spare
+	curveParams	curve parameters
+
+	public key blob:
+	  giant		plusX (public key, plus curve)
+	  giant		minusX (public key, minus curve)
+	private key blob:
+	  int		privDataLen
+	  unsigned char privData[]
+
+	both private and public:
+
+	int				usageName length in unichars
+	feeUnichar[]	usageName as array of unichars
+
+	PUBLIC_KEY_BLOB_VERSION = 5 (2 Sep 1998)
+
+	Added plusY.
+	minVersion = 5.
+
+	type    	contents
+    ------		--------
+	int			PUBLIC_KEY_BLOB_MAGIC_{PRIV,PUB}
+	int 		PUBLIC_KEY_BLOB_VERSION = 5
+	int     	minVersion of code to parse this key = 5
+	int			spare
+	curveParams	curve parameters
+
+	public key blob:
+	  giant		plusX (public key, plus curve)
+	  giant		plusY (y-coord of public key, plus curve, may be zero)
+	  giant		minusX (public key, minus curve)
+	private key blob:
+	  giant		privGiant
+
+	both private and public:
+
+	int				usageName length in unichars
+	feeUnichar[]	usageName as array of unichars
+
+	PUBLIC_KEY_BLOB_VERSION = 6 (14 Mar 2001)
+
+    Deleted usageName.
+
+	type    	contents
+    ------		--------
+	int			PUBLIC_KEY_BLOB_MAGIC_{PRIV,PUB}
+	int 		PUBLIC_KEY_BLOB_VERSION = 5
+	int     	minVersion of code to parse this key = 5
+	int			spare
+	curveParams	curve parameters
+
+	public key blob:
+	  giant		plusX (public key, plus curve)
+	  giant		plusY (y-coord of public key, plus curve, may be zero)
+	  giant		minusX (public key, minus curve)
+	private key blob:
+	  giant		privGiant
+
+
+Digital Signature, ElGamal style
+--------------------------------
+
+	type    		contents
+	------			--------
+	int          	FEE_SIG_MAGIC (0xfee00516)
+	int          	FEE_SIG_VERSION = 3
+	int          	minVersion of code to parse this signature = 3
+	int          	spare
+	int				signer length in unichars (DELETED 2/20/01)
+	feeUnichar[]	signer as array of unichars (DELETED 2/20/01)
+	giant			u
+	giant			Pm.x
+
+	FEE_SIG_VERSION = 4 (15 March 2001)
+	Deleted signer.
+	
+	type    		contents
+	------			--------
+	int          	FEE_SIG_MAGIC (0xfee00516)
+	int          	FEE_SIG_VERSION = 4
+	int          	minVersion of code to parse this signature = 4
+	int          	spare
+	giant			u
+	giant			Pm.x
+
+Digital Signature, ECDSA style
+--------------------------------
+
+	type    	contents
+    ------		--------
+	int         FEE_ECDSA_MAGIC (0xfee00517)
+	int         FEE_ECDSA_VERSION = 1
+	int         minVersion of code to parse this signature = 1
+	int         spare
+	int			signer length in unichars (DELETED 2/20/01)
+	feeUnichar[] signer as array of unichars (DELETED 2/20/01)
+	giant		s
+	giant		x0
+
+	FEE_ECDSA_VERSION = 2 (15 March 2001)
+	Deleted signer.
+
+	type    	contents
+    ------		--------
+	int         FEE_ECDSA_MAGIC (0xfee00517)
+	int         FEE_ECDSA_VERSION = 2
+	int         minVersion of code to parse this signature = 2
+	int         spare
+	giant		s
+	giant		x0
+
+
+
+FEED (2:1) CipherText
+---------------------
+
+This data type uses an optimized form of Giants in that the sign, and hence 
+the number of 16-bit shorts (i.e., the size of n[]), is implied by the size 
+of p used in encryption and decryption. For a given curve parameter q (as 
+in p = 2**q - k), the number of shorts per giant transmitted is ((q/8 + 1)/2). 
+As in normal giants, the n[] array is transmitted m.s. byte first. During 
+encoding, unused elements in n[] - i.e., those appearing after 
+n[abs(sign) - 1] - are zero. Upon decoding, the sign of an incoming n[] 
+array can be inferred from the number of non-zero shorts.
+
+One block of ciphertext is formatted as follows. See "Fast Elliptic 
+Encryption (FEE) Algorithms", by Richard E. Crandall, July 1996, for 
+descriptions of Xm, Xc, and g.
+
+	type		  	  contents
+	---------------	  -----------------
+	optimized giant   Xm
+	optimized giant   Xc
+	byte		  	  g
+
+
+FEED (1:1) CipherText
+---------------------
+
+The first cipherblock is a FEED(2:1) encrypted copy of the initial 
+R and S arrays; this is basically a bunch of random bytes which are 
+used to cook up the giants R and S at both encrypt and decrypt time. 
+In 1:1 FEED ciphertext, this is encrypted with the recipient's public 
+key; the result is padded out to one 1:1 FEED Cipherblock.
+
+Subsequent cipherblocks are:
+
+	type		  	  contents
+	---------------	  -----------------
+	optimized giant   Xm
+	byte		  	  clueByte
+
+	clueByte contents:
+	    bit 0 : 0 ==> minus
+	            1 ==> plus
+	    bit 1 : 's' arg to elliptic_add()

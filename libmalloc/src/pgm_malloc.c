@@ -1151,6 +1151,7 @@ static struct {
 	bool internal_build;
 	bool MallocProbGuard_is_set;
 	bool MallocProbGuard;
+	bool targeted_coverage;
 } g_env;
 
 void
@@ -1163,6 +1164,13 @@ pgm_init_config(bool internal_build)
 	if (env_var("MallocProbGuard")) {
 		g_env.MallocProbGuard_is_set = true;
 		g_env.MallocProbGuard = env_bool("MallocProbGuard");
+	}
+
+	const char *all_factors = env_var("__TRIFactors");
+	const char *pgm_factor =
+			"PROBABILISTIC_GUARD_MALLOC_TARGETED_COVERAGE:enable=1";
+	if (all_factors && strstr(all_factors, pgm_factor)) {
+		g_env.targeted_coverage = true;
 	}
 }
 
@@ -1195,42 +1203,47 @@ should_activate(bool internal_build)
 
 #if TARGET_OS_WATCH || TARGET_OS_TV
 static bool
-is_high_memory_device(void)
+is_low_memory_device(void)
 {
-	uint64_t high_memory = 1.2 * 1024 * 1024 * 1024;  // 1.2 GB
-	return platform_hw_memsize() > high_memory;
+	uint64_t low_memory = 1.2 * 1024 * 1024 * 1024;  // 1.2 GB
+	return platform_hw_memsize() <= low_memory;
 }
 #endif
-
-#define PGM_ALLOW_NON_INTERNAL_ACTIVATION 0
-
 
 bool
 pgm_should_enable(void)
 {
+	// Env var override
 	if (g_env.MallocProbGuard_is_set) {
 		return g_env.MallocProbGuard;
 	}
-	bool internal_build = g_env.internal_build;
-	if (FEATURE_FLAG(ProbGuard, true) && should_activate(internal_build)) {
-#if TARGET_OS_OSX || TARGET_OS_IOS
-		return true;
-#elif TARGET_OS_WATCH || TARGET_OS_TV
-		if (is_high_memory_device()) {
-			return true;
-		}
-#elif PGM_ALLOW_NON_INTERNAL_ACTIVATION
-		return true;
-#else
-		if (internal_build) {
-			return true;
-		}
-#endif
+
+	// Feature flags
+	if (!FEATURE_FLAG(ProbGuard, true)) {
+		return false;
 	}
 	if (FEATURE_FLAG(ProbGuardAllProcesses, false)) {
 		return true;
 	}
-	return false;
+
+	// Excluded configurations
+#if TARGET_OS_WATCH || TARGET_OS_TV
+	if (is_low_memory_device()) {
+		return false;
+	}
+#elif TARGET_OS_BRIDGE || TARGET_OS_DRIVERKIT
+	if (!g_env.internal_build) {
+		return false;
+	}
+#endif
+
+	// Targeted coverage via Trial
+	if (g_env.targeted_coverage) {
+		return true;
+	}
+
+	// Random activation
+	return should_activate(g_env.internal_build);
 }
 
 static uint32_t

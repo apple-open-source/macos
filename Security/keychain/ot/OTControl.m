@@ -33,6 +33,7 @@
 
 #import "keychain/ot/OTClique.h"
 #import "keychain/ot/OTControl.h"
+#import "keychain/ot/AsyncPiper.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTControlProtocol.h"
 #import "keychain/ot/OctagonControlServer.h"
@@ -392,9 +393,38 @@
 - (void)status:(OTControlArguments*)arguments
          reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
 {
+    NSError* piperError = nil;
+    AsyncPiper* piper = [[AsyncPiper alloc] initWithError:&piperError];
+    if (piperError) {
+        reply(nil, piperError);
+        return;
+    }
+
+    [self status:arguments
+           xpcFd:[piper xpcFd]
+           reply:^(NSDictionary* _Nullable result, NSError* _Nullable error){
+        if(error) {
+            reply(nil, error);
+            return;
+        }
+        NSMutableDictionary* modifiableResult = [NSMutableDictionary dictionaryWithDictionary:result];
+        NSDictionary* contextDump = [piper dictWithError:&error];
+        if(error) {
+            modifiableResult[@"contextDumpError"] = [SecXPCHelper cleanseErrorForXPC:error];
+        } else {
+            modifiableResult[@"contextDump"] = contextDump;
+        }
+        reply(modifiableResult, nil);
+    }];
+}
+
+- (void)status:(OTControlArguments*)arguments
+         xpcFd:(xpc_object_t)xpcFd
+         reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
+{
     [[self getConnection: ^(NSError* error) {
         reply(nil, error);
-    }] status:arguments reply:reply];
+    }] status:arguments xpcFd:xpcFd reply:reply];
 }
 
 - (void)fetchEgoPeerID:(OTControlArguments*)arguments

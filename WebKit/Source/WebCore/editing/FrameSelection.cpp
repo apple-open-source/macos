@@ -396,7 +396,8 @@ bool FrameSelection::setSelectionWithoutUpdatingAppearance(const VisibleSelectio
             setNodeFlags(m_selection, false);
             m_selection = newSelection;
             setNodeFlags(m_selection, true);
-            updateAssociatedLiveRange();
+            if (!options.contains(SetSelectionOption::MaintainLiveRange))
+                disassociateLiveRange();
             return false;
         }
 
@@ -419,7 +420,8 @@ bool FrameSelection::setSelectionWithoutUpdatingAppearance(const VisibleSelectio
         setNodeFlags(m_selection, false);
         m_selection = newSelection;
         setNodeFlags(m_selection, true);
-        updateAssociatedLiveRange();
+        if (!options.contains(SetSelectionOption::MaintainLiveRange))
+            disassociateLiveRange();
     }
 
     // Selection offsets should increase when LF is inserted before the caret in InsertLineBreakCommand. See <https://webkit.org/b/56061>.
@@ -752,7 +754,7 @@ void FrameSelection::respondToNodeModification(Node& node, bool anchorRemoved, b
     }
 
     if (clearDOMTreeSelection)
-        setSelection(VisibleSelection(), SetSelectionOption::DoNotSetFocus);
+        setSelection(VisibleSelection(), { SetSelectionOption::DoNotSetFocus, SetSelectionOption::MaintainLiveRange });
 }
 
 static void updatePositionAfterAdoptingTextReplacement(Position& position, CharacterData& node, unsigned offset, unsigned oldLength, unsigned newLength)
@@ -809,7 +811,7 @@ void FrameSelection::textWasReplaced(CharacterData& node, unsigned offset, unsig
         else
             newSelection.setWithoutValidation(start, end);
 
-        setSelection(newSelection, SetSelectionOption::DoNotSetFocus);
+        setSelection(newSelection, { SetSelectionOption::DoNotSetFocus, SetSelectionOption::MaintainLiveRange });
     }
 }
 
@@ -3086,19 +3088,7 @@ void FrameSelection::updateFromAssociatedLiveRange()
         // Don't use VisibleSelection's constructor that takes a SimpleRange, because it uses makeDeprecatedLegacyPosition instead of makeContainerOffsetPosition.
         auto start = makeContainerOffsetPosition(m_associatedLiveRange->protectedStartContainer(), m_associatedLiveRange->startOffset());
         auto end = makeContainerOffsetPosition(m_associatedLiveRange->protectedEndContainer(), m_associatedLiveRange->endOffset());
-        setSelection({ start, end });
-    }
-}
-
-void FrameSelection::updateAssociatedLiveRange()
-{
-    auto range = m_selection.range();
-    if (!containsEndpoints(m_document, range)) {
-        // The selection was cleared or is now within a shadow tree.
-        disassociateLiveRange();
-    } else {
-        if (m_associatedLiveRange)
-            m_associatedLiveRange->updateFromSelection(*range);
+        setSelection({ start, end }, defaultSetSelectionOptions() | SetSelectionOption::MaintainLiveRange);
     }
 }
 

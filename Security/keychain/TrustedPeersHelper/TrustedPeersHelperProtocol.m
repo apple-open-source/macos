@@ -37,7 +37,8 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         NSSet* arrayOfCuttlefishCurrentItems = [NSSet setWithArray:@[[NSArray class], [CuttlefishCurrentItem class]]];
 
         [interface setClasses:errClasses forSelector:@selector(honorIDMSListChangesForSpecificUser:reply:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(dumpWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(dumpWithSpecificUser:fileDescriptor:reply:) argumentIndex:0 ofReply:YES];
+        [interface setXPCType:XPC_TYPE_FD forSelector:@selector(dumpWithSpecificUser:fileDescriptor:reply:) argumentIndex:1 ofReply:NO];
         [interface setClasses:errClasses forSelector:@selector(octagonPeerIDGivenBottleIDWithSpecificUser:bottleID:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(trustedDeviceNamesByPeerIDWithSpecificUser:reply:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(departByDistrustingSelfWithSpecificUser:reply:) argumentIndex:0 ofReply:YES];

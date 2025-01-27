@@ -98,7 +98,7 @@ void CacheStorageCache::getSize(CompletionHandler<void(uint64_t)>&& callback)
         uint64_t size = 0;
         for (auto& urlRecords : m_records.values()) {
             for (auto& record : urlRecords)
-                size += record.size;
+                size += record.size();
         }
         return callback(size);
     }
@@ -106,7 +106,7 @@ void CacheStorageCache::getSize(CompletionHandler<void(uint64_t)>&& callback)
     m_store->readAllRecordInfos([callback = WTFMove(callback)](auto&& recordInfos) mutable {
         uint64_t size = 0;
         for (auto& recordInfo : recordInfos)
-            size += recordInfo.size;
+            size += recordInfo.size();
 
         callback(size);
     });
@@ -130,13 +130,13 @@ void CacheStorageCache::open(WebCore::DOMCacheEngine::CacheIdentifierCallback&& 
         assertIsOnCorrectQueue();
 
         std::sort(recordInfos.begin(), recordInfos.end(), [](auto& a, auto& b) {
-            return a.insertionTime < b.insertionTime;
+            return a.insertionTime() < b.insertionTime();
         });
 
         for (auto&& recordInfo : recordInfos) {
-            RELEASE_ASSERT(!recordInfo.url.string().impl()->isAtom());
-            recordInfo.identifier = nextRecordIdentifier();
-            m_records.ensure(computeKeyURL(recordInfo.url), [] {
+            RELEASE_ASSERT(!recordInfo.url().string().impl()->isAtom());
+            recordInfo.setIdentifier(nextRecordIdentifier());
+            m_records.ensure(computeKeyURL(recordInfo.url()), [] {
                 return Vector<CacheStorageRecordInformation> { };
             }).iterator->value.append(WTFMove(recordInfo));
         }
@@ -151,7 +151,8 @@ void CacheStorageCache::open(WebCore::DOMCacheEngine::CacheIdentifierCallback&& 
 static CacheStorageRecord toCacheStorageRecord(WebCore::DOMCacheEngine::CrossThreadRecord&& record, FileSystem::Salt salt, const String& uniqueName)
 {
     NetworkCache::Key key { "record"_s, uniqueName, { }, createVersion4UUIDString(), salt };
-    CacheStorageRecordInformation recordInfo { WTFMove(key), MonotonicTime::now().secondsSinceEpoch().milliseconds(), record.identifier, 0 , record.responseBodySize, record.request.url(), false, { } };
+    auto requestURL = record.request.url();
+    CacheStorageRecordInformation recordInfo { WTFMove(key), MonotonicTime::now().secondsSinceEpoch().milliseconds(), record.identifier, 0 , record.responseBodySize, WTFMove(requestURL), false, HashMap<String, String> { } };
     recordInfo.updateVaryHeaders(record.request, record.response);
 
     return CacheStorageRecord { WTFMove(recordInfo), record.requestHeadersGuard, WTFMove(record.request), record.options, WTFMove(record.referrer), record.responseHeadersGuard, WTFMove(record.response), record.responseBodySize, WTFMove(record.responseBody) };
@@ -181,8 +182,8 @@ void CacheStorageCache::retrieveRecords(WebCore::RetrieveRecordsOptions&& option
 
         WebCore::CacheQueryOptions queryOptions { options.ignoreSearch, options.ignoreMethod, options.ignoreVary };
         for (auto& record : iterator->value) {
-            RELEASE_ASSERT(!record.url.string().impl()->isAtom());
-            if (WebCore::DOMCacheEngine::queryCacheMatch(options.request, record.url, record.hasVaryStar, record.varyHeaders, queryOptions))
+            RELEASE_ASSERT(!record.url().string().impl()->isAtom());
+            if (WebCore::DOMCacheEngine::queryCacheMatch(options.request, record.url(), record.hasVaryStar(), record.varyHeaders(), queryOptions))
                 targetRecordInfos.append(record);
         }
     }
@@ -197,7 +198,7 @@ void CacheStorageCache::retrieveRecords(WebCore::RetrieveRecordsOptions&& option
             if (!cacheStorageRecord)
                 continue;
     
-            WebCore::DOMCacheEngine::CrossThreadRecord record { cacheStorageRecord->info.identifier, 0, cacheStorageRecord->requestHeadersGuard, WTFMove(cacheStorageRecord->request), cacheStorageRecord->options, WTFMove(cacheStorageRecord->referrer), cacheStorageRecord->responseHeadersGuard, { }, nullptr, 0 };
+            WebCore::DOMCacheEngine::CrossThreadRecord record { cacheStorageRecord->info.identifier(), 0, cacheStorageRecord->requestHeadersGuard, WTFMove(cacheStorageRecord->request), cacheStorageRecord->options, WTFMove(cacheStorageRecord->referrer), cacheStorageRecord->responseHeadersGuard, { }, nullptr, 0 };
             if (options.shouldProvideResponse) {
                 record.response = WTFMove(cacheStorageRecord->responseData);
                 record.responseBody = WTFMove(cacheStorageRecord->responseBody);
@@ -236,12 +237,12 @@ void CacheStorageCache::removeRecords(WebCore::ResourceRequest&& request, WebCor
     Vector<CacheStorageRecordInformation> targetRecordInfos;
     uint64_t sizeDecreased = 0;
     iterator->value.removeAllMatching([&](auto& record) {
-        if (!WebCore::DOMCacheEngine::queryCacheMatch(request, record.url, record.hasVaryStar, record.varyHeaders, options))
+        if (!WebCore::DOMCacheEngine::queryCacheMatch(request, record.url(), record.hasVaryStar(), record.varyHeaders(), options))
             return false;
 
-        targetRecordIdentifiers.append(record.identifier);
+        targetRecordIdentifiers.append(record.identifier());
         targetRecordInfos.append(record);
-        sizeDecreased += record.size;
+        sizeDecreased += record.size();
         return true;
     });
     if (iterator->value.isEmpty())
@@ -266,9 +267,9 @@ CacheStorageRecordInformation* CacheStorageCache::findExistingRecord(const WebCo
 
     WebCore::CacheQueryOptions options;
     auto index = iterator->value.findIf([&] (auto& record) {
-        RELEASE_ASSERT(!record.url.string().impl()->isAtom());
-        bool hasMatchedIdentifier = !identifier || identifier == record.identifier;
-        return hasMatchedIdentifier && WebCore::DOMCacheEngine::queryCacheMatch(request, record.url, record.hasVaryStar, record.varyHeaders, options);
+        RELEASE_ASSERT(!record.url().string().impl()->isAtom());
+        bool hasMatchedIdentifier = !identifier || identifier == record.identifier();
+        return hasMatchedIdentifier && WebCore::DOMCacheEngine::queryCacheMatch(request, record.url(), record.hasVaryStar(), record.varyHeaders(), options);
     });
     if (index == notFound)
         return nullptr;
@@ -291,7 +292,7 @@ void CacheStorageCache::putRecords(Vector<WebCore::DOMCacheEngine::CrossThreadRe
         if (isSpaceRequestedValid) {
             spaceRequested += record.responseBodySize;
             if (auto* existingRecord = findExistingRecord(record.request))
-                spaceAvailable += existingRecord->size;
+                spaceAvailable += existingRecord->size();
             if (spaceRequested.hasOverflowed() || spaceAvailable.hasOverflowed())
                 isSpaceRequestedValid = false;
             else {
@@ -330,9 +331,9 @@ void CacheStorageCache::putRecordsAfterQuotaCheck(Vector<CacheStorageRecord>&& r
 
     Vector<CacheStorageRecordInformation> targetRecordInfos;
     for (auto& record : records) {
-        RELEASE_ASSERT(!record.info.url.string().impl()->isAtom());
+        RELEASE_ASSERT(!record.info.url().string().impl()->isAtom());
         if (auto* existingRecord = findExistingRecord(record.request)) {
-            record.info.identifier = existingRecord->identifier;
+            record.info.setIdentifier(existingRecord->identifier());
             targetRecordInfos.append(*existingRecord);
         }
     }
@@ -352,49 +353,50 @@ void CacheStorageCache::putRecordsInStore(Vector<CacheStorageRecord>&& records, 
     Vector<uint64_t> targetIdentifiers;
     uint64_t sizeIncreased = 0, sizeDecreased = 0;
     for (auto& record : records) {
-        if (!record.info.identifier) {
-            record.info.identifier = nextRecordIdentifier();
-            sizeIncreased += record.info.size;
-            m_records.ensure(computeKeyURL(record.info.url), [] {
+        if (!record.info.identifier()) {
+            record.info.setIdentifier(nextRecordIdentifier());
+            sizeIncreased += record.info.size();
+            m_records.ensure(computeKeyURL(record.info.url()), [] {
                 return Vector<CacheStorageRecordInformation> { };
             }).iterator->value.append(record.info);
         } else {
             auto index = existingRecords.findIf([&](auto& existingRecord) {
-                return existingRecord && existingRecord->info.identifier == record.info.identifier;
+                return existingRecord && existingRecord->info.identifier() == record.info.identifier();
             });
             // Ensure record still exists.
             if (index == notFound) {
-                record.info.identifier = 0;
+                record.info.setIdentifier(0);
                 continue;
             }
 
             auto& existingRecord = existingRecords[index];
             // Ensure identifier still exists.
-            auto* existingRecordInfo = findExistingRecord(record.request, record.info.identifier);
+            auto* existingRecordInfo = findExistingRecord(record.request, record.info.identifier());
             if (!existingRecordInfo) {
-                record.info.identifier = 0;
+                record.info.setIdentifier(0);
                 continue;
             }
 
-            record.info.key = existingRecordInfo->key;
-            record.info.insertionTime = existingRecordInfo->insertionTime;
+            auto existingKey = existingRecordInfo->key();
+            record.info.setKey(WTFMove(existingKey));
+            record.info.setInsertionTime(existingRecordInfo->insertionTime());
             // FIXME: Remove isolatedCopy() when rdar://105122133 is resolved.
-            record.info.url = existingRecordInfo->url.isolatedCopy();
+            record.info.setURL(existingRecordInfo->url().isolatedCopy());
             record.requestHeadersGuard = existingRecord->requestHeadersGuard;
             record.request = WTFMove(existingRecord->request);
             record.options = WTFMove(existingRecord->options);
             record.referrer = WTFMove(existingRecord->referrer);
             record.info.updateVaryHeaders(record.request, record.responseData);
-            sizeIncreased += record.info.size;
-            sizeDecreased += existingRecordInfo->size;
-            existingRecordInfo->size = record.info.size;
+            sizeIncreased += record.info.size();
+            sizeDecreased += existingRecordInfo->size();
+            existingRecordInfo->setSize(record.info.size());
         }
 
-        targetIdentifiers.append(record.info.identifier);
+        targetIdentifiers.append(record.info.identifier());
     }
 
     records.removeAllMatching([&](auto& record) {
-        return !record.info.identifier;
+        return !record.info.identifier();
     });
 
     if (m_manager) {
@@ -421,7 +423,7 @@ void CacheStorageCache::removeAllRecords()
     for (auto& urlRecords : m_records.values()) {
         for (auto& record : urlRecords) {
             targetRecordInfos.append(record);
-            sizeDecreased += record.size;
+            sizeDecreased += record.size();
         }
     }
 

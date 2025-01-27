@@ -1789,22 +1789,22 @@ void TY_(NormalizeSpaces)(Lexer *lexer, Node *node)
                 }
                 else if ( utf8BytesRead >= utf8BytesWritten ) {
                     memmove(&(lexer->lexbuf + i)[0], &tempbuf[0], utf8BytesWritten);
-                    i += utf8BytesRead - 1; // Offset ++i in for loop.
+                    i += utf8BytesRead - 1; /* Offset ++i in for loop. */
                     p += utf8BytesWritten;
                 } else {
-                    // Error; keep this byte and move to the next.
+                    /* Error; keep this byte and move to the next. */
                     if ( c != 0xFFFD && utf8BytesRead != utf8BytesWritten ) {
 #if 1 && defined(_DEBUG)
                         fprintf(stderr, ">>> utf8BytesRead = %u, utf8BytesWritten = %u\n", utf8BytesRead, utf8BytesWritten);
                         fprintf(stderr, ">>> i = %d, c = %u\n", i, c);
 #endif
-                        assert( utf8BytesRead == utf8BytesWritten ); // Can't extend buffer.
+                        assert( utf8BytesRead == utf8BytesWritten ); /* Can't extend buffer. */
                     }
                     ++p;
                 }
             }
             intptr_t pos = (p > lexer->lexbuf) ? (p - lexer->lexbuf) : 0;
-            node->end = (pos <= node->end) ? (uint)pos : node->end;
+            node->end = (pos >= node->start && pos <= node->end) ? (uint)pos : node->end;
         }
 
         node = node->next;
@@ -2412,23 +2412,23 @@ void TY_(DowngradeTypography)(TidyDocImpl* doc, Node* node)
                 }
                 else if ( utf8BytesRead >= utf8BytesWritten ) {
                     memmove(&(lexer->lexbuf + i)[0], &tempbuf[0], utf8BytesWritten);
-                    i += utf8BytesRead - 1; // Offset ++i in for loop.
+                    i += utf8BytesRead - 1; /* Offset ++i in for loop. */
                     p += utf8BytesWritten;
                 } else {
-                    // Error; keep this byte and move to the next.
+                    /* Error; keep this byte and move to the next. */
                     if ( c != 0xFFFD && utf8BytesRead != utf8BytesWritten ) {
 #if 1 && defined(_DEBUG)
                         fprintf(stderr, ">>> utf8BytesRead = %u, utf8BytesWritten = %u\n", utf8BytesRead, utf8BytesWritten);
                         fprintf(stderr, ">>> i = %d, c = %u\n", i, c);
 #endif
-                        assert( utf8BytesRead == utf8BytesWritten ); // Can't extend buffer.
+                        assert( utf8BytesRead == utf8BytesWritten ); /* Can't extend buffer. */
                     }
                     ++p;
                 }
             }
 
             intptr_t pos = (p > lexer->lexbuf) ? (p - lexer->lexbuf) : 0;
-            node->end = (pos <= node->end) ? (uint)pos : node->end;
+            node->end = (pos >= node->start && pos <= node->end) ? (uint)pos : node->end;
         }
 
         if (node->content)

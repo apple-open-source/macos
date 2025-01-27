@@ -46,6 +46,10 @@ RenderViewTransitionCapture::~RenderViewTransitionCapture() = default;
 void RenderViewTransitionCapture::setImage(RefPtr<ImageBuffer> oldImage)
 {
     m_oldImage = oldImage;
+    if (hasLayer())
+        layer()->contentChanged(ContentChangeType::ImageChanged);
+    if (parent())
+        repaint();
 }
 
 bool RenderViewTransitionCapture::setCapturedSize(const LayoutSize& size, const LayoutRect& overflowRect, const LayoutPoint& layerToLayoutOffset)
@@ -117,6 +121,13 @@ Node* RenderViewTransitionCapture::nodeForHitTest() const
 {
     // The view transition pseudo-elements should hit-test to their originating element (the document element).
     return document().documentElement();
+}
+
+bool RenderViewTransitionCapture::paintsContent() const
+{
+    if (style().pseudoElementType() == PseudoId::ViewTransitionOld)
+        return true;
+    return !canUseExistingLayers();
 }
 
 String RenderViewTransitionCapture::debugDescription() const

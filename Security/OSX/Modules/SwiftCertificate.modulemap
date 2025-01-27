@@ -1,0 +1,6 @@
+framework module SwiftCertificate [system] {
+  umbrella header "SwiftCertificate.h"
+
+  export *
+  module * { export * }
+}

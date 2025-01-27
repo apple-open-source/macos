@@ -347,7 +347,7 @@ struct IOPCIConfigEntry
     uint8_t   			expressMaxPayload;
     int16_t   			expressEndpointMaxReadRequestSize;
     uint16_t            expressErrorReporting; // only valid during bridgeScanBus()
-//	uint16_t            pausedCommand;
+	uint16_t            pausedCommand;
 
     IORegistryEntry *   dtEntry;
 #if ACPI_SUPPORT

@@ -108,6 +108,7 @@ void RenderButton::updateAnonymousChildStyle(RenderStyle& childStyle) const
     childStyle.setFlexWrap(style().flexWrap());
     childStyle.setAlignItems(style().alignItems());
     childStyle.setAlignContent(style().alignContent());
+    childStyle.setTextBoxTrim(style().textBoxTrim());
 }
 
 void RenderButton::updateFromElement()

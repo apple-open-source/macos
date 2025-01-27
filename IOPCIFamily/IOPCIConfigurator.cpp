@@ -384,22 +384,10 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 			}
 			if (!(kPCIDeviceStatePaused & entry->deviceState))
 			{
-#if 0
-				uint32_t reg32;
-				reg32 = entry->pausedCommand = configRead16(entry, kIOPCIConfigCommand);
-				reg32 &= ~(kIOPCICommandIOSpace
-					     | kIOPCICommandMemorySpace
-					     | kIOPCICommandBusLead);
-				reg32  |= kIOPCICommandInterruptDisable;
-				configWrite16(entry, kIOPCIConfigCommand, reg32);
-
-				if (entry->isBridge)
-				{
-					entry->rangeBaseChanges |= (1 << kIOPCIRangeBridgeBusNumber);
-					reg32 = configRead32(entry, kPCI2PCIPrimaryBus);
-					reg32 &= ~0x00ffffff;
-					configWrite32(entry, kPCI2PCIPrimaryBus, reg32);
-				}
+#if !ACPI_SUPPORT
+				// Prevent the device/bridge from initiating/forwarding memory or I/O requests
+				entry->pausedCommand = configRead16(entry, kIOPCIConfigCommand);
+				configWrite16(entry, kIOPCIConfigCommand, entry->pausedCommand & ~kIOPCICommandBusLead);
 #endif
 				entry->deviceState |= kPCIDeviceStatePaused;
 				if (fStates & kIOPCIConfiguratorMPSOverride)
@@ -414,7 +402,9 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 			if (kPCIDeviceStatePaused & entry->deviceState)
 			{
 				DLOG("kConfigOpUnpaused at " D() "\n", DEVICE_IDENT(entry));
-//				configWrite16(entry, kIOPCIConfigCommand, entry->pausedCommand);
+#if !ACPI_SUPPORT
+				configWrite16(entry, kIOPCIConfigCommand, entry->pausedCommand);
+#endif
 				entry->deviceState &= ~kPCIDeviceStatePaused;
 				if (fStates & kIOPCIConfiguratorMPSOverridePause)
 				{
@@ -2296,32 +2286,6 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
        }
     }
 
-    // check if root MPS > 128B -> This means we have a CIO80 SoC connected to a USB4v2 capable switch
-    if (!bridge->isHostBridge && (bridge->supportsHotPlug & kPCIHotPlugTunnel) && (bridge->rootPortEntry->expressMaxPayload > MIN_MPS)
-		    && !(fStates & kIOPCIConfiguratorMPSOverride) && !(bridge->deviceState & (kPCIDeviceStateRequestPause | kPCIDeviceStatePaused)))
-    {
-	    // Check for ASM SATA controller devices. WA for rdar://134837798
-	    switch (vendorProduct) {
-		    case 0x06111b21:
-		    case 0x06121b21:
-		    case 0x06221b21:
-		    case 0x06231b21:
-		    case 0x06241b21:
-		    case 0x06251b21:
-			    IOLog("Work around to support ASM SATA controller 0x%08x\n", vendorProduct);
-			    fStates |= kIOPCIConfiguratorMPSOverride;
-			    FOREACH_CHILD(bridge->rootPortEntry, child)
-			    {
-				    child->deviceState |= kPCIDeviceStateRequestPause;
-				    markChanged(child);
-				    fWaitingPause++;
-			    }
-			    break;
-		    default:
-			    break;
-	    }
-    }
-
     child = IOMallocType(IOPCIConfigEntry);
     if (!child) return NULL;
 
@@ -2438,6 +2402,33 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
 		child->expressDeviceCaps2 = configRead32(child, child->expressCapBlock + 0x24);
 		child->expressMaxPayload  = (child->expressDeviceCaps1 & 7);
 		DLOG("  expressMaxPayload Capability 0x%x\n", child->expressMaxPayload);
+
+#if !ACPI_SUPPORT
+		// check if root is tunneled and MPS > 128B -> This means we have a CIO80 SoC connected to a USB4v2 capable switch
+		// check if this is rootPortEntry -> no need to trigger pause if we're enumerating root port
+		// check if this is the rootPort's link partner - no need to trigger a pause here, we can just change rootPort MPS below
+		// check if device MPS == 128B -> trigger pci pause & change the topology MPS to 128B
+
+		// this will also resolve ASM SATA WA rdar://134837798 since the point of both ASM SATA WA
+		// and setting topology MPS = 128B is to avoid modifying device's MRRS
+
+		// long term solution: make this logic to accommodate for lowest MPS capability instead of 128B (for future where lowest maybe 256B or higher)
+		// we will implement it as part of the IOPCIFamily revamp since this is AS specific
+		if (!bridge->isHostBridge && (bridge->supportsHotPlug & kPCIHotPlugTunnel) && (bridge->rootPortEntry->expressMaxPayload > MIN_MPS)
+				&& !(fStates & kIOPCIConfiguratorMPSOverride) && !(bridge->deviceState & (kPCIDeviceStateRequestPause | kPCIDeviceStatePaused))
+				&& (child != child->rootPortEntry) && (bridge != child->rootPortEntry) && (child->expressMaxPayload == MIN_MPS))
+		{
+			IOLog("Work around to support MPS 128B device on CIO80 host\n");
+			fStates |= kIOPCIConfiguratorMPSOverride;
+			FOREACH_CHILD(bridge->rootPortEntry, child)
+			{
+				child->deviceState |= kPCIDeviceStateRequestPause;
+				markChanged(child);
+				fWaitingPause++;
+			}
+		}
+#endif
+
 		if (child != child->rootPortEntry)
 		{
 			if (bridge == child->rootPortEntry)
@@ -4422,10 +4413,17 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
     {
         uint16_t bridgeControl;
 
-        commandReg |= (kIOPCICommandIOSpace 
-                     | kIOPCICommandMemorySpace 
-//                     | kIOPCICommandSERR 
-                     | kIOPCICommandBusLead);
+#if !ACPI_SUPPORT
+        // Paused bridges will have their command register restored in ::configOp()
+        // when they unpause, after all endpoints have relocated.
+        if (!(kPCIDeviceStatePaused & bridge->deviceState))
+#endif
+        {
+            commandReg |= (kIOPCICommandIOSpace
+                         | kIOPCICommandMemorySpace
+//                       | kIOPCICommandSERR
+                         | kIOPCICommandBusLead);
+        }
 
         // Turn off ISA bit.
         bridgeControl = configRead16(bridge, kPCI2PCIBridgeControl);

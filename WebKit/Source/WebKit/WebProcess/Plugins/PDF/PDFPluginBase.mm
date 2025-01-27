@@ -251,6 +251,26 @@ uint64_t PDFPluginBase::streamedBytes() const
     return m_streamedBytes;
 }
 
+#if !LOG_DISABLED
+
+// Thread safety analysis gets really confused by conditional locking, so
+// it is difficult to prove that any previous stack frame did in fact secure
+// the data lock without having to pass around Locker instances across dataSpanForRange()
+// and its callers. Instead, this method opts out of thread safety analysis
+// and ensures the lock is held when reading m_streamedBytes, else we assert.
+uint64_t PDFPluginBase::streamedBytesForDebugLogging() const WTF_IGNORES_THREAD_SAFETY_ANALYSIS
+{
+    if (m_streamedDataLock.tryLock()) {
+        Locker locker { AdoptLock, m_streamedDataLock };
+        return m_streamedBytes;
+    }
+
+    m_streamedDataLock.assertIsOwner();
+    return m_streamedBytes;
+}
+
+#endif
+
 bool PDFPluginBase::haveStreamedDataForRange(uint64_t offset, size_t count) const
 {
     if (!m_data)
@@ -277,7 +297,7 @@ size_t PDFPluginBase::copyDataAtPosition(std::span<uint8_t> buffer, uint64_t sou
     return buffer.size();
 }
 
-std::span<const uint8_t> PDFPluginBase::dataSpanForRange(uint64_t sourcePosition, size_t count, CheckValidRanges checkValidRanges) const
+void PDFPluginBase::dataSpanForRange(uint64_t sourcePosition, size_t count, CheckValidRanges checkValidRanges, CompletionHandler<void(std::span<const uint8_t>)>&& completionHandler) const
 {
     Locker locker { m_streamedDataLock };
 
@@ -299,9 +319,9 @@ std::span<const uint8_t> PDFPluginBase::dataSpanForRange(uint64_t sourcePosition
     };
 
     if (!haveValidData(checkValidRanges))
-        return { };
+        return completionHandler({ });
 
-    return { CFDataGetBytePtr(m_data.get()) + sourcePosition, count };
+    completionHandler({ CFDataGetBytePtr(m_data.get()) + sourcePosition, count });
 }
 
 bool PDFPluginBase::getByteRanges(CFMutableArrayRef dataBuffersArray, const CFRange* ranges, size_t count) const
@@ -1010,32 +1030,30 @@ void PDFPluginBase::print()
 
 #if PLATFORM(MAC)
 
-void PDFPluginBase::writeItemsToPasteboard(NSString *pasteboardName, NSArray *items, NSArray *types) const
+void PDFPluginBase::writeItemsToPasteboard(NSString *pasteboardName, Vector<PasteboardItem>&& pasteboardItems) const
 {
     // FIXME: <https://webkit.org/b/269174> PDFPluginBase::writeItemsToPasteboard should be platform-agnostic.
-    auto pasteboardTypes = makeVector<String>(types);
+    auto pasteboardTypes = pasteboardItems.map([](const auto& item) -> String {
+        return item.type.get();
+    });
     auto pageIdentifier = m_frame && m_frame->coreLocalFrame() ? m_frame->coreLocalFrame()->pageID() : std::nullopt;
 
     auto& webProcess = WebProcess::singleton();
     webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardTypes(pasteboardName, pasteboardTypes, pageIdentifier), 0);
 
-    ASSERT(items.count >= types.count);
-    for (NSUInteger i = 0, count = items.count; i < count; ++i) {
-        NSString *type = [types objectAtIndex:i];
-        NSData *data = [items objectAtIndex:i];
-
+    for (auto&& [data, type] : WTFMove(pasteboardItems)) {
         // We don't expect the data for any items to be empty, but aren't completely sure.
         // Avoid crashing in the SharedMemory constructor in release builds if we're wrong.
-        ASSERT(data.length);
-        if (!data.length)
+        ASSERT([data length]);
+        if (![data length])
             continue;
 
         if ([type isEqualToString:legacyStringPasteboardType()] || [type isEqualToString:NSPasteboardTypeString]) {
-            auto plainTextString = adoptNS([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
-            webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardStringForType(pasteboardName, type, plainTextString.get(), pageIdentifier), 0);
+            auto plainTextString = adoptNS([[NSString alloc] initWithData:data.get() encoding:NSUTF8StringEncoding]);
+            webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardStringForType(pasteboardName, type.get(), plainTextString.get(), pageIdentifier), 0);
         } else {
-            auto buffer = SharedBuffer::create(data);
-            webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardBufferForType(pasteboardName, type, WTFMove(buffer), pageIdentifier), 0);
+            auto buffer = SharedBuffer::create(data.get());
+            webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardBufferForType(pasteboardName, type.get(), WTFMove(buffer), pageIdentifier), 0);
         }
     }
 }
@@ -1216,19 +1234,23 @@ static void verboseLog(PDFIncrementalLoader* incrementalLoader, uint64_t streame
 void PDFPluginBase::incrementalLoaderLog(const String& message)
 {
 #if HAVE(INCREMENTAL_PDF_APIS)
-    if (!isMainRunLoop()) {
-        callOnMainRunLoop([this, protectedThis = Ref { *this }, message = message.isolatedCopy()] {
-            incrementalLoaderLog(message);
-        });
-        return;
-    }
+    ensureOnMainRunLoop([this, protectedThis = Ref { *this }, message = message.isolatedCopy(), byteCount = streamedBytesForDebugLogging()] {
+        incrementalLoaderLogWithBytes(message, byteCount);
+    });
+#else
+    UNUSED_PARAM(message);
+#endif
+}
 
-    auto streamedBytes = this->streamedBytes();
+void PDFPluginBase::incrementalLoaderLogWithBytes(const String& message, uint64_t streamedBytes)
+{
+#if HAVE(INCREMENTAL_PDF_APIS)
     LOG_WITH_STREAM(IncrementalPDF, stream << message);
     verboseLog(m_incrementalLoader.get(), streamedBytes, m_documentFinishedLoading);
     LOG_WITH_STREAM(IncrementalPDFVerbose, stream << message);
 #else
     UNUSED_PARAM(message);
+    UNUSED_PARAM(streamedBytes);
 #endif
 }
 

@@ -234,6 +234,18 @@ constexpr void dumpOpType(PrintStream& out, OpType op)
 
 MAKE_PRINT_ADAPTOR(OpTypeDump, OpType, dumpOpType);
 
+inline bool isCompareOpType(OpType op)
+{
+    switch (op) {
+#define CREATE_CASE(name, ...) case name: return true;
+    FOR_EACH_WASM_COMPARE_UNARY_OP(CREATE_CASE)
+    FOR_EACH_WASM_COMPARE_BINARY_OP(CREATE_CASE)
+#undef CREATE_CASE
+    default:
+        return false;
+    }
+}
+
 constexpr Type simdScalarType(SIMDLane lane)
 {
     switch (lane) {

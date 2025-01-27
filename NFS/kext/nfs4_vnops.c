@@ -2370,6 +2370,33 @@ nfs_open_file_clear_busy(struct nfs_open_file *nofp)
 	}
 }
 
+static int
+nfs_open_file_closing_wait(struct nfs_open_file *nofp, thread_t thd)
+{
+	struct nfsmount *nmp;
+	struct timespec ts = { .tv_sec = 2, .tv_nsec = 0 };
+	int error = 0, slpflag;
+
+	nmp = nofp->nof_owner->noo_mount;
+	if (nfs_mount_gone(nmp)) {
+		return ENXIO;
+	}
+	slpflag = (NMFLAG(nmp, INTR) && thd) ? PCATCH : 0;
+
+	lck_mtx_lock(&nofp->nof_lock);
+	while (nofp->nof_flags & NFS_OPEN_FILE_CLOSING) {
+		if ((error = nfs_sigintr(nmp, NULL, thd, 0))) {
+			break;
+		}
+		nofp->nof_flags |= NFS_OPEN_FILE_CLOSING_WAIT;
+		msleep(&nofp->nof_flags, &nofp->nof_lock, slpflag, "nfs_open_file_closing_wait", &ts);
+		slpflag = 0;
+	}
+	lck_mtx_unlock(&nofp->nof_lock);
+
+	return error;
+}
+
 /*
  * Add the open state for the given access/deny modes to this open file.
  */
@@ -2760,9 +2787,8 @@ nfs_get_stateid(nfsnode_t np, thread_t thd, kauth_cred_t cred, nfs_stateid *sid,
 		    (nfs_open_file_find(np, noop, &nofp, 0, 0, 0) == 0) &&
 		    !(nofp->nof_flags & NFS_OPEN_FILE_LOST) &&
 		    nofp->nof_access) {
-			/* Set the open file busy to make sure CLOSE operation is not in progress */
-			busyerror = nfs_open_file_set_busy(nofp, thd);
-			if (nofp->nof_access) {
+			/* Make sure CLOSE operation is not in progress */
+			if (!nfs_open_file_closing_wait(nofp, thd) && nofp->nof_access) {
 				/* we (should) have the file open, use open file's stateid */
 				if (nofp->nof_flags & NFS_OPEN_FILE_REOPEN) {
 					nfs4_reopen(nofp, thd);
@@ -2770,9 +2796,6 @@ nfs_get_stateid(nfsnode_t np, thread_t thd, kauth_cred_t cred, nfs_stateid *sid,
 				if (!(nofp->nof_flags & NFS_OPEN_FILE_LOST)) {
 					s = &nofp->nof_stateid;
 				}
-			}
-			if (!busyerror) {
-				nfs_open_file_clear_busy(nofp);
 			}
 		}
 	}
@@ -6413,7 +6436,7 @@ nfs4_close_rpc(
 {
 	struct nfs_open_owner *noop = nofp->nof_owner;
 	struct nfsmount *nmp;
-	int error = 0, lockerror = ENOENT, status, numops;
+	int error = 0, lockerror = ENOENT, status, numops, wanted;
 	struct nfsm_chain nmreq, nmrep;
 	u_int64_t xid;
 	nfs_stateid stateid;
@@ -6449,6 +6472,11 @@ nfs4_close_rpc(
 	numops--;
 	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_CLOSE);
 	nfsm_chain_add_32(error, &nmreq, noop->noo_seqid);
+	nfsmout_if(error);
+	// Mark the open-file as "closing" to prevent READ/WRITE/SETATTR from using the stateid
+	lck_mtx_lock(&nofp->nof_lock);
+	nofp->nof_flags |= NFS_OPEN_FILE_CLOSING;
+	lck_mtx_unlock(&nofp->nof_lock);
 	nfsm_chain_add_stateid(error, &nmreq, &nofp->nof_stateid);
 	numops--;
 	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_GETATTR);
@@ -6475,6 +6503,15 @@ nfs4_close_rpc(
 nfsmout:
 	if (!lockerror) {
 		nfs_node_unlock(np);
+	}
+	if (nofp->nof_flags & NFS_OPEN_FILE_CLOSING) {
+		lck_mtx_lock(&nofp->nof_lock);
+		wanted = (nofp->nof_flags & NFS_OPEN_FILE_CLOSING_WAIT);
+		nofp->nof_flags &= ~(NFS_OPEN_FILE_CLOSING | NFS_OPEN_FILE_CLOSING_WAIT);
+		lck_mtx_unlock(&nofp->nof_lock);
+		if (wanted) {
+			wakeup(&nofp->nof_flags);
+		}
 	}
 	if (!open_owner_busy) {
 		nfs_open_owner_clear_busy(noop);

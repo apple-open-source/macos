@@ -1768,6 +1768,20 @@ ChildProcessDebuggabilityEnabled:
     WebCore:
       default: false
 
+ClearSiteDataExecutionContextsSupportEnabled:
+  type: bool
+  status: testable
+  category: networking
+  humanReadableName: "Clear-Site-Data: 'executionContexts' support"
+  humanReadableDescription: "Enable Clear-Site-Data: 'executionContexts' support"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 ClearSiteDataHTTPHeaderEnabled:
   type: bool
   status: stable
@@ -7123,11 +7137,11 @@ TiledScrollingIndicatorVisible:
     WebCore:
       default: false
 
-TouchEventsEnabled:
+TouchEventDOMAttributesEnabled:
   type: bool
   status: embedder
-  humanReadableName: "Touch Events"
-  humanReadableDescription: "Enable Touch Events"
+  humanReadableName: "Touch Event DOM Attributes"
+  humanReadableDescription: "Enable Touch Event DOM Attributes"
   condition: ENABLE(TOUCH_EVENTS)
   defaultValue:
     WebCore:
@@ -7299,7 +7313,7 @@ UseAVCaptureDeviceRotationCoordinatorAPI:
     WebKit:
       # FIXME: Re-enable on visionOS once rdar://139112264 is resolved.
       "PLATFORM(VISION)": false
-      default: true
+      default: false
 
 UseAsyncUIKitInteractions:
   type: bool

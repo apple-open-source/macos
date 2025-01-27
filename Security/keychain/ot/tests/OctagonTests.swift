@@ -263,6 +263,48 @@ class OTMockSecEscrowRequest: NSObject, SecEscrowRequestable {
     }
 }
 
+extension Client {
+    func dump(with user: TPSpecificUser?,
+              reply: @escaping ([AnyHashable: Any]?, Error?) -> Void) {
+        let piper = AsyncPiper()
+        self.dump(with: user, fileDescriptor: piper.writeXpcFd()) { dumpError in
+            guard dumpError == nil else {
+                reply(nil, dumpError)
+                return
+            }
+            let dict: [AnyHashable: Any]
+            do {
+                dict = try piper.dict()
+            } catch {
+                reply(nil, error)
+                return
+            }
+            reply(dict, nil)
+        }
+    }
+}
+
+extension OTManager {
+    func status(_ args: OTControlArguments,
+                reply: @escaping ([AnyHashable: Any]?, [AnyHashable: Any]?, Error?) -> Void) {
+        let piper = AsyncPiper()
+        self.status(args, xpcFd: piper.writeXpcFd()) { result, dumpError in
+            guard dumpError == nil else {
+                reply(nil, nil, dumpError)
+                return
+            }
+            let dict: [AnyHashable: Any]
+            do {
+                dict = try piper.dict()
+            } catch {
+                reply(nil, nil, error)
+                return
+            }
+            reply(result, dict, nil)
+        }
+    }
+}
+
 class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     var tmpPath: String!
     var tmpURL: URL!
@@ -482,7 +524,10 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
         TestsObjectiveC.clearErrorInsertionDictionary()
 
         let statusExpectation = self.expectation(description: "status callback occurs")
-        self.cuttlefishContext.rpcStatus { _, _ in
+        guard let xpcFd = xpc_fd_create(STDOUT_FILENO) else {
+            fatalError("couldn't wrap STDOUT_FILENO for XPC")
+        }
+        self.cuttlefishContext.rpcStatus(xpcFd) { _, _ in
             statusExpectation.fulfill()
         }
         self.wait(for: [statusExpectation], timeout: 10)
@@ -2043,7 +2088,10 @@ class OctagonTests: OctagonTestsBase {
 
         // these should be failures
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, ckksState: CKKSStateReady, within: 10 * NSEC_PER_SEC)
-        self.cuttlefishContext.rpcStatus { _, _ in
+        guard let xpcFd = xpc_fd_create(STDOUT_FILENO) else {
+            fatalError("couldn't wrap STDOUT_FILENO for XPC")
+        }
+        self.cuttlefishContext.rpcStatus(xpcFd) { _, _ in
         }
 
         self.verifyDatabaseMocks()

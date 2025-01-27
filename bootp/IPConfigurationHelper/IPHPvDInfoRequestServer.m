@@ -41,6 +41,19 @@
 #define kPvDInfoHTTPHeaderAcceptKey		"Accept"
 #define kPvDInfoHTTPHeaderAcceptVal 		kPvDInfoHTTPHeaderContentTypeVal
 
+#define COLLECTION_TYPE_FIELD_MAX_COUNT 	10
+#define NESTING_LEVEL_MAX 			2
+#define ELEMENTS_PER_LEVEL_MAX 			COLLECTION_TYPE_FIELD_MAX_COUNT
+#define NECESSARY_FIELDS_COUNT 			3
+#define NECESSARY_FIELD_IDENTIFIER 		kPvDInfoAdditionalInfoDictKeyIdentifierCStr
+#define NECESSARY_FIELD_EXPIRES 		kPvDInfoAdditionalInfoDictKeyExpiresCStr
+#define NECESSARY_FIELD_PREFIXES 		kPvDInfoAdditionalInfoDictKeyPrefixesCStr
+#define OPTIONAL_FIELDS_COUNT 			2
+#define OPTIONAL_FIELD_DNS_ZONES 		"dnsZones"
+#define OPTIONAL_FIELD_NO_INTERNET 		"noInternet"
+#define EXTRA_FIELDS_COUNT 			1
+#define EXTRA_FIELD_PROXIES 			"proxies"
+
 @interface IPHPvDInfoRequestServer ()
 @property (nonatomic, readwrite) NSURLSession * urlSession;
 @property (nonatomic, readwrite) BOOL validFetch;
@@ -86,10 +99,11 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
 			     NSURLCredential * credential))completionHandler
 {
 	IPConfigLog(LOG_DEBUG, "entered authentication challenge callback");
+#ifdef __TEST_IPH_PVD__
+	// Note: Build this with 'buildit ... -othercflags "-D__TEST_IPH_PVD__"' for testing
 	if ([[[challenge protectionSpace] authenticationMethod]
 	     isEqualToString:NSURLAuthenticationMethodServerTrust]) {
-#ifdef __TEST_IPH_PVD__
-		// Note: Build this with 'buildit ... -othercflags "-D__TEST_IPH_PVD__"'
+		IPConfigLog(LOG_NOTICE, "encountered a server authentication challenge");
 		/*
 		 * Overrides default secure transports TLS certificate chain
 		 * validation, so it allows connecting to a server that
@@ -99,22 +113,13 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
 		completionHandler(NSURLSessionAuthChallengeUseCredential,
 				  [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
 		goto done;
-#else // __TEST_IPH_PVD__
-		/* not a valid fetch if there's a server trust challenge */
-		IPConfigLog(LOG_NOTICE, "encountered a server authentication error, aborting fetch");
-		self.validFetch = NO;
-		[self scheduleParsingEventAbort];
-#endif // __TEST_IPH_PVD__
 	}
+#endif // __TEST_IPH_PVD__
 	/*
-	 * Follows the default behavior from Secure Transports in
-	 * the case of NSURLAuthenticationChallenge subtypes other
-	 * than NSURLAuthenticationMethodServerTrust, as well as when
-	 * when there's a NSURLAuthenticationMethodServerTrust challenge
-	 * in production deployment.
+	 * Follows the default behavior from Secure Transports.
 	 */
 	completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
-	
+
 #ifdef __TEST_IPH_PVD__
 done:
 #endif // __TEST_IPH_PVD
@@ -322,17 +327,16 @@ done:
 	return;
 }
 
-static inline bool
-_copy_valid_identifier(CFStringRef * identifier, NSString * field, id val, NSString * pvdID)
+static bool
+copy_valid_identifier(CFStringRef * identifier, NSString * field, id val, NSString * pvdID)
 {
 	/* Must be String<FQDN> */
 	CFDataRef isValidFQDN = NULL;
 	bool success = false;
 
-	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'",
-		field, val, [val class]);
+	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'", field, val, [val class]);
 	if (![val isKindOfClass:[NSString class]]) {
-		IPConfigLog(LOG_NOTICE, "expected JSON value of String type");
+		IPConfigLog(LOG_NOTICE, "expected String element, got '%@'", [val class]);
 		goto done;
 	}
 	if (![[val lowercaseString] isEqualToString:[pvdID lowercaseString]]) {
@@ -355,8 +359,8 @@ done:
 	return success;
 }
 
-static inline bool
-_copy_valid_expires(CFStringRef * expires, NSString * field, id val)
+static bool
+copy_valid_expires(CFStringRef * expires, NSString * field, id val)
 {
 	/* Must be Date */
 	CFDateFormatterRef dateFormatter = NULL;
@@ -366,10 +370,9 @@ _copy_valid_expires(CFStringRef * expires, NSString * field, id val)
 	CFDateRef nowDate = NULL;
 	bool success = false;
 
-	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'",
-		field, val, [val class]);
+	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'", field, val, [val class]);
 	if (![val isKindOfClass:[NSString class]]) {
-		IPConfigLog(LOG_NOTICE, "expected JSON value of String type");
+		IPConfigLog(LOG_NOTICE, "expected String element, got '%@'", [val class]);
 		goto done;
 	}
 	style = kCFDateFormatterNoStyle;
@@ -415,37 +418,34 @@ done:
 	return success;
 }
 
-#define COLLECTION_TYPE_FIELD_MAX_SIZE 10
-
-static inline bool
-_copy_valid_prefixes(CFArrayRef * prefixes, NSString * field, id val, NSArray<NSString *> * raPIOPrefixes)
+static bool
+copy_valid_prefixes(CFArrayRef * prefixes, NSString * field, id val, NSArray<NSString *> * raPIOPrefixes)
 {
 	/* Must be Array<String> */
 	/* String must be in CIDR representation "IPv6_ADDR/PREFIXLEN" */
 	CFMutableArrayRef prefixStringsCIDR = NULL;
 	NSMutableArray<NSString *> *prefixStrings = NULL;
-	NSUInteger arrayMaxCount = (([(NSArray *)val count] < COLLECTION_TYPE_FIELD_MAX_SIZE)
-				    ? [(NSArray *)val count]
-				    : COLLECTION_TYPE_FIELD_MAX_SIZE);
+	NSUInteger arrayCount = [(NSArray *)val count];
+	NSUInteger arrayCountMax = ((arrayCount < COLLECTION_TYPE_FIELD_MAX_COUNT)
+				    ? arrayCount
+				    : COLLECTION_TYPE_FIELD_MAX_COUNT);
 	CFArrayRef splitter = NULL;
 	bool wellFormed = true;
 	bool contained = false;
 	bool success = false;
 
-	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'",
-		field, val, [val class]);
+	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'", field, val, [val class]);
 	if (![val isKindOfClass:[NSArray class]]) {
 		IPConfigLog(LOG_NOTICE, "expected JSON value of Array type");
 		goto done;
 	}
 	prefixStrings = [NSMutableArray array];
-	prefixStringsCIDR = CFArrayCreateMutable(NULL, arrayMaxCount, &kCFTypeArrayCallBacks);
+	prefixStringsCIDR = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	if (prefixStrings == nil || prefixStringsCIDR == NULL) {
 		goto done;
 	}
-	for (NSUInteger i = 0;  i < arrayMaxCount; i++) {
+	for (NSUInteger i = 0;  i < arrayCountMax; i++) {
 		@autoreleasepool {
-			id prefix = nil;
 			CFStringRef prefixStr = NULL;
 			const void *prefixAddrPtr = NULL;
 			CFStringRef prefixAddrStr = NULL;
@@ -455,13 +455,14 @@ _copy_valid_prefixes(CFArrayRef * prefixes, NSString * field, id val, NSArray<NS
 			uint32_t prefixLenUInt = 0;
 			CFStringRef copyStr = NULL;
 
-			prefix = [(NSArray *)val objectAtIndex:i];
-			if (![prefix isMemberOfClass:[NSString class]]) {
-				IPConfigLog(LOG_NOTICE, "expected JSON Array of Strings");
+			prefixStr = (__bridge CFStringRef)[(NSArray *)val objectAtIndex:i];
+			if (!isA_CFString(prefixStr)) {
+				IPConfigLog(LOG_NOTICE, "expected '%@' element, got '%@'",
+					    CFCopyTypeIDDescription(CFStringGetTypeID()),
+					    CFCopyTypeIDDescription(CFGetTypeID(prefixStr)));
 				wellFormed = false;
 				break;
 			}
-			prefixStr = (__bridge CFStringRef)prefix;
 			splitter = CFStringCreateArrayBySeparatingStrings(NULL, prefixStr, CFSTR("/"));
 			if (splitter == NULL || CFArrayGetCount(splitter) != 2) {
 				IPConfigLog(LOG_NOTICE, "couldn't split provided string");
@@ -536,7 +537,7 @@ _copy_valid_prefixes(CFArrayRef * prefixes, NSString * field, id val, NSArray<NS
 			if ([[prefix1Comparable lowercaseString]
 			     containsString:[prefix2Comparable lowercaseString]]) {
 				IPConfigLog(LOG_DEBUG, "RA PIO prefix '%@' found contained by PvD"
-					"Additional Information prefix '%@'",
+					" Additional Information prefix '%@'",
 					prefix1Comparable, prefix2Comparable);
 				contained = true;
 				break;
@@ -576,10 +577,6 @@ set_valid_necessary_fields(CFMutableDictionaryRef additionalInfoDict, NSDictiona
 	const NSArray *necessaryFieldsArray = nil;
 	bool success = false;
 
-#define NECESSARY_FIELDS_COUNT 3
-#define NECESSARY_FIELD_IDENTIFIER kPvDInfoAdditionalInfoDictKeyIdentifierCStr
-#define NECESSARY_FIELD_EXPIRES kPvDInfoAdditionalInfoDictKeyExpiresCStr
-#define NECESSARY_FIELD_PREFIXES kPvDInfoAdditionalInfoDictKeyPrefixesCStr
 	necessaryFieldsArray = @[@NECESSARY_FIELD_IDENTIFIER, @NECESSARY_FIELD_EXPIRES, @NECESSARY_FIELD_PREFIXES];
 	for (NSString *field in necessaryFieldsArray) {
 		@autoreleasepool {
@@ -592,17 +589,17 @@ set_valid_necessary_fields(CFMutableDictionaryRef additionalInfoDict, NSDictiona
 			}
 
 			if ([field isEqualToString:@NECESSARY_FIELD_IDENTIFIER] && identifier == NULL) {
-				if (!_copy_valid_identifier(&identifier, field, val, pvdID)) {
+				if (!copy_valid_identifier(&identifier, field, val, pvdID)) {
 					IPConfigLog(LOG_NOTICE, "failed to validate field '%@' : %@", field, val);
 					goto done;
 				}
 			} else if ([field isEqualToString:@NECESSARY_FIELD_EXPIRES] && expires == NULL) {
-				if (!_copy_valid_expires(&expires, field, val)) {
+				if (!copy_valid_expires(&expires, field, val)) {
 					IPConfigLog(LOG_NOTICE, "failed to validate field '%@': %@", field, val);
 					goto done;
 				}
 			} else if ([field isEqualToString:@NECESSARY_FIELD_PREFIXES] && prefixes == NULL) {
-				if (!_copy_valid_prefixes(&prefixes, field, val, raPIOPrefixes)) {
+				if (!copy_valid_prefixes(&prefixes, field, val, raPIOPrefixes)) {
 					IPConfigLog(LOG_NOTICE, "failed to validate field '%@' : %@", field, val);
 					goto done;
 				}
@@ -612,7 +609,7 @@ set_valid_necessary_fields(CFMutableDictionaryRef additionalInfoDict, NSDictiona
 	CFDictionarySetValue(additionalInfoDict, CFSTR(NECESSARY_FIELD_IDENTIFIER), identifier);
 	CFDictionarySetValue(additionalInfoDict, CFSTR(NECESSARY_FIELD_EXPIRES), expires);
 	CFDictionarySetValue(additionalInfoDict, CFSTR(NECESSARY_FIELD_PREFIXES), prefixes);
-	assert(CFDictionaryGetCount(additionalInfoDict) == NECESSARY_FIELDS_COUNT);
+	success = (CFDictionaryGetCount(additionalInfoDict) == NECESSARY_FIELDS_COUNT);
 
 done:
 	my_CFRelease(&identifier);
@@ -621,18 +618,17 @@ done:
 	return success;
 }
 
-static inline bool
-_copy_valid_dns_zones(CFArrayRef * dnsZones, NSString * field, id val)
+static bool
+copy_valid_dns_zones(CFArrayRef * dnsZones, NSString * field, id val)
 {
 	/* Must be Array<Strings<FQDN>> */
 	bool success = false;
 	CFMutableArrayRef dnsZonesArray = NULL;
-	NSUInteger arrayMaxCount = (([(NSArray *)val count] < COLLECTION_TYPE_FIELD_MAX_SIZE)
+	NSUInteger arrayMaxCount = (([(NSArray *)val count] < COLLECTION_TYPE_FIELD_MAX_COUNT)
 				    ? [(NSArray *)val count]
-				    : COLLECTION_TYPE_FIELD_MAX_SIZE);
+				    : COLLECTION_TYPE_FIELD_MAX_COUNT);
 
-	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'",
-		field, val, [val class]);
+	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'", field, val, [val class]);
 	if (![val isKindOfClass:[NSArray class]]) {
 		IPConfigLog(LOG_DEBUG, "expected JSON value of Array type");
 		goto done;
@@ -646,7 +642,7 @@ _copy_valid_dns_zones(CFArrayRef * dnsZones, NSString * field, id val)
 
 			dnsZoneString = [(NSArray *)val objectAtIndex:i];
 			if (![dnsZoneString isKindOfClass:[NSString class]]) {
-				IPConfigLog(LOG_DEBUG, "expected JSON value of String type");
+				IPConfigLog(LOG_NOTICE, "expected String element, got '%@'", [dnsZoneString class]);
 				// Throw away whole dnsZones field if any of its elements is malformed.
 				goto done;
 			}
@@ -677,16 +673,15 @@ done:
 	return success;
 }
 
-static inline bool
-_copy_valid_no_internet(CFBooleanRef * noInternet, NSString * field, id val)
+static bool
+copy_valid_no_internet(CFBooleanRef * noInternet, NSString * field, id val)
 {
 	/* Must be Boolean */
 	bool success = false;
 
-	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'",
-		field, val, [val class]);
+	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'", field, val, [val class]);
 	if (![val isKindOfClass:[NSString class]]) {
-		IPConfigLog(LOG_DEBUG, "expected JSON value of String type");
+		IPConfigLog(LOG_NOTICE, "expected String element, got '%@'", [val class]);
 		goto done;
 	}
 	if ([val isEqualToString:@"true"]) {
@@ -715,9 +710,6 @@ set_valid_optional_fields(CFMutableDictionaryRef additionalInfoDict, NSDictionar
 	CFBooleanRef noInternet = NULL;
 	const NSArray *optionalFieldsArray = nil;
 
-#define OPTIONAL_FIELDS_COUNT 2
-#define OPTIONAL_FIELD_DNS_ZONES "dnsZones"
-#define OPTIONAL_FIELD_NO_INTERNET "noInternet"
 	optionalFieldsArray = @[@OPTIONAL_FIELD_DNS_ZONES, @OPTIONAL_FIELD_NO_INTERNET];
 	for (NSString *field in optionalFieldsArray) {
 		@autoreleasepool {
@@ -728,12 +720,12 @@ set_valid_optional_fields(CFMutableDictionaryRef additionalInfoDict, NSDictionar
 				continue;
 			}
 			if ([field isEqualToString:@OPTIONAL_FIELD_DNS_ZONES] && dnsZones == NULL) {
-				if (!_copy_valid_dns_zones(&dnsZones, field, val)) {
+				if (!copy_valid_dns_zones(&dnsZones, field, val)) {
 					IPConfigLog(LOG_NOTICE, "failed to validate field '%@' : %@", field, val);
 					continue;
 				}
 			} else if ([field isEqualToString:@OPTIONAL_FIELD_NO_INTERNET] && noInternet == NULL) {
-				if (!_copy_valid_no_internet(&noInternet, field, val)) {
+				if (!copy_valid_no_internet(&noInternet, field, val)) {
 					IPConfigLog(LOG_NOTICE, "failed to validate field '%@' : %@", field, val);
 					continue;
 				}
@@ -751,15 +743,15 @@ set_valid_optional_fields(CFMutableDictionaryRef additionalInfoDict, NSDictionar
 	return true;
 }
 
-static inline bool
-_copy_valid_proxies(CFArrayRef * proxies, NSString * field, id val)
+static bool
+copy_valid_proxies(CFArrayRef * proxies, NSString * field, id val)
 {
 	/* Expects Array<String> or Array<Dictionary<String,<T>>> */
 	bool success = false;
 	CFMutableArrayRef mutableProxies = NULL;
-	NSUInteger arrayMaxCount = (([(NSArray *)val count] < COLLECTION_TYPE_FIELD_MAX_SIZE)
+	NSUInteger arrayMaxCount = (([(NSArray *)val count] < COLLECTION_TYPE_FIELD_MAX_COUNT)
 				    ? [(NSArray *)val count]
-				    : COLLECTION_TYPE_FIELD_MAX_SIZE);
+				    : COLLECTION_TYPE_FIELD_MAX_COUNT);
 
 	IPConfigLog(LOG_DEBUG, "validating field '%@' with value '%@' of class '%@'", field, val, [val class]);
 	if (![val isKindOfClass:[NSArray class]]) {
@@ -794,6 +786,9 @@ _copy_valid_proxies(CFArrayRef * proxies, NSString * field, id val)
 				}
 				CFArrayAppendValue(mutableProxies, (CFDictionaryRef)proxySubdict);
 				my_CFRelease(&proxySubdict);
+			} else {
+				IPConfigLog(LOG_NOTICE, "expected String or Dictionary element, got '%@'", [proxy class]);
+				goto done;
 			}
 		}
 	}
@@ -808,6 +803,102 @@ done:
 	return success;
 }
 
+static bool
+element_is_cfprimitive(id val)
+{
+	CFTypeRef valcf = (__bridge CFTypeRef)val;
+	bool res = false;
+
+	if (valcf == NULL) {
+		goto done;
+	}
+	if (isA_CFBoolean(valcf)
+	    || isA_CFNumber(valcf)
+	    || isA_CFString(valcf)
+	    || isA_CFDate(valcf)
+	    || isA_CFData(valcf)) {
+		res = true;
+	}
+
+done:
+	if (!res) {
+		IPConfigLog(LOG_DEBUG, "element is not a cfprimitive: %@", val);
+	}
+	return res;
+}
+
+static bool
+element_is_cfcollection(id val)
+{
+	CFTypeRef valcf = (__bridge CFTypeRef)val;
+	bool res = false;
+
+	if (valcf == NULL) {
+		goto done;
+	}
+	if (isA_CFArray(valcf)
+	    || isA_CFDictionary(valcf)) {
+		res = true;
+	}
+
+done:
+	if (!res) {
+		IPConfigLog(LOG_DEBUG, "element is not a cfcollection: %@", val);
+	}
+	return res;
+}
+
+static bool
+enforce_proper_boundaries(NSArray * elements, int level)
+{
+	bool success = false;
+
+	if (elements == nil) {
+		goto done;
+	}
+	if ([elements count] > ELEMENTS_PER_LEVEL_MAX) {
+		goto done;
+	}
+	if (level == NESTING_LEVEL_MAX) {
+		/* no more nested structures allowed */
+		for (id e in elements) {
+			if (!element_is_cfprimitive(e)) {
+				goto done;
+			}
+		}
+	} else {
+		for (id e in elements) {
+			CFTypeRef cfelement = NULL;
+			NSArray * nested_elements = nil;
+
+			if (element_is_cfprimitive(e)) {
+				continue;
+			}
+			if (!element_is_cfcollection(e)) {
+				goto done;
+			}
+			cfelement = (__bridge CFTypeRef)e;
+			if (isA_CFArray(cfelement)) {
+				nested_elements = e;
+			} else if (isA_CFDictionary(cfelement)) {
+				nested_elements = [e allValues];
+			}
+			if (!enforce_proper_boundaries(nested_elements, level+1)) {
+				goto done;
+			}
+		}
+
+	}
+	success = true;
+
+done:
+	if (!success) {
+		IPConfigLog(LOG_DEBUG, "%s: failed boundary checks at nesting level %d for elements array %@",
+			    __func__, level, elements);
+	}
+	return success;
+}
+
 /*
  * This adds key-vals that aren't defined in RFC 8801 (i.e. EXTRA).
  * PvD additional info retrieval is considered a success even if
@@ -818,9 +909,9 @@ set_valid_extra_fields(CFMutableDictionaryRef additionalInfoDict, NSDictionary *
 {
 	CFArrayRef proxies = NULL;
 	const NSArray *extraFieldsArray = nil;
+	NSArray * knownKeys = nil;
+	NSUInteger allKeysCount = 0;
 
-#define EXTRA_FIELDS_COUNT 1
-#define EXTRA_FIELD_PROXIES "proxies"
 	extraFieldsArray = @[@EXTRA_FIELD_PROXIES];
 	for (NSString *field in extraFieldsArray) {
 		@autoreleasepool {
@@ -830,7 +921,7 @@ set_valid_extra_fields(CFMutableDictionaryRef additionalInfoDict, NSDictionary *
 				continue;
 			}
 			if ([field isEqualToString:@EXTRA_FIELD_PROXIES] && proxies == NULL) {
-				if (!_copy_valid_proxies(&proxies, field, val)) {
+				if (!copy_valid_proxies(&proxies, field, val)) {
 					IPConfigLog(LOG_NOTICE, "failed to validate field '%@' : %@", field, val);
 					continue;
 				}
@@ -841,6 +932,27 @@ set_valid_extra_fields(CFMutableDictionaryRef additionalInfoDict, NSDictionary *
 		CFDictionarySetValue(additionalInfoDict, CFSTR(EXTRA_FIELD_PROXIES), proxies);
 		my_CFRelease(&proxies);
 	}
+	/* this adds any other extra fields that we don't recognize (may be experimental or privately-deployed) */
+	knownKeys = [(__bridge NSDictionary *)additionalInfoDict allKeys];
+	allKeysCount = [knownKeys count];
+	for (NSString * field in [parsedJSONDict allKeys]) {
+		id val = NULL;
+
+		if (allKeysCount >= ELEMENTS_PER_LEVEL_MAX) {
+			break;
+		}
+		if ([knownKeys containsObject:field]) {
+			continue;
+		}
+		val = [parsedJSONDict valueForKey:field];
+		if (!enforce_proper_boundaries(@[val], 0)) {
+			IPConfigLog(LOG_NOTICE, "failed to validate field '%@' : %@", field, val);
+			continue;
+		}
+		CFDictionarySetValue(additionalInfoDict, (__bridge CFStringRef)field, (__bridge CFTypeRef)val);
+		allKeysCount++;
+	}
+
 	return true;
 }
 
@@ -850,6 +962,8 @@ set_valid_extra_fields(CFMutableDictionaryRef additionalInfoDict, NSDictionary *
 CF_RETURNS_RETAINED
 {
 	CFMutableDictionaryRef additionalInfoDict = NULL;
+	NSArray * additionalInfoDictValues = nil;
+	bool success = false;
 
 	if (parsedJSONDict == nil) {
 		IPConfigLog(LOG_NOTICE, "can't create valid info dict from empty JSON");
@@ -864,18 +978,31 @@ CF_RETURNS_RETAINED
 		IPConfigLog(LOG_NOTICE, "failed to create additional info CFDictionary");
 		goto done;
 	}
-	set_valid_necessary_fields(additionalInfoDict, parsedJSONDict, pvdID, raPIOPrefixes);
-	set_valid_optional_fields(additionalInfoDict, parsedJSONDict);
-	set_valid_extra_fields(additionalInfoDict, parsedJSONDict);
-
+	if (!set_valid_necessary_fields(additionalInfoDict, parsedJSONDict, pvdID, raPIOPrefixes)
+	    || !set_valid_optional_fields(additionalInfoDict, parsedJSONDict)
+	    || !set_valid_extra_fields(additionalInfoDict, parsedJSONDict)) {
+		goto done;
+	}
+	if (additionalInfoDict == NULL || CFDictionaryGetCount(additionalInfoDict) < NECESSARY_FIELDS_COUNT) {
+		goto done;
+	}
 	/*
-	 * Note: All unknown PvD Additional Information keys are simply ignored.
 	 * In the case of there being unknown keys in the retrieved JSON object,
-	 * the retrieval is still considered successful.
+	 * the retrieval is still considered successful. This allows up to 10 total keys,
+	 * accounting for the recognized ones first. Each key can either be a primitive-like
+	 * CFType, i.e. String or Number, or a collection of CFTypes. If the value is a collection,
+	 * it can only contain elements that are primitive-like, or flat collections,
+	 * i.e. Array<V> or Dictionary<K:V>, where V is any of { Boolean, Number, String, Data, Date }.
+	 * Another way to put this: top-level values are allowed at maximum 2 levels of nesting.
 	 */
+	additionalInfoDictValues = [(__bridge NSDictionary *)additionalInfoDict allValues];
+	if (!enforce_proper_boundaries(additionalInfoDictValues, 0)) {
+		goto done;
+	}
+	success = true;
 
 done:
-	if (additionalInfoDict == NULL || CFDictionaryGetCount(additionalInfoDict) < NECESSARY_FIELDS_COUNT) {
+	if (!success) {
 		IPConfigLog(LOG_NOTICE, "validation failed, couldn't create PvD Additional Info dictionary");
 		self.validFetch = NO;
 	} else {
@@ -886,3 +1013,62 @@ done:
 }
 
 @end
+
+#ifdef TESTHARNESS_IPHPVD
+
+int
+main(int argc, char * argv[])
+{
+	bool res = true;
+	NSDictionary * test_dict_good = @{
+		@NECESSARY_FIELD_IDENTIFIER : @"test-domain.local",
+		@EXTRA_FIELD_PROXIES : @[
+			@{
+				@"test_key" : @"test_val"
+			},
+			@{
+				@"test_key2" : @"test_val2"
+			}
+		]
+	};
+	NSDictionary * test_dict_bad1 = @{
+		@NECESSARY_FIELD_IDENTIFIER : @"test-domain.local",
+		@EXTRA_FIELD_PROXIES : @[
+			@{ @"test_key" : @"test_val" },
+			@{ @"test_key" : @"test_val" },
+			@{ @"test_key" : @"test_val" },
+			@{ @"test_key" : @"test_val" },
+			@{ @"test_key" : @"test_val" },
+			@{ @"test_key" : @"test_val" },
+			@{ @"test_key" : @"test_val" },
+			@{ @"test_key" : @"test_val" },
+			@{ @"test_key" : @"test_val" },
+			@{ @"test_key" : @"test_val" },
+			@{ @"test_key" : @"test_val" }, // 11 count
+		]
+	};
+	NSDictionary * test_dict_bad2 = @{
+		@"test_field" : @[ @[ @[ @"test_nest" ] ] ] // 3-deep nesting
+	};
+
+	res = enforce_proper_boundaries([test_dict_good allValues], 0);
+	if (!res) {
+		printf("failed test 1");
+		goto done;
+	}
+	res = enforce_proper_boundaries([test_dict_bad1 allValues], 0);
+	if (res) {
+		printf("failed test 2");
+		goto done;
+	}
+	res = enforce_proper_boundaries([test_dict_bad2 allValues], 0);
+	if (res) {
+		printf("failed test 3");
+		goto done;
+	}
+
+done:
+	return res;
+}
+
+#endif // TESTHARNESS_IPHPVD

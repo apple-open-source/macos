@@ -14745,10 +14745,10 @@ smbfs_fetch_new_entries(struct smb_share *share, vnode_t dvp,
              */
             smb_dir_cache_remove(dvp, &dnp->d_overflow_cache, "overflow", "fetch_new_entries restart", 1, 0);
         }
-    } else if (is_overflow && cachep->offset == 0) {
+    }
+    if (is_overflow && cachep->offset == 0) {
         /*
-         * Main cache is full and we switched to overflow cache
-         * Don't restart enumeration, get entries and store in overflow cache
+         * We're filling the overflow cache and it's empty, initialize its offset
          */
         cachep->offset = offset;
     }

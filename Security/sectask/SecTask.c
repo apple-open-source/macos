@@ -242,6 +242,18 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
     uint32_t bufferlen;
     int ret;
     CEQueryContext_t ceCtx = NULL;
+    uint32_t cs_flags = -1;
+    pid_t pid;
+
+    // Get the pid
+    audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+
+    // Get cs_flags
+    if (csops_task(task, CS_OPS_STATUS, &cs_flags, sizeof(cs_flags)) == -1) {
+        // Not a fatal error, but worth logging
+        syslog(LOG_NOTICE, "SecTaskLoadEntitlements: failed to get cs_flags, error=%d, pid=%d", errno, pid);
+    }
+
 #if TARGET_OS_SIMULATOR
     ret = csops_task(task, CS_OPS_ENTITLEMENTS_BLOB, &header, sizeof(header));
 #else
@@ -250,17 +262,8 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
     /* Any other combination means no entitlements */
     if (ret == -1) {
         if (errno != ERANGE) {
-            int entitlementErrno = errno;
-
-            uint32_t cs_flags = -1;
-            if (-1 == csops_task(task, CS_OPS_STATUS, &cs_flags, sizeof(cs_flags))) {
-                syslog(LOG_NOTICE, "Failed to get cs_flags, error=%d", errno);
-            }
-
             if (cs_flags != 0) {	// was signed
-                pid_t pid;
-                audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
-                syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d cs_flags=%x, pid=%d", entitlementErrno, cs_flags, pid);	// to ease diagnostics
+                syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d cs_flags=%x, pid=%d", errno, cs_flags, pid);	// to ease diagnostics
 
                 CFStringRef description = SecTaskCopyDebugDescription(task);
                 char *descriptionBuf = NULL;
@@ -274,14 +277,13 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
                 CFReleaseNull(description);
                 free(descriptionBuf);
             }
-            task->lastFailure = entitlementErrno;	// was overwritten by csops_task(CS_OPS_STATUS) above
 
             // EINVAL is what the kernel says for unsigned code, so we'll have to let that pass
-            if (entitlementErrno == EINVAL) {
+            if (errno == EINVAL) {
                 task->entitlementsLoaded = true;
                 return true;
             }
-            ret = entitlementErrno;	// what really went wrong
+            ret = errno;	// what really went wrong
             goto out;		// bail out
         }
         bufferlen = ntohl(header.length);
@@ -340,6 +342,18 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
             audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
             secinfo("SecTask", "Fixed catalyst entitlements for process %d", pid);
         }
+
+        CFStringRef identifier = SecTaskCopySigningIdentifier(task, error);
+        bool isPlatform = (cs_flags & CS_PLATFORM_BINARY) == CS_PLATFORM_BINARY;
+        if (needsOSInstallerSetupdEntitlementsFixup(identifier, isPlatform, entitlements)) {
+            entitlementsModified = updateOSInstallerSetupdEntitlements(entitlements);
+            if (entitlementsModified) {
+                pid_t pid;
+                audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+                secinfo("SecTask", "Fixed TCC entitlements for osinstallerstupd %d", pid);
+            }
+        }
+        CFReleaseNull(identifier);
     }
 
     task->entitlements = entitlements ? CFRetain(entitlements) : NULL;

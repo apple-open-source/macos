@@ -6,6 +6,111 @@
 		<key>CertDirectory</key>
 		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
+		<string>TestAppleRoots</string>
+		<key>MinorTestName</key>
+		<string>G1</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.2</string>
+		</dict>
+		<key>Leaf</key>
+		<string>TestAppleRootCA</string>
+		<key>VerifyDate</key>
+		<date>2024-12-01T19:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>EnableTestCertificates</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>TestAppleRoots</string>
+		<key>MinorTestName</key>
+		<string>G1Jun</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.2</string>
+		</dict>
+		<key>Leaf</key>
+		<string>TestAppleRootCAJun</string>
+		<key>VerifyDate</key>
+		<date>2024-12-01T19:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>EnableTestCertificates</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>TestAppleRoots</string>
+		<key>MinorTestName</key>
+		<string>G2</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.2</string>
+		</dict>
+		<key>Leaf</key>
+		<string>TestAppleRootCAG2</string>
+		<key>VerifyDate</key>
+		<date>2024-12-01T19:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>EnableTestCertificates</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>TestAppleRoots</string>
+		<key>MinorTestName</key>
+		<string>G3</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.2</string>
+		</dict>
+		<key>Leaf</key>
+		<string>TestAppleRootCAG3</string>
+		<key>VerifyDate</key>
+		<date>2024-12-01T19:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>EnableTestCertificates</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>TestAppleRoots</string>
+		<key>MinorTestName</key>
+		<string>GlobalRoot</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.2</string>
+		</dict>
+		<key>Leaf</key>
+		<string>TestAppleGlobalRootCA</string>
+		<key>VerifyDate</key>
+		<date>2024-12-01T19:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>EnableTestCertificates</key>
+		<true/>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
 		<string>AST2</string>
 		<key>MinorTestName</key>
 		<string>NegativeTest</string>
@@ -60,7 +165,7 @@
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>EnableTestCertificates</key>
-		<string>AppleServerAuthenticationAllowUATAST2</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -92,7 +197,7 @@
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>EnableTestCertificates</key>
-		<string>AppleServerAuthenticationAllowUATEscrow</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -152,7 +257,7 @@
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>EnableTestCertificates</key>
-		<string>AppleServerAuthenticationAllowUATFMiP</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -472,7 +577,7 @@
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>EnableTestCertificates</key>
-		<string>ApplePinningAllowTestCertsTLSPinningTest</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -540,7 +645,7 @@
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>EnableTestCertificates</key>
-		<string>ApplePinningAllowTestCertsTestAST2ServerAuth</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -567,7 +672,7 @@
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>EnableTestCertificates</key>
-		<string>ApplePinningAllowTestCertsATVVPNProfile</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -1107,7 +1212,7 @@
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>EnableTestCertificates</key>
-		<string>ApplePinningAllowTestCertsiPhoneApplicationSigning</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -1232,7 +1337,7 @@
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>EnableTestCertificates</key>
-		<string>ApplePinningAllowTestCertsiPhoneProvisioningProfileSigning</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -1440,7 +1545,7 @@
 		<key>ChainLength</key>
 		<integer>3</integer>
 		<key>EnableTestCertificates</key>
-		<string>AppleServerAuthenticationAllowUATIDS</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -1965,7 +2070,7 @@
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>EnableTestCertificates</key>
-		<string>ApplePinningAllowTestCertsUCRT</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -2459,7 +2564,7 @@
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>EnableTestCertificates</key>
-		<string>AllowAppleTestCertificatesSecureIOStaticAsset</string>
+		<true/>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>

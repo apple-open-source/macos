@@ -33,14 +33,6 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)cpio.c	8.1 (Berkeley) 5/31/93";
-#endif
-#endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -277,6 +269,9 @@ cpio_rd(ARCHD *arcn, char *buf)
 	int nsz;
 	HD_CPIO *hd;
 
+#ifdef __APPLE__
+	memset(arcn, 0, sizeof(*arcn));
+#endif /* __APPLE__ */
 	/*
 	 * check that this is a valid header, if not return -1
 	 */
@@ -551,6 +546,9 @@ vcpio_rd(ARCHD *arcn, char *buf)
 	dev_t devmajor;
 	int nsz;
 
+#ifdef __APPLE__
+	memset(arcn, 0, sizeof(*arcn));
+#endif /* __APPLE__ */
 	/*
 	 * during the id phase it was determined if we were using CRC, use the
 	 * proper id routine.
@@ -853,6 +851,9 @@ bcpio_rd(ARCHD *arcn, char *buf)
 	HD_BCPIO *hd;
 	int nsz;
 
+#ifdef __APPLE__
+	memset(arcn, 0, sizeof(*arcn));
+#endif /* __APPLE__ */
 	/*
 	 * check the header
 	 */

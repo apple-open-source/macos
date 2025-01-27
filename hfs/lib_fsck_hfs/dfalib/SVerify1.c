@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2009, 2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -3444,10 +3444,12 @@ OSErr	VLockedChk( SGlobPtr GPtr )
 	//	put the volume name in the VCB
 	if ( isHFSPlus == false )
 	{
+		/* HFS Standard */
 		CopyMemory( foundKey.hfs.nodeName, calculatedVCB->vcbVN, sizeof(calculatedVCB->vcbVN) );
 	}
 	else if ( myVOPtr->volumeType != kPureHFSPlusVolumeType )
 	{
+		/* Embedded HFS+ (e.g. HFS+ within "wrapper" HFS standard) */
 		HFSMasterDirectoryBlock	*mdbP;
 		BlockDescriptor  block;
 		
@@ -3464,9 +3466,13 @@ OSErr	VLockedChk( SGlobPtr GPtr )
 			(void) ReleaseVolumeBlock(calculatedVCB, &block, kReleaseBlock );
 		ReturnIfError(result);
 	}
-	else		//	Because we don't have the unicode converters, just fill it with a dummy name.
+	else
 	{
-		CopyMemory( "\x0dPure HFS Plus", calculatedVCB->vcbVN, sizeof(Str27) );
+		/* Pure HFS+ (no wrapper) */
+
+		//	Because we don't have the unicode converters, just fill it with a dummy name.
+		const char *pureStr = "\x0d Pure HFS Plus";
+		CopyMemory( pureStr, calculatedVCB->vcbVN, strlen(pureStr)+1);
 	}
 		
 	GPtr->TarBlock = hint;

@@ -18,7 +18,8 @@
 #import <AppleAccount/ACAccount+AppleAccount.h>
 #import <Accounts/ACAccountStore.h>
 #import <UIKit/UIKit.h>
-#import <utilities/debugging.h>
+
+#import "utilities/debugging.h"
 
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 
@@ -79,7 +80,6 @@
     [[KeychainSettings sharedOTControl] status:[[OTControlArguments alloc] init]
                                          reply:^(NSDictionary* result, NSError* _Nullable error) {
                                              @synchronized (self) {
-                                                 self.statusError = nil;
                                                  if (error) {
                                                      self.status = nil;
                                                      self.statusError = [error description];
@@ -276,9 +276,12 @@
         [specifiers addObjectsFromArray: [self loadSpecifiersFromPlistName:@"KeychainSettingsOctagonPeers" target:self]];
 
         void (^replyBlock)(NSDictionary* result, NSError* _Nullable error) = ^(NSDictionary* result, NSError* _Nullable error) {
-            NSDictionary* contextDump = result[@"contextDump"];
-
+            if(error) {
+                os_log(OS_LOG_DEFAULT, "Error decoding TPH json dump: %s\n", [[error description] UTF8String]);
+                return;
+            }
             // Make it easy to find peer information
+            NSDictionary* contextDump = result[@"contextDump"];
             NSMutableDictionary<NSString*, NSDictionary*>* peers = [NSMutableDictionary dictionary];
             NSMutableArray<NSString*>* allPeerIDs = [NSMutableArray array];
             for(NSDictionary* peerInformation in contextDump[@"peers"]) {

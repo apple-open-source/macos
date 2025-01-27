@@ -698,6 +698,7 @@ public:
 
     virtual void getImageBufferResourceLimitsForTesting(CompletionHandler<void(std::optional<ImageBufferResourceLimits>)>&& callback) const { callback(std::nullopt); }
 
+    virtual void didSwallowClickEvent(const PlatformMouseEvent&, Node&) { }
     WEBCORE_EXPORT virtual ~ChromeClient();
 
 protected:

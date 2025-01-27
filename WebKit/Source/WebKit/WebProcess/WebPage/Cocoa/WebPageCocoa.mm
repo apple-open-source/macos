@@ -575,9 +575,9 @@ void WebPage::getProcessDisplayName(CompletionHandler<void(String&&)>&& completi
 #endif
 }
 
-bool WebPage::isTransparentOrFullyClipped(const Element& element) const
+bool WebPage::isTransparentOrFullyClipped(const Node& node) const
 {
-    auto* renderer = element.renderer();
+    CheckedPtr renderer = node.renderer();
     if (!renderer)
         return false;
 
@@ -665,12 +665,16 @@ void WebPage::getPlatformEditorStateCommon(const LocalFrame& frame, EditorState&
         }();
     }
 
-    if (RefPtr editableRootOrFormControl = enclosingTextFormControl(selection.start()) ?: selection.rootEditableElement()) {
+    RefPtr enclosingFormControl = enclosingTextFormControl(selection.start());
+    if (RefPtr editableRootOrFormControl = enclosingFormControl.get() ?: selection.rootEditableElement()) {
+        postLayoutData.selectionIsTransparentOrFullyClipped = result.isContentEditable && isTransparentOrFullyClipped(*editableRootOrFormControl);
 #if PLATFORM(IOS_FAMILY)
         auto& visualData = *result.visualData;
         visualData.selectionClipRect = rootViewInteractionBounds(*editableRootOrFormControl);
 #endif
-        postLayoutData.editableRootIsTransparentOrFullyClipped = result.isContentEditable && isTransparentOrFullyClipped(*editableRootOrFormControl);
+    } else if (result.selectionIsRange) {
+        if (RefPtr ancestorContainer = commonInclusiveAncestor(selection.start(), selection.end()))
+            postLayoutData.selectionIsTransparentOrFullyClipped = isTransparentOrFullyClipped(*ancestorContainer);
     }
 }
 

@@ -963,9 +963,15 @@ bool RenderLayerBacking::updateCompositedBounds()
     return setCompositedBounds(layerBounds);
 }
 
-void RenderLayerBacking::updateAllowsBackingStoreDetaching(const LayoutRect& absoluteBounds)
+void RenderLayerBacking::updateAllowsBackingStoreDetaching(bool allowDetachingForFixed)
 {
     auto setAllowsBackingStoreDetaching = [&](bool allowDetaching) {
+        if (m_graphicsLayer->allowsBackingStoreDetaching() == allowDetaching)
+            return;
+
+        // isDirectlyCompositedImage depends on this value
+        m_owningLayer.setNeedsCompositingConfigurationUpdate();
+
         m_graphicsLayer->setAllowsBackingStoreDetaching(allowDetaching);
         if (m_foregroundLayer)
             m_foregroundLayer->setAllowsBackingStoreDetaching(allowDetaching);
@@ -980,18 +986,7 @@ void RenderLayerBacking::updateAllowsBackingStoreDetaching(const LayoutRect& abs
         return;
     }
 
-    // We'll allow detaching if the layer is outside the layout viewport. Fixed layers inside
-    // the layout viewport can be revealed by async scrolling, so we want to pin their backing store.
-    LocalFrameView& frameView = renderer().view().frameView();
-    LayoutRect fixedLayoutRect;
-    if (frameView.useFixedLayout())
-        fixedLayoutRect = renderer().view().unscaledDocumentRect();
-    else
-        fixedLayoutRect = frameView.rectForFixedPositionLayout();
-
-    bool allowDetaching = !fixedLayoutRect.intersects(absoluteBounds);
-    LOG_WITH_STREAM(Compositing, stream << "RenderLayerBacking (layer " << &m_owningLayer << ") updateAllowsBackingStoreDetaching - absoluteBounds " << absoluteBounds << " layoutViewportRect " << fixedLayoutRect << ", allowDetaching " << allowDetaching);
-    setAllowsBackingStoreDetaching(allowDetaching);
+    setAllowsBackingStoreDetaching(allowDetachingForFixed);
 }
 
 void RenderLayerBacking::updateAfterWidgetResize()
@@ -1080,7 +1075,7 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
 
     if (updateForegroundLayer(compositor.needsContentsCompositingLayer(m_owningLayer)))
         layerConfigChanged = true;
-    
+
     bool needsDescendantsClippingLayer = false;
     bool usesCompositedScrolling = m_owningLayer.hasCompositedScrollableOverflow();
 
@@ -1876,10 +1871,15 @@ void RenderLayerBacking::updateContentsRects()
     m_graphicsLayer->setContentsRect(snapRectToDevicePixelsIfNeeded(contentsBox(), renderer()));
     
     if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(renderer())) {
-        auto borderShape = renderReplaced->borderShapeForContentClipping(renderReplaced->borderBoxRect());
-        auto contentsClippingRect = borderShape.deprecatedPixelSnappedInnerRoundedRect(deviceScaleFactor());
-        contentsClippingRect.move(contentOffsetInCompositingLayer());
-        m_graphicsLayer->setContentsClippingRect(contentsClippingRect);
+        if (renderer().isRenderViewTransitionCapture() && !renderer().hasNonVisibleOverflow())
+            m_graphicsLayer->setContentsClippingRect(FloatRoundedRect(m_graphicsLayer->contentsRect()));
+        else {
+            // FIXME: Support visible overflow for replaced content.
+            auto borderShape = renderReplaced->borderShapeForContentClipping(renderReplaced->borderBoxRect());
+            auto contentsClippingRect = borderShape.deprecatedPixelSnappedInnerRoundedRect(deviceScaleFactor());
+            contentsClippingRect.move(contentOffsetInCompositingLayer());
+            m_graphicsLayer->setContentsClippingRect(contentsClippingRect);
+        }
     }
 }
 
@@ -2975,12 +2975,6 @@ bool RenderLayerBacking::paintsContent(RenderLayer::PaintedContentRequest& reque
     return paintsContent;
 }
 
-static bool isCompositedPlugin(RenderObject& renderer)
-{
-    auto* embeddedObject = dynamicDowncast<RenderEmbeddedObject>(renderer);
-    return embeddedObject && embeddedObject->requiresAcceleratedCompositing();
-}
-
 // A "simple container layer" is a RenderLayer which has no visible content to render.
 // It may have no children, or all its children may be themselves composited.
 // This is a useful optimization, because it allows us to avoid allocating backing store.
@@ -2992,8 +2986,10 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer(PaintedContentsInfo& 
     if (hasBackingSharingLayers())
         return false;
 
-    if (renderer().isRenderReplaced() && !isCompositedPlugin(renderer()))
-        return false;
+    if (auto* replaced = dynamicDowncast<RenderReplaced>(renderer())) {
+        if (replaced->paintsContent())
+            return false;
+    }
 
     if (renderer().isRenderTextControl())
         return false;
@@ -3135,8 +3131,31 @@ bool RenderLayerBacking::containsPaintedContent(PaintedContentsInfo& contentsInf
 // that require painting. Direct compositing saves backing store.
 bool RenderLayerBacking::isDirectlyCompositedImage() const
 {
+    if (m_owningLayer.hasVisibleBoxDecorationsOrBackground() || m_owningLayer.paintsWithFilters() || renderer().hasClip())
+        return false;
+
+    // Fixed layers that allow detaching won't have a backing store,
+    // so using a directly composited image doesn't help (and has non-zero cost)
+    if (m_owningLayer.behavesAsFixed() && m_graphicsLayer->allowsBackingStoreDetaching())
+        return false;
+
+#if (PLATFORM(GTK) || PLATFORM(WPE))
+        // GTK and WPE ports don't support rounded rect clipping at TextureMapper level, so they cannot
+        // directly composite images that have border-radius propery. Draw them as non directly composited
+        // content instead. See https://bugs.webkit.org/show_bug.cgi?id=174157.
+        if (renderer().style().hasBorderRadius())
+            return false;
+#endif
+
+    if (auto* viewTransitionCapture = dynamicDowncast<RenderViewTransitionCapture>(renderer())) {
+        auto image = viewTransitionCapture->image();
+        if (!image)
+            return false;
+        return m_graphicsLayer->shouldDirectlyCompositeImageBuffer(image.get());
+    }
+
     CheckedPtr imageRenderer = dynamicDowncast<RenderImage>(renderer());
-    if (!imageRenderer || m_owningLayer.hasVisibleBoxDecorationsOrBackground() || m_owningLayer.paintsWithFilters() || renderer().hasClip())
+    if (!imageRenderer)
         return false;
 
 #if ENABLE(VIDEO)
@@ -3154,14 +3173,6 @@ bool RenderLayerBacking::isDirectlyCompositedImage() const
 
         if (image->currentFrameOrientation() != ImageOrientation::Orientation::None)
             return false;
-
-#if (PLATFORM(GTK) || PLATFORM(WPE))
-        // GTK and WPE ports don't support rounded rect clipping at TextureMapper level, so they cannot
-        // directly composite images that have border-radius propery. Draw them as non directly composited
-        // content instead. See https://bugs.webkit.org/show_bug.cgi?id=174157.
-        if (imageRenderer->style().hasBorderRadius())
-            return false;
-#endif
 
         return m_graphicsLayer->shouldDirectlyCompositeImage(image);
     }
@@ -3261,29 +3272,35 @@ void RenderLayerBacking::contentChanged(ContentChangeType changeType)
 
 void RenderLayerBacking::updateImageContents(PaintedContentsInfo& contentsInfo)
 {
-    auto& imageRenderer = downcast<RenderImage>(renderer());
+    if (auto* viewTransitionCapture = dynamicDowncast<RenderViewTransitionCapture>(renderer())) {
+        if (auto image = viewTransitionCapture->image())
+            m_graphicsLayer->setContentsToImageBuffer(image.get());
+    } else {
+        auto& imageRenderer = downcast<RenderImage>(renderer());
 
-    auto* cachedImage = imageRenderer.cachedImage();
-    if (!cachedImage)
-        return;
+        auto* cachedImage = imageRenderer.cachedImage();
+        if (!cachedImage)
+            return;
 
-    auto* image = cachedImage->imageForRenderer(&imageRenderer);
-    if (!image)
-        return;
+        auto* image = cachedImage->imageForRenderer(&imageRenderer);
+        if (!image)
+            return;
 
-    // We have to wait until the image is fully loaded before setting it on the layer.
-    if (!cachedImage->isLoaded())
-        return;
+        // We have to wait until the image is fully loaded before setting it on the layer.
+        if (!cachedImage->isLoaded())
+            return;
+
+
+        m_graphicsLayer->setContentsToImage(image);
+
+        // Image animation is "lazy", in that it automatically stops unless someone is drawing
+        // the image. So we have to kick the animation each time; this has the downside that the
+        // image will keep animating, even if its layer is not visible.
+        image->startAnimation();
+    }
 
     updateContentsRects();
-    m_graphicsLayer->setContentsToImage(image);
-    
     updateDrawsContent(contentsInfo);
-    
-    // Image animation is "lazy", in that it automatically stops unless someone is drawing
-    // the image. So we have to kick the animation each time; this has the downside that the
-    // image will keep animating, even if its layer is not visible.
-    image->startAnimation();
 }
 
 // Return the offset from the top-left of this compositing layer at which the renderer's contents are painted.
@@ -3305,7 +3322,9 @@ LayoutRect RenderLayerBacking::contentsBox() const
     else
 #endif
 
-    if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(*renderBox); renderReplaced && !is<RenderWidget>(*renderReplaced))
+    if (CheckedPtr renderViewTransitionCapture = dynamicDowncast<RenderViewTransitionCapture>(*renderBox))
+        contentsRect = renderViewTransitionCapture->captureLocalOverflowRect();
+    else if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(*renderBox); renderReplaced && !is<RenderWidget>(*renderReplaced))
         contentsRect = renderReplaced->replacedContentRect();
     else
         contentsRect = renderBox->contentBoxRect();

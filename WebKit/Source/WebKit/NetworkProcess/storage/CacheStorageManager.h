@@ -45,11 +45,10 @@ struct ClientOrigin;
 
 namespace WebKit {
 class CacheStorageCache;
+class CacheStorageRecordInformation;
 class CacheStorageRegistry;
 class CacheStorageStore;
 struct CacheStorageRecord;
-struct CacheStorageRecordInformation;
-
 
 class CacheStorageManager : public CanMakeWeakPtr<CacheStorageManager> {
     WTF_MAKE_TZONE_ALLOCATED(CacheStorageManager);

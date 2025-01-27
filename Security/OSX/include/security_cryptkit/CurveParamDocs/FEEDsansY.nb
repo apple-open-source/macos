@@ -1,0 +1,324 @@
+(***********************************************************************
+
+                    Mathematica-Compatible Notebook
+
+This notebook can be used on any computer system with Mathematica 3.0,
+MathReader 3.0, or any compatible application. The data for the notebook 
+starts with the line of stars above.
+
+To get the notebook into a Mathematica-compatible application, do one of 
+the following:
+
+* Save the data starting with the line of stars above into a file
+  with a name ending in .nb, then open the file inside the application;
+
+* Copy the data starting with the line of stars above to the
+  clipboard, then use the Paste menu command inside the application.
+
+Data for notebooks contains only printable 7-bit ASCII and can be
+sent directly in email or through ftp in text mode.  Newlines can be
+CR, LF or CRLF (Unix, Macintosh or MS-DOS style).
+
+NOTE: If you modify the data for this notebook not in a Mathematica-
+compatible application, you must delete the line below containing the 
+word CacheID, otherwise Mathematica-compatible applications may try to 
+use invalid cache data.
+
+For more information on notebooks and Mathematica-compatible 
+applications, contact Wolfram Research:
+  web: http://www.wolfram.com
+  email: info@wolfram.com
+  phone: +1-217-398-0700 (U.S.)
+
+Notebook reader applications are available free of charge from 
+Wolfram Research.
+***********************************************************************)
+
+(*CacheID: 232*)
+
+
+(*NotebookFileLineBreakTest
+NotebookFileLineBreakTest*)
+(*NotebookOptionsPosition[     12180,        264]*)
+(*NotebookOutlinePosition[     12859,        289]*)
+(*  CellTagsIndexPosition[     12815,        285]*)
+(*WindowFrame->Normal*)
+
+
+
+Notebook[{
+Cell[BoxData[
+    \(\( (*\n\tNo - Y - coordinate\ version\ of\ Algorithm\ 8.1  .10; \n\t
+      see\ program\ 8.1  .10 . directembed . nb\n\t\t\t\n\n\ Support\ code\ 
+        for\n\ R . \ Crandall\ and\ C . \ Pomerance, \n\ 
+      "\<Prime Numbers: a Computational Perspective,\>"\n\ Springer - 
+        Verlag\ 2001. \n\ c . \ 2000\ Perfectly\ Scientific, \ 
+      Inc . \n\ All\ Rights\ Reserved . \n\t\n\t20\ Apr\ 2001\ RC\ 
+        \((revamped\ for\ simplicity)\)\n\ 10\ Dec\ 2000\ AH\ 
+        \((Formatting)\)\n\t14\ Sep\ 2000\ RT\ \((Creation)\)\n*) \n\)\)], 
+  "Input"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(\( (*\ CODE\ *) \n
+    \n (*\ First, \ a\ function\ for\ inverting\ n\ mod\ \(p . \)\ *) \n
+    ellinv[n_]\  := \ If[n == 0, 0, PowerMod[n, \(-1\), p]]; \n
+    \n (*\ Next, \ 
+      a\ function\ for\ normalizing\ the\ x\ \(coordinate . \)\ *) \n
+    ex[pt_]\  := \ Mod[pt[\([1]\)]\ *\ ellinv[pt[\([2]\)]], \ p]; \n
+    \n (*\ Next, \ 
+      the\ doubleh \(()\)\ function\ for\ doubling\ a\ \(point . \)\ *) \n
+    elleven[pt_]\  := \ \n\t
+      Block[{x1\  = \ pt[\([1]\)], \ z1\  = \ pt[\([2]\)], \ e, \ f\ }, \n
+        \ \ \t\te\  = \ 
+          Mod[\((x1^2\  - \ a\ z1^2)\)^2\  - \ 
+              4\ b\ \((2\ x1\  + \ c\ z1)\)\ z1^3, \ p]; \n\ \ \t\t
+        f\  = \ Mod[
+            4\ z1\ \((x1^3\  + \ c\ x1^2\ z1\  + \ a\ x1\ z1^2\  + \ b\ z1^3)
+                \), \ p]; \n\ \ \t\t{e, f}\n\t]; \n
+    \n (*\ Next, \ 
+      the\ addh \(()\)\ function\ for\ adding\ pt\ and\ pu\ with\ pv\  = \ 
+        pt - pu\ known\ \n
+            \(\((x\ and\ z\ coordinates\ only\ of\ course)\) . \)\ *) \n
+    ellodd[pt_, \ pu_, \ pv_]\  := \ \n\t
+      Block[\n\t\t{x1\  = \ pt[\([1]\)], \ z1\  = \ pt[\([2]\)], \n\t\t\ 
+          x2\  = \ pu[\([1]\)], \ z2\  = \ pu[\([2]\)], \n\t\t\ 
+          xx\  = \ pv[\([1]\)], \ zz\  = \ pv[\([2]\)], \ i, \ j\n\t\t\ }, \n
+        \ \ \t\ \ \ \ \ 
+        i\  = \ Mod[
+            zz\ \((\((x1\ x2\  - \ a\ z1\ z2)\)^2\  - \n
+                  \ \ \t\ \ \ \ \ \ \ \ \ \ \t
+                  4\ b \((x1\ z2\  + \ x2\ z1\  + \ c\ z1\ z2)\)\ z1\ z2)\), 
+            \ \n\ \ \t\ \ \ \ \ \ \ \ \ \ \tp\n\ \ \t\ \ \ \ \ \ \ \ \ ]; \n
+        \ \ \t\ \ \ \ \ j\  = \ Mod[xx\ \((x1\ z2\  - \ x2\ z1)\)^2, \ p]; \n
+        \ \ \t\t\ {i, j}\n\t]; \n
+    \n (*\ Now, \ the\ main\ routine, \ elliptic\ multiply\ [k] \(pt . \)\ *) 
+      \nelliptic[pt_, \ k_]\  := \ \n\t
+      Block[{porg, \ ps, \ pp, \ q}, \n\t\tIf[k\  == 1, \ Return[pt]]; \n\t\t
+        If[k\  == 2, \ Return[elleven[pt]]]; \n\t\tporg\  = \ pt; \n\t\t
+        ps\  = \ elleven[pt]; \n\t\tpp\  = \ pt; \n\t\t
+        bitlist\  = \ Reverse[IntegerDigits[k, 2]]; \n\t\t
+        Do[\t\ \ \ \n\t\ \ \ \t\t
+          If[bitlist[\([q]\)]\  == \ 1, \n\t\ \ \ \t\ \ \ \t\t
+            pp\  = \ ellodd[ps, \ pp, \ porg]; \n\t\ \ \ \t\ \ \ \t\t
+            ps\  = \ elleven[ps]\n\t\ \ \ \t\ \ \ \t\t, \n
+            \t\ \ \ \t\ \ \ \ \ \ \tps\  = \ ellodd[pp, \ ps, \ porg]; \n
+            \t\t\ \ \ \ \ \tpp\  = \ elleven[pp]\n\t\ \ \ \t\t]\n
+          \t\ \ \ \t\t, \n
+          \t\ \ \ \t\t{q, \ Length[bitlist] - 1, \ 1, \ \(-1\)}\n\ \ \ \ \t]; 
+        \n\ \ \ \ \tReturn[Mod[pp, p]]\n\t]; \n
+    \n (*\ Next, \ 
+      we\ include\ algorithm\ 2.3  .8\ for\ finding\ square\ roots\ \nmodulo\ 
+        a\ prime\ \(p . \)\ *) \n\n
+    sqrtmod[b_, p_] := \ \n\t
+      Module[{a, x, c, d, cd, m, t, tst}, \n\ \ \ \t\ta\  = \ Mod[b, p]; \n
+        \ \ \ \t\tIf[p\  == \ 2, \ Return[a]]; \n\ \ \ \ \t
+        If[MemberQ[{3, 7}, Mod[p, 8]], \n\ \ \ \ \ \ \t\t
+          Return[PowerMod[a, \((p + 1)\)/4, p]]\n\ \ \ \ \ \ \t]; \n\ \ \ \ \t
+        If[Mod[p, 8]\  == \ 5, \n\ \ \ \ \ \ \t\t
+          x\  = \ PowerMod[a, \((p + 3)\)/8, p]; \n\ \ \ \ \ \ \t\t
+          c\  = \ Mod[x^2, p]; \n\ \ \ \ \ \ \t\t
+          If[Not[c\  == \ a], \n\ \ \ \ \ \ \ \ \t\t
+            Return[Mod[x\ PowerMod[2, \((p - 1)\)/4, p], \ p]]\n
+            \ \ \ \ \ \ \ \ \t]; \n\ \ \ \ \ \ \t]; \n\ \ \ \ \t\n
+        \ \ \ \ \t (*\ Here, \ p\  = \ 1\ \(\((mod\ 8)\) . \)\ *) \n
+        \ \ \ \ \ \ \ttst\  = \ 1; \n\ \ \ \ \ \ \t
+        While[Not[tst\  == \ \(-1\)], \n\ \ \ \ \ \ \ \ \t
+          d\  = \ Random[Integer, {1, p}]; \n\ \ \ \ \ \ \ \ \t
+          tst\  = \ JacobiSymbol[d, p]\n\ \ \ \ \ \ \ \ ]; \n\ \ \ \ \ \ \t
+        t\  = \ \((p - 1)\)/2; \ s\  = \ 1; \n\ \ \ \ \ \ \t
+        While[EvenQ[t], \ t\  = \ t/2; \ \(++s\)]; \n\ \ \ \ \ \ \t
+        ca\  = \ PowerMod[a, t, p]; \n\ \ \ \ \ \ \t
+        cd\  = \ PowerMod[d, t, p]; \n\ \ \ \ \ \ \tm\  = \ 0; \n
+        \ \ \ \ \ \ \t
+        Do[\n\ \ \ \ \ \ \t\ \ \ 
+          If[PowerMod[Mod[ca\ PowerMod[cd, \ m, \ p], p], \ 
+                2^\((s - 1 - i)\), \ p]\n\ \ \ \ \ \ \t\ \ \ \t\t == \ p - 1, 
+            \ m\  += \ 2^i]\n\ \ \ \ \ \ \t\ \ \ , {i, 0, s - 1}\n
+          \ \ \ \ \ \ \t]; \ \ \ \ \ \ \t\ \ \ \ \n\ \ \ \ \ \ \t
+        Return[Mod[PowerMod[a, \ \((t + 1)\)/2, p]\ PowerMod[cd, \ m/2, p], 
+            p]]; \ \n\t]; \n
+    \n (*\ Next, \ a\ function\ relevant\ to\ Algorithm\ 7.2 \( .8 . \)\ *) \n
+    \nellXadd[x1_, x2_] := \n\t
+      Module[{u2, v, g}, \[IndentingNewLine]\t\tg = x1 - x2; 
+        \[IndentingNewLine]\t\tden = PowerMod[g, \(-2\), p]; 
+        \[IndentingNewLine]\t\t
+        alpha = Mod[
+            \((\((x1\ x2 + a)\) \((x1 + x2)\) + 2  c\ x1\ x2 + 2  b)\), p]; 
+        \[IndentingNewLine]\t\t
+        beta = Mod[\((\((x1\ x2 - a)\)^2 - 4  b \((x1 + x2 + c)\))\), p]; 
+        \[IndentingNewLine]\t\tdisc = Mod[alpha^2 - beta\ g^2, p]; 
+        \[IndentingNewLine]\t\t{\ \ 
+          Mod[\ den*\((alpha + sqrtmod[disc, p])\), p], \ \n\t\t\ \ \ \ 
+          Mod[den*\((alpha - sqrtmod[disc, p])\), p]\n\t\t}
+          \[IndentingNewLine]\t]; \n
+    \n (*\ Now, \ 
+      the\ main\ routine . \ Parameters\ are\ given\ for\ 161 - 
+        bit\ prime\ field\n\t\t\tand\ specific\ curve; \n\t\ \ 
+      direct\ embedding\ proceeds\ on\ "\<plaintext\>"\ integers\ x\ 
+        \((mod\ p)\) . \ \n\ \ \ We\ start\ with\ relevant\ global\ 
+        \((and\ public, \ except\ for\ kb)\)\n\ \ \ \(parameters . \)\n\ *) \n
+    \[IndentingNewLine]p\  = \ 
+      1654338658923174831024422729553880293604080853451; \na\  = \ \(-152\); 
+    \nb = \ 722; \nc\  = \ 0; \ \  (*\ Montgomery\ \(parameter . \)\ *) \n
+    \n (*\ Next, \ 
+      create\ public\ point\ P\ of\ prime\ order\ on\ main\ \(curve . \)\ *) 
+      \npubpoint\  = 
+      \ {124590448755381588517063157600522073397838354227, \ 1}; \ \ \n
+    pubpointtwist\  = 
+      \ {1173563507729187954550227059395955904200719019884, 1}; \n\n
+    kb\  = \ 968525826201321079923232842886222248; 
+    \ \  (*\ Private\ key\ \(K_B . \)\ *) \n\n
+    pubkey\  = \ \ \ elliptic[pubpoint, \ kb]; 
+    \ \ \ \ \ \ \ \  (*\ Public\ key\ \(P_B . \)\ *) \n
+    pubkeytwist\  = \ \telliptic[pubpointtwist, \ kb]; 
+    \ \ \ \ \  (*\ Public\ key\ \(P_B' . \)\ *) \n\ \n\t\t\n
+    encryptEmbed[x_] := \ 
+      Module[{cubic, \ curve, \ X\  = \ x, \ pbk, \ pbp, \ clueX, \ X2, \ uX, 
+          \n\t\t\ \ piece, \ try, \ sign}, 
+        \[IndentingNewLine] (*\ First, \ 
+          let\ us\ determine\ which\ curve . \ \n\t\t\ \ \ EITHER\ X\ lies\ in
+              \ the\ curve\ y^2\  = \ X^3\  + \ c\ X^2\  + \ a\ X\  + \ b, \n
+          \t\t\ \ \ 
+          or\ on\ g\ y^2\  = \ X^3\  + \ c\ X^2\  + \ a\ X\  + \ b\ *) \n
+        \t\t\ cubic\  = \ Mod[X\ Mod[X^2\  + c\ X\  + \ \ a, p]\  + \ b, p]; 
+        \n\t\t\ If[JacobiSymbol[cubic, \ p]\  > \ \(-1\), \ \n
+          \t\t\t\ \ \ \ \ \ curve\  = \ 1; \ pbk\  = \ pubkey; \ 
+          pbp\  = \ pubpoint, \t\t\t\ \ \ \ \ \ \n\t\t\t\t\ \ \ \ \ 
+          curve\  = \ \(-1\)\ ; \ pbk\  = \ pubkeytwist; \ 
+          pbp\  = \ pubpointtwist; \ \n\t\t\ \ ]; \n\t\t\n\t\t\t
+        r\  = \ Random[Integer, \ {2, p - 2}]; \t\t\ \ \n\t\t\t
+        clueX\  = \ ex[elliptic[pbp, \ r]]; \n\t\t\ \ 
+        X2\  = \ ex[elliptic[pbk, \ r]]; 
+        \  (*\ We\ shall\ be\ adding\ the\ points\ having\ X, \ X2, \ 
+          and\n\t\t\t\t\t\ \ \ there\ is\ a\ sign\ ambiguity\ a\ la\ Algorithm
+              \ 7.2  .8\ because\ Y - 
+            coordinates\n\t\t\t\t\t\t\ \ are\ being\ \(avoided . \)\ *) \ \n
+        \t\t\ \ \ uX\  = \ \(ellXadd[X, \ X2]\)[\([1]\)]; \n\t\t\n
+        \t\t (*\ Next, \ 
+          feedback\ loop\ to\ determine\ which\ value\ of\ sign\ recovers\ 
+            \(plaintext . \)\ *) \n\t\t\n\t\t\ \ \ 
+        piece\  = \ ex[elliptic[{clueX, 1}, \ kb]]; \t\t\ \n\t\t\ \ \ 
+        try\  = \ ellXadd[uX, \ piece]; \n\n\t\t\t\ 
+        If[\ttry[\([1]\)]\  == \ X, \ sign\  = \ 1, \n
+          \t\t\t\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ 
+          If[try[\([2]\)]\  == \ X, \ sign\  = \ \(-1\), \ Print["\<TILT!\>"]]
+            \n\t\t\t]; \t\t\t\t\ \ \ \ \ \ \ \ \n
+        \t\t\ \ {uX, \ clueX, \ curve, \ sign}\[IndentingNewLine]]; 
+    \[IndentingNewLine]\n
+    decryptEmbed[cipherList_] := \ 
+      Module[{uX\  = \ cipherList[\([1]\)], \ 
+          clueX\  = \ cipherList[\([2]\)], \ curve\  = \ cipherList[\([3]\)], 
+          \ sign\  = \ cipherList[\([4]\)]}, \n\t\t\ \ \ 
+        piece\  = \ ex[elliptic[{clueX, 1}, \ kb]]; \t\t\ \n\t\t\ \ \ 
+        try\  = \ ellXadd[uX, \ piece]; \n\t\t\ \ \ 
+        X\  = \ try[\([\((3 - sign)\)/2]\)]; \n\t\t\tX\[IndentingNewLine]]; 
+    \[IndentingNewLine]\n\)\)], "Input"],
+
+Cell[BoxData[
+    \(General::"spell1" \( : \ \) 
+      "Possible spelling error: new symbol name \"\!\(beta\)\" is similar to \
+existing symbol \"\!\(Beta\)\"."\)], "Message"],
+
+Cell[BoxData[
+    \(General::"spell1" \( : \ \) 
+      "Possible spelling error: new symbol name \"\!\(sign\)\" is similar to \
+existing symbol \"\!\(Sign\)\"."\)], "Message"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(\( (*\ EXAMPLE\ *) \ \n\n
+      ciph\  = \ encryptEmbed[plain\  = \ Random[Integer, p - 1]]; \n
+      If[decryptEmbed[ciph]\  != \ plain, \ Print["\<TILT!\>"]], {ct, 1, 10}]
+      \)\)], "Input"],
+
+Cell[BoxData[
+    \(General::"spell1" \( : \ \) 
+      "Possible spelling error: new symbol name \"\!\(plain\)\" is similar to \
+existing symbol \"\!\(Plain\)\"."\)], "Message"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(p\)], "Input"],
+
+Cell[BoxData[
+    \(1654338658923174831024422729553880293604080853451\)], "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+    \(CC\)], "Input"],
+
+Cell[BoxData[
+    \(CC\)], "Output"]
+}, Open  ]],
+
+Cell[BoxData[
+    \(6277101735386680763835789423207666416083908700390324961279\)], "Input"]
+},
+FrontEndVersion->"NeXT 3.0",
+ScreenRectangle->{{0, 957}, {0, 768}},
+WindowToolbars->{},
+WindowSize->{762, 676},
+WindowMargins->{{Automatic, 11}, {Automatic, 24}},
+ShowCellLabel->False
+]
+
+
+(***********************************************************************
+Cached data follows.  If you edit this Notebook file directly, not using
+Mathematica, you must remove the line containing CacheID at the top of 
+the file.  The cache data will then be recreated when you save this file 
+from within Mathematica.
+***********************************************************************)
+
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+
+(*NotebookFileOutline
+Notebook[{
+Cell[1709, 49, 576, 9, 242, "Input"],
+
+Cell[CellGroupData[{
+Cell[2310, 62, 8704, 154, 2269, "Input"],
+Cell[11017, 218, 175, 3, 33, "Message"],
+Cell[11195, 223, 175, 3, 33, "Message"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[11407, 231, 215, 4, 65, "Input"],
+Cell[11625, 237, 177, 3, 33, "Message"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[11839, 245, 34, 1, 25, "Input"],
+Cell[11876, 248, 83, 1, 24, "Output"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+Cell[11996, 254, 35, 1, 24, "Input"],
+Cell[12034, 257, 36, 1, 24, "Output"]
+}, Open  ]],
+Cell[12085, 261, 91, 1, 24, "Input"]
+}
+]
+*)
+
+
+
+
+(***********************************************************************
+End of Mathematica Notebook file.
+***********************************************************************)
+

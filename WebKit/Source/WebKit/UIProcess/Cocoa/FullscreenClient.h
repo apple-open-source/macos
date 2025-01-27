@@ -61,21 +61,21 @@ private:
 
     struct {
 #if PLATFORM(MAC)
-        bool webViewWillEnterFullscreen : 1;
-        bool webViewDidEnterFullscreen : 1;
-        bool webViewWillExitFullscreen : 1;
-        bool webViewDidExitFullscreen : 1;
+        bool webViewWillEnterFullscreen : 1 { false };
+        bool webViewDidEnterFullscreen : 1 { false };
+        bool webViewWillExitFullscreen : 1 { false };
+        bool webViewDidExitFullscreen : 1 { false };
 #else
-        bool webViewWillEnterElementFullscreen : 1;
-        bool webViewDidEnterElementFullscreen : 1;
-        bool webViewWillExitElementFullscreen : 1;
-        bool webViewDidExitElementFullscreen : 1;
+        bool webViewWillEnterElementFullscreen : 1 { false };
+        bool webViewDidEnterElementFullscreen : 1 { false };
+        bool webViewWillExitElementFullscreen : 1 { false };
+        bool webViewDidExitElementFullscreen : 1 { false };
 #endif
 #if ENABLE(QUICKLOOK_FULLSCREEN)
-        bool webViewDidFullscreenImageWithQuickLook : 1;
+        bool webViewDidFullscreenImageWithQuickLook : 1 { false };
 #endif
 #if PLATFORM(IOS_FAMILY)
-        bool webViewRequestPresentingViewController : 1;
+        bool webViewRequestPresentingViewController : 1 { false };
 #endif
     } m_delegateMethods;
 };

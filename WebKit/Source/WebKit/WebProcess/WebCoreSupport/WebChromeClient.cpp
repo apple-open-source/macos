@@ -1931,4 +1931,9 @@ void WebChromeClient::getImageBufferResourceLimitsForTesting(CompletionHandler<v
 }
 #endif
 
+void WebChromeClient::didSwallowClickEvent(const PlatformMouseEvent& event, Node& node)
+{
+    protectedPage()->didSwallowClickEvent(event, node);
+}
+
 } // namespace WebKit

@@ -1217,6 +1217,14 @@ public:
     WEBCORE_EXPORT bool isFullscreenManagerEnabled() const;
 #endif
 
+    bool shouldDeferResizeEvents() const { return m_shouldDeferResizeEvents; }
+    WEBCORE_EXPORT void startDeferringResizeEvents();
+    WEBCORE_EXPORT void flushDeferredResizeEvents();
+
+    bool shouldDeferScrollEvents() const { return m_shouldDeferScrollEvents; }
+    WEBCORE_EXPORT void startDeferringScrollEvents();
+    WEBCORE_EXPORT void flushDeferredScrollEvents();
+
     WEBCORE_EXPORT bool isAlwaysOnLoggingAllowed() const;
 
 private:
@@ -1641,6 +1649,9 @@ private:
     Timer m_activeNowPlayingSessionUpdateTimer;
 
     std::optional<LoginStatus> m_lastAuthentication;
+
+    bool m_shouldDeferResizeEvents { false };
+    bool m_shouldDeferScrollEvents { false };
 }; // class Page
 
 inline Page* Frame::page() const

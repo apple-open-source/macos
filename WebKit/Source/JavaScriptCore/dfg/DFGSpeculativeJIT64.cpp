@@ -1065,7 +1065,7 @@ void SpeculativeJIT::emitCall(Node* node)
         if (isTail) {
             RELEASE_ASSERT(node->op() == DirectTailCall);
 
-            SuppressRegisetrAllocationValidation suppressScope(*this);
+            SuppressRegisterAllocationValidation suppressScope(*this);
             Label mainPath = label();
             emitStoreCallSiteIndex(callSite);
             auto slowCases = callLinkInfo->emitDirectTailCallFastPath(*this, scopedLambda<void()>([&] {
@@ -1083,7 +1083,7 @@ void SpeculativeJIT::emitCall(Node* node)
             return;
         }
 
-        SuppressRegisetrAllocationValidation suppressScope(*this);
+        SuppressRegisterAllocationValidation suppressScope(*this);
         Label mainPath = label();
         emitStoreCallSiteIndex(callSite);
         auto slowCases = callLinkInfo->emitDirectFastPath(*this);
@@ -3929,7 +3929,7 @@ void SpeculativeJIT::compile(Node* node)
         if (!ok)
             break;
 
-        SuppressRegisetrAllocationValidation suppressScope(*this);
+        SuppressRegisterAllocationValidation suppressScope(*this);
 
         StorageOperand storage(this, storageEdge);
         GPRTemporary oldValue(this);

@@ -65,6 +65,15 @@ if ! grep -q -- samba ${basedir}/rsync-4.out; then
 	fails=$((fails + 1))
 fi
 
+# Finally^2, test that the /var/select selection mechanism works
+ln -s rsync_openrsync /var/select/rsync
+rsync --itemize-changes > ${basedir}/rsync-5.out 2>&1
+rm -f /var/select/rsync
+if grep -q -- samba ${basedir}/rsync-5.out; then
+	1>&2 echo "rsync --itemize-changes went to samba rsync"
+	fails=$((fails + 1))
+fi
+
 if [ "${fails}" -eq 0 ]; then
 	echo "All tests passed"
 else

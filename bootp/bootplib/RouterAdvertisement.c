@@ -122,31 +122,6 @@ struct _nd_opt_linkaddr {
 	u_int8_t		nd_opt_linkaddr_data[1];
 } __attribute__((__packed__));
 
-#ifndef ND_OPT_PVD
-#define ND_OPT_PVD                    21      /* RFC 8801 */
-#endif /* ND_OPT_PVD */
-
-#ifndef ND_OPT_PVD_MIN_LENGTH
-struct nd_opt_pvd {
-    u_int8_t        nd_opt_pvd_type;
-    u_int8_t        nd_opt_pvd_len;
-    /* http:		1 bit */
-    /* legacy:		1 bit */
-    /* ra:		1 bit */
-    /* reserved:	9 bits */
-    /* delay:		4 bits */
-    u_int8_t        nd_opt_flags_delay[2];
-    u_int16_t       nd_opt_pvd_seq;
-    u_int8_t        nd_opt_pvd_id[1];
-} __attribute__((__packed__));
-
-#define ND_OPT_PVD_MIN_LENGTH  offsetof(struct nd_opt_pvd, nd_opt_pvd_id)
-#define ND_OPT_PVD_FLAGS_HTTP          0x80
-#define ND_OPT_PVD_FLAGS_LEGACY        0x40
-#define ND_OPT_PVD_FLAGS_RA            0x20
-#define ND_OPT_PVD_DELAY_MASK          0x0f
-#endif /* ND_OPT_PVD_MIN_LENGTH */
-
 #define ND_OPT_PREFIX_INFORMATION_LENGTH sizeof(struct nd_opt_prefix_info)
 
 #define ND_OPT_ROUTE_INFORMATION_LENGTH sizeof(struct nd_opt_route_info)
@@ -163,6 +138,23 @@ struct nd_opt_pvd {
 						 nd_opt_dnssl_domains)
 
 #define ND_OPT_CAPPORT_HEADER_LENGTH	sizeof(struct nd_opt_hdr)
+
+/*
+ * ref: RFC 5175
+ */
+#ifndef ND_OPT_FLAGS_EXTENSION
+#define ND_OPT_FLAGS_EXTENSION			26
+#define ND_OPT_FLAGS_EXTENSION_MIN_LENGTH	8
+
+#define ND_OPT_FLAGS_EXTENSION_BITMASK_MANAGED					0x0001
+#define ND_OPT_FLAGS_EXTENSION_BITMASK_OTHER					0x0002
+#define ND_OPT_FLAGS_EXTENSION_BITMASK_MOBILE_HOME_AGENT			0x0004
+#define ND_OPT_FLAGS_EXTENSION_BITMASK_ROUTER_SELECTION_PREFERENCES_BIT0	0x0008
+#define ND_OPT_FLAGS_EXTENSION_BITMASK_ROUTER_SELECTION_PREFERENCES_BIT1	0x0010
+#define ND_OPT_FLAGS_EXTENSION_BITMASK_PROXY					0x0020
+#define ND_OPT_FLAGS_EXTENSION_BITMASK_RESERVED_START				0x00c0
+#define ND_OPT_FLAGS_EXTENSION_BITMASK_RESERVED_CONT				0xffffffff
+#endif
 
 STATIC void
 RouterAdvertisementAppendDescription(RouterAdvertisementRef ra,
@@ -330,6 +322,9 @@ S_nd_opt_name(int nd_opt)
 		break;
 	case ND_OPT_PVD:
 		str = "provisioning domain";
+		break;
+	case ND_OPT_FLAGS_EXTENSION:
+		str = "flags extension";
 		break;
 	default:
 		str = "<unknown>";
@@ -1061,6 +1056,54 @@ done:
 }
 
 STATIC void
+AppendFlagsExtensionOptionDescription(CFMutableStringRef str,
+				      const struct nd_opt_hdr * opt,
+				      int opt_len)
+{
+	uint8_t *	scan = NULL;
+	uint16_t	flags_start = 0;
+	uint32_t	flags_continued = 0;
+
+	if (opt_len < ND_OPT_FLAGS_EXTENSION_MIN_LENGTH) {
+		AppendTruncatedOptionDescription(str, opt, opt_len,
+						 ND_OPT_FLAGS_EXTENSION_MIN_LENGTH);
+		goto done;
+	}
+	STRING_APPEND_STR(str, " flags [ ");
+	scan = (uint8_t *)opt + sizeof(*opt);
+	flags_start = net_uint16_get(scan);
+	scan += sizeof(flags_start);
+	if ((flags_start & ND_OPT_FLAGS_EXTENSION_BITMASK_MANAGED) != 0) {
+		STRING_APPEND_STR(str, "managed ");
+	}
+	if ((flags_start & ND_OPT_FLAGS_EXTENSION_BITMASK_OTHER) != 0) {
+		STRING_APPEND_STR(str, "other ");
+	}
+	if ((flags_start & ND_OPT_FLAGS_EXTENSION_BITMASK_MOBILE_HOME_AGENT) != 0) {
+		STRING_APPEND_STR(str, "mobile_ipv6_home_agent ");
+	}
+	if ((flags_start & ND_OPT_FLAGS_EXTENSION_BITMASK_ROUTER_SELECTION_PREFERENCES_BIT0) != 0) {
+		STRING_APPEND_STR(str, "router_selection_preferences0 ");
+	}
+	if ((flags_start & ND_OPT_FLAGS_EXTENSION_BITMASK_ROUTER_SELECTION_PREFERENCES_BIT1) != 0) {
+		STRING_APPEND_STR(str, "router_selection_preferences1 ");
+	}
+	if ((flags_start & ND_OPT_FLAGS_EXTENSION_BITMASK_PROXY) != 0) {
+		STRING_APPEND_STR(str, "proxy ");
+	}
+	flags_continued = net_uint32_get(scan);
+	scan += sizeof(flags_continued);
+	if ((flags_start & ND_OPT_FLAGS_EXTENSION_BITMASK_RESERVED_START) != 0
+	    || (flags_continued & ND_OPT_FLAGS_EXTENSION_BITMASK_RESERVED_CONT) != 0) {
+		STRING_APPEND_STR(str, "reserved ");
+	}
+	STRING_APPEND_STR(str, "]");
+
+done:
+	return;
+}
+
+STATIC void
 AppendOptionDescriptions(CFMutableStringRef str, ptrlist_t * options_p)
 {
 	int		count;
@@ -1106,6 +1149,9 @@ AppendOptionDescriptions(CFMutableStringRef str, ptrlist_t * options_p)
 			break;
 		case ND_OPT_PVD:
 			AppendPvDOptionDescription(str, opt, opt_len);
+			break;
+		case ND_OPT_FLAGS_EXTENSION:
+			AppendFlagsExtensionOptionDescription(str, opt, opt_len);
 			break;
 		case ND_OPT_TARGET_LINKADDR:
 		case ND_OPT_SOURCE_LINKADDR:

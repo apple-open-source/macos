@@ -208,16 +208,24 @@ NS_ASSUME_NONNULL_BEGIN
 {
     int i = 0;
     int c = 0;
+    BOOL isLegal = true;
 
     for (i = 0, c = 0; i < LABEL_LENGTH; i++) {
         c = (u_char)label[i];
         /* First charachter can't be a blank space */
         if (c < ' ' + !i || strchr("\"*+,./:;<=>?[\\]|", c)) {
-            os_log(fskit_std_log(), "%s: Illegal character: %c", __FUNCTION__, c);
-            return false;
+            if (c != 0)  {
+                os_log(fskit_std_log(), "%s: Illegal character: %c", __FUNCTION__, c);
+                isLegal = false;
+            } else if (i == 0) {
+                os_log(fskit_std_log(), "%s: empty label", __FUNCTION__);
+                isLegal = false;
+            }
+            break;
         }
     }
-    return true;
+
+    return isLegal;
 }
 
 //FIXME: Any reason not to move on to SHA-2?

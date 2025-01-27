@@ -34,6 +34,8 @@ namespace WebCore {
 
 using namespace Inspector;
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(PageWorkerAgent);
+
 PageWorkerAgent::PageWorkerAgent(PageAgentContext& context)
     : InspectorWorkerAgent(context)
     , m_page(context.inspectedPage)

@@ -20,8 +20,14 @@ class StreamingEncoderBase {
         if fileDesc.rawValue < 0 { throw StreamingEncoderError.invalidFileDescriptor }
         self.fileDesc = fileDesc
         needCommas = false
+        do {
+            try fileDesc.writeAll(startChar.utf8)
+        } catch {
+            Logger(subsystem: "StreamingEncoder", category: "init").error("StreamingEncoder could not write initial byte: \(error)")
+            throw error
+        }
+        // Don't set self.endChar until we're done with all potential throws, so deinit won't try to write it
         self.endChar = endChar
-        try fileDesc.writeAll(startChar.utf8)
     }
 
     deinit {
@@ -49,8 +55,35 @@ class StreamingEncoderBase {
         self.endChar = nil // must use self here as we shadowed `endChar` with the guard above
     }
 
+    // Convert some types that JSONSerialization doesn't know how to serialize.
+    static func cleanValue(_ value: Any) -> Any {
+        switch value {
+        case let subDict as [AnyHashable: Any]:
+            return cleanDictionaryForJSON(subDict)
+        case let subArray as [Any]:
+            return subArray.map(cleanValue)
+        case let data as Data:
+            return data.base64EncodedString()
+        case let date as Date:
+            return date.formatted(
+                .iso8601
+                .year()
+                .month()
+                .day()
+                .timeZone(separator: .omitted)
+                .time(includingFractionalSeconds: true)
+                .timeSeparator(.colon))
+        default:
+            return JSONSerialization.isValidJSONObject([value]) ? value : String(describing: value)
+        }
+    }
+
+    static func cleanDictionaryForJSON(_ d: [AnyHashable: Any]) -> [AnyHashable: Any] {
+        return d.mapValues(cleanValue)
+    }
+
     static func encode(fileDesc: FileDescriptor, obj: Any) throws {
-        let objToEncode = JSONSerialization.isValidJSONObject([obj]) ? obj : String(describing: obj)
+        let objToEncode = cleanValue(obj)
         let data: Data
         do {
             data = try JSONSerialization.data(withJSONObject: objToEncode, options: [.fragmentsAllowed, .sortedKeys])
@@ -87,7 +120,10 @@ class StreamingEncoderDict: StreamingEncoderBase {
         try super.init(fileDesc: fileDesc, startChar: "{", endChar: "}")
     }
 
-    func append(key: String, value: Any) throws {
+    func append(key: String, value: Any?) throws {
+        guard let value else {
+            return
+        }
         try maybeComma()
         try Self.encode(fileDesc: fileDesc, obj: key)
         try fileDesc.writeAll(":".utf8)

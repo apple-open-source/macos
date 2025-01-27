@@ -26,6 +26,7 @@
 #include "config.h"
 #include "Quirks.h"
 
+#include "AccessibilityObject.h"
 #include "Attr.h"
 #include "DOMTokenList.h"
 #include "DeprecatedGlobalSettings.h"
@@ -41,6 +42,7 @@
 #include "HTMLCollection.h"
 #include "HTMLDivElement.h"
 #include "HTMLMetaElement.h"
+#include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTMLVideoElement.h"
 #include "JSEventListener.h"
@@ -153,6 +155,7 @@ bool Quirks::isEmbedDomain(const String& domainString) const
 }
 
 // ceac.state.gov https://bugs.webkit.org/show_bug.cgi?id=193478
+// weather.com rdar://139689157
 bool Quirks::needsFormControlToBeMouseFocusable() const
 {
 #if PLATFORM(MAC)
@@ -160,10 +163,14 @@ bool Quirks::needsFormControlToBeMouseFocusable() const
         return false;
 
     auto host = m_document->topDocument().url().host();
-    return host == "ceac.state.gov"_s || host.endsWith(".ceac.state.gov"_s);
-#else
+    if (host == "ceac.state.gov"_s || host.endsWith(".ceac.state.gov"_s))
+        return true;
+
+    if (host == "weather.com"_s)
+        return true;
+#endif // PLATFORM(MAC)
+
     return false;
-#endif
 }
 
 bool Quirks::needsAutoplayPlayPauseEvents() const
@@ -412,7 +419,6 @@ bool Quirks::shouldDisableElementFullscreenQuirk() const
 #endif
 }
 
-#if ENABLE(TOUCH_EVENTS)
 bool Quirks::isAmazon() const
 {
     return PublicSuffixStore::singleton().topPrivatelyControlledDomain(m_document->topDocument().url().host()).startsWith("amazon."_s);
@@ -424,6 +430,7 @@ bool Quirks::isGoogleMaps() const
     return PublicSuffixStore::singleton().topPrivatelyControlledDomain(url.host()).startsWith("google."_s) && startsWithLettersIgnoringASCIICase(url.path(), "/maps/"_s);
 }
 
+#if ENABLE(TOUCH_EVENTS)
 // rdar://49124313
 // desmos.com rdar://47068176
 // flipkart.com rdar://49648520
@@ -696,6 +703,22 @@ bool Quirks::needsYouTubeOverflowScrollQuirk() const
 #endif
 }
 
+// amazon.com rdar://128962002
+bool Quirks::needsPrimeVideoUserSelectNoneQuirk() const
+{
+#if PLATFORM(MAC)
+    if (!needsQuirks())
+        return false;
+
+    if (!m_needsPrimeVideoUserSelectNoneQuirk)
+        m_needsPrimeVideoUserSelectNoneQuirk = isAmazon();
+
+    return *m_needsPrimeVideoUserSelectNoneQuirk;
+#else
+    return false;
+#endif
+}
+
 // youtube.com rdar://135886305
 // NOTE: Also remove `BuilderConverter::convertScrollbarWidth` and related code when removing this quirk.
 bool Quirks::needsScrollbarWidthThinDisabledQuirk() const
@@ -758,6 +781,22 @@ bool Quirks::needsWeChatScrollingQuirk() const
 {
 #if PLATFORM(IOS) || PLATFORM(VISION)
     return needsQuirks() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoWeChatScrollingQuirk) && IOSApplication::isWechat();
+#else
+    return false;
+#endif
+}
+
+// maps.google.com rdar://67358928
+bool Quirks::needsGoogleMapsScrollingQuirk() const
+{
+#if PLATFORM(IOS_FAMILY)
+    if (!needsQuirks())
+        return false;
+
+    if (!m_needsGoogleMapsScrollingQuirk)
+        m_needsGoogleMapsScrollingQuirk = isGoogleMaps();
+
+    return *m_needsGoogleMapsScrollingQuirk;
 #else
     return false;
 #endif
@@ -925,6 +964,7 @@ bool Quirks::needsPreloadAutoQuirk() const
 
 // vimeo.com rdar://56996057
 // docs.google.com rdar://59893415
+// bing.com rdar://133223599
 bool Quirks::shouldBypassBackForwardCache() const
 {
     if (!needsQuirks())
@@ -942,6 +982,13 @@ bool Quirks::shouldBypassBackForwardCache() const
     if (topURL.protocolIs("https"_s) && host == "vimeo.com"_s) {
         if (auto* documentLoader = document->frame() ? document->frame()->loader().documentLoader() : nullptr)
             return documentLoader->response().cacheControlContainsNoStore();
+    }
+
+    // Spinner issue from image search for bing.com.
+    if (registrableDomain == "bing.com"_s) {
+        static MainThreadNeverDestroyed<const AtomString> imageSearchDialogID("sb_sbidialog"_s);
+        if (RefPtr element = document->getElementById(imageSearchDialogID.get()))
+            return element->renderer();
     }
 
     // Login issue on bankofamerica.com (rdar://104938789).
@@ -1354,7 +1401,7 @@ bool Quirks::requiresUserGestureToPauseInPictureInPicture() const
 
     if (!m_requiresUserGestureToPauseInPictureInPicture) {
         auto domain = RegistrableDomain(m_document->topDocument().url()).string();
-        m_requiresUserGestureToPauseInPictureInPicture = isDomain("facebook.com"_s) || isDomain("twitter.com"_s) || isDomain("reddit.com"_s);
+        m_requiresUserGestureToPauseInPictureInPicture = isDomain("facebook.com"_s) || isDomain("twitter.com"_s) || isDomain("reddit.com"_s) || isDomain("forbes.com"_s);
     }
 
     return *m_requiresUserGestureToPauseInPictureInPicture;
@@ -1930,16 +1977,24 @@ std::optional<TargetedElementSelectors> Quirks::defaultVisibilityAdjustmentSelec
 
 String Quirks::scriptToEvaluateBeforeRunningScriptFromURL(const URL& scriptURL)
 {
-#if ENABLE(DESKTOP_CONTENT_MODE_QUIRKS)
     if (!needsQuirks())
         return { };
 
+#if PLATFORM(IOS_FAMILY)
     auto topDomain = RegistrableDomain(m_document->topDocument().url()).string();
+
+    // player.anyclip.com rdar://138789765
+    if (UNLIKELY(topDomain == "thesaurus.com"_s && scriptURL.lastPathComponent().endsWith("lre.js"_s)) && scriptURL.host() == "player.anyclip.com"_s)
+        return "(function() { let userAgent = navigator.userAgent; Object.defineProperty(navigator, 'userAgent', { get: () => { return userAgent + ' Chrome/130.0.0.0 Android/15.0'; }, configurable: true }); })();"_s;
+
+#if ENABLE(DESKTOP_CONTENT_MODE_QUIRKS)
     if (UNLIKELY(topDomain == "webex.com"_s && scriptURL.lastPathComponent().startsWith("pushdownload."_s)))
         return "Object.defineProperty(window, 'Touch', { get: () => undefined });"_s;
+#endif
 #else
     UNUSED_PARAM(scriptURL);
 #endif
+
     return { };
 }
 
@@ -1968,6 +2023,96 @@ bool Quirks::needsZeroMaxTouchPointsQuirk() const
 
     return *m_needsZeroMaxTouchPointsQuirk;
 #endif
+
+    return false;
+}
+
+// hulu.com rdar://126096361
+bool Quirks::implicitMuteWhenVolumeSetToZero() const
+{
+#if HAVE(MEDIA_VOLUME_PER_ELEMENT)
+    if (!needsQuirks())
+        return false;
+
+    if (!m_implicitMuteWhenVolumeSetToZero) {
+        auto domain = RegistrableDomain(m_document->topDocument().url()).string();
+        m_implicitMuteWhenVolumeSetToZero = domain == "hulu.com"_s || domain.endsWith(".hulu.com"_s);
+    }
+
+    return *m_implicitMuteWhenVolumeSetToZero;
+#else
+    return false;
+#endif
+}
+
+#if ENABLE(TOUCH_EVENTS)
+
+bool Quirks::shouldOmitTouchEventDOMAttributesForDesktopWebsite(const URL& requestURL)
+{
+    return requestURL.host() == "secure.chase.com"_s;
+}
+
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+
+bool Quirks::shouldSynthesizeTouchEventsAfterNonSyntheticClick(const Node& target) const
+{
+    if (!needsQuirks())
+        return false;
+
+    if (target.nodeName() == "AVIA-BUTTON"_s && isDomain("cbssports.com"_s)) {
+        // Remove this once rdar://139478801 is resolved.
+        return true;
+    }
+
+    return false;
+}
+
+bool Quirks::shouldIgnoreContentObservationForClick(const Node& targetNode) const
+{
+    if (!needsQuirks())
+        return false;
+
+    if (!m_mayNeedToIgnoreContentObservation.value_or(true))
+        return false;
+
+    auto accessibilityRole = [](const Element& element) {
+        return AccessibilityObject::ariaRoleToWebCoreRole(element.getAttribute(HTMLNames::roleAttr));
+    };
+
+    if (isDomain("walmart.com"_s)) {
+        m_mayNeedToIgnoreContentObservation = true;
+        RefPtr target = dynamicDowncast<Element>(targetNode);
+        if (!target || accessibilityRole(*target) != AccessibilityRole::Button)
+            return false;
+
+        RefPtr parent = target->parentElementInComposedTree();
+        if (!parent || accessibilityRole(*parent) != AccessibilityRole::ListItem)
+            return false;
+
+        return true;
+    }
+
+    m_mayNeedToIgnoreContentObservation = false;
+    return false;
+}
+
+#endif // PLATFORM(IOS_FAMILY)
+
+// bing.com rdar://126573838
+bool Quirks::needsBingGestureEventQuirk(EventTarget* target) const
+{
+    if (!needsQuirks())
+        return false;
+
+    auto url = m_document->topDocument().url();
+    if (url.host() == "www.bing.com"_s && startsWithLettersIgnoringASCIICase(url.path(), "/maps"_s)) {
+        if (RefPtr element = dynamicDowncast<Element>(target)) {
+            static MainThreadNeverDestroyed<const AtomString> mapClass("atlas-map-canvas"_s);
+            return element->hasClassName(mapClass.get());
+        }
+    }
 
     return false;
 }

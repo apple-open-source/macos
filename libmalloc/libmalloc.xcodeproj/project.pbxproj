@@ -13,6 +13,8 @@
 			buildPhases = (
 				3FC1927C16DD946500315C26 /* Install Man Pages */,
 				3FE9201D16A9143E00D1238A /* Sanitise Headers (rdar://problem/10241868) */,
+				4D0064DE2CB875050073E766 /* Install Trial namespace plists */,
+				4D0064E02CB875950073E766 /* Install Trial known factors plists */,
 			);
 			dependencies = (
 				F7B02A1729791423002DDF30 /* PBXTargetDependency */,
@@ -116,6 +118,8 @@
 		3FE9200116A9109E00D1238A /* magazine_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FD616A90A8D00D1238A /* magazine_malloc.c */; };
 		3FE9200216A9109E00D1238A /* magmallocProvider.d in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FD716A90A8D00D1238A /* magmallocProvider.d */; };
 		3FE9200316A9109E00D1238A /* malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FD816A90A8D00D1238A /* malloc.c */; };
+		4D0064DF2CB8752B0073E766 /* com.apple.Trial.NamespaceDescriptor.1900.plist in Install Trial namespace plists */ = {isa = PBXBuildFile; fileRef = 4D39B1A82CB491C500899E33 /* com.apple.Trial.NamespaceDescriptor.1900.plist */; };
+		4D0064E12CB875B00073E766 /* KnownFactors.PROBABILISTIC_GUARD_MALLOC_TARGETED_COVERAGE.plist in Install Trial known factors plists */ = {isa = PBXBuildFile; fileRef = 4D39B1A92CB491C500899E33 /* KnownFactors.PROBABILISTIC_GUARD_MALLOC_TARGETED_COVERAGE.plist */; };
 		4D10425125CB637F00F70ABD /* stack_trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DABD07E25CB621700AFF1F8 /* stack_trace.c */; };
 		4D10425225CB637F00F70ABD /* stack_trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DABD07E25CB621700AFF1F8 /* stack_trace.c */; };
 		4D10425325CB638000F70ABD /* stack_trace.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DABD07E25CB621700AFF1F8 /* stack_trace.c */; };
@@ -541,6 +545,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		4D0064DE2CB875050073E766 /* Install Trial namespace plists */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Trial/NamespaceDescriptors;
+			dstSubfolderSpec = 0;
+			files = (
+				4D0064DF2CB8752B0073E766 /* com.apple.Trial.NamespaceDescriptor.1900.plist in Install Trial namespace plists */,
+			);
+			name = "Install Trial namespace plists";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		4D0064E02CB875950073E766 /* Install Trial known factors plists */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Trial/AllowedFactorsAndDefaults;
+			dstSubfolderSpec = 0;
+			files = (
+				4D0064E12CB875B00073E766 /* KnownFactors.PROBABILISTIC_GUARD_MALLOC_TARGETED_COVERAGE.plist in Install Trial known factors plists */,
+			);
+			name = "Install Trial known factors plists";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		B24F716029B188100064241F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -596,6 +622,8 @@
 		456E51C9197DF0D600A7E488 /* libmalloc_stress_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libmalloc_stress_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D20007425BA687B0018FFE6 /* malloc_zone_unregister_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = malloc_zone_unregister_test.c; sourceTree = "<group>"; };
 		4D38D0F828EF983000B75207 /* malloc_type.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = malloc_type.c; sourceTree = "<group>"; };
+		4D39B1A82CB491C500899E33 /* com.apple.Trial.NamespaceDescriptor.1900.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.Trial.NamespaceDescriptor.1900.plist; sourceTree = "<group>"; };
+		4D39B1A92CB491C500899E33 /* KnownFactors.PROBABILISTIC_GUARD_MALLOC_TARGETED_COVERAGE.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = KnownFactors.PROBABILISTIC_GUARD_MALLOC_TARGETED_COVERAGE.plist; sourceTree = "<group>"; };
 		4D83DB142422F91A00CECCFE /* pgm_integration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pgm_integration.c; sourceTree = "<group>"; tabWidth = 2; };
 		4D87505A23F1D680005E25AA /* pgm_testing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pgm_testing.h; sourceTree = "<group>"; tabWidth = 2; };
 		4D87505B23F1DB2E005E25AA /* pgm_allocator.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pgm_allocator.c; sourceTree = "<group>"; tabWidth = 2; };
@@ -1018,12 +1046,22 @@
 				3FE91FDF16A90A8D00D1238A /* xcodeconfig */,
 				3FE91FE216A90A8D00D1238A /* xcodescripts */,
 				08C28B411D501D2C000AE997 /* tools */,
+				4D39B1AA2CB491C500899E33 /* trial */,
 				3FE91FE916A90AEC00D1238A /* Products */,
 				084F5E821D50204F006CD296 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 			tabWidth = 4;
 			usesTabs = 1;
+		};
+		4D39B1AA2CB491C500899E33 /* trial */ = {
+			isa = PBXGroup;
+			children = (
+				4D39B1A82CB491C500899E33 /* com.apple.Trial.NamespaceDescriptor.1900.plist */,
+				4D39B1A92CB491C500899E33 /* KnownFactors.PROBABILISTIC_GUARD_MALLOC_TARGETED_COVERAGE.plist */,
+			);
+			path = trial;
+			sourceTree = "<group>";
 		};
 		925383BD1BD03B4A00F745DB /* tests */ = {
 			isa = PBXGroup;

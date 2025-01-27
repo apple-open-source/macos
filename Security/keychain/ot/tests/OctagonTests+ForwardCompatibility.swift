@@ -155,8 +155,10 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         XCTAssertEqual(try XCTUnwrap(self.defaultCKKS.syncingPolicy).version.versionNumber, newPolicy.version.versionNumber, "After refetch, CKKS policy should be new policy version")
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.cuttlefishContext.cuttlefishXPCWrapper.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, error in
+        let piper = AsyncPiper()
+        self.cuttlefishContext.cuttlefishXPCWrapper.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount), fileDescriptor: piper.writeXpcFd()) { error in
             XCTAssertNil(error, "Should be no error getting dump")
+            let dump = try? piper.dict()
             XCTAssertNotNil(dump, "dump should not be nil")
             let policies = dump!["registeredPolicyVersions"] as? [String]
             XCTAssertNotNil(policies, "policies should not be nil")
@@ -168,9 +170,12 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.wait(for: [dumpCallback], timeout: 10)
 
         let statusExpectation = self.expectation(description: "status callback occurs")
-        self.cuttlefishContext.rpcStatus { result, error in
+        guard let xpcFd = xpc_fd_create(STDOUT_FILENO) else {
+            fatalError("couldn't wrap STDOUT_FILENO for XPC")
+        }
+        self.cuttlefishContext.rpcStatus(xpcFd) { result, error in
             XCTAssertNil(error, "Should have no error getting status")
-            XCTAssertNotNil(result, "Should have some staatus")
+            XCTAssertNotNil(result, "Should have some status")
             statusExpectation.fulfill()
         }
         self.wait(for: [statusExpectation], timeout: 10)

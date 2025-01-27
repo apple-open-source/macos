@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "PlatformVideoColorSpace.h"
 #include "ProcessIdentity.h"
 #include <span>
 #include <wtf/CompletionHandler.h>
@@ -39,14 +40,17 @@ public:
     WEBCORE_EXPORT VideoDecoder();
     WEBCORE_EXPORT virtual ~VideoDecoder();
 
-    enum class HardwareAcceleration { Yes, No };
-    enum class HardwareBuffer { Yes, No };
+    enum class HardwareAcceleration : bool { No, Yes };
+    enum class HardwareBuffer : bool { No, Yes };
+    enum class TreatNoOutputAsError : bool { No, Yes };
     struct Config {
         std::span<const uint8_t> description;
         uint64_t width { 0 };
         uint64_t height { 0 };
+        std::optional<PlatformVideoColorSpace> colorSpace;
         HardwareAcceleration decoding { HardwareAcceleration::No };
         HardwareBuffer pixelBuffer { HardwareBuffer::No };
+        TreatNoOutputAsError noOutputAsError { TreatNoOutputAsError::Yes };
         ProcessIdentity resourceOwner { };
     };
 

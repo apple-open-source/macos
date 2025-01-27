@@ -2034,8 +2034,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -2060,8 +2060,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -2620,8 +2620,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -2646,8 +2646,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -2721,8 +2721,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
 
-            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should not be empty")
 
             stableInfoCheckDumpCallback.fulfill()
         }
@@ -2743,8 +2743,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -2827,8 +2827,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3014,8 +3014,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3040,8 +3040,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3122,8 +3122,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNil(egoSelf?["dynamicInfo"], "dynamicInfo should be nil")
             XCTAssertNil(egoSelf?["stableInfo"], "stableInfo should be nil")
 
-            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             stableInfoCheckDumpCallback.fulfill()
         }
@@ -3144,8 +3144,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3208,8 +3208,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNil(egoSelf?["dynamicInfo"], "dynamicInfo should be nil")
             XCTAssertNil(egoSelf?["stableInfo"], "stableInfo should be nil")
 
-            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should not be empty")
 
             stableInfoCheckDumpCallback.fulfill()
         }
@@ -3230,8 +3230,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3311,8 +3311,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3337,8 +3337,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3413,8 +3413,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNil(egoSelf?["dynamicInfo"], "dynamicInfo should be nil")
             XCTAssertNil(egoSelf?["stableInfo"], "stableInfo should be nil")
 
-            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             stableInfoCheckDumpCallback.fulfill()
         }
@@ -3435,8 +3435,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3537,8 +3537,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3563,8 +3563,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3635,8 +3635,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNil(egoSelf?["dynamicInfo"], "dynamicInfo should be nil")
             XCTAssertNil(egoSelf?["stableInfo"], "stableInfo should be nil")
 
-            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should not be empty")
 
             stableInfoCheckDumpCallback.fulfill()
         }
@@ -3657,8 +3657,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -3838,8 +3838,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -4024,8 +4024,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -4050,8 +4050,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -4131,8 +4131,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNil(egoSelf?["dynamicInfo"], "dynamicInfo should be nil")
             XCTAssertNil(egoSelf?["stableInfo"], "stableInfo should be nil")
 
-            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should not be empty")
 
             stableInfoCheckDumpCallback.fulfill()
         }
@@ -4153,8 +4153,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -4234,8 +4234,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNil(egoSelf?["dynamicInfo"], "dynamicInfo should be nil")
             XCTAssertNil(egoSelf?["stableInfo"], "stableInfo should be nil")
 
-            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should not be empty")
 
             stableInfoCheckDumpCallback.fulfill()
         }
@@ -4256,8 +4256,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -4344,8 +4344,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -4370,8 +4370,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -4453,8 +4453,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNil(egoSelf?["dynamicInfo"], "dynamicInfo should be nil")
             XCTAssertNil(egoSelf?["stableInfo"], "stableInfo should be nil")
 
-            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should not be empty")
 
             stableInfoCheckDumpCallback.fulfill()
         }
@@ -4477,8 +4477,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -4585,8 +4585,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -4613,8 +4613,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -4695,8 +4695,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNil(egoSelf?["dynamicInfo"], "dynamicInfo should be nil")
             XCTAssertNil(egoSelf?["stableInfo"], "stableInfo should be nil")
 
-            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"] as! Data, "modelRecoverySigningPublicKey should not be nil")
-            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"] as! Data, "modelRecoveryEncryptionPublicKey should not be nil")
+            XCTAssertNotNil(dump!["modelRecoverySigningPublicKey"], "modelRecoverySigningPublicKey should not be nil")
+            XCTAssertNotNil(dump!["modelRecoveryEncryptionPublicKey"], "modelRecoveryEncryptionPublicKey should not be nil")
 
             stableInfoCheckDumpCallback.fulfill()
         }
@@ -4719,8 +4719,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -5164,8 +5164,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
@@ -5190,8 +5190,8 @@ class OctagonRecoveryKeyTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")

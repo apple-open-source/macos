@@ -71,6 +71,8 @@ public:
 
     void setHasShadowContent() { m_hasShadowContent = true; }
 
+    bool paintsContent() const final;
+
 private:
     void paintReplaced(PaintInfo&, const LayoutPoint&) final;
     void paint(PaintInfo&, const LayoutPoint&) final;

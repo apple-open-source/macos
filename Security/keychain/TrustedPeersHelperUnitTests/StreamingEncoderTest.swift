@@ -15,6 +15,12 @@ struct StreamingEncoderTest {
     }
 
     @Test
+    func differentBadFileDesc() async throws {
+        // Hopefully this many file descriptors are never open during this test.
+        #expect(throws: Errno.badFileDescriptor, "bad fileDesc should result in a throw") { try StreamingEncoderDict(FileDescriptor(rawValue: 2_147_483_647)) }
+    }
+
+    @Test
     func oneString() async throws {
         let (readEnd, writeEnd) = try FileDescriptor.pipe()
         defer {
@@ -547,5 +553,125 @@ struct StreamingEncoderTest {
         let streamy = try StreamingEncoderArray(writeEnd)
         try streamy.finish()
         #expect(throws: StreamingEncoderError.doubleFinish, "finishing twice should throw") { try streamy.finish() }
+    }
+
+    @Test
+    func optionalIntoDict() async throws {
+        let (readEnd, writeEnd) = try FileDescriptor.pipe()
+        defer {
+            try? readEnd.close()
+            try? writeEnd.close()
+        }
+
+        let streamy = try StreamingEncoderDict(writeEnd)
+        try streamy.append(key: "hello", value: nil)
+        try streamy.finish()
+
+        var data = Data(count: 1024)
+        var bytesRead = 0
+        try data.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) throws in
+            bytesRead = try readEnd.read(into: bytes)
+        }
+        data.count = bytesRead
+
+        let roundTrip = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: [String]]
+        #expect([:] == roundTrip, "round trip should result in the expected output")
+    }
+
+    @Test
+    func dataAsBase64() async throws {
+        let (readEnd, writeEnd) = try FileDescriptor.pipe()
+        defer {
+            try? readEnd.close()
+            try? writeEnd.close()
+        }
+
+        let world = "world"
+        let worldata = Data(world.utf8)
+        try StreamingEncoderBase.encode(fileDesc: writeEnd, obj: worldata)
+
+        var data = Data(count: 1024)
+        var bytesRead = 0
+        try data.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) throws in
+            bytesRead = try readEnd.read(into: bytes)
+        }
+        data.count = bytesRead
+
+        let roundTrip = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? String
+        #expect(worldata.base64EncodedString() == roundTrip, "round trip should result in the expected output")
+    }
+
+    @Test
+    func appendDictContainingData() async throws {
+        let (readEnd, writeEnd) = try FileDescriptor.pipe()
+        defer {
+            try? readEnd.close()
+            try? writeEnd.close()
+        }
+
+        let dict: [String: Data] = ["hello": Data("world".utf8)]
+        try StreamingEncoderBase.encode(fileDesc: writeEnd, obj: dict)
+
+        var data = Data(count: 1024)
+        var bytesRead = 0
+        try data.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) throws in
+            bytesRead = try readEnd.read(into: bytes)
+        }
+        data.count = bytesRead
+
+        let roundTrip = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: String]
+        #expect(["hello": "d29ybGQ="] == roundTrip, "round trip should result in the expected output")
+    }
+
+    @Test
+    func appendArrayContainingData() async throws {
+        let (readEnd, writeEnd) = try FileDescriptor.pipe()
+        defer {
+            try? readEnd.close()
+            try? writeEnd.close()
+        }
+
+        let array: [Data] = [Data("hello".utf8), Data("world".utf8)]
+        try StreamingEncoderBase.encode(fileDesc: writeEnd, obj: array)
+
+        var data = Data(count: 1024)
+        var bytesRead = 0
+        try data.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) throws in
+            bytesRead = try readEnd.read(into: bytes)
+        }
+        data.count = bytesRead
+
+        let roundTrip = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String]
+        #expect(["aGVsbG8=", "d29ybGQ="] == roundTrip, "round trip should result in the expected output")
+    }
+
+    @Test
+    func dateAsISO8601() async throws {
+        let (readEnd, writeEnd) = try FileDescriptor.pipe()
+        defer {
+            try? readEnd.close()
+            try? writeEnd.close()
+        }
+
+        let now = Date.now
+        try StreamingEncoderBase.encode(fileDesc: writeEnd, obj: now)
+
+        var data = Data(count: 1024)
+        var bytesRead = 0
+        try data.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) throws in
+            bytesRead = try readEnd.read(into: bytes)
+        }
+        data.count = bytesRead
+
+        let roundTripString = try #require(try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? String, "data should be a JSON string")
+        let roundTrip = try Date.ISO8601FormatStyle.iso8601
+            .year()
+            .month()
+            .day()
+            .timeZone(separator: .omitted)
+            .time(includingFractionalSeconds: true)
+            .timeSeparator(.colon)
+            .parse(roundTripString)
+        #expect(abs(roundTrip.timeIntervalSince(now)) < 1.0, "round trip should be within a second of now")
     }
 }

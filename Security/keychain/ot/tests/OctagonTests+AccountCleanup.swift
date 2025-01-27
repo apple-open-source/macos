@@ -256,8 +256,8 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
             let recoveryEncryptionData = stableInfo!["recovery_encryption_public_key"]
 
-            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! Data, recoverySigningData as! Data, "modelRecoverySigningPublicKey should not be empty")
-            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! Data, recoveryEncryptionData as! Data, "modelRecoveryEncryptionPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoverySigningPublicKey"] as! String, recoverySigningData as! String, "modelRecoverySigningPublicKey should not be empty")
+            XCTAssertEqual(dump!["modelRecoveryEncryptionPublicKey"] as! String, recoveryEncryptionData as! String, "modelRecoveryEncryptionPublicKey should not be empty")
 
             let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")

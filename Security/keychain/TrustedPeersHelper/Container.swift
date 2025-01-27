@@ -28,6 +28,7 @@ import InternalSwiftProtobuf
 import os
 import Security
 import SecurityFoundation
+import System
 
 private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "container")
 
@@ -2162,93 +2163,120 @@ class Container: NSObject, ConfiguredCloudKit {
         }
     }
 
-    func dump(reply: @escaping ([AnyHashable: Any]?, Error?) -> Void) {
-        let reply: ([AnyHashable: Any]?, Error?) -> Void = {
-            let logType: OSLogType = $1 == nil ? .info : .error
-            logger.log(level: logType, "dump complete: \(traceError($1), privacy: .public)")
-            reply($0, $1)
+    func dump(_ fileDescriptor: xpc_object_t, reply: @escaping (Error?) -> Void) {
+        let reply: (Error?) -> Void = {
+            let logType: OSLogType = $0 == nil ? .info : .error
+            logger.log(level: logType, "dump complete: \(traceError($0), privacy: .public)")
+            reply($0)
         }
         self.moc.performAndWait {
-            var d: [AnyHashable: Any] = [:]
+            let fd = FileDescriptor(rawValue: xpc_fd_dup(fileDescriptor))
 
-            if let egoPeerID = self.containerMO.egoPeerID {
-                let peer: TPPeer?
+            defer {
                 do {
-                    peer = try self.model.peer(withID: egoPeerID)
+                    try fd.close()
+                    logger.debug("dump closed XPC FD (\(fd.rawValue))")
                 } catch {
-                    logger.warning("Error getting ego peer from model: \(error, privacy: .public)")
-                    peer = nil
+                    logger.warning("dump failed to close XPC FD (\(fd.rawValue)): \(String(describing: error), privacy: .public)")
                 }
-                if let peer {
-                    d["self"] = Container.peerdictionaryRepresentation(peer: peer)
-                } else {
-                    d["self"] = ["peerID": egoPeerID]
-                }
-            } else {
-                d["self"] = [AnyHashable: Any]()
             }
 
-            autoreleasepool {
-                var otherPeers: [[String: Any]] = []
+            do {
+                let streamer = try StreamingEncoderDict(fd)
+
+                if let egoPeerID = self.containerMO.egoPeerID {
+                    let peer: TPPeer?
+                    do {
+                        peer = try self.model.peer(withID: egoPeerID)
+                    } catch {
+                        logger.warning("Error getting ego peer from model: \(error, privacy: .public)")
+                        peer = nil
+                    }
+                    if let peer {
+                        try streamer.append(key: "self", value: Container.peerdictionaryRepresentation(peer: peer))
+                    } else {
+                        try streamer.append(key: "self", value: ["peerID": egoPeerID])
+                    }
+                } else {
+                    try streamer.append(key: "self", value: [:])
+                }
+
                 do {
-                    try self.model.enumeratePeers { peer, _ in
-                        if peer.peerID != self.containerMO.egoPeerID {
-                            otherPeers.append(Container.peerdictionaryRepresentation(peer: peer))
+                    try streamer.descend("peers") { sub in
+                        try self.model.enumeratePeers { peer, _ in
+                            if peer.peerID != self.containerMO.egoPeerID {
+                                do {
+                                    try sub.append(Container.peerdictionaryRepresentation(peer: peer))
+                                } catch {
+                                    logger.warning("Error appending peer info to streaming encoder: \(error, privacy: .public)")
+                                }
+                            }
                         }
                     }
                 } catch {
                     logger.error("Error enumerating peers: \(error, privacy: .public)")
-                    d["errorEnumeratingPeers"] = "\(error)"
+                    try streamer.append(key: "errorEnumeratingPeers", value: "\(String(describing: error))")
                 }
-                d["peers"] = otherPeers
 
-                var vouchers: [[String: Any]] = []
                 do {
-                    try self.model.enumerateVouchers { voucher, _ in
-                        vouchers.append(voucher.dictionaryRepresentation())
+                    try streamer.descend("vouchers") { sub in
+                        try self.model.enumerateVouchers { voucher, _ in
+                            do {
+                                try sub.append(voucher.dictionaryRepresentation())
+                            } catch {
+                                logger.warning("Error appending peer info to streaming encoder: \(error, privacy: .public)")
+                            }
+                        }
                     }
                 } catch {
                     logger.error("Error enumerating vouchers: \(error, privacy: .public)")
-                    d["errorEnumeratingVouchers"] = "\(error)"
+                    try streamer.append(key: "errorEnumeratingVouchers", value: "\(error))")
                 }
-                d["vouchers"] = vouchers
 
-                d["custodian_recovery_keys"] = self.model.allCustodianRecoveryKeys().map { $0.dictionaryRepresentation() }
+                try autoreleasepool {
+                    try streamer.append(key: "custodian_recovery_keys", value: self.model.allCustodianRecoveryKeys().map { $0.dictionaryRepresentation() })
 
-                if let bottles = self.containerMO.bottles as? Set<BottleMO> {
-                    d["bottles"] = bottles.map { Container.dictionaryRepresentation(bottle: $0) }
-                } else {
-                    d["bottles"] = [Any]()
+                    if let bottles = self.containerMO.bottles as? Set<BottleMO> {
+                        try streamer.append(key: "bottles", value: bottles.map { Container.dictionaryRepresentation(bottle: $0) })
+                    } else {
+                        try streamer.append(key: "bottles", value: [Any]())
+                    }
                 }
-            }
 
-            let midList = self.onqueueCurrentMIDList()
-            d["idmsTrustedDevicesVersion"] = self.containerMO.idmsTrustedDevicesVersion
-            d["idmsTrustedDeviceListFetchDate"] = self.containerMO.idmsTrustedDeviceListFetchDate
-            d["machineIDsAllowed"] = midList.machineIDs(in: .allowed).sorted()
-            d["machineIDsDisallowed"] = midList.machineIDs(in: .disallowed).sorted()
-            d["machineIDsEvicted"] = midList.machineIDs(in: .evicted).sorted()
-            d["machineIDsUnknownReason"] = midList.machineIDs(in: .unknownReason).sorted()
-            d["machineIDsGhostedFromTDL"] = midList.machineIDs(in: .ghostedFromTDL).sorted()
-            d["honorIDMSListChanges"] = self.containerMO.honorIDMSListChanges
+                try autoreleasepool {
+                    let midList = self.onqueueCurrentMIDList()
+                    try streamer.append(key: "idmsTrustedDevicesVersion", value: self.containerMO.idmsTrustedDevicesVersion)
+                    try streamer.append(key: "idmsTrustedDeviceListFetchDate", value: self.containerMO.idmsTrustedDeviceListFetchDate)
+                    try streamer.append(key: "machineIDsAllowed", value: midList.machineIDs(in: .allowed).sorted())
+                    try streamer.append(key: "machineIDsDisallowed", value: midList.machineIDs(in: .disallowed).sorted())
+                    try streamer.append(key: "machineIDsEvicted", value: midList.machineIDs(in: .evicted).sorted())
+                    try streamer.append(key: "machineIDsUnknownReason", value: midList.machineIDs(in: .unknownReason).sorted())
+                    try streamer.append(key: "machineIDsGhostedFromTDL", value: midList.machineIDs(in: .ghostedFromTDL).sorted())
+                    try streamer.append(key: "honorIDMSListChanges", value: self.containerMO.honorIDMSListChanges)
+                }
 
-            d["modelRecoverySigningPublicKey"] = self.model.recoverySigningPublicKey()
-            d["modelRecoveryEncryptionPublicKey"] = self.model.recoveryEncryptionPublicKey()
-            do {
-                d["registeredPolicyVersions"] = try self.model.allRegisteredPolicyVersions().sorted().map { policyVersion in "\(policyVersion.versionNumber), \(policyVersion.policyHash)" }
+                try streamer.append(key: "modelRecoverySigningPublicKey", value: self.model.recoverySigningPublicKey())
+                try streamer.append(key: "modelRecoveryEncryptionPublicKey", value: self.model.recoveryEncryptionPublicKey())
+                do {
+                    try streamer.append(key: "registeredPolicyVersions", value: try self.model.allRegisteredPolicyVersions().sorted().map { policyVersion in "\(policyVersion.versionNumber), \(policyVersion.policyHash)" })
+                } catch {
+                    logger.error("Error getting registered policy versions: \(error, privacy: .public)")
+                    try streamer.append(key: "registeredPolicyVersionsError", value: "\(error)")
+                }
+
+                if let accountSettings = self.containerMO.accountSettings {
+                    if let accountSettings = try? Container.accountSettingsToDict(data: accountSettings) {
+                        try streamer.append(key: "accountSettings", value: Container.dictionaryRepresentation(accountSettings: accountSettings))
+                        try streamer.append(key: "accountSettingsDate", value: self.containerMO.accountSettingsDate)
+                    }
+                }
+
+                try streamer.finish()
+                try fd.writeAll([0] as [UInt8])
+                reply(nil)
             } catch {
-                logger.error("Error getting registered policy versions: \(error, privacy: .public)")
-                d["registeredPolicyVersionsError"] = "\(error)"
+                reply(error)
             }
-
-            if let accountSettings = self.containerMO.accountSettings {
-                if let accountSettings = try? Container.accountSettingsToDict(data: accountSettings) {
-                    d["accountSettings"] = Container.dictionaryRepresentation(accountSettings: accountSettings)
-                    d["accountSettingsDate"] = self.containerMO.accountSettingsDate
-                }
-            }
-
-            reply(d, nil)
         }
     }
 

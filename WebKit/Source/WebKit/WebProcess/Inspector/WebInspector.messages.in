@@ -21,7 +21,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 messages -> WebInspector {
-    Show()
+    Show() -> () Async
     Close()
 
     SetAttached(bool attached)

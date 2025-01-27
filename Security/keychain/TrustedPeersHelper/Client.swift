@@ -22,6 +22,7 @@
  */
 
 import Foundation
+import System
 
 private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "client")
 
@@ -83,18 +84,20 @@ class Client: TrustedPeersHelperProtocol {
         return try self.containerMap.findOrCreate(user: user)
     }
 
-    func dump(with user: TPSpecificUser?,
-              reply: @escaping ([AnyHashable: Any]?, Error?) -> Void) {
+    func dump(with user: TPSpecificUser?, fileDescriptor: xpc_object_t,
+              reply: @escaping (Error?) -> Void) {
         do {
             logger.info("Dumping for \(String(describing: user), privacy: .public)")
-            let container = try self.containerMap.findOrCreate(user: user)
-            container.dump { result, error in
-                self.logComplete(function: "Dumping", container: container.name, error: error)
-                reply(result, error?.sanitizeForClientXPC())
+            try autoreleasepool {
+                let container = try self.containerMap.findOrCreate(user: user)
+                container.dump(fileDescriptor) { error in
+                    self.logComplete(function: "Dumping", container: container.name, error: error)
+                    reply(error?.sanitizeForClientXPC())
+                }
             }
         } catch {
             logger.error("Dumping failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
-            reply(nil, error.sanitizeForClientXPC())
+            reply(error.sanitizeForClientXPC())
         }
     }
 
@@ -102,10 +105,10 @@ class Client: TrustedPeersHelperProtocol {
         do {
             logger.info("honorIDMSListChanges for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.honorIDMSListChanges(reply: { result, error in
+            container.honorIDMSListChanges { result, error in
                 self.logComplete(function: "honorIDMSListChanges", container: container.name, error: error)
                 reply(result, error?.sanitizeForClientXPC())
-            })
+            }
         } catch {
             logger.error("honorIDMSListChanges failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())

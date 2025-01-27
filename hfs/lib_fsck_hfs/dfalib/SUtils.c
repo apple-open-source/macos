@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003, 2005-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,19 +49,29 @@ static OSErr 	VolumeObjectFixPrimaryBlock( void );
  *
  * Encode a UCS-2 (Unicode) string to UTF-8
  */
-int utf_encodestr(ucsp, ucslen, utf8p, utf8len, utf8plen)
-	const u_int16_t * ucsp;
-	size_t ucslen;
-	unsigned char * utf8p;
-	size_t * utf8len;
-	size_t utf8plen;
+int utf_encodestr(const uint16_t *ucsp, size_t ucslen, unsigned char *utf8p,
+						size_t *utf8len, size_t utf8plen)
 {
-	unsigned char * bufstart;
-	u_int16_t ucs_ch;
+	unsigned char *bufstart;
+	uint16_t ucs_ch;
 	size_t charcnt;
 	
 	bufstart = utf8p;
 	charcnt = ucslen / 2;
+
+	/*
+	 * As much as we'd like to think this function is generic, it is not. This is a
+	 * focused HFS+ function, and we know that the length is at most 255 UTF-16 / ucs chars.
+	 * HFS+ stores filename strings as UTF-16 on-disk, so this function translates back
+	 * into the runtime format.
+	 *
+	 * Here, we clip the input length as needed, to ensure that we don't over-run the output buf,
+	 * which expects in most circumstances that it is between 255-768 UTF-8 characters for volname vs.
+	 * filename respectively.
+	 */
+	if (charcnt > NAME_MAX) {
+		charcnt = NAME_MAX;
+	}
 
 	while (charcnt-- > 0 && utf8plen > 0) {
 		ucs_ch = *ucsp++;
@@ -652,7 +662,7 @@ CopyCatalogName(const CatalogName *srcName, CatalogName *dstName, Boolean isHFSP
 	}
 	
 	if (isHFSPLus)
-		length = sizeof(UniChar) * (srcName->ustr.length + 1);
+		length = sizeof(UniChar) * (MIN(srcName->ustr.length, kHFSPlusMaxFileNameChars) + 1);
 	else
 		length = sizeof(UInt8) + srcName->pstr[0];
 

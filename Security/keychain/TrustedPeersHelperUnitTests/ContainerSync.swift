@@ -5,14 +5,57 @@
 //  Created by Ben Williamson on 6/8/18.
 //
 
+import System
 import XCTest
+
+class AsyncPiper {
+    var readEnd: FileHandle
+    var writeFd: xpc_object_t
+
+    init() {
+        do {
+            let (readEnd, writeEnd) = try FileDescriptor.pipe()
+            self.readEnd = FileHandle(fileDescriptor: readEnd.rawValue, closeOnDealloc: true)
+            guard let xpcFd = xpc_fd_create(writeEnd.rawValue) else {
+                fatalError("AsyncPiper couldn't wrap write end of pipe")
+            }
+            writeFd = xpcFd
+            try writeEnd.close()
+        } catch {
+            fatalError("Could not create AsyncPiper: \(String(describing: error))")
+        }
+    }
+
+    func dict() throws -> [AnyHashable: Any] {
+        var readData = Data()
+        var done = false
+        while !done {
+            readData += readEnd.availableData
+            if readData[readData.count - 1] == 0 {
+                readData.removeLast()
+                done = true
+            }
+        }
+        do {
+            let dict = try JSONSerialization.jsonObject(with: readData)
+            return dict as? [AnyHashable: Any] ?? [:]
+        } catch {
+            fatalError("AsyncPiper decoding JSON: \(error)")
+        }
+    }
+
+    func writeXpcFd() -> xpc_object_t {
+        return writeFd
+    }
+}
 
 extension Container {
     func dumpSync(test: XCTestCase) -> ([AnyHashable: Any]?, Error?) {
         let expectation = XCTestExpectation(description: "dump replied")
         var reta: [AnyHashable: Any]?, reterr: Error?
-        self.dump { a, err in
-            reta = a
+        let piper = AsyncPiper()
+        self.dump(piper.writeXpcFd()) { err in
+            reta = try? piper.dict()
             reterr = err
             expectation.fulfill()
         }

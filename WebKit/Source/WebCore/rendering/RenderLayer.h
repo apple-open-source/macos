@@ -559,6 +559,8 @@ public:
         RequestState hasPaintedContent { RequestState::Unknown };
     };
 
+    bool isVisibilityHiddenOrOpacityZero() const;
+
     // Returns true if this layer has visible content (ignoring any child layers).
     bool isVisuallyNonEmpty(PaintedContentRequest* = nullptr) const;
     // True if this layer container renderers that paint.
@@ -646,7 +648,7 @@ public:
         IncludeOverlayScrollbarSize = 1 << 1,
     };
 
-    static constexpr OptionSet<ClipRectsOption> clipRectOptionsForPaintingOverflowControls = { };
+    static constexpr OptionSet<ClipRectsOption> clipRectOptionsForPaintingOverflowContents = { };
     static constexpr OptionSet<ClipRectsOption> clipRectDefaultOptions = { ClipRectsOption::RespectOverflowClip };
 
     struct ClipRectsContext {

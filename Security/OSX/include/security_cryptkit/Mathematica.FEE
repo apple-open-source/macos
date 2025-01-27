@@ -1,0 +1,57 @@
+(* Elliptic algebra functions: FEE format.
+
+   y^2 = x^3 + c x^2 + a x + b.
+
+   Montgomery: b = 0, a = 1;
+   Weierstrass: c = 0;
+   Atkin3: c = a = 0;
+   Atkin4: c = b = 0;
+
+   Parameters c, a, b, p must be global.
+ *)
+
+elleven[pt_] := Block[{x1 = pt[[1]], z1 = pt[[2]], e, f },
+  	e = Mod[(x1^2 - a z1^2)^2 - 4 b (2 x1 + c z1) z1^3, p];
+  	f = Mod[4 z1 (x1^3 + c x1^2 z1 + a x1 z1^2 + b z1^3), p];
+  	Return[{e,f}]
+];
+
+ellodd[pt_, pu_, pv_] := Block[
+		{x1 = pt[[1]], z1 = pt[[2]],
+		 x2 = pu[[1]], z2 = pu[[2]],
+		 xx = pv[[1]], zz = pv[[2]], i, j},
+  	     i = Mod[zz ((x1 x2 - a z1 z2)^2 -
+  	          4 b(x1 z2 + x2 z1 + c z1 z2) z1 z2), p];
+  	     j = Mod[xx (x1 z2 - x2 z1)^2, p];
+  		 Return[{i,j}]
+];
+
+bitList[k_] := Block[{li = {}, j = k},
+	While[j > 0,
+	    li = Append[li, Mod[j,2]];
+	    j = Floor[j/2];
+	];
+	Return[Reverse[li]];
+	];
+
+elliptic[pt_, k_] := Block[{porg, ps, pp, q},
+
+	If[k ==1, Return[pt]];
+	If[k ==2, Return[elleven[pt]]];
+	porg = pt;
+	ps = elleven[pt];
+	pp = pt;
+	bitlist = bitList[k];
+	Do[
+	   If[bitlist[[q]] == 1,
+	   	   pp = ellodd[ps, pp, porg];
+	   	   ps = elleven[ps],
+	   	      ps = ellodd[pp, ps, porg];
+		      pp = elleven[pp]
+	   ],
+	   {q,2,Length[bitlist]}
+    ];
+    Return[Mod[pp,p]]
+];
+ellinv[n_] := PowerMod[n,-1,p];
+ex[pt_] := Mod[pt[[1]] * ellinv[pt[[2]]], p];

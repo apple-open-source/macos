@@ -66,7 +66,7 @@ for x in ['OctagonTrustTests']:
 
     test_list.append(test_dictionary)
 
-for x in ['SecKeychainItemUpgradeRequestTests']:
+for x in ['SecKeychainItemUpgradeRequestTests', 'AsyncPiperTests']:
 
     test_dictionary = Foundation.NSMutableDictionary.dictionary()
     test_dictionary['TestName'] = x

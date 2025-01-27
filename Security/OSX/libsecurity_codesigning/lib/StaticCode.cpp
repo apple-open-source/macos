@@ -2527,7 +2527,21 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 					mCEReconstitutedEnts.take(EntitlementBlob::blobify(CFTempDataWrap(xmlData.data(), xmlSize)));
 				}
 				CFDictionaryAddValue(dict, kSecCodeInfoEntitlements, mCEReconstitutedEnts.get());
-				if (needsCatalystEntitlementFixup(entdict)) {
+
+				if (needsOSInstallerSetupdEntitlementsFixup(CFTempString(this->identifier()), cd->platform != 0, entdict)) {
+					// If this entitlement dictionary needs fixed up entitlements, make a copy and stick that into the
+					// output dictionary instead.
+					secinfo("staticCode", "%p fixed osinstallersetupd entitlements", this);
+					CFRef<CFMutableDictionaryRef> tempEntitlements = makeCFMutableDictionary(entdict);
+					updateOSInstallerSetupdEntitlements(tempEntitlements);
+					CFRef<CFDictionaryRef> newEntitlements = CFDictionaryCreateCopy(NULL, tempEntitlements);
+					if (newEntitlements) {
+						CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDict, newEntitlements.get());
+					} else {
+						secerror("%p unable to fixup entitlement dictionary", this);
+						CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDict, entdict);
+					}
+				} else if (needsCatalystEntitlementFixup(entdict)) {
 					// If this entitlement dictionary needs catalyst entitlements, make a copy and stick that into the
 					// output dictionary instead.
 					secinfo("staticCode", "%p fixed catalyst entitlements", this);

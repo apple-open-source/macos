@@ -191,7 +191,9 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtension, WebExtension, _webExtensio
 
 - (NSLocale *)defaultLocale
 {
-    return _webExtension->defaultLocale();
+    if (auto *defaultLocale = nsStringNilIfEmpty(_webExtension->defaultLocale()))
+        return [NSLocale localeWithLocaleIdentifier:defaultLocale];
+    return nil;
 }
 
 - (NSString *)displayName

@@ -541,6 +541,8 @@ private:
     void getImageBufferResourceLimitsForTesting(CompletionHandler<void(std::optional<WebCore::ImageBufferResourceLimits>)>&&) const final;
 #endif
 
+    void didSwallowClickEvent(const WebCore::PlatformMouseEvent&, WebCore::Node&) final;
+
     mutable bool m_cachedMainFrameHasHorizontalScrollbar { false };
     mutable bool m_cachedMainFrameHasVerticalScrollbar { false };
 

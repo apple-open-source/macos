@@ -1,0 +1,43 @@
+#!/bin/zsh
+
+test -x ${SECURITY:=~/build/security} || unset SECURITY
+SECURITY=${SECURITY?must specify the full path to the security command}
+TMPDIR=/tmp/smime-$$
+NAME=mb@apple.com
+
+mkdir $TMPDIR
+cd $TMPDIR
+
+$SECURITY cms -O -r $NAME -o content
+$SECURITY cms -D -i content -o /dev/null
+$SECURITY cms -D -h 0 -n -i content
+
+$SECURITY cms -S -N $NAME -Y NONE -i content -o signed
+$SECURITY cms -D -i signed -o signed.out
+$SECURITY cms -D -h 0 -n -i signed
+cmp content signed.out
+
+$SECURITY cms -S -N $NAME -Y NONE -G -i content -o signed+date
+$SECURITY cms -D -i signed+date -o signed+date.out
+$SECURITY cms -D -h 0 -n -i signed+date
+cmp content signed+date.out
+
+$SECURITY cms -S -N $NAME -G -P -i content -o signed+smime
+$SECURITY cms -D -i signed+smime -o signed+smime.out
+$SECURITY cms -D -h 0 -n -i signed+smime
+cmp content signed+smime.out
+
+$SECURITY cms -S -N $NAME -T -Y NONE -i content -o signed+detached
+$SECURITY cms -D -c content -i signed+detached -o signed+detached.out
+$SECURITY cms -D -h 0 -n -c content -i signed+detached
+cmp content signed+detached.out
+
+$SECURITY cms -S -N $NAME -T -G -P -i content -o signed+detached+smime
+$SECURITY cms -D -c content -i signed+detached+smime -o signed+detached+smime.out
+$SECURITY cms -D -h 0 -n -c content -i signed+detached+smime
+cmp content signed+detached+smime.out
+
+$SECURITY cms -E -r $NAME -i content -o encrypted
+$SECURITY cms -D -i encrypted -o encrypted.out
+$SECURITY cms -D -h 0 -n -i encrypted
+cmp content encrypted.out

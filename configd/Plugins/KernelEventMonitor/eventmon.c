@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -271,7 +271,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process ARP collision: %s", (char *)ifr_name);
+					SC_log(LOG_NOTICE, "Process ARP collision: %s", (char *)ifr_name);
 					ipv4_arp_collision(ifr_name,
 							   ev->ia_ipaddr,
 							   ev->hw_len,
@@ -300,7 +300,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process router ARP failure: %s", (char *)ifr_name);
+					SC_log(LOG_NOTICE, "Process router ARP failure: %s", (char *)ifr_name);
 					ipv4_router_arp_failure(ifr_name);
 					break;
 				}
@@ -313,7 +313,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process router ARP alive: %s", (char *)ifr_name);
+					SC_log(LOG_NOTICE, "Process router ARP alive: %s", (char *)ifr_name);
 					ipv4_router_arp_alive(ifr_name);
 					break;
 				}
@@ -383,7 +383,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process interface attach: %s", (char *)ifr_name);
+					SC_log(LOG_NOTICE, "Process interface attach: %s", (char *)ifr_name);
 					link_add(ifr_name);
 					break;
 
@@ -396,7 +396,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process interface detach: %s", (char *)ifr_name);
+					SC_log(LOG_NOTICE, "Process interface detach: %s", (char *)ifr_name);
 					link_remove(ifr_name);
 					break;
 
@@ -409,7 +409,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process interface detaching: %s", (char *)ifr_name);
+					SC_log(LOG_NOTICE, "Process interface detaching: %s", (char *)ifr_name);
 					interface_detaching(ifr_name);
 					break;
 
@@ -457,7 +457,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process interface delegation change: %s", (char *)ifr_name);
+					SC_log(LOG_NOTICE, "Process interface delegation change: %s", (char *)ifr_name);
 					interface_update_delegation(ifr_name);
 					break;
 				}
@@ -472,8 +472,8 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 						break;
 					}
 					copy_if_name(ev, ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process interface link %s: %s",
-						 (ev_msg->event_code == KEV_DL_LINK_ON) ? "up" : "down",
+					SC_log(LOG_NOTICE, "Process interface link status %s: %s",
+						 (ev_msg->event_code == KEV_DL_LINK_ON) ? "active" : "inactive",
 						 (char *)ifr_name);
 					link_update_status(ifr_name, FALSE, FALSE);
 					break;
@@ -614,6 +614,7 @@ eventCallback(int so)
 		struct kern_event_msg	ev_msg1;	// first kernel event
 	} buf;
 	struct kern_event_msg	*ev_msg		= &buf.ev_msg1;
+	static Boolean		first;
 	ssize_t			offset		= 0;
 	ssize_t			status;
 
@@ -621,6 +622,11 @@ eventCallback(int so)
 	if (status == -1) {
 		SC_log(LOG_NOTICE, "recv() failed: %s", strerror(errno));
 		return FALSE;
+	}
+
+	if (!first) {
+		SC_log(LOG_NOTICE, "received first event");
+		first = TRUE;
 	}
 
 	_SCDynamicStoreCacheOpen(store);
@@ -783,7 +789,7 @@ check_for_new_interfaces(void * context)
 static void
 prime(void)
 {
-	SC_log(LOG_DEBUG, "prime() called");
+	SC_log(LOG_NOTICE, "Prime");
 
 	_SCDynamicStoreCacheOpen(store);
 	messages_init();
@@ -800,7 +806,6 @@ prime(void)
 
 	/* schedule polling timer */
 	schedule_timer();
-
 	return;
 }
 
@@ -841,7 +846,7 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 		_verbose = TRUE;
 	}
 
-	SC_log(LOG_DEBUG, "load() called");
+	SC_log(LOG_NOTICE, "Load");
 	SC_log(LOG_DEBUG, "  bundle ID = %@", CFBundleGetIdentifier(bundle));
 
 	if (!initialize_store()) {

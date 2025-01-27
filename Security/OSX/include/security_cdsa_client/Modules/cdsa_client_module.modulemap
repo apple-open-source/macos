@@ -1,0 +1,131 @@
+module security_cdsa_client [system] {
+  requires !maccatalyst
+
+  module aclclient {
+    requires cplusplus
+    header "aclclient.h"
+    export *
+  }
+
+  module clclient {
+    requires cplusplus
+    header "clclient.h"
+    export *
+  }
+
+  module cryptoclient {
+    requires cplusplus
+    header "cryptoclient.h"
+    export *
+  }
+
+  module cspclient {
+    requires cplusplus
+    header "cspclient.h"
+    export *
+  }
+
+  module cssmclient {
+    requires cplusplus
+    header "cssmclient.h"
+    export *
+  }
+
+  module dl_standard {
+    requires cplusplus
+    header "dl_standard.h"
+    export *
+  }
+
+  module dlclient {
+    requires cplusplus
+    header "dlclient.h"
+    export *
+  }
+
+  module DLDBList {
+    requires cplusplus
+    header "DLDBList.h"
+    export *
+  }
+
+  module dliterators {
+    requires cplusplus
+    header "dliterators.h"
+    export *
+  }
+
+  module dlquery {
+    requires cplusplus
+    header "dlquery.h"
+    export *
+  }
+
+  module genkey {
+    requires cplusplus
+    header "genkey.h"
+    export *
+  }
+
+  module keychainacl {
+    requires cplusplus
+    header "keychainacl.h"
+    export *
+  }
+
+  module keyclient {
+    requires cplusplus
+    header "keyclient.h"
+    export *
+  }
+
+  module macclient {
+    requires cplusplus
+    header "macclient.h"
+    export *
+  }
+
+  module mds_standard {
+    requires cplusplus
+    header "mds_standard.h"
+    export *
+  }
+
+  module mdsclient {
+    requires cplusplus
+    header "mdsclient.h"
+    export *
+  }
+
+  module multidldb {
+    requires cplusplus
+    header "multidldb.h"
+    export *
+  }
+
+  module securestorage {
+    requires cplusplus
+    header "securestorage.h"
+    export *
+  }
+
+  module signclient {
+    requires cplusplus
+    header "signclient.h"
+    export *
+  }
+
+  module tpclient {
+    requires cplusplus
+    header "tpclient.h"
+    export *
+  }
+
+  module wrapkey {
+    requires cplusplus
+    header "wrapkey.h"
+    export *
+  }
+
+  link "security_cdsa_client"
+}

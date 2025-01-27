@@ -420,7 +420,7 @@
 		72A1C140128E0AD700754139 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
 		72A694E618EA2D4400D5D682 /* iopmruntests.py in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72A694E418EA2CD500D5D682 /* iopmruntests.py */; };
 		72B108E7293FCF7500B0403B /* _PMCoreSmartPowerNapProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B108E6293FCF7500B0403B /* _PMCoreSmartPowerNapProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		72B7807C2673288C0037CE23 /* DataMigration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B7807B2673288C0037CE23 /* DataMigration.framework */; platformFilters = (ios, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		72B7807C2673288C0037CE23 /* DataMigration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B7807B2673288C0037CE23 /* DataMigration.framework */; platformFilters = (ios, xros, watchos, ); settings = {ATTRIBUTES = (Weak, ); }; };
 		72D0ECFF08F73FB600CCEA2F /* AppleSmartBattery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */; };
 		72D0ED0008F73FB600CCEA2F /* AppleSmartBatteryManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */; };
 		72D2324129A6F23F00B3A1AF /* _PMCoreSmartPowerNapProtocol.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B108E6293FCF7500B0403B /* _PMCoreSmartPowerNapProtocol.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -1149,7 +1149,7 @@
 		};
 		72EA6D1418EA2DE100FCE94F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1168,7 +1168,7 @@
 		};
 		869B135B270769E800586BE8 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/local/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -2312,6 +2312,7 @@
 		40882B99019742A20ACA2928 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				1E14A1272CE2FD4D001C0CD3 /* DataMigration.framework */,
 				021C9B012BB0DAD800628F21 /* CoreAccessories.framework */,
 				B34A863A2B72DE7900AD8CF4 /* PowerExperience.framework */,
 				7275EE6E29A984CB0064E857 /* Trial.framework */,

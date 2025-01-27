@@ -707,21 +707,6 @@ void FullscreenManager::setAnimatingFullscreen(bool flag)
     if (m_fullscreenElement)
         emplace(styleInvalidation, *m_fullscreenElement, { { CSSSelector::PseudoClass::InternalAnimatingFullscreenTransition, flag } });
     m_isAnimatingFullscreen = flag;
-
-    if (!m_isAnimatingFullscreen) {
-        Ref<Document> protectedDocument(document());
-        if (m_pendingScheduledResize.contains(ResizeType::DOMWindow))
-            protectedDocument->setNeedsDOMWindowResizeEvent();
-        if (m_pendingScheduledResize.contains(ResizeType::VisualViewport))
-            protectedDocument->setNeedsVisualViewportResize();
-
-        m_pendingScheduledResize = { };
-    }
-}
-
-void FullscreenManager::addPendingScheduledResize(ResizeType type)
-{
-    m_pendingScheduledResize.add(type);
 }
 
 void FullscreenManager::clear()
@@ -729,8 +714,6 @@ void FullscreenManager::clear()
     m_fullscreenElement = nullptr;
     m_pendingFullscreenElement = nullptr;
     m_pendingPromise = nullptr;
-
-    m_pendingScheduledResize = { };
 }
 
 void FullscreenManager::emptyEventQueue()

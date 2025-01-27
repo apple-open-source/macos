@@ -1,0 +1,353 @@
+diff --git a/pp_ctl.c b/pp_ctl.c
+index 07c2de99..b9dcd46c 100644
+--- a/pp_ctl.c
++++ b/pp_ctl.c
+@@ -36,6 +36,7 @@
+ #include "feature.h"
+ 
+ #ifdef __APPLE__
++#include <libgen.h>
+ #include <rootless.h>
+ #endif
+ 
+@@ -3633,6 +3634,289 @@ S_doeval_compile(pTHX_ U8 gimme, CV* outside, U32 seq, HV *hh)
+     return TRUE;
+ }
+ 
++#ifdef __APPLE__
++#define __APPLE_API_PRIVATE
++#define __mac_syscall __sandbox_ms	/* libc alias */
++#include <security/mac.h>
++
++typedef uint64_t uint_enough_t;
++#define SYSCALL_ROOTLESS_PROTECTED_VOLUME_FD (256 + 4)
++struct syscall_rootless_protected_volume_fd_args {
++	uint_enough_t fd;
++	uint_enough_t result;
++};
++
++static int
++_sip_protected_volume_fd(int fd)
++{
++	int64_t result;
++	struct syscall_rootless_protected_volume_fd_args args = {
++		.fd = (uint_enough_t)fd,
++		.result = (uintptr_t)&result,
++	};
++
++	if (__mac_syscall("Sandbox", SYSCALL_ROOTLESS_PROTECTED_VOLUME_FD, &args) == 0)
++		return result ? 1 : 0;
++	else
++		return -1;
++}
++
++static bool
++_sip_fully_protected(int fd, bool trustProtectedUnlink)
++{
++    struct stat fd_stat = { 0 };
++
++    /* Must be on a protected volume for the below checks to even work. */
++    if (_sip_protected_volume_fd(fd) != 1)
++        return FALSE;
++
++    /* Note: Returns "non-trusted" for SF_NOUNLINK and StorageClasses. */
++    if (rootless_check_trusted_fd(fd) == 0)
++        return TRUE;
++
++    /* Handle the case where we got non-trusted for an SF_RESTRICTED StorageClass, a
++     * UF_DATAVAULT location, or for a SF_NOUNLINK directory.
++     */
++    if (fstat(fd, &fd_stat) == 0) {
++        /* We'll always trust SF_RESTRICTED/UF_DATAVAULT in order to cover StorageClasses as trusted. */
++        if ((fd_stat.st_flags & (SF_RESTRICTED | UF_DATAVAULT)) != 0)
++            return TRUE;
++
++        /* Only trust SF_NOUNLINK if the caller permits us to trust it. */
++        if (trustProtectedUnlink) {
++            /* We'll trust SF_NOUNLINK only if it's a directory.
++             * This is because directories marked as such cannot have st_mode or st_flags changed on them.
++             * So the directory itself is safe, whereas its contents might not be.
++             */
++            if (S_ISDIR(fd_stat.st_mode) && (fd_stat.st_flags & SF_NOUNLINK) != 0)
++                return TRUE;
++        }
++    }
++
++    return FALSE;
++}
++
++static char *
++_sip_absolute_path(const char *path)
++{
++    char *p = NULL;
++    bool pathIsAbsolute = FALSE;
++
++    if (!path || path[0] == '\0') {
++        /* Can't verify an empty path */
++        return NULL;
++    }
++
++    p = strdup(path);
++    pathIsAbsolute = (p[0] == '/');
++
++    if (!pathIsAbsolute) {
++        int res = 0;
++        char *pp = NULL;
++        char cwd[MAXPATHLEN];
++        if (!getcwd(cwd, sizeof(cwd))) {
++            /* Cannot verify relative path if cwd() failed. */
++            free(p);
++            return NULL;
++        }
++
++        res = asprintf(&pp, "%s/%s", cwd, p);
++        free(p);
++        if (res < 0) {
++            /* Likely OOM. */
++            return NULL;
++        }
++
++        p = pp;
++
++        if (p[0] != '/') {
++            /* Somehow the path still isn't absolute? */
++            free(p);
++            return NULL;
++        }
++    }
++
++    return p;
++}
++
++static bool
++_sip_trusted_path(const char *path)
++{
++    int parent_fd = -1;
++    struct stat root_stat;
++    /* Indicates if the current component being opened is located in a trusted parent path. */
++    bool parentPathIsTrusted = FALSE;
++    char *p = NULL;
++    char *pp = NULL;
++    char *subpath = NULL;
++
++    /* Resolve an absolute path [without realpath()] since we don't want to resolve symlinks. */
++    p = _sip_absolute_path(path);
++    if (!p) {
++        /* Could not resolve the path, assume untrusted. */
++        return FALSE;
++    }
++
++    /* All paths start from the root-fs, or are mounted underneath the rootfs.
++     * So this is always the starting point.
++     */
++    parent_fd = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_NOCTTY);
++    if (parent_fd < 0) {
++        /* Failed to acquire root fd, assume untrusted. */
++        free(p);
++        return FALSE;
++    }
++
++    bzero(&root_stat, sizeof(root_stat));
++    if (fstatat(parent_fd, NULL, &root_stat, AT_REALDEV | AT_FDONLY) != 0) {
++        /* Failed to fstat root fd, assume untrusted. */
++        free(p);
++        return FALSE;
++    }
++
++    /* If SIP isn't being enforced on "/", tell the truth that the directory is not trusted. */
++    if (_sip_protected_volume_fd(parent_fd) != 1) {
++        close(parent_fd);
++        free(p);
++        return FALSE;
++    }
++
++    /* To free memory later since strsep() modifies the pointer. */
++    pp = p;
++
++    while ((subpath = strsep(&p, "/")) != NULL) {
++        int open_flags = O_RDONLY | O_SYMLINK | O_NOCTTY;
++        int curr_fd = -1;
++        bool lastComponent = FALSE;
++        bool trustNoUnlink = FALSE;
++        char *sp = NULL;
++        struct stat curr_stat;
++
++        /* If p was e.g. /a/b/c, it will now be a/b/c, and subpath will be /a.
++         * After next iteration, p will be b/c and subpath will be /b.
++         * So we are the last component if p does not have any more path delimiters,
++         * or if strsep() set p to NULL.
++         */
++        if (!p || !strchr(p, '/'))
++            lastComponent = TRUE;
++
++        /* Get basename without leading path delimiter to use with openat() */
++        sp = basename(subpath);
++        if (!sp) {
++            /* Could not determine basename, assume untrusted. */
++            close(parent_fd);
++            free(pp);
++            return FALSE;
++        }
++
++    open_again:
++        curr_fd = openat(parent_fd, sp, open_flags);
++        if (curr_fd < 0) {
++            /* Failed to open intermediate component, assume untrusted. */
++            close(parent_fd);
++            free(pp);
++            return FALSE;
++        }
++
++        /* Last path component being no-unlink isn't trusted. */
++        trustNoUnlink = !lastComponent;
++        if (!_sip_fully_protected(curr_fd, trustNoUnlink)) {
++            /* Current file descriptor is not fully protected, assume untrusted. */
++            close(parent_fd);
++            close(curr_fd);
++            free(pp);
++            return FALSE;
++        }
++
++        bzero(&curr_stat, sizeof(curr_stat));
++        if (fstatat(curr_fd, NULL, &curr_stat, AT_REALDEV | AT_FDONLY) != 0) {
++            /* Failed to stat intermediate component, assume untrusted. */
++            close(parent_fd);
++            close(curr_fd);
++            free(pp);
++            return FALSE;
++        }
++
++        /* If we're looking at a link, and the link itself is trusted then we'll follow it. */
++        if (S_ISLNK(curr_stat.st_mode)) {
++            /* The link is trusted, now follow the trusted link by open()'ing it again without O_SYMLINK. */
++            open_flags = O_RDONLY | O_NOCTTY;
++            close(curr_fd);
++            goto open_again;
++        }
++
++        /* As long as the current path is not pointing to the root mountpoint, then the path has been validated thus far.
++         * Example: "/./PathToNetworkShare"; The second component is "." which causes openat() to reopen the parent.
++         * Example: "/Library/Apple/../../Foo"; Located directly on '/' so the parent is not trusted
++         * Paths immediately on "/" aren't secure due to synthetic.conf, NFS mounts, etc.
++         */
++        parentPathIsTrusted = !(curr_stat.st_dev == root_stat.st_dev && curr_stat.st_ino == root_stat.st_ino);
++
++        /* volfs paths operate on "/.vol/{st_dev}/{st_ino}"; however if {st_ino} is missing, ENOENT is returned.
++         * To keep life simple, we will not trust anything located in `/.vol/*`.
++         */
++        if (p == pp && parentPathIsTrusted && strcmp(sp, ".vol") == 0)
++            parentPathIsTrusted = FALSE;
++
++        /* parent_fd is now the curr_fd. */
++        close(parent_fd);
++        parent_fd = dup(curr_fd);
++        close(curr_fd);
++    }
++
++    close(parent_fd);
++    free(pp);
++
++    return TRUE;
++}
++
++static PerlIO *
++S_check_trusted_path_or_die(pTHX_ PerlIO *io, const char *path)
++{
++    int fd = PerlIO_fileno(io);
++    int rootless = rootless_restricted_environment();
++
++    if (fd != -1) {
++        switch (rootless) {
++        case 1:
++            switch (rootless_check_trusted_fd(fd)) {
++            case 1:
++                DIE(aTHX_ "Refusing to load non system module from installer context");
++                break;
++            case 0:
++                /* file is trusted, it may continue */
++                break;
++            case -1:
++                DIE(aTHX_ "Unexpected error checking rootless_restricted_fd %s", strerror(errno));
++                break;
++            default:
++                DIE(aTHX_ "Unexpected return value from rootless_restricted_fd");
++                break;
++            }
++            break;
++        case 0:
++            /* not running in rootless env */
++            break;
++        case -1:
++            DIE(aTHX_ "Unexpected error checking rootless_restricted_environment %s", strerror(errno));
++            break;
++        default:
++            DIE(aTHX_ "Unexpected return value from rootless_restricted_envrionment");
++            break;
++        }
++    }
++
++    /* We are either not in rootless mode (and we can proceed), or we need to
++     * perform more checks.
++     */
++    if (rootless && !_sip_trusted_path(path))
++        DIE(aTHX_ "Refusing to load non system module at untrusted path %s from installer context", path);
++
++    /* All good! */
++    return io;
++}
++#endif /* __APPLE__ */
++
+ /* Return NULL if the file doesn't exist or isn't a file;
+  * else return PerlIO_openn().
+  */
+@@ -3645,9 +3929,6 @@ S_check_type_and_open(pTHX_ SV *name)
+     PerlIO * retio;
+     const char *p = SvPV_const(name, len);
+     int st_rc;
+-#ifdef __APPLE__
+-    int fd;
+-#endif __APPLE__
+ 
+     PERL_ARGS_ASSERT_CHECK_TYPE_AND_OPEN;
+ 
+@@ -3690,38 +3971,8 @@ S_check_type_and_open(pTHX_ SV *name)
+     retio = PerlIO_openn(aTHX_ ":", PERL_SCRIPT_MODE, -1, 0, 0, NULL, 1, &name);
+ 
+ #ifdef __APPLE__
+-
+-     fd = PerlIO_fileno(retio);
+-     if (fd != -1) {
+-         switch (rootless_restricted_environment()) {
+-         case 1:
+-            switch (rootless_check_trusted_fd(fd)) {
+-            case 1:
+-                DIE(aTHX_ "Refusing to load non system module from installer context");
+-                break;
+-            case 0:
+-                // file is trusted it may continue
+-                break;
+-            case -1:
+-                DIE(aTHX_ "Unexpected error checking rootless_restricted_fd %s", strerror(errno));
+-                break;
+-            default:
+-                DIE(aTHX_ "Unexpected return value from rootless_restricted_fd");
+-                break;
+-            }
+-             break;
+-         case 0:
+-             // not running in rootless env
+-             break;
+-         case -1:
+-             DIE(aTHX_ "Unexpected error checking rootless_restricted_environment %s", strerror(errno));
+-             break;
+-         default:
+-             DIE(aTHX_ "Unexpected return value from rootless_restricted_envrionment");
+-             break;
+-        }
+-     }
+-#endif // __APPPLE__
++    retio = S_check_trusted_path_or_die(aTHX_ retio, p);
++#endif /* __APPLE__ */
+ 
+ #ifdef WIN32
+     /* EACCES stops the INC search early in pp_require to implement

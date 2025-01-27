@@ -1101,6 +1101,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 }
 
 - (void)status:(OTControlArguments*)arguments
+         xpcFd:(xpc_object_t)xpcFd
          reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
 {
 
@@ -1115,7 +1116,15 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }
 
     secinfo("octagon", "Received a status RPC for arguments (%@): %@", arguments, context);
-    [context rpcStatus:reply];
+
+    [context rpcStatus:xpcFd reply:^(NSDictionary* _Nullable result, NSError* _Nullable error){
+        if(error) {
+            secnotice("octagon", "Error in status RPC for arguments (%@): %@", arguments, error);
+            reply(nil, error);
+            return;
+        }
+        reply(result, nil);
+    }];
 }
 
 - (void)startOctagonStateMachine:(OTControlArguments*)arguments

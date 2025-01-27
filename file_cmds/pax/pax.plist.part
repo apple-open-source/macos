@@ -2,16 +2,17 @@
 		<key>OpenSourceProject</key>
 		<string>pax</string>
 		<key>OpenSourceVersion</key>
-		<string>2022-10-19</string>
+		<string>2024-07-14</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>https://cgit.freebsd.org/src/tree/bin/pax?id=d05e43bc0d5705919d057793aaa3e6d3df65f815</string>
+		<string>https://cgit.freebsd.org/src/tree/bin/pax?id=e9ac41698b2f322d55ccf9da50a3596edb2c1800</string>
 		<key>OpenSourceImportDate</key>
-		<string>2022-10-19</string>
+		<string>2024-07-23</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Implement POSIX pax format</string>
 			<string>Implement -0 option</string>
 			<string>Numerous conformance fixes</string>
+			<string>Clear arcn before populating it (131537301)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

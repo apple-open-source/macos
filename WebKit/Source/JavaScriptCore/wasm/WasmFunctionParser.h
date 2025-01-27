@@ -2929,7 +2929,10 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         WASM_TRY_ADD_TO_CONTEXT(addBranchNull(data, ref, m_expressionStack, true, unused));
 
         // On a non-taken branch, the value is null so it's not needed on the stack.
+        // We add a drop to ensure the context knows we are discarding this ref value,
+        // not popping it before use in some operation.
         WASM_TRY_POP_EXPRESSION_STACK_INTO(ref, "br_on_non_null"_s);
+        WASM_TRY_ADD_TO_CONTEXT(addDrop(ref));
 
         return { };
     }
@@ -3542,10 +3545,9 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     }
 
     case Drop: {
-        WASM_PARSER_FAIL_IF(!m_expressionStack.size(), "can't drop on empty stack"_s);
-        auto last = m_expressionStack.takeLast();
+        TypedExpression last;
+        WASM_TRY_POP_EXPRESSION_STACK_INTO(last, "can't drop on empty stack"_s);
         WASM_TRY_ADD_TO_CONTEXT(addDrop(last));
-        m_context.didPopValueFromStack(last, "Drop"_s);
         return { };
     }
 

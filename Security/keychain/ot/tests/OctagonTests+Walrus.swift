@@ -1767,9 +1767,17 @@ class OctagonWalrusTests: OctagonTestsBase {
                 XCTAssertEqual(try XCTUnwrap(webAccess["clock"] as? Int), 0, "webAccess clock should be 0")
                 XCTAssertEqual(try XCTUnwrap(webAccess["value"] as? Int), 0, "webAccess value should be 0")
                 let t1 = Date()
-                let cacheTimestamp = try XCTUnwrap(dump["accountSettingsDate"] as? Date)
-                XCTAssertGreaterThan(cacheTimestamp, t0, "timestamp should be greater")
-                XCTAssertGreaterThan(t1, cacheTimestamp, "timestamp should be greater")
+                let cacheTimeStampString = try XCTUnwrap(dump["accountSettingsDate"] as? String)
+                let cacheTimestamp = try Date.ISO8601FormatStyle.iso8601
+                    .year()
+                    .month()
+                    .day()
+                    .timeZone(separator: .omitted)
+                    .time(includingFractionalSeconds: true)
+                    .timeSeparator(.colon)
+                    .parse(cacheTimeStampString)
+                XCTAssertGreaterThanOrEqual(cacheTimestamp, t0, "timestamp should be greater")
+                XCTAssertGreaterThanOrEqual(t1, cacheTimestamp, "timestamp should be greater")
             } catch {
                 XCTFail("dump failed: \(error)")
             }

@@ -652,12 +652,6 @@ OSStatus CoreAudioSharedUnit::startInternal()
 
 void CoreAudioSharedUnit::isProducingMicrophoneSamplesChanged()
 {
-    if (m_ioUnit) {
-        UInt32 muteUplinkOutput = !isProducingMicrophoneSamples();
-        auto error = m_ioUnit->set(kAUVoiceIOProperty_MuteOutput, kAudioUnitScope_Global, outputBus, &muteUplinkOutput, sizeof(muteUplinkOutput));
-        RELEASE_LOG_ERROR_IF(error, WebRTC, "CoreAudioSharedUnit::isProducingMicrophoneSamplesChanged(%p) unable to set kAUVoiceIOProperty_MuteOutput, error %d (%.4s)", this, (int)error, (char*)&error);
-    }
-
     if (!isProducingData())
         return;
     m_verifyCapturingTimer.startRepeating(m_ioUnit->verifyCaptureInterval(isProducingMicrophoneSamples()));

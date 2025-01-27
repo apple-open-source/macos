@@ -42,6 +42,7 @@
 #include "StylePropertyMap.h"
 #include "StylePropertyMapReadOnly.h"
 #include "VisibilityAdjustment.h"
+#include <wtf/HashMap.h>
 #include <wtf/Markable.h>
 
 namespace WebCore {
@@ -114,6 +115,9 @@ public:
 
     ElementAnimationRareData* animationRareData(const std::optional<Style::PseudoElementIdentifier>&) const;
     ElementAnimationRareData& ensureAnimationRareData(const std::optional<Style::PseudoElementIdentifier>&);
+
+    AtomString viewTransitionCapturedName(const std::optional<Style::PseudoElementIdentifier>&) const;
+    void setViewTransitionCapturedName(const std::optional<Style::PseudoElementIdentifier>&, AtomString);
 
     DOMTokenList* partList() const { return m_partList.get(); }
     void setPartList(std::unique_ptr<DOMTokenList>&& partList) { m_partList = WTFMove(partList); }
@@ -241,7 +245,9 @@ private:
     Markable<LayoutUnit, LayoutUnitMarkableTraits> m_lastRememberedLogicalWidth;
     Markable<LayoutUnit, LayoutUnitMarkableTraits> m_lastRememberedLogicalHeight;
 
-    Vector<std::unique_ptr<ElementAnimationRareData>> m_animationRareData;
+    HashMap<std::optional<Style::PseudoElementIdentifier>, std::unique_ptr<ElementAnimationRareData>> m_animationRareData;
+
+    HashMap<std::optional<Style::PseudoElementIdentifier>, AtomString> m_viewTransitionCapturedName;
 
     RefPtr<PseudoElement> m_beforePseudoElement;
     RefPtr<PseudoElement> m_afterPseudoElement;
@@ -306,11 +312,7 @@ inline void ElementRareData::setUnusualTabIndex(int tabIndex)
 
 inline ElementAnimationRareData* ElementRareData::animationRareData(const std::optional<Style::PseudoElementIdentifier>& pseudoElementIdentifier) const
 {
-    for (auto& animationRareData : m_animationRareData) {
-        if (animationRareData->pseudoElementIdentifier() == pseudoElementIdentifier)
-            return animationRareData.get();
-    }
-    return nullptr;
+    return m_animationRareData.get(pseudoElementIdentifier);
 }
 
 inline ElementAnimationRareData& ElementRareData::ensureAnimationRareData(const std::optional<Style::PseudoElementIdentifier>& pseudoElementIdentifier)
@@ -318,8 +320,19 @@ inline ElementAnimationRareData& ElementRareData::ensureAnimationRareData(const 
     if (auto* animationRareData = this->animationRareData(pseudoElementIdentifier))
         return *animationRareData;
 
-    m_animationRareData.append(makeUnique<ElementAnimationRareData>(pseudoElementIdentifier));
-    return *m_animationRareData.last().get();
+    auto result = m_animationRareData.add(pseudoElementIdentifier, makeUnique<ElementAnimationRareData>());
+    ASSERT(result.isNewEntry);
+    return *result.iterator->value.get();
+}
+
+inline AtomString ElementRareData::viewTransitionCapturedName(const std::optional<Style::PseudoElementIdentifier>& pseudoElementIdentifier) const
+{
+    return m_viewTransitionCapturedName.get(pseudoElementIdentifier);
+}
+
+inline void ElementRareData::setViewTransitionCapturedName(const std::optional<Style::PseudoElementIdentifier>& pseudoElementIdentifier, AtomString captureName)
+{
+    m_viewTransitionCapturedName.set(pseudoElementIdentifier, captureName);
 }
 
 inline ElementRareData* Element::elementRareData() const

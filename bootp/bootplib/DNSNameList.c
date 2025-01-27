@@ -48,9 +48,9 @@
 #include "nbo.h"
 #include "cfutil.h"
 
-#ifdef TEST_DNSNAMELIST
+#if defined(TEST_DNSNAMELIST) || defined(DEBUG)
 #include "util.h"
-#endif /* TEST_DNSNAMELIST */
+#endif
 
 #define DNS_PTR_PATTERN_BYTE_MASK	(uint8_t)0xc0
 #define DNS_PTR_PATTERN_MASK		(uint16_t)0xc000

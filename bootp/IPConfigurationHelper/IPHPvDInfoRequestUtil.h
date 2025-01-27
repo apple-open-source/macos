@@ -21,8 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef IPHPvDInfoRequestDateUtil_h
-#define IPHPvDInfoRequestDateUtil_h
+#ifndef IPHPvDInfoRequestUtil_h
+#define IPHPvDInfoRequestUtil_h
 
 #define kPvDInfoAdditionalInfoDictKeyIdentifierCStr	"identifier"
 #define kPvDInfoAdditionalInfoDictKeyIdentifier		CFSTR(kPvDInfoAdditionalInfoDictKeyIdentifierCStr)
@@ -35,4 +35,4 @@
 #define kPvDInfoExpirationDateFormatCStr		"yyyy-MM-dd'T'HH:mm:ss'Z'"
 #define kPvDInfoExpirationDateFormat			CFSTR(kPvDInfoExpirationDateFormatCStr)
 
-#endif /* IPHPvDInfoRequestDateUtil_h */
+#endif /* IPHPvDInfoRequestUtil_h */

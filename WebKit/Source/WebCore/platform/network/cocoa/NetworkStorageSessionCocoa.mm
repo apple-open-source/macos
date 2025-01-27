@@ -68,6 +68,11 @@ void NetworkStorageSession::setCookie(const Cookie& cookie)
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
+void NetworkStorageSession::setCookie(const Cookie& cookie, const URL& url, const URL& mainDocumentURL)
+{
+    setCookies({ cookie }, url, mainDocumentURL);
+}
+
 void NetworkStorageSession::setCookies(const Vector<Cookie>& cookies, const URL& url, const URL& mainDocumentURL)
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies) || m_isInMemoryCookieStore);
@@ -525,7 +530,7 @@ bool NetworkStorageSession::getRawCookies(const URL& firstParty, const SameSiteI
     return true;
 }
 
-void NetworkStorageSession::deleteCookie(const URL& url, const String& cookieName, CompletionHandler<void()>&& completionHandler) const
+void NetworkStorageSession::deleteCookie(const URL& firstParty, const URL& url, const String& cookieName, CompletionHandler<void()>&& completionHandler) const
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
 
@@ -534,7 +539,7 @@ void NetworkStorageSession::deleteCookie(const URL& url, const String& cookieNam
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     RetainPtr<CFHTTPCookieStorageRef> cookieStorage = this->cookieStorage();
-    RetainPtr<NSArray> cookies = httpCookiesForURL(cookieStorage.get(), nil, std::nullopt, url);
+    RetainPtr<NSArray> cookies = httpCookiesForURL(cookieStorage.get(), firstParty, std::nullopt, url);
 
     NSString *cookieNameString = cookieName;
 

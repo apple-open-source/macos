@@ -95,7 +95,7 @@ bool AccessibilityTableRow::computeIsIgnored() const
     if (!isTableRow())
         return AccessibilityRenderObject::computeIsIgnored();
 
-    return isDOMHidden() || ignoredFromPresentationalRole();
+    return isRenderHidden() || ignoredFromPresentationalRole();
 }
     
 AccessibilityTable* AccessibilityTableRow::parentTable() const

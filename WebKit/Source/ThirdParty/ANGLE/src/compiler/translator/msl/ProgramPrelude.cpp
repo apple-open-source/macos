@@ -516,17 +516,17 @@ ANGLE_ALWAYS_INLINE X ANGLE_mod(X x, Y y)
 // - the divisor is 0
 // - the dividend is INT_MIN and the divisor is -1 (integer overflow)
 // When the behavior would be undefined the result is `x`.
+// FIXME: This function should also handle INT_MIN / -1, but currently this hits a bug in the metal
+// compiler
 PROGRAM_PRELUDE_DECLARE(div,
                         R"(
-template <typename X, typename Y>
-ANGLE_ALWAYS_INLINE X ANGLE_div(X x, Y y)
+template<typename X, typename Y, typename Z = metal::conditional_t<metal::is_scalar_v<Y>, X, Y>>
+ANGLE_ALWAYS_INLINE Z ANGLE_div(X x, Y y)
 {
-    auto predicate = X(y) == X(0);
-    if constexpr (metal::is_signed_v<X>)
-    {
-        predicate = predicate || (x == X(metal::numeric_limits<X>::lowest()) && X(y) == X(-1));
-    }
-    return x / metal::select(X(y), X(1), predicate);
+    Z zx = Z(x);
+    Z zy = Z(y);
+    auto predicate = zy == Z(0);
+    return zx / metal::select(zy, Z(1), predicate);
 }
 )")
 
@@ -535,17 +535,19 @@ ANGLE_ALWAYS_INLINE X ANGLE_div(X x, Y y)
 // - the dividend is INT_MIN and the divisor is -1 (integer overflow)
 // - either of the operands is negative (undefined behavior in Metal)
 // When the behavior would be undefined the result is 0.
+// FIXME: This function should also handle INT_MIN % -1, but currently this hits a bug in the metal
+// compiler
 PROGRAM_PRELUDE_DECLARE(imod,
                         R"(
-template <typename X, typename Y>
-ANGLE_ALWAYS_INLINE X ANGLE_imod(X x, Y y)
+template<typename X, typename Y, typename Z = metal::conditional_t<metal::is_scalar_v<Y>, X, Y>>
+ANGLE_ALWAYS_INLINE Z ANGLE_imod(X x, Y y)
 {
-    if constexpr (metal::is_signed_v<X>) {
-        X y_or_one = metal::select(X(y), X(1), ((X(y) == X(0)) | ((x == X(metal::numeric_limits<X>::lowest())) & (X(y) == X(-1)))));
-        if (metal::any((X(x | y_or_one) & X(2147483648u)) != X(0u)))
+    if constexpr (metal::is_signed_v<Z>) {
+        Z y_or_one = metal::select(Z(y), Z(1), Z(y) == Z(0));
+        if (metal::any(((Z(x) | y_or_one) & Z(2147483648u)) != Z(0u)))
         {
-            return as_type<X>(
-                as_type<metal::make_unsigned_t<X>>(x) - as_type<metal::make_unsigned_t<X>>(x / y_or_one) * as_type<metal::make_unsigned_t<X>>(y_or_one)
+            return as_type<Z>(
+                metal::make_unsigned_t<Z>(x) - metal::make_unsigned_t<Z>(x / y_or_one) * metal::make_unsigned_t<Z>(y_or_one)
             );
         }
         else
@@ -555,7 +557,7 @@ ANGLE_ALWAYS_INLINE X ANGLE_imod(X x, Y y)
     }
     else
     {
-        return x % metal::select(X(y), X(1u), X(y) == X(0u));
+        return x % metal::select(Z(y), Z(1u), Z(y) == Z(0u));
     }
 }
 )")
@@ -576,30 +578,30 @@ ANGLE_ALWAYS_INLINE X ANGLE_ftoi(Y y)
 // Avoid undefined behavior due to integer overflow
 PROGRAM_PRELUDE_DECLARE(imul,
                         R"(
-template <typename X, typename Y>
-ANGLE_ALWAYS_INLINE X ANGLE_imul(X x, Y y)
+template<typename X, typename Y, typename Z = metal::conditional_t<metal::is_scalar_v<Y>, X, Y>>
+ANGLE_ALWAYS_INLINE Z ANGLE_imul(X x, Y y)
 {
-    return as_type<X>(as_type<metal::make_unsigned_t<X>>(x) * as_type<metal::make_unsigned_t<Y>>(y));
+    return as_type<Z>(metal::make_unsigned_t<Z>(x) * metal::make_unsigned_t<Z>(y));
 }
 )")
 
 // Avoid undefined behavior due to integer overflow
 PROGRAM_PRELUDE_DECLARE(iadd,
                         R"(
-template <typename X, typename Y>
-ANGLE_ALWAYS_INLINE X ANGLE_iadd(X x, Y y)
+template<typename X, typename Y, typename Z = metal::conditional_t<metal::is_scalar_v<Y>, X, Y>>
+ANGLE_ALWAYS_INLINE Z ANGLE_iadd(X x, Y y)
 {
-    return as_type<X>(as_type<metal::make_unsigned_t<X>>(x) + as_type<metal::make_unsigned_t<Y>>(y));
+    return as_type<Z>(metal::make_unsigned_t<Z>(x) + metal::make_unsigned_t<Z>(y));
 }
 )")
 
 // Avoid undefined behavior due to integer underflow
 PROGRAM_PRELUDE_DECLARE(isub,
                         R"(
-template <typename X, typename Y>
-ANGLE_ALWAYS_INLINE X ANGLE_isub(X x, Y y)
+template<typename X, typename Y, typename Z = metal::conditional_t<metal::is_scalar_v<Y>, X, Y>>
+ANGLE_ALWAYS_INLINE Z ANGLE_isub(X x, Y y)
 {
-    return as_type<X>(as_type<metal::make_unsigned_t<X>>(x) - as_type<metal::make_unsigned_t<Y>>(y));
+    return as_type<Z>(metal::make_unsigned_t<Z>(x) - metal::make_unsigned_t<Z>(y));
 }
 )")
 
@@ -612,7 +614,7 @@ PROGRAM_PRELUDE_DECLARE(ilshift,
 template <typename X, typename Y>
 ANGLE_ALWAYS_INLINE X ANGLE_ilshift(X x, Y y)
 {
-    return as_type<X>(metal::select(metal::make_unsigned_t<X>(0), as_type<metal::make_unsigned_t<X>>(x) << (y & Y(31)), as_type<metal::make_unsigned_t<Y>>(y) < metal::make_unsigned_t<Y>(32)));
+    return as_type<X>(metal::select(metal::make_unsigned_t<X>(0), metal::make_unsigned_t<X>(x) << (y & Y(31)), metal::make_unsigned_t<Y>(y) < metal::make_unsigned_t<Y>(32)));
 }
 )")
 
@@ -624,7 +626,7 @@ PROGRAM_PRELUDE_DECLARE(ulshift,
 template <typename X, typename Y>
 ANGLE_ALWAYS_INLINE X ANGLE_ulshift(X x, Y y)
 {
-    return metal::select(X(0), x << (y & Y(31)), as_type<metal::make_unsigned_t<Y>>(y) < metal::make_unsigned_t<Y>(32));
+    return metal::select(X(0), x << (y & Y(31)), metal::make_unsigned_t<Y>(y) < metal::make_unsigned_t<Y>(32));
 }
 )")
 
@@ -636,7 +638,7 @@ PROGRAM_PRELUDE_DECLARE(rshift,
 template <typename X, typename Y>
 ANGLE_ALWAYS_INLINE X ANGLE_rshift(X x, Y y)
 {
-    return metal::select(X(0), x >> (y & Y(31)), as_type<metal::make_unsigned_t<Y>>(y) < metal::make_unsigned_t<Y>(32));
+    return metal::select(X(0), x >> (y & Y(31)), metal::make_unsigned_t<Y>(y) < metal::make_unsigned_t<Y>(32));
 }
 )")
 
@@ -3728,7 +3730,7 @@ void ProgramPrelude::visitOperator(TOperator op,
             {
                 addScalarMatrix();
             }
-            if (argType0->isSignedIntegerValue())
+            if (argType0->isSignedInt())
             {
                 iadd();
             }
@@ -3744,7 +3746,7 @@ void ProgramPrelude::visitOperator(TOperator op,
             {
                 subScalarMatrix();
             }
-            if (argType0->isSignedIntegerValue())
+            if (argType0->isSignedInt())
             {
                 isub();
             }
@@ -3752,7 +3754,9 @@ void ProgramPrelude::visitOperator(TOperator op,
 
         case TOperator::EOpMul:
         case TOperator::EOpMulAssign:
-            if (argType0->isSignedIntegerValue())
+        case TOperator::EOpVectorTimesScalar:
+        case TOperator::EOpVectorTimesScalarAssign:
+            if (argType0->isSignedInt())
             {
                 imul();
             }
@@ -3780,7 +3784,6 @@ void ProgramPrelude::visitOperator(TOperator op,
                 div();
             }
             break;
-
 
         case TOperator::EOpMatrixCompMult:
             if (argType0->isMatrix() && argType1->isMatrix())
@@ -3852,7 +3855,7 @@ void ProgramPrelude::visitOperator(TOperator op,
         case TOperator::EOpBitShiftLeft:
         case TOperator::EOpBitShiftLeftAssign:
         {
-            if (argType0->isSignedIntegerValue())
+            if (argType0->isSignedInt())
             {
                 ilshift();
             }
@@ -3892,10 +3895,8 @@ void ProgramPrelude::visitOperator(TOperator op,
         case TOperator::EOpLogicalNot:
         case TOperator::EOpNotComponentWise:
         case TOperator::EOpBitwiseNot:
-        case TOperator::EOpVectorTimesScalarAssign:
         case TOperator::EOpVectorTimesMatrixAssign:
         case TOperator::EOpMatrixTimesScalarAssign:
-        case TOperator::EOpVectorTimesScalar:
         case TOperator::EOpVectorTimesMatrix:
         case TOperator::EOpMatrixTimesVector:
         case TOperator::EOpMatrixTimesScalar:

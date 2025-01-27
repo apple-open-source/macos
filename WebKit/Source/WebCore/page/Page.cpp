@@ -515,6 +515,9 @@ Page::~Page()
     if (RefPtr scrollingCoordinator = m_scrollingCoordinator)
         scrollingCoordinator->pageDestroyed();
 
+    if (m_resourceUsageOverlay)
+        m_resourceUsageOverlay->detachFromPage();
+
     checkedBackForward()->close();
     if (!isUtilityPage())
         BackForwardCache::singleton().removeAllItemsForPage(*this);
@@ -5156,6 +5159,31 @@ bool Page::isFullscreenManagerEnabled() const
     return settings->fullScreenEnabled() || settings->videoFullscreenRequiresElementFullscreen();
 }
 #endif
+void Page::startDeferringResizeEvents()
+{
+    m_shouldDeferResizeEvents = true;
+}
+
+void Page::flushDeferredResizeEvents()
+{
+    m_shouldDeferResizeEvents = false;
+    forEachDocument([&] (Document& document) {
+        document.flushDeferredResizeEvents();
+    });
+}
+
+void Page::startDeferringScrollEvents()
+{
+    m_shouldDeferScrollEvents = true;
+}
+
+void Page::flushDeferredScrollEvents()
+{
+    m_shouldDeferScrollEvents = false;
+    forEachDocument([&] (Document& document) {
+        document.flushDeferredScrollEvents();
+    });
+}
 
 bool Page::isAlwaysOnLoggingAllowed() const
 {

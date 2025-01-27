@@ -1,0 +1,6 @@
+framework module OctagonTrust [system] {
+  umbrella header "OctagonTrust.h"
+
+  export *
+  module * { export * }
+}

@@ -443,6 +443,16 @@ hfs_swap_HFSPlusBTInternalNode (
     int32_t i;
     UInt32 j;
 
+    /*
+     * Sanity check that the record offsets are within the node itself.
+     */
+    if ((char *)srcOffs > ((char *)src->buffer + src->blockSize) ||
+        (char *)srcOffs < ((char *)src->buffer + sizeof(BTNodeDescriptor))) {
+        if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: invalid record count (0x%04X)\n", srcDesc->numRecords);
+        WriteError(fcb->fcbVolume->vcbGPtr, E_NRecs, fcb->fcbFileID, src->blockNum);
+        return E_NRecs;
+    }
+
     if (fileID == kHFSExtentsFileID) {
         HFSPlusExtentKey *srcKey;
         HFSPlusExtentDescriptor *srcRec;
@@ -879,9 +889,18 @@ hfs_swap_HFSBTInternalNode (
     BTNodeDescriptor *srcDesc = src->buffer;
     UInt16 *srcOffs = (UInt16 *)((char *)src->buffer + (src->blockSize - (srcDesc->numRecords * sizeof (UInt16))));
 	char *nextRecord;	/*  Points to start of record following current one */
-
     int32_t i;
     UInt32 j;
+
+    /*
+     * Sanity check that the record offsets are within the node itself.
+     */
+    if ((char *)srcOffs > ((char *)src->buffer + src->blockSize) ||
+        (char *)srcOffs < ((char *)src->buffer + sizeof(BTNodeDescriptor))) {
+        if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: invalid record count (0x%04X)\n", srcDesc->numRecords);
+        WriteError(fcb->fcbVolume->vcbGPtr, E_NRecs, fcb->fcbFileID, src->blockNum);
+        return E_NRecs;
+    }
 
     if (fileID == kHFSExtentsFileID) {
         HFSExtentKey *srcKey;

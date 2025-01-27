@@ -1028,7 +1028,7 @@
 		};
 		F95628481EF45C540042389C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1038,7 +1038,7 @@
 		};
 		F9B822F22143411D0034F1A6 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /System/Library/LaunchDaemons;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1048,7 +1048,7 @@
 		};
 		F9D27B9121E3F7100014528D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /System/Library/LaunchDaemons;
 			dstSubfolderSpec = 0;
 			files = (
@@ -2113,7 +2113,7 @@
 			isa = PBXGroup;
 			children = (
 				8A811FC92B33928E00E070E4 /* Headers */,
-				8A811FCB2B3392C400E070E4 /* Source */,
+				8A811FCB2B3392C400E070E4 /* Sources */,
 				8A811FCA2B3392A800E070E4 /* Resources */,
 			);
 			indentWidth = 8;
@@ -2140,13 +2140,13 @@
 			name = Resources;
 			sourceTree = "<group>";
 		};
-		8A811FCB2B3392C400E070E4 /* Source */ = {
+		8A811FCB2B3392C400E070E4 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				8A811F812B2C14BF00E070E4 /* IPHPvDInfoRequestServer.m */,
 				8A811F842B2C14BF00E070E4 /* IPHXPCServer.m */,
 			);
-			name = Source;
+			name = Sources;
 			sourceTree = "<group>";
 		};
 		8A8E99A22B9982F900854AD3 /* tests */ = {

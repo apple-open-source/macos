@@ -156,7 +156,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, _, error in
                 XCTAssertNotNil(error, "Status should have errored")
                 if let nserror = error as NSError? {
                     XCTAssertEqual(nserror.domain, OctagonErrorDomain, "Error should be from OctagonErrorDomain")
@@ -179,7 +179,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -208,7 +208,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -265,7 +265,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments()) { _, error in
+            self.injectedOTManager?.status(OTControlArguments()) { _, _, error in
                 XCTAssertNotNil(error, "Status should have errored")
                 if let nserror = error as NSError? {
                     XCTAssertEqual(nserror.domain, OctagonErrorDomain, "Error should be from OctagonErrorDomain")
@@ -288,7 +288,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments()) { _, error in
+            self.injectedOTManager?.status(OTControlArguments()) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -325,7 +325,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -381,7 +381,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -409,7 +409,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -478,7 +478,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -556,7 +556,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(arguments) { _, error in
+            self.injectedOTManager?.status(arguments) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -610,7 +610,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.assertEnters(context: secondaryAccountContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -646,7 +646,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -687,7 +687,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAltDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -787,7 +787,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccount.altDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccount.altDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }
@@ -841,7 +841,7 @@ class OctagonPersonaTests: OctagonTestsBase {
             self.wait(for: [signinExpectation], timeout: 3)
 
             let statusExpectation = self.expectation(description: "status occurs")
-            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAgain.altDSID)) { _, error in
+            self.injectedOTManager?.status(OTControlArguments(altDSID: secondAccountAgain.altDSID)) { _, _, error in
                 XCTAssertNil(error, "Status should not have errored")
                 statusExpectation.fulfill()
             }

@@ -408,6 +408,9 @@ void NetworkProcess::createNetworkConnectionToWebProcess(ProcessIdentifier ident
         connection->connection().setIgnoreInvalidMessageForTesting();
 #endif
 
+    for (auto pageID : parameters.pagesWithRelaxedThirdPartyCookieBlocking)
+        m_pagesWithRelaxedThirdPartyCookieBlocking.add(pageID);
+
     if (auto* session = networkSession(sessionID)) {
         Vector<WebCore::RegistrableDomain> allowedSites;
         auto iter = m_allowedFirstPartiesForCookies.find(identifier);
@@ -449,13 +452,6 @@ void NetworkProcess::addAllowedFirstPartyForCookies(WebCore::ProcessIdentifier p
         pair.first = LoadedWebArchive::Yes;
 
     completionHandler();
-}
-
-void NetworkProcess::webProcessWillLoadWebArchive(WebCore::ProcessIdentifier processIdentifier)
-{
-    m_allowedFirstPartiesForCookies.ensure(processIdentifier, [] {
-        return std::make_pair(LoadedWebArchive::Yes, HashSet<RegistrableDomain> { });
-    }).iterator->value.first = LoadedWebArchive::Yes;
 }
 
 auto NetworkProcess::allowsFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, const URL& firstParty) -> AllowCookieAccess
@@ -3027,6 +3023,8 @@ void NetworkProcess::removeWebPageNetworkParameters(PAL::SessionID sessionID, We
 
     if (auto* resourceLoadStatistics = session->resourceLoadStatistics())
         resourceLoadStatistics->clearFrameLoadRecordsForStorageAccess(pageID);
+
+    m_pagesWithRelaxedThirdPartyCookieBlocking.remove(pageID);
 }
 
 void NetworkProcess::countNonDefaultSessionSets(PAL::SessionID sessionID, CompletionHandler<void(size_t)>&& completionHandler)
@@ -3094,6 +3092,16 @@ void NetworkProcess::setPersistedDomains(PAL::SessionID sessionID, HashSet<Regis
 {
     if (auto* session = networkSession(sessionID))
         session->setPersistedDomains(WTFMove(domains));
+}
+
+void NetworkProcess::setShouldRelaxThirdPartyCookieBlockingForPage(WebPageProxyIdentifier pageID)
+{
+    m_pagesWithRelaxedThirdPartyCookieBlocking.add(pageID);
+}
+
+ShouldRelaxThirdPartyCookieBlocking NetworkProcess::shouldRelaxThirdPartyCookieBlockingForPage(std::optional<WebPageProxyIdentifier> pageID) const
+{
+    return pageID && m_pagesWithRelaxedThirdPartyCookieBlocking.contains(*pageID) ? ShouldRelaxThirdPartyCookieBlocking::Yes : ShouldRelaxThirdPartyCookieBlocking::No;
 }
 
 } // namespace WebKit

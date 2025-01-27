@@ -966,6 +966,20 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
             && const_cast<Element*>(m_element)->classList().contains(class2))
             style.setMinHeight(Length(0, LengthType::Fixed));
     }
+    if (m_document->quirks().needsPrimeVideoUserSelectNoneQuirk()) {
+        static MainThreadNeverDestroyed<const AtomString> className("webPlayerSDKUiContainer"_s);
+        if (m_element->hasClassName(className))
+            style.setUserSelect(UserSelect::None);
+    }
+
+#if PLATFORM(IOS_FAMILY)
+    if (m_document->quirks().needsGoogleMapsScrollingQuirk()) {
+        static MainThreadNeverDestroyed<const AtomString> className("PUtLdf"_s);
+        if (is<HTMLBodyElement>(*m_element) && m_element->hasClassName(className))
+            style.setUsedTouchActions({ TouchAction::Auto });
+    }
+#endif
+
 #if ENABLE(VIDEO)
     if (m_document->quirks().needsFullscreenDisplayNoneQuirk()) {
         if (RefPtr div = dynamicDowncast<HTMLDivElement>(m_element); div && style.display() == DisplayType::None) {

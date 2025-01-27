@@ -248,6 +248,9 @@ public:
 #if HAVE(AUDIT_TOKEN)
     const std::optional<audit_token_t>& presentingApplicationAuditToken() const { return m_presentingApplicationAuditToken; }
 #endif
+#if PLATFORM(COCOA)
+    const String& applicationBundleIdentifier() const { return m_applicationBundleIdentifier; }
+#endif
 
 #if ENABLE(VIDEO)
     Ref<RemoteVideoFrameObjectHeap> protectedVideoFrameObjectHeap();
@@ -394,6 +397,9 @@ private:
 #endif
 #if HAVE(AUDIT_TOKEN)
     const std::optional<audit_token_t> m_presentingApplicationAuditToken;
+#endif
+#if PLATFORM(COCOA)
+    const String m_applicationBundleIdentifier;
 #endif
 
     RemoteRenderingBackendMap m_remoteRenderingBackendMap;

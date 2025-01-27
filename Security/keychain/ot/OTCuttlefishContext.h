@@ -239,7 +239,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)notifyContainerChange:(APSIncomingMessage* _Nullable)notification;
 - (void)notifyContainerChangeWithUserInfo:(NSDictionary* _Nullable)userInfo;
 
-- (void)rpcStatus:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply;
+- (void)rpcStatus:(xpc_object_t)xpcFd reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply;
 - (void)rpcFetchEgoPeerID:(void (^)(NSString* _Nullable peerID, NSError* _Nullable error))reply;
 - (void)rpcTrustStatus:(OTOperationConfiguration *)configuration
                  reply:(void (^)(CliqueStatus status,

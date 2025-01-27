@@ -88,6 +88,7 @@ messages -> WebPage LegacyReceiver {
     BeginSelectionInDirection(enum:uint8_t WebCore::SelectionDirection direction) -> (bool endIsMoving)
     UpdateSelectionWithExtentPoint(WebCore::IntPoint point, bool isInteractingWithFocusedElement, enum:bool WebKit::RespectSelectionAnchor respectSelectionAnchor) -> (bool endIsMoving)
     UpdateSelectionWithExtentPointAndBoundary(WebCore::IntPoint point, enum:uint8_t WebCore::TextGranularity granularity, bool isInteractingWithFocusedElement) -> (bool endIsMoving)
+    ClearSelectionAfterTappingSelectionHighlightIfNeeded(WebCore::FloatPoint location)
 #if ENABLE(REVEAL)
     RequestRVItemInCurrentSelectedRange() -> (WebKit::RevealItem item)
     PrepareSelectionForContextMenuWithLocationInView(WebCore::IntPoint point) -> (bool shouldShowMenu, WebKit::RevealItem item)
@@ -299,8 +300,9 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     AccessibilitySettingsDidChange()
 
-    ScalePage(double scale, WebCore::IntPoint origin)
-    ScalePageInViewCoordinates(double scale, WebCore::IntPoint centerInViewCoordinates)
+    DidScalePage(double scale, WebCore::IntPoint origin)
+    DidScalePageInViewCoordinates(double scale, WebCore::IntPoint origin)
+    DidScalePageRelativeToScrollPosition(double scale, WebCore::IntPoint origin)
     ScaleView(double scale)
 
     SetUseFixedLayout(bool fixed)
@@ -585,6 +587,12 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     DidBeginMagnificationGesture()
     DidEndMagnificationGesture()
 #endif
+
+    StartDeferringResizeEvents();
+    FlushDeferredResizeEvents();
+
+    StartDeferringScrollEvents();
+    FlushDeferredScrollEvents();
 
     FlushDeferredDidReceiveMouseEvent()
 

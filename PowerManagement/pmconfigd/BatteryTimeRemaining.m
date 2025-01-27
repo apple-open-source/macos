@@ -73,6 +73,10 @@
 #include "BatteryCapacityCalibration.h"
 #include "AppleSmartBatteryKeysPrivate.h"
 
+#if __has_include(<DataMigration/DMMessaging.h>)
+#import <DataMigration/DMMessaging.h>
+#endif
+
 #define QUOTIENT_OF_5(soc) (soc/5)
 #define ROUND_TO_MULTIPLE_OF_5(soc) abs((5 * QUOTIENT_OF_5(soc)) - soc) < abs((5 * (QUOTIENT_OF_5(soc)+1)) - soc) ? (5 * QUOTIENT_OF_5(soc)) : (5 * (QUOTIENT_OF_5(soc)+1))
 
@@ -232,14 +236,18 @@ typedef enum: unsigned long {
     kBHCalibrationFlagNoServiceToServiceDuringCalibration =     (1UL << 2),
     kBHCalibrationFlagServiceAtEndOfCalibration =               (1UL << 3),
     kBHCalibrationFlagServiceToNoServiceDuringCalibration =     (1UL << 4),
-    kBHCalibrationFlagCompleted =                               (1UL << 5),
+    kBHCalibrationFlagCompleted =                               (1UL << 5), // used in the same intent as calib0Completed
     kBHCalibrationFlagThresholdLower =                          (1UL << 6),
     kBHCalibrationFlagSkipped =                                 (1UL << 7),
     kBHCalibrationFlagThresholdHigher =                         (1UL << 8), // Do not redefine or move, used by AST2
     kBHCalibrationFlagFailure =                                 (1UL << 9), // Telemetry only, all other systems should use kBHSvcStateCalibrationFailed
     kBHCalibrationFlagCalib1NotNeeded =                         (1UL << 10), // Mark if another round of calibration is not needed
     kBHCalibrationFlagCalib1Completed =                         (1UL << 11), // Mark if second round of calibration is completed
+    kBHCalibrationFlagCalib0Needed =                            (1UL << 12), // Mark if calibration0 is needed
+    kBHCalibrationFlagCalibNccTHSOCNeeded =                     (1UL << 13), // Mark if THSOC fault based ncc calibration is needed (rdar://139609307 (Massive drop in battery capacity (health) in watches running MoonstoneC))
+    kBHCalibrationFlagCalibNccTHSOCCompleted =                  (1UL << 14), // Mark if THSOC fault based ncc calibration is completed
 } kBHCalibrationFlags;
+
 #define kBHCalibrationBaselineKey       "baseline"
 #define kBHCalibrationSnapshotsKey      "snapshots"
 #define kBHCalibrationExitTOTKey        "exitTotalOperatingTime"
@@ -2512,6 +2520,11 @@ static bool calib0RelevantDevice(void)
     return relevant;
 }
 
+static bool calibNccTHSOCRelevantDevice(CFDictionaryRef batteryProps)
+{
+    return false;
+}
+
 static int readBatteryLifetimeUPOCount(void)
 {
     NSDictionary * data;
@@ -2573,7 +2586,7 @@ static void updateCalibration0State(CFDictionaryRef batteryProps, CFMutableDicti
  * On iOS, calibration and ncc correction, both have the same scope and end of life.
  */
 
-static void initializeCalibration0(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
+static void initializeCalibrationData(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
                             IOPSBatteryHealthServiceFlags *svcFlags)
 {
     _internal_dispatch_assert_queue(batteryTimeRemainingQ);
@@ -2688,7 +2701,7 @@ static void initializeCalibration0(CFDictionaryRef batteryProps, CFMutableDictio
     }
 
 
-    calibrationFlags |= kBHCalibrationFlagCalib1NotNeeded;
+    // move initialization of kBHCalibrationFlagCalib1NotNeeded to `initializeCalibrationCalib0` routine
     calibrationData[@kBHCalibrationFlagsKey] = @(calibrationFlags);
     INFO_LOG("calib0: baseline calibration flags 0x%lx", calibrationFlags);
     
@@ -2704,6 +2717,19 @@ static void initializeCalibration0(CFDictionaryRef batteryProps, CFMutableDictio
 /**
  * @brief Utility function to check if calibration data exists.
  */
+
+__attribute__((unused)) static bool isCalibrationNccTHSOCRunning(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData, IOPSBatteryHealthServiceFlags *svcFlags)
+{
+    return false;
+}
+__attribute__((unused)) static void initializeCalibrationNccTHSOC(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData, IOPSBatteryHealthServiceFlags *svcFlags)
+{
+    return;
+}
+__attribute__((unused)) static void initializeCalibrationCalib0(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData, IOPSBatteryHealthServiceFlags *svcFlags)
+{
+    return;
+}
 
 static bool isCalibration0Running(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
                     IOPSBatteryHealthServiceFlags *svcFlags)
@@ -2745,13 +2771,15 @@ TARGET_OS_XR_UNUSED static void checkCalibrationStatus(CFDictionaryRef batteryPr
 {
     _internal_dispatch_assert_queue(batteryTimeRemainingQ);
     bool anyCalibrationRunning = false;
-    bool isRelevantDevice = calib0RelevantDevice();
-    if (!isRelevantDevice) {
-        INFO_LOG("calib0: device not relevant");
+    bool calib0Needed = calib0RelevantDevice();
+    bool nccThsocCalibNeeded = calibNccTHSOCRelevantDevice(batteryProps);
+
+    if (!calib0Needed && !nccThsocCalibNeeded) {
+        INFO_LOG("calib: device not relevant");
         // On irrelevant devices, we'll never report the calibration is running.
         return;
     }
-    
+
 }
 
 
@@ -3322,6 +3350,7 @@ STATIC void _setBatteryHealthData(
     checkCellDisconnectCount(batteryProps, &svcFlags);
 
     updateBatteryServiceState(batteryProps, bhData, svcFlags);
+
     saveBatteryHealthDataToPrefs(bhData);
 
 

@@ -84,7 +84,8 @@ void DownloadProxy::cancel(CompletionHandler<void(API::Data*)>&& completionHandl
         m_dataStore->networkProcess().sendWithAsyncReply(Messages::NetworkProcess::CancelDownload(m_downloadID), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] (std::span<const uint8_t> resumeData) mutable {
             m_legacyResumeData = createData(resumeData);
             completionHandler(m_legacyResumeData.get());
-            m_downloadProxyMap->downloadFinished(*this);
+            if (RefPtr downloadProxyMap = m_downloadProxyMap.get())
+                downloadProxyMap->downloadFinished(*this);
         });
     } else
         completionHandler(nullptr);
@@ -217,7 +218,8 @@ void DownloadProxy::didFinish()
     m_client->didFinish(*this);
 
     // This can cause the DownloadProxy object to be deleted.
-    m_downloadProxyMap->downloadFinished(*this);
+    if (RefPtr downloadProxyMap = m_downloadProxyMap.get())
+        downloadProxyMap->downloadFinished(*this);
 }
 
 void DownloadProxy::didFail(const ResourceError& error, std::span<const uint8_t> resumeData)
@@ -227,7 +229,8 @@ void DownloadProxy::didFail(const ResourceError& error, std::span<const uint8_t>
     m_client->didFail(*this, error, m_legacyResumeData.get());
 
     // This can cause the DownloadProxy object to be deleted.
-    m_downloadProxyMap->downloadFinished(*this);
+    if (RefPtr downloadProxyMap = m_downloadProxyMap.get())
+        downloadProxyMap->downloadFinished(*this);
 }
 
 void DownloadProxy::setClient(Ref<API::DownloadClient>&& client)

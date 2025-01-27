@@ -1,0 +1,269 @@
+module security_cdsa_utilities [system] {
+  requires !maccatalyst
+
+  module acl_any {
+    requires cplusplus
+    header "acl_any.h"
+    export *
+  }
+
+  module acl_codesigning {
+    requires cplusplus
+    header "acl_codesigning.h"
+    export *
+  }
+
+  module acl_comment {
+    requires cplusplus
+    header "acl_comment.h"
+    export *
+  }
+
+  module acl_password {
+    requires cplusplus
+    header "acl_password.h"
+    export *
+  }
+
+  module acl_preauth {
+    requires cplusplus
+    header "acl_preauth.h"
+    export *
+  }
+
+  module acl_process {
+    requires cplusplus
+    header "acl_process.h"
+    export *
+  }
+
+  module acl_prompted {
+    requires cplusplus
+    header "acl_prompted.h"
+    export *
+  }
+
+  module acl_protectedpw {
+    requires cplusplus
+    header "acl_protectedpw.h"
+    export *
+  }
+
+  module acl_secret {
+    requires cplusplus
+    header "acl_secret.h"
+    export *
+  }
+
+  module acl_threshold {
+    requires cplusplus
+    header "acl_threshold.h"
+    export *
+  }
+
+  module aclsubject {
+    requires cplusplus
+    header "aclsubject.h"
+    export *
+  }
+
+  module AuthorizationData {
+    requires cplusplus
+    header "AuthorizationData.h"
+    export *
+  }
+
+  module AuthorizationWalkers {
+    requires cplusplus
+    header "AuthorizationWalkers.h"
+    export *
+  }
+
+  module callback {
+    requires cplusplus
+    header "callback.h"
+    export *
+  }
+
+  module constdata {
+    requires cplusplus
+    header "constdata.h"
+    export *
+  }
+
+  module context {
+    requires cplusplus
+    header "context.h"
+    export *
+  }
+
+  module cssmacl {
+    requires cplusplus
+    header "cssmacl.h"
+    export *
+  }
+
+  module cssmaclpod {
+    requires cplusplus
+    header "cssmaclpod.h"
+    export *
+  }
+
+  module cssmalloc {
+    requires cplusplus
+    header "cssmalloc.h"
+    export *
+  }
+
+  module cssmbridge {
+    requires cplusplus
+    header "cssmbridge.h"
+    export *
+  }
+
+  module cssmcert {
+    requires cplusplus
+    header "cssmcert.h"
+    export *
+  }
+
+  module cssmcred {
+    requires cplusplus
+    header "cssmcred.h"
+    export *
+  }
+
+  module cssmdata {
+    requires cplusplus
+    header "cssmdata.h"
+    export *
+  }
+
+  module cssmdates {
+    requires cplusplus
+    header "cssmdates.h"
+    export *
+  }
+
+  module cssmdb {
+    requires cplusplus
+    header "cssmdb.h"
+    export *
+  }
+
+  module cssmdbname {
+    requires cplusplus
+    header "cssmdbname.h"
+    export *
+  }
+
+  module cssmendian {
+    requires cplusplus
+    header "cssmendian.h"
+    export *
+  }
+
+  module cssmerrors {
+    requires cplusplus
+    header "cssmerrors.h"
+    export *
+  }
+
+  module cssmkey {
+    requires cplusplus
+    header "cssmkey.h"
+    export *
+  }
+
+  module cssmlist {
+    requires cplusplus
+    header "cssmlist.h"
+    export *
+  }
+
+  module cssmpods {
+    requires cplusplus
+    header "cssmpods.h"
+    export *
+  }
+
+  module cssmtrust {
+    requires cplusplus
+    header "cssmtrust.h"
+    export *
+  }
+
+  module cssmwalkers {
+    requires cplusplus
+    header "cssmwalkers.h"
+    export *
+  }
+
+  module db__ {
+    requires cplusplus
+    header "db++.h"
+    export *
+  }
+
+  module digestobject {
+    requires cplusplus
+    header "digestobject.h"
+    export *
+  }
+
+  module handleobject {
+    requires cplusplus
+    header "handleobject.h"
+    export *
+  }
+
+  module handletemplates {
+    requires cplusplus
+    header "handletemplates.h"
+    export *
+  }
+
+  module handletemplates_defs {
+    requires cplusplus
+    header "handletemplates_defs.h"
+    export *
+  }
+
+  module KeySchema {
+    requires cplusplus
+    header "KeySchema.h"
+    export *
+  }
+
+  module objectacl {
+    requires cplusplus
+    header "objectacl.h"
+    export *
+  }
+
+  module osxverifier {
+    requires cplusplus
+    header "osxverifier.h"
+    export *
+  }
+
+  module Schema {
+    requires cplusplus
+    header "Schema.h"
+    export *
+  }
+
+  module u32handleobject {
+    requires cplusplus
+    header "u32handleobject.h"
+    export *
+  }
+
+  module walkers {
+    requires cplusplus
+    header "walkers.h"
+    export *
+  }
+
+  link "security_cdsa_utilities"
+}

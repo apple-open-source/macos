@@ -63,7 +63,8 @@ enum {NUM_RETRIES = 5};
 }
 
 - (void)dumpWithSpecificUser:(TPSpecificUser*)specificUser
-                       reply:(void (^)(NSDictionary * _Nullable, NSError * _Nullable))reply
+              fileDescriptor:(xpc_object_t)xpcFd
+                       reply:(void (^)(NSError * _Nullable))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -75,10 +76,10 @@ enum {NUM_RETRIES = 5};
                 retry = true;
             } else {
                 secerror("octagon: Can't talk with TrustedPeersHelper %s: %@", __func__, error);
-                reply(nil, error);
+                reply(error);
             }
             ++i;
-        }] dumpWithSpecificUser:specificUser reply:reply];
+        }] dumpWithSpecificUser:specificUser fileDescriptor:xpcFd reply:reply];
     } while (retry);
 }
 

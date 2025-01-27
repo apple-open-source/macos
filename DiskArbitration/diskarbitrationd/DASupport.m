@@ -656,10 +656,15 @@ static void __FSKitProbeStatusCallback( int status ,
     
     if ( context->callback )
     {
-        if ( context->filesystem && didProbe )
+        if ( didProbe )
         {
-            DATelemetrySendProbeEvent( status , DAFileSystemGetKind( context->filesystem ) , CFSTR("FSKit") , 
-                clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->startTime , cleanStatus );
+            CFStringRef kind = ( context->filesystem != NULL && !( status ) ) ? DAFileSystemGetKind( context->filesystem ) : NULL;
+            
+            DATelemetrySendProbeEvent( status ,
+                                       kind ,
+                                       CFSTR("FSKit") ,
+                                       clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->startTime ,
+                                       cleanStatus );
         }
         ( context->callback )( status ,
                                context->filesystem ,

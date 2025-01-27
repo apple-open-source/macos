@@ -1,0 +1,34 @@
+#! /bin/csh -f
+#
+# Build "outside release" version of CryptKit source tree. Places
+# source in $argv[1]/CryptKit.
+#
+if ( $#argv < 1 ) then
+	echo Usage: buildSrcTree target_dir
+	exit(1)
+endif
+#
+set TARGDIR=CryptKit
+#
+set CFILES="CipherFileDES.c CipherFileFEED.c ckDES.c ckMD5.c elliptic.c giantIntegers.c ckSHA1.c ckSHA1_priv.c byteRep.c curveParams.c enc64.c falloc.c feeCipherFile.c feeCipherFileAtom.c feeDES.c feeDigitalSignature.c feeECDSA.c feeFEED.c feeFEEDExp.c feeHash.c feePublicKey.c feeRandom.c platform.c ckutilities.c giantPort_PPC.c ellipticProj.c"
+#
+set HFILES="CipherFileDES.h CipherFileFEED.h CipherFileTypes.h Crypt.h ckDES.h ECDSA_Profile.h ckMD5.h elliptic.h giantIntegers.h ckSHA1.h ckSHA1_priv.h byteRep.h ckconfig.h curveParams.h curveParamData.h ellipticMeasure.h enc64.h falloc.h feeCipherFile.h feeDES.h feeDebug.h feeDigitalSignature.h feeECDSA.h feeFEED.h feeFEEDExp.h feeFunctions.h feeHash.h feePublicKey.h feePublicKeyPrivate.h feeRandom.h feeTypes.h platform.h ckutilities.h giantPortCommon.h giantPort_Generic.h giantPort_PPC_Gnu.h giantPort_PPC.h giantPort_i486.h ellipticProj.h"
+#
+set SFILES="giantPort_i486.s giantPort_PPC_Gnu.s"
+set OTHERFILES="README"
+#
+set MAKEFILE_SRC=unixMakefile
+set MAKEFILE_DEST=Makefile
+set TOP_README_SRC=TOP_README
+set TOP_README_DST=README
+#
+set DSTROOT=$argv[1]
+set DSTDIR=${DSTROOT}/${TARGDIR}
+mkdir -p ${DSTDIR} || exit(1)
+#
+cp -p ${CFILES} ${HFILES} ${SFILES} ${OTHERFILES} ${DSTDIR} || exit(1)
+#
+# These files get renamed...
+#
+cp -p ${MAKEFILE_SRC} ${DSTDIR}/${MAKEFILE_DEST} || exit(1)
+cp -p ${TOP_README_SRC} ${DSTROOT}/${TOP_README_DST}
